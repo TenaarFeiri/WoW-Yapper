@@ -1,0 +1,11 @@
+-- 0.6
+	* Minor polish and practice getting metadata. The greeting looks better, I guess?
+    * Removed some unused variables, cleaned out some commented-out features.
+    * Added details and usage terms to yapper.lua.
+    * Updated TOC.
+
+-- 0.5
+    * Added word-wrapping in an effort to stop the add-on splitting the text in the middle of a word.
+
+-- 0.4
+    * Fixed issue causing split messages to fail to display target markers like {square} etc.
