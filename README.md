@@ -3,8 +3,7 @@ Minimalist stand-in for addons like EmoteSplitter.
 
 
 Yapper by Sara Schulze Øverby, aka Tenaar Feiri, Arru/Arruh and a whole bunch of other names in WoW...
-Licence (https://creativecommons.org/licenses/by-nc/4.0/) is simple: Use, modify and distribute non-commercially
-however much you like, but give attribution. Thanks <3
+Licence: https://creativecommons.org/licenses/by-nc/4.0/
 
 Yapper is meant to be a simple, no-interface no-options works-out-of-the-box stand-in/replacement for 
 addons like EmoteSplitter. It's my first addon and my first foray into Lua and I'm still learning
