@@ -1,6 +1,6 @@
 # WoW-Yapper
 Minimalist stand-in for addons like EmoteSplitter.
-
+## Please download the addon from here: https://github.com/TenaarFeiri/WoW-Yapper/releases
 
 Yapper by Sara Schulze Øverby, aka Tenaar Feiri, Arru/Arruh and a whole bunch of other names in WoW...
 Licence: https://creativecommons.org/licenses/by-nc/4.0/
