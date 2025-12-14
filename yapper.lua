@@ -20,8 +20,13 @@ local debug = false
 
 -- CONSTANTS
 local MaxStringLength = 255
-local OriginalScriptHandlers = {} -- Store original Blizzard code here safely
+local OriginalScriptHandlers = {} 
 local IsQuoteOpen = false
+
+local PendingMessages = {}
+local LastActionTime = 0
+local MinInterval = 1
+local PendingPrompt = "(Press Enter to continue posting. %d posts remaining...)"
 
 -- FUNCTIONS --
 
@@ -31,43 +36,6 @@ end
 
 local function GetMetaAddonName()
     return GetMetadata()[2]
-end
-
-local function RecolourEmote(self, event, message, prefix, ...)
-    -- Only colour emotes...
-    -- This *shouldn't* interact with other addons attempting to recolour the chat. Theoretically...
-    if prefix ~= "|Hplayer:" .. UnitName("player") .. "|h" then
-        return
-    end
-
-    local WHITE_TAG = "|cffffffff"
-    local RESET_TAG = "|r"
-    local recoloredMessage = ""
-    IsQuoteOpen = false 
-
-    local args = {message, prefix, ...}
-
-    for i = 1, #message do
-        local char = string.sub(message, i, i)
-        
-        if char == '"' then
-            if current_inQuote then
-                recoloredMessage = recoloredMessage .. char .. RESET_TAG
-                current_inQuote = false
-            else
-                recoloredMessage = recoloredMessage .. WHITE_TAG .. char
-                current_inQuote = true
-            end
-        else
-            recoloredMessage = recoloredMessage .. char
-        end
-    end
-    
-    -- Replace the original message text.
-    args[1] = recoloredMessage 
-    
-    -- Finally, we kick it back to the game to enjoy.
-    return false, unpack(args)
 end
 
 -- Break the message into parseable chunks.
@@ -178,70 +146,137 @@ local function UnlockLimits(self)
     end
 end
 
-local function YapperOnEnter(self)
-    local text = self:GetText()
-    local len = string.len(text)
-    
-    -- Short message? Just let Blizzard's method do the thing.
-    if len <= MaxStringLength then
-        local original = OriginalScriptHandlers[self]
-        if original then
-            original(self)
-        end
+local function ProcessQueue()
+    -- If nothing left, stop.
+    if #MessageQueue == 0 then
+        IsSending = false
         return
     end
     
-    -- If we're here, we are dealing with a longcat. Take over.
-    local chatType = self:GetAttribute("chatType")
-    local valid = (chatType == "SAY") or 
-                  (chatType == "YELL") or 
-                  (chatType == "PARTY") or 
-                  (chatType == "RAID") or 
-                  (chatType == "EMOTE") or
-                  (chatType == "GUILD")
+    IsSending = true
+    
+    -- Get the next message data
+    local msgData = table.remove(MessageQueue, 1)
+    
+    -- Send it
+    SendChatMessage(msgData.text, msgData.chatType, msgData.lang, msgData.target)
+    
+    -- Wait, then fire the next one
+    C_Timer.After(ThrottleDelay, ProcessQueue)
+end
 
-    -- If it's a channel we don't support, just truncate, post and complain.
-    -- will preserve the whole original post in the history if truncated so it can be recovered with alt+up
-    -- we will not split for public channels like General, Trade, etc., that's ridiculously spammy.
+local function YapperOnEnter(self)
+    -- Get current time for throttle.
+    local now = GetTime()
+    -- If less than MinInterval time has passed, do nothing.
+    if (now - LastActionTime) < MinInterval then
+        return 
+    end
+    
+    -- valid press updates timer
+    LastActionTime = now
+
+    -- continue pending
+    if PendingMessages[self] then
+        local data = PendingMessages[self]
+        
+        -- Send the next 2 chunks
+        local sentCount = 0
+        while #data.chunks > 0 and sentCount < 2 do
+            local chunk = table.remove(data.chunks, 1)
+            SendChatMessage(chunk, data.chatType, data.lang, data.target)
+            sentCount = sentCount + 1
+        end
+
+        -- Check if we are done
+        if #data.chunks == 0 then
+            PendingMessages[self] = nil
+            self:SetText("") 
+            self:ClearFocus()
+        else
+            -- Update prompt
+            self:SetText(string.format(PendingPrompt, #data.chunks))
+            self:SetFocus()
+        end
+        return
+    end
+
+    -- new msg
+    local text = self:GetText()
+    local len = string.len(text)
+
+    -- short messages go straight to blizz
+    if len <= MaxStringLength then
+        local original = OriginalScriptHandlers[self]
+        if original then original(self) end
+        return
+    end
+    
+    local chatType = self:GetAttribute("chatType")
+    local valid = (chatType == "SAY") or (chatType == "YELL") or (chatType == "PARTY") or 
+                  (chatType == "RAID") or (chatType == "EMOTE") or (chatType == "GUILD")
+
     if not valid then
         print("|cFFFF0000".. GetMetaAddonName() .. ":|r Text too long for "..(chatType or "?")..". Truncating.")
         self:SetText(string.sub(text, 1, MaxStringLength))
-        -- Now that it is short, pass it to the original handler
         local original = OriginalScriptHandlers[self]
-        if original then
-            original(self)
-        end
+        if original then original(self) end
         return
     end
 
-    -- It is Valid and Long: Split it!
+    -- Valid Long Message: Split it
     local lines = ChunkMessage(text, MaxStringLength)
     local lang = self:GetAttribute("language")
     local target = self:GetAttribute("tellTarget") or self:GetAttribute("channelTarget")
-    
-    for i, line in ipairs(lines) do
-        SendChatMessage(line, chatType, lang, target)
-    end
 
-    self:AddHistoryLine(text)
-    self:SetText("")
-    self:ClearFocus() -- Deselect the chat after a longtext.
+    if #lines <= 3 then
+        -- send all immediately if 3 posts or fewer
+        for _, line in ipairs(lines) do
+            SendChatMessage(line, chatType, lang, target)
+        end
+        self:SetText("")
+        self:ClearFocus()
+    else
+        -- otherwise send first 3 immediately, before queue...
+        for i = 1, 3 do
+            SendChatMessage(lines[i], chatType, lang, target)
+        end
+
+        -- queue up
+        local remaining = {}
+        for i = 4, #lines do
+            table.insert(remaining, lines[i])
+        end
+
+        PendingMessages[self] = {
+            chunks = remaining,
+            chatType = chatType,
+            lang = lang,
+            target = target
+        }
+
+        self:AddHistoryLine(text)
+        self:SetText(string.format(PendingPrompt, #remaining))
+        self:SetFocus()
+    end
 end
 
 -- SETUP
+
+local function ClearQueue(self)
+    -- if focus is lost, kill the queue to prevent sending old buffered msg
+    PendingMessages[self] = nil
+end
+
 local function SetupEditBox(editBox)
-    -- no double hooks
     if OriginalScriptHandlers[editBox] then return end
     UnlockLimits(editBox)
     
-    -- Absolutely do not limit the un-limit.
     editBox:HookScript("OnShow", UnlockLimits)
     editBox:HookScript("OnEditFocusGained", UnlockLimits)
+    editBox:HookScript("OnEditFocusLost", ClearQueue) 
 
-    -- Steal the Enter key and save to our table to avoid taint.
     OriginalScriptHandlers[editBox] = editBox:GetScript("OnEnterPressed")
-    
-    -- Then replace with our new script.
     editBox:SetScript("OnEnterPressed", YapperOnEnter)
 end
 
@@ -265,4 +300,3 @@ local ChatRecolourFrame = CreateFrame("Frame", "YapperRecolourFrame")
 EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
 EventFrame:SetScript("OnEvent", Execute)
 ChatRecolourFrame:RegisterEvent("CHAT_MSG_EMOTE")
-ChatRecolourFrame:SetScript("OnEvent", RecolourEmote)

@@ -1,3 +1,11 @@
+-- 0.7
+    * Added message throttling. If post produces more than 3 messages, require enter presses at 1s intervals (enforced) to clear queue.
+      Posts 2 messages at a time until queue cleared.
+    * Removed RecolourEmote() function as it didn't work anyway and TRP handles that.
+
+-- 0.6b
+    * Yapper confirmed to work in Midnight Beta.
+
 -- 0.6
 	* Minor polish and practice getting metadata. The greeting looks better, I guess?
     * Removed some unused variables, cleaned out some commented-out features.
