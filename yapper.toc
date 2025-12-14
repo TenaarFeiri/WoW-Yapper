@@ -1,5 +1,5 @@
-## Interface: 110207
-## Title: Yapper 0.6
+## Interface: 120000, 110207
+## Title: Yapper 0.6b
 ## Notes: Lightweight replacement for EmoteSplitter. It will probably work when outdated, unless Blizzard dramatically changes their chat API.
-## Version: 0.6
+## Version: 0.6b
 yapper.lua
