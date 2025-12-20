@@ -1,3 +1,8 @@
+-- 0.8b
+    * Added some cleanup functions for extra memory management.
+    * Patched a memory leak. You will see memory rise during active usage, but it should peak at a reasonable level and
+      go back down again on its own.
+
 -- 0.8
     * Completely refactored the entire codebase.
     * Streamlined multiple event and hooking methods.
