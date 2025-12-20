@@ -1,5 +1,11 @@
--- 0.7b
-    * Attempted bugfix for input delay, post cooldown management and possible UI lockup.
+-- 0.8
+    * Completely refactored the entire codebase.
+    * Streamlined multiple event and hooking methods.
+    * Improved chat handling.
+    * Error handling is better.
+    * Fixed issue causing Yapper to block macros (but /target, /petattack and other protected commands don't work in the chat window)
+    * Reduced throttling to 0.5s when multiposting.
+    * Multiple performance optimisations; Yapper should be even faster now and able to keep up with even the most enthusiastic typist!
 
 -- 0.7
     * Added message throttling. If post produces more than 3 messages, require enter presses at 1s intervals (enforced) to clear queue.

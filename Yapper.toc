@@ -1,0 +1,13 @@
+## Interface: 110007, 110005, 40401, 11505
+## Title: Yapper
+## Notes: Lightweight replacement for EmoteSplitter.
+## Version: 0.8
+## Author: Sara Schulze Øverby
+
+Src\Core.lua
+Src\Error.lua
+Src\Utils.lua
+Src\Frames.lua
+Src\Events.lua
+Src\Chat.lua
+Yapper.lua

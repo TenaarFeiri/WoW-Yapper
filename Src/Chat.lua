@@ -1,51 +1,25 @@
---[[
-    Yapper by Sara Schulze Øverby, aka Tenaar Feiri, Arru/Arruh and a whole bunch of other names in WoW...
-    Licence (https://creativecommons.org/licenses/by-nc/4.0/) is simple: Use, modify and distribute non-commercially
-    however much you like, but give attribution. Thanks <3
-    
-    Yapper is meant to be a simple, no-interface no-options works-out-of-the-box stand-in/replacement for 
-    addons like EmoteSplitter. It's my first addon and my first foray into Lua and I'm still learning
-    how best to accomplish things.
-    Yapper is designed to be fully independent; it relies on no dependencies and attempts to follow the principles
-    of "maximum results for minimum work". I'll probably optimise things down the line, as I get better at this.
+-- chat functions. This is where the heavy lifting happens.
+local YapperName, YapperTable = ...
+local Chat = {}
+YapperTable.Chat = Chat
 
-    Yapper should be resistant to future patches, given its contained nature, but who knows what Midnight will bring.
-    
-]]
-
-
-local AddonName, Me = ...
-
-local debug = false
-
--- CONSTANTS
-local MaxStringLength = 255
-local OriginalScriptHandlers = {}
-
+local OriginalScriptHandlers = {} 
 local PendingMessages = {}
 local LastActionTime = 0
-local MinInterval = 1
+local MinInterval = 0.5 -- Slightly faster than 1s for better feel
 local PendingPrompt = "(Press Enter to continue posting. %d posts remaining...)"
 
+-------------------------------------------------------------------------------------
+-- LOCAL FUNCTIONS --
 
--- FUNCTIONS --
-
-local function GetMetadata()
-    return {C_AddOns.GetAddOnInfo(AddonName)} -- Return a table.
-end
-
-local function GetMetaAddonName()
-    return GetMetadata()[2]
-end
-
-
--- Break the message into parseable chunks.
--- ... the hard way, otherwise target markers don't render correctly.
-local function ChunkMessage(text, limit)
+-- Processes and splits long text into chunks of 255 characters or less.
+-- the hard way, otherwise target markers don't render correctly.
+local function ProcessPost(text, limit)
     local chunks = {}
     local currentChunk = ""
     local len = string.len(text)
     local i = 1
+    limit = limit or YapperTable.Defaults.Chat.CharacterLimit
 
     while i <= len do
         -- Look for the beginning of a formatting tag.
@@ -57,7 +31,6 @@ local function ChunkMessage(text, limit)
             -- Look for colour!
             if string.sub(text, i+1, i+1) == "c" then
                 -- colour was found. 10 chars: |cFFFFFFFF
-                -- put it in our sequence.
                 sequence = string.sub(text, i, i+9)
             elseif string.sub(text, i+1, i+1) == "r" then
                 -- Are we resetting? Two chars: |r
@@ -69,7 +42,7 @@ local function ChunkMessage(text, limit)
                     sequence = string.sub(text, i, tEnd)
                 end
             end
-            -- Now we want to find target markers.
+        -- Now we want to find target markers.
         elseif char == "{" then
             local closing = string.find(text, "}", i) -- find the closing tag
             -- Local tags are short. use a buffer of 10, any more is probably normal post text.
@@ -77,6 +50,7 @@ local function ChunkMessage(text, limit)
                 sequence = string.sub(text, i, closing)
             end
         end
+        
         -- are we adding whole sequences or just chars?
         local toAdd = sequence or char
         local contentLength = string.len(toAdd)
@@ -89,10 +63,8 @@ local function ChunkMessage(text, limit)
                 table.insert(chunks, string.sub(toAdd, 1, limit))
                 i = i + limit
             else
-                -- now we have to do word wrapping.
                 -- find the start of the last word in the current chunk
-                -- regex: "one or more non-space characters"
-                local startOfLastWord = string.find(currentChunk, "[^%s]+$") -- side note I hate regex
+                local startOfLastWord = YapperTable.Utils:FindLastWord(currentChunk)
 
                 -- wrap if we found a word and it's not the entire string, split if it is the whole str
                 if startOfLastWord and startOfLastWord > 1 then
@@ -113,12 +85,11 @@ local function ChunkMessage(text, limit)
                 else
                     -- No space found (giant word?) or only spaces. hard split
                     table.insert(chunks, currentChunk)
-                    if debug then
-                        print("|cff00ff00" .. GetMetaAddonName() .. "|r:")
+                    if YapperTable.Debug then
+                        print("|cff00ff00" .. YapperName .. " DEBUG|r: ", currentChunk)
                     end
                     currentChunk = toAdd
                 end
-
                 i = i + contentLength -- move on ahead
             end
         else
@@ -128,7 +99,7 @@ local function ChunkMessage(text, limit)
         end
     end
         
-        -- Final remaining chunk...
+    -- Final remaining chunk...
     if string.len(currentChunk) > 0 then
         table.insert(chunks, currentChunk)
     end
@@ -137,10 +108,9 @@ local function ChunkMessage(text, limit)
 end
 
 local function UnlockLimits(self)
-    -- Unlock the chat.
+    -- Unlock the chat so we can type more than 255 chars.
     self:SetMaxBytes(0)
     self:SetMaxLetters(0)
-    --self:SetMultiLine(true) -- Work on this. This could be a nice QOL thing.
     -- Edit box won't become infinite if we don't do this.
     -- I think it's a compatibility thing?
     if self.SetVisibleTextByteLimit then
@@ -148,20 +118,35 @@ local function UnlockLimits(self)
     end
 end
 
+local function ClearQueue(self)
+    -- if focus is lost, kill the queue to prevent sending old buffered msg
+    PendingMessages[self] = nil
+end
 
-local function YapperOnEnter(self)
+local function OnEnterPressed(self)
     -- Get current time for throttle.
     local now = GetTime()
-    -- If less than MinInterval time has passed, do nothing.
+    local text = self:GetText()
+    -- string trim.
+    local trimmedText = YapperTable.Utils:Trim(text)
+    local limit = YapperTable.Defaults.Chat.CharacterLimit
+    
+    -- If trimmed string is empty, or it begins with a /, pass it to the OG blizzard handler
+    if string.len(trimmedText) == 0 or string.sub(trimmedText, 1, 1) == "/" then
+        local original = OriginalScriptHandlers[self]
+        if original then original(self) end
+        return
+    end
 
-    -- continue pending
+    -- Handle existing queue (continue pending posts)
     if PendingMessages[self] then
+        -- If less than MinInterval time has passed, do nothing.
         if (now - LastActionTime) < MinInterval then
-            return
+            return 
         end
         LastActionTime = now
-        local data = PendingMessages[self]
         
+        local data = PendingMessages[self]
         -- Send the next 2 chunks
         local sentCount = 0
         while #data.chunks > 0 and sentCount < 2 do
@@ -170,82 +155,66 @@ local function YapperOnEnter(self)
             sentCount = sentCount + 1
         end
 
-        -- Check if we are done
+        -- Check if we are finally done
         if #data.chunks == 0 then
             PendingMessages[self] = nil
             self:SetText("") 
             self:ClearFocus()
         else
-            -- Update prompt
+            -- Update prompt with remaining count
             self:SetText(string.format(PendingPrompt, #data.chunks))
             self:SetFocus()
         end
         return
     end
 
-    -- new msg
-    local original = OriginalScriptHandlers[self]
-    local text = self:GetText()
-    local len = string.len(text)
-    -- If the message is empty then we don't want to waste processing on anything.
-    -- kick straight back to the original method.
-    if len == 0 or text:match("^%s*$") then -- also check if the string is *only* whitespaces.
-        if original then
-            original(self)
-        end
-        return
-    end
+    -- Valid press updates timer
+    LastActionTime = now
 
-    if string.sub(text, 1, 1) == "/" then
-        if debug then print("Sent command") end
-        if original then
-            original(self)
-        end
+    -- New message processing    
+    -- short messages go straight to blizzard
+    if string.len(text) <= limit then
+        local original = OriginalScriptHandlers[self]
+        if original then original(self) end
         return
     end
-    -- short messages go straight to blizz
-    if len <= MaxStringLength then
-        if debug then print("Sent short") end
-        if original then
-            original(self)
-            end
-        return
-    end
-
+    
+    -- Check if chat type is supported for splitting
     local chatType = self:GetAttribute("chatType")
     local valid = (chatType == "SAY") or (chatType == "YELL") or (chatType == "PARTY") or 
                   (chatType == "RAID") or (chatType == "EMOTE") or (chatType == "GUILD")
 
     if not valid then
-        print("|cFFFF0000".. GetMetaAddonName() .. ":|r Text too long for "..(chatType or "?")..". Truncating.")
-        self:SetText(string.sub(text, 1, MaxStringLength))
+        -- complain if we can't split for this chat type
+        YapperTable.Error:PrintError("BAD_STRING", "Unsupported chat type: " .. (chatType or "unknown"))
+        self:SetText(string.sub(text, 1, limit)) -- truncate so we don't break things
         local original = OriginalScriptHandlers[self]
         if original then original(self) end
         return
     end
 
-    -- Valid Long Message: Split it
-    local lines = ChunkMessage(text, MaxStringLength)
+    -- Valid Long Message: Split it into chunks
+    local chunks = ProcessPost(text, limit)
     local lang = self:GetAttribute("language")
     local target = self:GetAttribute("tellTarget") or self:GetAttribute("channelTarget")
 
-    if #lines <= 3 then
+    -- Decide how to send
+    if #chunks <= 3 then
         -- send all immediately if 3 posts or fewer
-        for _, line in ipairs(lines) do
-            C_ChatInfo.SendChatMessage(line, chatType, lang, target)
+        for _, chunk in ipairs(chunks) do
+            C_ChatInfo.SendChatMessage(chunk, chatType, lang, target)
         end
         self:SetText("")
         self:ClearFocus()
     else
-        -- otherwise send first 3 immediately, before queue...
+        -- otherwise send first 3 immediately, then queue the rest
         for i = 1, 3 do
-            C_ChatInfo.SendChatMessage(lines[i], chatType, lang, target)
+            C_ChatInfo.SendChatMessage(chunks[i], chatType, lang, target)
         end
 
-        -- queue up
         local remaining = {}
-        for i = 4, #lines do
-            table.insert(remaining, lines[i])
+        for i = 4, #chunks do
+            table.insert(remaining, chunks[i])
         end
 
         PendingMessages[self] = {
@@ -255,50 +224,37 @@ local function YapperOnEnter(self)
             target = target
         }
 
-        self:AddHistoryLine(text)
+        self:AddHistoryLine(text) -- Add the long message to history
         self:SetText(string.format(PendingPrompt, #remaining))
         self:SetFocus()
     end
 end
 
--- SETUP
+-------------------------------------------------------------------------------------
+-- GLOBAL FUNCTIONS --
 
-local function ClearQueue(self)
-    -- if focus is lost, kill the queue to prevent sending old buffered msg
-    PendingMessages[self] = nil
-end
-
-local function SetupEditBox(editBox)
-    if OriginalScriptHandlers[editBox] then return end
-    UnlockLimits(editBox)
-    
-    editBox:HookScript("OnShow", UnlockLimits)
-    editBox:HookScript("OnEditFocusGained", UnlockLimits)
-    editBox:HookScript("OnEditFocusLost", ClearQueue)
-
-    OriginalScriptHandlers[editBox] = editBox:GetScript("OnEnterPressed")
-    editBox:SetScript("OnEnterPressed", YapperOnEnter)
-end
-
-local function Execute(self, event, ...)
-    if event == "PLAYER_ENTERING_WORLD" then
-        
-        for i = 1, NUM_CHAT_WINDOWS do
-            local editBox = _G["ChatFrame"..i.."EditBox"]
-            if editBox then
-                SetupEditBox(editBox)
-            end
+function Chat:Init()
+    -- Initialise all chat edit boxes.
+    for i = 1, NUM_CHAT_WINDOWS do
+        local editBox = _G["ChatFrame"..i.."EditBox"]
+        if editBox then
+            self:SetupEditBox(editBox)
         end
-
-        self:UnregisterEvent("PLAYER_ENTERING_WORLD");
-        print("|cff00ff00" .. GetMetaAddonName() .. "|r: Ready to roll. Happy RP-ing!")
     end
 end
 
+function Chat:SetupEditBox(editBox)
+    -- Hook blizzard edit boxes and swap the OnEnter script.
+    if OriginalScriptHandlers[editBox] then return end
+    
+    UnlockLimits(editBox)
+    
+    -- Hook scripts for persistence
+    editBox:HookScript("OnShow", UnlockLimits)
+    editBox:HookScript("OnEditFocusGained", UnlockLimits)
+    editBox:HookScript("OnEditFocusLost", ClearQueue) 
 
-
-local EventFrame = CreateFrame("Frame", "YapperEventFrame");
-EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
-EventFrame:RegisterEvent("PLAYER_REGEN_DISABLED");
-EventFrame:RegisterEvent("PLAYER_REGEN_ENABLED");
-EventFrame:SetScript("OnEvent", Execute)
+    -- Borrow the original script so we can still use it for short messages.
+    OriginalScriptHandlers[editBox] = editBox:GetScript("OnEnterPressed")
+    editBox:SetScript("OnEnterPressed", OnEnterPressed)
+end
