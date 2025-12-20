@@ -11,7 +11,8 @@ YapperTable.Defaults = { -- Create some default values for things.
         }
     },
     Chat = {
-        CharacterLimit = 255 -- Blizzard's standard limit.
+        CharacterLimit = 255, -- Blizzard's standard limit.
+        MaxHistoryLines = 15
     }
 }
 
