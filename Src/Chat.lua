@@ -121,6 +121,10 @@ end
 local function ClearQueue(self)
     -- if focus is lost, kill the queue to prevent sending old buffered msg
     PendingMessages[self] = nil
+    -- Also clean up if editbox is being destroyed
+    if not self:IsShown() or not self:GetParent() then
+        OriginalScriptHandlers[self] = nil
+    end
 end
 
 local function OnEnterPressed(self)
@@ -135,6 +139,14 @@ local function OnEnterPressed(self)
     if string.len(trimmedText) == 0 or string.sub(trimmedText, 1, 1) == "/" then
         local original = OriginalScriptHandlers[self]
         if original then original(self) end
+        if YapperTable.Debug then
+            -- In debug, print number of entries in YapperTable, and other tables in this file.
+            local count = 0
+            for _ in pairs(YapperTable) do count = count + 1 end
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
+        end
         return
     end
 
@@ -154,12 +166,21 @@ local function OnEnterPressed(self)
             C_ChatInfo.SendChatMessage(chunk, data.chatType, data.lang, data.target)
             sentCount = sentCount + 1
         end
+        if YapperTable.Debug then
+            -- In debug, print number of entries in YapperTable, and other tables in this file.
+            local count = 0
+            for _ in pairs(YapperTable) do count = count + 1 end
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
+        end
 
         -- Check if we are finally done
         if #data.chunks == 0 then
             PendingMessages[self] = nil
             self:SetText("") 
             self:ClearFocus()
+            text, data.chunks, data.lang, data.target, data.chatType = nil, nil, nil, nil, nil
         else
             -- Update prompt with remaining count
             self:SetText(string.format(PendingPrompt, #data.chunks))
@@ -176,6 +197,14 @@ local function OnEnterPressed(self)
     if string.len(text) <= limit then
         local original = OriginalScriptHandlers[self]
         if original then original(self) end
+        if YapperTable.Debug then
+            -- In debug, print number of entries in YapperTable, and other tables in this file.
+            local count = 0
+            for _ in pairs(YapperTable) do count = count + 1 end
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
+        end
         return
     end
     
@@ -190,6 +219,7 @@ local function OnEnterPressed(self)
         self:SetText(string.sub(text, 1, limit)) -- truncate so we don't break things
         local original = OriginalScriptHandlers[self]
         if original then original(self) end
+        text, chatType = nil, nil
         return
     end
 
@@ -206,6 +236,16 @@ local function OnEnterPressed(self)
         end
         self:SetText("")
         self:ClearFocus()
+        text, chunks, lang, target, chatType = nil, nil, nil, nil, nil
+        if YapperTable.Debug then
+            -- In debug, print number of entries in YapperTable, and other tables in this file.
+            local count = 0
+            for _ in pairs(YapperTable) do count = count + 1 end
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #chunks, "chunks in message")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
+        end
     else
         -- otherwise send first 3 immediately, then queue the rest
         for i = 1, 3 do
@@ -227,6 +267,15 @@ local function OnEnterPressed(self)
         self:AddHistoryLine(text) -- Add the long message to history
         self:SetText(string.format(PendingPrompt, #remaining))
         self:SetFocus()
+        if YapperTable.Debug then
+            -- In debug, print number of entries in YapperTable, and other tables in this file.
+            local count = 0
+            for _ in pairs(YapperTable) do count = count + 1 end
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #chunks, "chunks in message")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
+            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
+        end
     end
 end
 
@@ -251,10 +300,24 @@ function Chat:SetupEditBox(editBox)
     
     -- Hook scripts for persistence
     editBox:HookScript("OnShow", UnlockLimits)
+    editBox:SetHistoryLines(YapperTable.Defaults.Chat.MaxHistoryLines)
     editBox:HookScript("OnEditFocusGained", UnlockLimits)
-    editBox:HookScript("OnEditFocusLost", ClearQueue) 
+    editBox:HookScript("OnEditFocusLost", ClearQueue)
+    editBox:HookScript("OnHide", function(self) 
+        OriginalScriptHandlers[self] = nil
+        PendingMessages[self] = nil
+    end)
 
     -- Borrow the original script so we can still use it for short messages.
     OriginalScriptHandlers[editBox] = editBox:GetScript("OnEnterPressed")
     editBox:SetScript("OnEnterPressed", OnEnterPressed)
+end
+
+function Chat:Cleanup()
+    for editBox, _ in pairs(OriginalScriptHandlers) do
+        if not editBox:IsShown() or not editBox:GetParent() then
+            OriginalScriptHandlers[editBox] = nil
+            PendingMessages[editBox] = nil
+        end
+    end
 end
