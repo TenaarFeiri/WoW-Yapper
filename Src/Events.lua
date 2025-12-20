@@ -57,6 +57,12 @@ function Events:Unregister(frameName, event)
     end
     
     frame:UnregisterEvent(event)
+    -- Clean up handlers table
+    if Events[event] and Events[event].handlers then
+        for k, _ in pairs(Events[event].handlers) do
+            Events[event].handlers[k] = nil
+        end
+    end
     Events[event] = nil
 end
 
