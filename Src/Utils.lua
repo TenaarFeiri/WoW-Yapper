@@ -13,13 +13,3 @@ function YapperTable.Utils:FindLastWord(s)
     -- regex: "one or more non-space characters"
     return string.find(s, "[^%s]+$") -- side note I hate regex
 end
-
-function YapperTable.Utils:IsSecureCommand(text)
-    if not text or text:sub(1, 1) ~= "/" then
-        return false
-    end
-
-    -- get the first word after /
-    local cmd = text:match("`/(%S+)")
-    return issecurevariable(cmd)
-end
