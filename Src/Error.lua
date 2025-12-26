@@ -12,7 +12,7 @@ local ErrorCode = {
     ["EVENT_UNREGISTER_MISSING_FRAME"] = "Warning: Attempted to unregister event %s to frame %s, but it does not exist. This is not a bug or an important problem, but probably means something else unregistered it unexpectedly, which *could* be one.",
     ["EVENT_HANDLER_NOT_FUNCTION"] = "Handler %s for event %s is not a function.",
     ["MISSING_UTILS"] = "Missing YapperTable.Utils. This shouldn't be missing. Did it fail to load?",
-    ["MISSING_DEFAULTS"] = "Missing YapperTable.Defaults. This shouldn't be missing. Did it fail to load?",
+    ["MISSING_CONFIG"] = "Missing YapperTable.Config. This shouldn't be missing. Did it fail to load?",
     ["MISSING_EVENTS"] = "Missing YapperTable.Events. This shouldn't be missing. Did it fail to load?",
     ["MISSING_FRAMES"] = "Missing YapperTable.Frames. This shouldn't be missing. Did it fail to load?",
     
@@ -81,6 +81,6 @@ function Error:PrintError(ErrCode, ...)
     if not ErrorCode[ErrCode] then
         ErrCode = "UNKNOWN"
     end
-    print("|cFFFF0000" .. YapperName .. " Error:|r " .. PadMissingArgs(ErrorCode[ErrCode], ...))
+    _G.YAPPER_UTILS:Print("Error: " .. PadMissingArgs(ErrorCode[ErrCode], ...))
 end
 

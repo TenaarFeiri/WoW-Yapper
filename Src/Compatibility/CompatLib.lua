@@ -64,26 +64,25 @@ function CompatLib:ApplyPatches(AddonName)
     if not CompatLib.Patches then
         -- If there are no patches, there's nothing to do.
         -- This is normal and fine.
-        return {}
+        return
     end
 
     AddonName = AddonName and string.lower(AddonName) or "all"
+    if AddonName == "all" and not YapperTable.Config.System.RUN_ALL_PATCHES then
+        return
+    end
 
     local Applied = {}
     if AddonName == "all" then 
         for Addon, PatchTable in pairs(CompatLib.Patches) do
-            for _, val in pairs(PatchTable) do
-                if type(val) == "function" then
-                    table.insert(Applied, {Addon, val()})
-                end
-            end
+        if type(PatchTable.Patch) == "function" then
+            table.insert(Applied, {Addon, PatchTable:Patch()})
         end
+    end
     elseif CompatLib.Patches[AddonName] then
         local PatchTable = CompatLib.Patches[AddonName]
-        for _, val in pairs(PatchTable) do
-            if type(val) == "function" then
-                table.insert(Applied, {AddonName, val()})
-            end
+        if type(PatchTable.Patch) == "function" then
+            table.insert(Applied, {AddonName, PatchTable:Patch()})
         end
     end
     

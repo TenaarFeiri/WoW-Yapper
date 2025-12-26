@@ -68,9 +68,12 @@ function Events:UnregisterAll()
             -- We need to find which frame registered this.
             -- In Yapper, most events are on the PARENT_FRAME.
             for FrameName, Frame in pairs(YapperTable.Frames.Container) do
-                Frame:UnregisterEvent(Event)
+                if Frame:IsEventRegistered(Event) then
+                    Frame:UnregisterEvent(Event)
+                end
             end
-            Events[Event] = nil
+            Events[Event].Handlers = nil -- BREAK the chain fully
+            Events[Event] = nil -- And remove the event itself from our list.
         end
     end
 end

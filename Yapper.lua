@@ -13,7 +13,6 @@ local YapperName, YapperTable = ...
 -- something went very, very wrong during loading.
 if not YapperTable then
     error((YapperName or "Yapper") .. ": YapperTable is missing. Yapper is disabled. Please report this to the developer.")
-    return
 end
 
 -- check for errors
@@ -26,8 +25,8 @@ if not YapperTable.CompatLib then
     YapperTable.Error:PrintError("MISSING_COMPATLIB")
 end
 
-if not YapperTable.Defaults then
-    YapperTable.Error:Throw("MISSING_DEFAULTS")
+if not YapperTable.Config then
+    YapperTable.Error:Throw("MISSING_CONFIG")
 end
 
 if not YapperTable.Events then
@@ -47,7 +46,7 @@ local function OnPlayerEnteringWorld()
     -- Initialise chat frame hooks.
     YapperTable.Chat:Init()
     if _G.YAPPER_UTILS then
-        _G.YAPPER_UTILS:Print("v" .. YapperTable.Core:GetYapperVersion() .. " loaded and ready. Happy RP-ing!")
+        _G.YAPPER_UTILS:Print("v" .. C_AddOns.GetAddOnMetadata(YapperName, "Version") .. " loaded. Happy roleplaying!")
     end
 end
 
@@ -59,13 +58,14 @@ YapperTable.Events:Register("PARENT_FRAME", "PLAYER_ENTERING_WORLD", OnPlayerEnt
 
 function YapperTable:OverrideYapper(Bool)
     if type(Bool) ~= "boolean" then
-            YapperTable.Error:PrintError("BAD_TYPE", "OverrideYapper expected a boolean, got " .. type(Bool))
+            YapperTable.Error:PrintError("BAD_ARG", "OverrideYapper expected a boolean, got " .. type(Bool))
         return
     end
-    YapperTable.YAPPER_OVERRIDE = Bool or false
+    YapperTable.YAPPER_DISABLED = Bool
     if Bool then
         -- If overridden then we unset and unregister everything and hand control back to Blizz.
         YapperTable.Events:UnregisterAll()
+        YapperTable.Chat:DropPendingMessages()
         YapperTable.Chat:RestoreBlizzardDefaults()
         YapperTable.Frames:HideParent()
         if _G.YAPPER_UTILS then
@@ -79,9 +79,5 @@ function YapperTable:OverrideYapper(Bool)
             _G.YAPPER_UTILS:Print("|cff00ff00Enabled|r. Yapper is back in control.")
         end
     end
-end
-
-function YapperTable:YapperOverridden()
-    return YapperTable.YAPPER_OVERRIDE
 end
 

@@ -33,7 +33,7 @@ function Frames:Init()
     end
     
     -- Create the main Event-listening Frame.
-    local ParentName = YapperTable.Defaults.ID.Frames["Parent"]
+    local ParentName = YapperTable.Config.System.FRAME_ID_PARENT
     Container[ParentName] = CreateFrame("Frame", YapperName .. "EventFrame", UIParent)
 end
 
@@ -56,7 +56,6 @@ function Frames:MakeNewFrame(FrameIdentifier, FrameName, Parent, Width, Height)
 end
 
 function Frames:SetHooks(FrameIdentifier, Hooks, Secure)
-    Secure = Secure or false -- If true, we are hooking Secure functions.
     local Frame = Container[FrameIdentifier]
     
     if not Frame then
@@ -93,7 +92,7 @@ end
 
 --- Hides the main event-listening Frame.
 function Frames:HideParent()
-    local ParentName = YapperTable.Defaults.ID.Frames["Parent"]
+    local ParentName = YapperTable.Config.System.FRAME_ID_PARENT
     local Frame = Container[ParentName]
     if Frame then
         Frame:Hide()

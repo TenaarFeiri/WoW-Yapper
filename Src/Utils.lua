@@ -2,7 +2,6 @@
 -- Just some handy tools to keep the code clean.
 local YapperName, YapperTable = ...
 YapperTable.Utils = {
-    VERBOSE = true
 }
 local YapperNameInGreen = "|cFF00FF00"..YapperName.."|r"
 
@@ -22,7 +21,7 @@ function YapperTable.Utils:FindLastWord(s)
         YapperTable.Error:PrintError("BAD_ARG", "FindLastWord", "string", type(s))
         return nil
     end
-    -- regex: "one or more non-space characters"
+    -- pattern: "one or more non-space characters"
     return string.find(s, "[^%s]+$")
 end
 
@@ -38,3 +37,9 @@ end
 
 -- We can expose utils globally too. They're useful.
 _G.YAPPER_UTILS = YapperTable.Utils
+
+function YapperTable.Utils:VerbosePrint(...)
+    if YapperTable.Config.System.VERBOSE then
+        YapperTable.Utils:Print(...)
+    end
+end

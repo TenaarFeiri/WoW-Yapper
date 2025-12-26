@@ -3,23 +3,23 @@ local YapperName, YapperTable = ...
 
 YapperTable.Debug = false -- True when debugging, false otherwise.
 YapperTable.Core = {} -- Here is where the core functions live.
-YapperTable.Configs = {
-    Yapper = {
-        VERBOSE = false
-    }
-    Chat = {
-        USE_DELINEATORS = true   
-    }
-}
-YapperTable.Defaults = { -- Create some default values for things.
-    ID = {
-        Frames = {
-            ["Parent"] = "PARENT_FRAME"
-        }
+
+-- Centralised configuration table
+YapperTable.Config = {
+    System = {
+        VERBOSE = false,
+        FRAME_ID_PARENT = "PARENT_FRAME",
+        RUN_ALL_PATCHES = true -- If true, all compatibility patches are run on EditBox show.
     },
     Chat = {
-        CharacterLimit = 255,
-        MaxHistoryLines = 15
+        USE_DELINEATORS = true,
+        CHARACTER_LIMIT = 255,
+        MAX_HISTORY_LINES = 15,
+        DELINEATOR = " >>",
+        PREFIX = ">> ",
+        MIN_POST_INTERVAL = 0.5,
+        INSTANT_SEND_LIMIT = 3 -- Maximum number of posts to send immediately. 3 is safe,
+                               -- any more and we risk rate limit or desyncing.
     }
 }
 
@@ -31,20 +31,15 @@ function YapperTable.Core:GetYapperVersion()
     return C_AddOns.GetAddOnMetadata(YapperName, "Version")
 end
 
--- Different settings for things.
+-------------------------------------------------------------------------------------
+-- Settings Functions --
+
 --- Set whether Yapper will be verbose or not!
 function YapperTable.Core:SetVerbose(Bool)
     if type(Bool) ~= "boolean" then
-        if YapperTable.Error then
-            YapperTable.Error:PrintError("BAD_TYPE", "SetVerbose expected a boolean, got " .. type(Bool))
-        else
-            print("Yapper: SetVerbose expected a boolean, got " .. type(Bool))
-        end
+            YapperTable.Error:PrintError("BAD_ARG", "SetVerbose", "boolean", type(Bool))
         return
     end
-    YapperTable.Configs.Yapper.VERBOSE = Bool
-end
-
-function YapperTable.Core:GetVerbose()
-    return YapperTable.Configs.Yapper.VERBOSE
+    YapperTable.Config.System.VERBOSE = Bool
+    _G.YAPPER_UTILS:Print("Verbose mode " .. (Bool and "enabled." or "disabled."))
 end

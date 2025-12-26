@@ -5,7 +5,6 @@ if not YapperTable.CompatLib then
     return
 end
 
-local PatchFrameName = "GopherPatchFrame"
 local PatchTable = {
     Patched = false,
     AddonName = nil,
@@ -52,22 +51,8 @@ function PatchTable:Patch() -- Patch the Gopher addon.
     return true
 end
 
--- We will wait until YAPPER_COMPATIBILITY is loaded before registering the patch.
-local function OnAddOnLoaded(self, event, AddonName)
-    if not AddonName or AddonName == "" or AddonName ~= AddonPatchTarget then return end
-    -- If the global YAPPER_COMPATIBILITY:IsLoaded() returns true on an ADDON_LOADED event, we're ready.
-    if _G.YAPPER_COMPATIBILITY and _G.YAPPER_COMPATIBILITY:IsLoaded() then
-        self:UnregisterAllEvents()
-        self:SetScript("OnEvent", nil)
-        self:Hide()
-        _G.YAPPER_COMPATIBILITY:RegisterPatch(AddonPatchTarget, PatchTable) -- Register the patch.
-        -- Then apply it.
-        if PatchTable:Patch() then
-            YapperTable.Utils:Print(AddonPatchTarget .. " patch for " .. YapperName .. " has been applied.")
-        end
-    end
+-- Register the patch immediately. CompatLib will call Patch() when needed.
+-- The Patch() function has built-in guards against re-execution.
+if _G.YAPPER_COMPATIBILITY and _G.YAPPER_COMPATIBILITY:IsLoaded() then
+    _G.YAPPER_COMPATIBILITY:RegisterPatch(AddonPatchTarget, PatchTable)
 end
-
-local frame = CreateFrame("Frame", PatchFrameName, UIParent)
-frame:RegisterEvent("ADDON_LOADED")
-frame:SetScript("OnEvent", OnAddOnLoaded)

@@ -19,7 +19,7 @@ end
 
 -- CONFIGURATION --
 local AddonPatchTarget = "ADDONNAME" -- REPLACE: The name of the addon we are patching.
-local PatchFrameName = "Yapper" .. AddonPatchTarget .. "PatchFrame"
+
 
 local PatchTable = {
     Patched = false,
@@ -47,32 +47,8 @@ function PatchTable:Patch()
 end
 
 -------------------------------------------------------------------------------------
--- REGISTRATION --
-
-local function OnAddOnLoaded(self, Event, AddonName)
-    -- Only act if our target addon is the one being loaded.
-    if AddonName ~= AddonPatchTarget then return end
-
-    -- Ensure the global CompatLib is ready.
-    if _G.YAPPER_COMPATIBILITY and _G.YAPPER_COMPATIBILITY:IsLoaded() then
-        -- Clean up the temporary listener frame.
-        self:UnregisterAllEvents()
-        self:SetScript("OnEvent", nil)
-        self:Hide()
-
-        -- Register this patch table with the Lib.
-        _G.YAPPER_COMPATIBILITY:RegisterPatch(AddonPatchTarget, PatchTable)
-
-        -- Attempt to apply the patch immediately.
-        if PatchTable:Patch() then
-            if _G.YAPPER_UTILS then
-                _G.YAPPER_UTILS:Print(AddonPatchTarget .. " compatibility patch applied.")
-            end
-        end
-    end
+-- Register the patch immediately. CompatLib will call Patch() when needed.
+-- The Patch() function has built-in guards against re-execution.
+if _G.YAPPER_COMPATIBILITY and _G.YAPPER_COMPATIBILITY:IsLoaded() then
+    _G.YAPPER_COMPATIBILITY:RegisterPatch(AddonPatchTarget, PatchTable)
 end
-
--- Create a temporary frame to listen for the addon loading.
-local frame = CreateFrame("Frame", PatchFrameName, UIParent)
-frame:RegisterEvent("ADDON_LOADED")
-frame:SetScript("OnEvent", OnAddOnLoaded)

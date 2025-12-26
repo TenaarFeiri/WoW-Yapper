@@ -6,16 +6,17 @@
 
 # Core files
 Src\Core.lua
-Src\Error.lua
 Src\Utils.lua
+Src\Error.lua
+Src\Frames.lua
+Src\Events.lua
 
 # Patch files
 # CompatLib must be loaded before other patch files.
+# Events and Frames must be loaded before patches since they use the Events system.
 Src\Compatibility\CompatLib.lua
 Src\Compatibility\GopherPatch.lua
 
 # The rest of the addon.
-Src\Frames.lua
-Src\Events.lua
 Src\Chat.lua
 Yapper.lua
