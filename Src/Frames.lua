@@ -9,12 +9,12 @@ YapperTable.Frames.Container = Container
 -------------------------------------------------------------------------------------
 -- LOCAL FUNCTIONS --
 
-local function SetFrameDefaultSettings(frameIdentifier)
-    -- Set defaults when creating a frame.
-    local frame = Container[frameIdentifier]
-    if not frame then
+local function SetFrameDefaultSettings(FrameIdentifier)
+    -- Set defaults when creating a Frame.
+    local Frame = Container[FrameIdentifier]
+    if not Frame then
         -- complain if we can't find it.
-        YapperTable.Error:PrintError("FRAME_ID_ABSENT", frameIdentifier)
+        YapperTable.Error:PrintError("FRAME_ID_ABSENT", FrameIdentifier)
         return
     end
     -- Various code here to set defaults if we need them later.
@@ -24,69 +24,78 @@ end
 -- GLOBAL FUNCTIONS --
 
 function Frames:Init()
-    -- This is our main frame. It is pretty much where all the magic happens.
+    -- This is our main Frame. It is pretty much where all the magic happens.
     -- First we need to make sure that we have loaded Yapper Events.
     if not YapperTable.Events then
         -- Abort!
-        YapperTable.Error:PrintError("NO_EVENTS")
+        YapperTable.Error:Throw("MISSING_EVENTS")
         return
     end
     
-    -- Create the main event-listening frame.
-    local parentName = YapperTable.Defaults.ID.Frames["Parent"]
-    Container[parentName] = CreateFrame("Frame", YapperName .. "EventFrame", UIParent)
+    -- Create the main Event-listening Frame.
+    local ParentName = YapperTable.Defaults.ID.Frames["Parent"]
+    Container[ParentName] = CreateFrame("Frame", YapperName .. "EventFrame", UIParent)
 end
 
-function Frames:MakeNewFrame(frameIdentifier, frameName, parent, width, height)
+function Frames:MakeNewFrame(FrameIdentifier, FrameName, Parent, Width, Height)
     -- If we don't have an ID, we can't track it. Complain.
-    if not frameIdentifier then
-        YapperTable.Error:PrintError("NO_FRAME_ID", frameName or "Unknown")
+    if not FrameIdentifier then
+        YapperTable.Error:Throw("NO_FRAME_ID", FrameName or "Unknown")
         return
     end
     
-    -- Create the frame.
-    local frame = CreateFrame("Frame", frameName, parent)
-    frame:SetSize(width, height)
-    frame:SetPoint("CENTER", 0, 0)
-    frame:Show()
+    -- Create the Frame.
+    local Frame = CreateFrame("Frame", FrameName, Parent)
+    Frame:SetSize(Width, Height)
+    Frame:SetPoint("CENTER", 0, 0)
+    Frame:Show()
     
-    Container[frameIdentifier] = frame
-    SetFrameDefaultSettings(frameIdentifier) -- Apply defaults.
-    return frame
+    Container[FrameIdentifier] = Frame
+    SetFrameDefaultSettings(FrameIdentifier) -- Apply defaults.
+    return Frame
 end
 
-function Frames:SetHooks(frameIdentifier, hooks, secure)
-    secure = secure or false -- If true, we are hooking secure functions.
-    local frame = Container[frameIdentifier]
+function Frames:SetHooks(FrameIdentifier, Hooks, Secure)
+    Secure = Secure or false -- If true, we are hooking Secure functions.
+    local Frame = Container[FrameIdentifier]
     
-    if not frame then
-        -- Also check if it's a global frame name like a ChatBox.
-        if type(frameIdentifier) == "string" and _G[frameIdentifier] then
-            frame = _G[frameIdentifier]
+    if not Frame then
+        -- Also check if it's a global Frame name like a ChatBox.
+        if type(FrameIdentifier) == "string" and _G[FrameIdentifier] then
+            Frame = _G[FrameIdentifier]
         else
-            -- Frame doesn't exist. Complain.
-            YapperTable.Error:PrintError("FRAME_ID_ABSENT", tostring(frameIdentifier))
+            -- Frame doesn't exist. This doesn't necessarily mean it's a bug, but it's a bit suspicious.
+            YapperTable.Error:PrintError("FRAME_ID_ABSENT", tostring(FrameIdentifier))
             return
         end
     end
 
-    -- If hooks isn't a table, we can't do anything.
-    if type(hooks) ~= "table" then
-        YapperTable.Error:PrintError("HOOKS_NOT_TABLE", tostring(frameIdentifier))
+    -- If Hooks isn't a table, we can't do anything.
+    if type(Hooks) ~= "table" then
+        YapperTable.Error:Throw("HOOKS_NOT_TABLE", tostring(FrameIdentifier))
         return
     end
 
-    -- Set the hooks.
-    for hookName, hookFunction in pairs(hooks) do
+    -- Set the Hooks.
+    for HookName, HookFunction in pairs(Hooks) do
         -- If it's not a function, skip it.
-        if type(hookFunction) ~= "function" then
-            YapperTable.Error:PrintError("HOOK_NOT_FUNCTION", tostring(frameIdentifier), hookName)
+        if type(HookFunction) ~= "function" then
+            YapperTable.Error:Throw("HOOK_NOT_FUNCTION", tostring(FrameIdentifier), HookName)
         else
-            if secure then
-                hooksecurefunc(frame, hookName, hookFunction)
+            if Secure then
+                hooksecurefunc(Frame, HookName, HookFunction)
             else
-                frame:SetScript(hookName, hookFunction)
+                Frame:SetScript(HookName, HookFunction)
             end
         end
+    end
+end
+
+--- Hides the main event-listening Frame.
+function Frames:HideParent()
+    local ParentName = YapperTable.Defaults.ID.Frames["Parent"]
+    local Frame = Container[ParentName]
+    if Frame then
+        Frame:Hide()
     end
 end
