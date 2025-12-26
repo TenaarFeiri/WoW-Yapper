@@ -1,113 +1,146 @@
--- chat functions. This is where the heavy lifting happens.
+-- Chat functions. This is where the heavy lifting happens.
 local YapperName, YapperTable = ...
+if not YapperTable.Utils then
+    -- Utils is critical here, kill everything.
+    YapperTable.Error:Throw("MISSING_UTILS")
+    return
+end
 local Chat = {}
 YapperTable.Chat = Chat
+
+if not YapperTable.Defaults.Chat then
+    YapperTable.Defaults.Chat = {}
+end
+
+if not YapperTable.Defaults.Chat.CharacterLimit then
+    YapperTable.Defaults.Chat.CharacterLimit = 255
+end
 
 local OriginalScriptHandlers = {} 
 local PendingMessages = {}
 local LastActionTime = 0
 local MinInterval = 0.5 -- Slightly faster than 1s for better feel
 local PendingPrompt = "(Press Enter to continue posting. %d posts remaining...)"
+local Margin = 20 -- safety margin for chat if we're doing complex ops
+
+local Delineator = " >>"
+local Prefix = ">> "
 
 -------------------------------------------------------------------------------------
--- LOCAL FUNCTIONS --
+-- FUNCTIONS --
 
--- Processes and splits long text into chunks of 255 characters or less.
--- the hard way, otherwise target markers don't render correctly.
-local function ProcessPost(text, limit)
-    local chunks = {}
-    local currentChunk = ""
-    local len = string.len(text)
-    local i = 1
-    limit = limit or YapperTable.Defaults.Chat.CharacterLimit
-
-    while i <= len do
-        -- Look for the beginning of a formatting tag.
-        local char = string.sub(text, i, i)
-        local sequence = nil
-
-        -- Look for texture or colour escapes. Note: starts with | (pipe)
-        if char == "|" then
-            -- Look for colour!
-            if string.sub(text, i+1, i+1) == "c" then
-                -- colour was found. 10 chars: |cFFFFFFFF
-                sequence = string.sub(text, i, i+9)
-            elseif string.sub(text, i+1, i+1) == "r" then
-                -- Are we resetting? Two chars: |r
-                sequence = string.sub(text, i, i+1)
-            elseif string.sub(text, i+1, i+1) == "T" then
-                -- Look for texture tags
-                local tStart, tEnd = string.find(text, "|t", i)
-                if tEnd then
-                    sequence = string.sub(text, i, tEnd)
-                end
-            end
-        -- Now we want to find target markers.
-        elseif char == "{" then
-            local closing = string.find(text, "}", i) -- find the closing tag
-            -- Local tags are short. use a buffer of 10, any more is probably normal post text.
-            if closing and (closing - i) < 10 then
-                sequence = string.sub(text, i, closing)
-            end
-        end
-        
-        -- are we adding whole sequences or just chars?
-        local toAdd = sequence or char
-        local contentLength = string.len(toAdd)
-
-        -- do we exceed limit?
-        if string.len(currentChunk) + contentLength > limit then
-            -- if current chunk is empty but sequence is huge
-            -- split to avoid infinite loop
-            if string.len(currentChunk) == 0 then
-                table.insert(chunks, string.sub(toAdd, 1, limit))
-                i = i + limit
-            else
-                -- find the start of the last word in the current chunk
-                local startOfLastWord = YapperTable.Utils:FindLastWord(currentChunk)
-
-                -- wrap if we found a word and it's not the entire string, split if it is the whole str
-                if startOfLastWord and startOfLastWord > 1 then
-                    local savedChunk = string.sub(currentChunk, 1, startOfLastWord - 1)
-                    local carriedChunk = string.sub(currentChunk, startOfLastWord)
-
-                    table.insert(chunks, savedChunk)
-
-                    -- Just in case carrying the word over and a new tag makes the next chunk too big...
-                    if string.len(carriedChunk) + string.len(toAdd) > limit then
-                        -- flush
-                        table.insert(chunks, carriedChunk)
-                        currentChunk = toAdd
-                    else
-                        -- Otherwise concatenate.
-                        currentChunk = carriedChunk .. toAdd
-                    end
-                else
-                    -- No space found (giant word?) or only spaces. hard split
-                    table.insert(chunks, currentChunk)
-                    if YapperTable.Debug then
-                        print("|cff00ff00" .. YapperName .. " DEBUG|r: ", currentChunk)
-                    end
-                    currentChunk = toAdd
-                end
-                i = i + contentLength -- move on ahead
-            end
-        else
-            -- It fits? Add it.
-            currentChunk = currentChunk .. toAdd
-            i = i + contentLength
-        end
-    end
-        
-    -- Final remaining chunk...
-    if string.len(currentChunk) > 0 then
-        table.insert(chunks, currentChunk)
-    end
-
-    return chunks -- ready to post
+function Chat:GetDelineators()
+    return Delineator, Prefix
 end
 
+function Chat:SetDelineators(NewDelineator, NewPrefix)
+    Delineator, Prefix = NewDelineator or " >>", NewPrefix or ">> "
+end
+
+function Chat:ProcessPost(Text, Limit)
+    if YapperTable:YapperOverridden() then 
+        -- We're overridden. How'd we get here, idk? This should be unregistered.
+        -- Do nothing.
+        return 
+    end
+    Limit = Limit or YapperTable.Defaults.Chat.CharacterLimit
+    Text = Text:gsub("^%s+", ""):gsub("%s+$", "") -- trim errant whitespace
+    
+    local Tokens = {} 
+    local Pos = 1
+    
+    while Pos <= #Text do
+        local Start, Stop = Text:find("[|{]", Pos)
+        if not Start then
+            table.insert(Tokens, Text:sub(Pos))
+            break
+        end
+
+        if Start > Pos then
+            table.insert(Tokens, Text:sub(Pos, Start - 1))
+        end
+
+        local NextChar = Text:sub(Start + 1, Start + 1)
+        local TagEnd = Start
+        
+        if NextChar == "c" then TagEnd = Start + 9
+        elseif NextChar == "r" then TagEnd = Start + 1
+        elseif NextChar == "t" then _, TagEnd = Text:find("|t", Start + 2)
+        elseif Text:sub(Start, Start) == "{" then _, TagEnd = Text:find("}", Start + 1)
+        end
+
+        TagEnd = TagEnd or Start
+        table.insert(Tokens, Text:sub(Start, TagEnd))
+        Pos = TagEnd + 1
+    end
+
+    local Chunks = {}
+    local CurrentChunk = ""
+    local ActiveColour = nil -- Tracks the current |c... colour tag.
+
+    local ActiveDelineator = ""
+    local ActivePrefix = ""
+    if YapperTable.Configs.Chat.USE_DELINEATORS then
+        ActiveDelineator = Delineator
+        ActivePrefix = Prefix
+    end
+
+    -- Account for Prefix (e.g. ">> ") and Delineator (e.g. " >>")
+    -- and potential ActiveColour (10 chars) + Reset "|r" (2 chars)
+    local EffectiveLimit = Limit - Margin
+
+    for i, Token in ipairs(Tokens) do
+        local IsTag = Token:sub(1, 1) == "|" or Token:sub(1, 1) == "{"
+        local IsColour = Token:match("^|c")
+        local IsReset = Token == "|r"
+
+        -- How much overhead do we have if we split here?
+        -- (|r) + ( >>)
+        local SuffixOverhead = (ActiveColour and 2 or 0) + #ActiveDelineator
+
+        if #CurrentChunk + #Token + SuffixOverhead > EffectiveLimit then
+            if IsTag then
+                -- Flush with reset if needed and delineator
+                table.insert(Chunks, CurrentChunk .. (ActiveColour and "|r" or "") .. ActiveDelineator)
+                -- Then begin the new chunk with prefix and active colour
+                CurrentChunk = ActivePrefix .. (ActiveColour or "") .. Token
+            else
+                local RemainingText = Token
+                while #CurrentChunk + #RemainingText + SuffixOverhead > EffectiveLimit do
+                    local SpaceLeft = EffectiveLimit - #CurrentChunk - SuffixOverhead
+                    local Bite = RemainingText:sub(1, SpaceLeft)
+                    local LastWord = YapperTable.Utils:FindLastWord(Bite)
+                    local SplitAt = (LastWord and LastWord > 1) and (LastWord - 1) or SpaceLeft
+                    
+                    table.insert(Chunks, CurrentChunk .. RemainingText:sub(1, SplitAt) .. (ActiveColour and "|r" or "") .. ActiveDelineator)
+                    RemainingText = RemainingText:sub(SplitAt + 1)
+                    CurrentChunk = ActivePrefix .. (ActiveColour or "")
+                end
+                CurrentChunk = CurrentChunk .. RemainingText
+            end
+        else
+            CurrentChunk = CurrentChunk .. Token
+        end
+        
+        -- Save the colour state after update for assembly
+        -- so the *next* chunk knows which colour to use.
+        if IsColour then ActiveColour = Token end
+        if IsReset then ActiveColour = nil end
+    end
+    
+    if #CurrentChunk > 0 then
+        table.insert(Chunks, CurrentChunk)
+    end
+    
+    return Chunks
+end
+
+
+
 local function UnlockLimits(self)
+    -- If Yapper is overridden, don't touch anything.
+    if YapperTable:YapperOverridden() then return end
+
     -- Unlock the chat so we can type more than 255 chars.
     self:SetMaxBytes(0)
     self:SetMaxLetters(0)
@@ -119,205 +152,195 @@ local function UnlockLimits(self)
 end
 
 local function ClearQueue(self)
-    -- if focus is lost, kill the queue to prevent sending old buffered msg
+    -- If Yapper is overridden, don't touch anything.
+    if YapperTable:YapperOverridden() then return end
+
+    -- If focus is lost, kill the queue to prevent sending old buffered messages.
     PendingMessages[self] = nil
-    -- Also clean up if editbox is being destroyed
+    -- Also clean up if Editbox is being destroyed
     if not self:IsShown() or not self:GetParent() then
         OriginalScriptHandlers[self] = nil
     end
 end
 
+local function PratRememberChannel(EditBox, ChannelType)
+    if _G.ChatTypeInfo and _G.ChatTypeInfo[ChannelType] and _G.ChatTypeInfo[ChannelType].sticky == 1 then
+        EditBox:SetAttribute("chatType", ChannelType)
+    end
+end
+
 local function OnEnterPressed(self)
-    -- Get current time for throttle.
-    local now = GetTime()
-    local text = self:GetText()
-    -- string trim.
-    local trimmedText = YapperTable.Utils:Trim(text)
-    local limit = YapperTable.Defaults.Chat.CharacterLimit
+    if not _G.YAPPER_COMPATIBILITY then
+        print("|cff00ff00" .. YapperName .. "|r: ", "WAITING for CompatLib to finish loading. Please press Enter again in a second or two.")
+        return
+    end
+    local SendFunc = YapperTable.SendChatMessageOverride or C_ChatInfo.SendChatMessage
     
-    -- If trimmed string is empty, or it begins with a /, pass it to the OG blizzard handler
-    if string.len(trimmedText) == 0 or string.sub(trimmedText, 1, 1) == "/" then
-        local original = OriginalScriptHandlers[self]
-        if original then original(self) end
-        if YapperTable.Debug then
-            -- In debug, print number of entries in YapperTable, and other tables in this file.
-            local count = 0
-            for _ in pairs(YapperTable) do count = count + 1 end
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
-        end
+    -- Store current chat type for Prat compatibility.
+    local CurrentChatType = self:GetAttribute("chatType")
+    
+    local Now = GetTime()
+    local Text = self:GetText()
+    local TrimmedText = YapperTable.Utils:Trim(Text)
+    if string.len(TrimmedText) == 0 then
+        self:ClearFocus()
+        PratRememberChannel(self, CurrentChatType)
+        return
+    end
+    local Limit = YapperTable.Defaults.Chat.CharacterLimit
+
+    -- Commands go to ChatEdit_SendText
+    if string.sub(TrimmedText, 1, 1) == "/" then
+        ChatEdit_SendText(self)
         return
     end
 
     -- Handle existing queue (continue pending posts)
     if PendingMessages[self] then
-        -- If less than MinInterval time has passed, do nothing.
-        if (now - LastActionTime) < MinInterval then
-            return 
+        if (Now - LastActionTime) < MinInterval then
+            return
         end
-        LastActionTime = now
+        LastActionTime = Now
         
-        local data = PendingMessages[self]
-        -- Send the next 2 chunks
-        local sentCount = 0
-        while #data.chunks > 0 and sentCount < 2 do
-            local chunk = table.remove(data.chunks, 1)
-            C_ChatInfo.SendChatMessage(chunk, data.chatType, data.lang, data.target)
-            sentCount = sentCount + 1
-        end
-        if YapperTable.Debug then
-            -- In debug, print number of entries in YapperTable, and other tables in this file.
-            local count = 0
-            for _ in pairs(YapperTable) do count = count + 1 end
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
+        local Data = PendingMessages[self]
+        local SentCount = 0
+        while #Data.Chunks > 0 and SentCount < 2 do
+            local Chunk = table.remove(Data.Chunks, 1)
+            SendFunc(Chunk, Data.ChatType, Data.Lang, Data.Target)
+            SentCount = SentCount + 1
         end
 
-        -- Check if we are finally done
-        if #data.chunks == 0 then
+        if #Data.Chunks == 0 then
             PendingMessages[self] = nil
-            self:SetText("") 
+            self:SetText("")
             self:ClearFocus()
-            text, data.chunks, data.lang, data.target, data.chatType = nil, nil, nil, nil, nil
+            PratRememberChannel(self, CurrentChatType)
         else
-            -- Update prompt with remaining count
-            self:SetText(string.format(PendingPrompt, #data.chunks))
+            self:SetText(string.format(PendingPrompt, #Data.Chunks))
             self:SetFocus()
         end
         return
     end
 
-    -- Valid press updates timer
-    LastActionTime = now
+    LastActionTime = Now
 
-    -- New message processing    
-    -- short messages go straight to blizzard
-    if string.len(text) <= limit then
-        local original = OriginalScriptHandlers[self]
-        if original then original(self) end
-        if YapperTable.Debug then
-            -- In debug, print number of entries in YapperTable, and other tables in this file.
-            local count = 0
-            for _ in pairs(YapperTable) do count = count + 1 end
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
-        end
+    -- Short messages
+    if string.len(TrimmedText) <= Limit then
+        SendFunc(TrimmedText, CurrentChatType, self:GetAttribute("language"), self:GetAttribute("tellTarget") or self:GetAttribute("channelTarget"))
+        self:SetText("")
+        self:ClearFocus()
+        self:AddHistoryLine(TrimmedText)
+        PratRememberChannel(self, CurrentChatType)
         return
     end
     
     -- Check if chat type is supported for splitting
-    local chatType = self:GetAttribute("chatType")
-    local valid = (chatType == "SAY") or (chatType == "YELL") or (chatType == "PARTY") or 
-                  (chatType == "RAID") or (chatType == "EMOTE") or (chatType == "GUILD")
+    local Valid = (CurrentChatType == "SAY") or (CurrentChatType == "YELL") or (CurrentChatType == "PARTY") or 
+                  (CurrentChatType == "RAID") or (CurrentChatType == "EMOTE") or (CurrentChatType == "GUILD")
 
-    if not valid then
-        -- complain if we can't split for this chat type
-        YapperTable.Error:PrintError("BAD_STRING", "Unsupported chat type: " .. (chatType or "unknown"))
-        self:SetText(string.sub(text, 1, limit)) -- truncate so we don't break things
-        local original = OriginalScriptHandlers[self]
-        if original then original(self) end
-        text, chatType = nil, nil
+    if not Valid then
+        YapperTable.Error:PrintError("BAD_STRING", "Unsupported chat type: " .. (CurrentChatType or "unknown"))
+        self:SetText(string.sub(Text, 1, Limit))
+        local Original = OriginalScriptHandlers[self]
+        if Original then Original(self) end
         return
     end
 
-    -- Valid Long Message: Split it into chunks
-    local chunks = ProcessPost(text, limit)
-    local lang = self:GetAttribute("language")
-    local target = self:GetAttribute("tellTarget") or self:GetAttribute("channelTarget")
+    -- Long message splitting
+    local Chunks = Chat:ProcessPost(TrimmedText, Limit)
+    local Lang = self:GetAttribute("language")
+    local Target = self:GetAttribute("tellTarget") or self:GetAttribute("channelTarget")
 
-    -- Decide how to send
-    if #chunks <= 3 then
-        -- send all immediately if 3 posts or fewer
-        for _, chunk in ipairs(chunks) do
-            C_ChatInfo.SendChatMessage(chunk, chatType, lang, target)
+    if #Chunks <= 3 then
+        for _, Chunk in ipairs(Chunks) do
+            SendFunc(Chunk, CurrentChatType, Lang, Target)
         end
         self:SetText("")
         self:ClearFocus()
-        text, chunks, lang, target, chatType = nil, nil, nil, nil, nil
-        if YapperTable.Debug then
-            -- In debug, print number of entries in YapperTable, and other tables in this file.
-            local count = 0
-            for _ in pairs(YapperTable) do count = count + 1 end
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #chunks, "chunks in message")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
-        end
+        self:AddHistoryLine(TrimmedText)
+        PratRememberChannel(self, CurrentChatType)
     else
-        -- otherwise send first 3 immediately, then queue the rest
         for i = 1, 3 do
-            C_ChatInfo.SendChatMessage(chunks[i], chatType, lang, target)
+            SendFunc(Chunks[i], CurrentChatType, Lang, Target)
         end
 
-        local remaining = {}
-        for i = 4, #chunks do
-            table.insert(remaining, chunks[i])
-        end
+        local Remaining = {}
+        for i = 4, #Chunks do
+            table.insert(Remaining, Chunks[i])
+        end 
 
         PendingMessages[self] = {
-            chunks = remaining,
-            chatType = chatType,
-            lang = lang,
-            target = target
+            Chunks = Remaining,
+            ChatType = CurrentChatType,
+            Lang = Lang,
+            Target = Target
         }
 
-        self:AddHistoryLine(text) -- Add the long message to history
-        self:SetText(string.format(PendingPrompt, #remaining))
+        self:AddHistoryLine(TrimmedText)
+        self:SetText(string.format(PendingPrompt, #Remaining))
         self:SetFocus()
-        if YapperTable.Debug then
-            -- In debug, print number of entries in YapperTable, and other tables in this file.
-            local count = 0
-            for _ in pairs(YapperTable) do count = count + 1 end
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", count, "entries in YapperTable")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #chunks, "chunks in message")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #PendingMessages, "pending messages")
-            print("|cff00ff00" .. YapperName .. " DEBUG|r: ", #OriginalScriptHandlers, "original script handlers")
-        end
     end
 end
-
--------------------------------------------------------------------------------------
--- GLOBAL FUNCTIONS --
 
 function Chat:Init()
     -- Initialise all chat edit boxes.
     for i = 1, NUM_CHAT_WINDOWS do
-        local editBox = _G["ChatFrame"..i.."EditBox"]
-        if editBox then
-            self:SetupEditBox(editBox)
+        local EditBox = _G["ChatFrame"..i.."EditBox"]
+        if EditBox then
+            self:SetupEditBox(EditBox)
         end
     end
 end
 
-function Chat:SetupEditBox(editBox)
-    -- Hook blizzard edit boxes and swap the OnEnter script.
-    if OriginalScriptHandlers[editBox] then return end
+--- Hooks a Blizzard EditBox to add Yapper's long-message handling.
+--- @param EditBox table The EditBox frame object.
+function Chat:SetupEditBox(EditBox)
+    -- Hook Blizzard edit boxes and swap the OnEnter script.
+    if OriginalScriptHandlers[EditBox] then return end
     
-    UnlockLimits(editBox)
+    UnlockLimits(EditBox)
     
     -- Hook scripts for persistence
-    editBox:HookScript("OnShow", UnlockLimits)
-    editBox:SetHistoryLines(YapperTable.Defaults.Chat.MaxHistoryLines)
-    editBox:HookScript("OnEditFocusGained", UnlockLimits)
-    editBox:HookScript("OnEditFocusLost", ClearQueue)
-    editBox:HookScript("OnHide", function(self) 
+    EditBox:HookScript("OnShow", UnlockLimits)
+    EditBox:SetHistoryLines(YapperTable.Defaults.Chat.MaxHistoryLines)
+    EditBox:HookScript("OnEditFocusGained", UnlockLimits)
+    EditBox:HookScript("OnEditFocusLost", ClearQueue)
+    EditBox:HookScript("OnHide", function(self) 
         OriginalScriptHandlers[self] = nil
         PendingMessages[self] = nil
     end)
 
     -- Borrow the original script so we can still use it for short messages.
-    OriginalScriptHandlers[editBox] = editBox:GetScript("OnEnterPressed")
-    editBox:SetScript("OnEnterPressed", OnEnterPressed)
+    OriginalScriptHandlers[EditBox] = EditBox:GetScript("OnEnterPressed")
+    EditBox:SetScript("OnEnterPressed", OnEnterPressed)
 end
 
 function Chat:Cleanup()
-    for editBox, _ in pairs(OriginalScriptHandlers) do
-        if not editBox:IsShown() or not editBox:GetParent() then
-            OriginalScriptHandlers[editBox] = nil
-            PendingMessages[editBox] = nil
+    for EditBox, _ in pairs(OriginalScriptHandlers) do
+        if not EditBox:IsShown() or not EditBox:GetParent() then
+            OriginalScriptHandlers[EditBox] = nil
+            PendingMessages[EditBox] = nil
         end
     end
 end
+
+--- Reverts all edit boxes to their original Blizzard settings.
+function Chat:RestoreBlizzardDefaults()
+    for EditBox, OriginalHandler in pairs(OriginalScriptHandlers) do
+        if EditBox then
+            -- Restore the original OnEnterPressed handler.
+            EditBox:SetScript("OnEnterPressed", OriginalHandler)
+            
+            -- Restore default WoW limits.
+            EditBox:SetMaxBytes(255)
+            EditBox:SetMaxLetters(255)
+            if EditBox.SetVisibleTextByteLimit then
+                EditBox:SetVisibleTextByteLimit(255)
+            end
+        end
+    end
+    -- Clear our tracking tables.
+    table.wipe(OriginalScriptHandlers)
+    table.wipe(PendingMessages)
+end
+
