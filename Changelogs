@@ -1,3 +1,15 @@
+-- 0.8c
+    - Created an early (currently clunky) framework for adding compatibility patches,
+      including API exposure so developers can add their own patches. This is currently undocumented and
+      extremely limited, I do not recommend using it yourselves yet.
+    - Implemented compatibility patch for Gopher. *Should* preserve Gopher's own features while using
+      Yapper's own chat implementations. This should allow Yapper to be used in conjunction with addons
+      using Gopher, like CrossRP.
+    - Implemented a fix for Prat's sticky channels.
+
+    TODO:
+            - Improve the posting queue to make it more robust and at the very least match Gopher's verification.
+
 -- 0.8b
     * Added some cleanup functions for extra memory management.
     * Patched a memory leak. You will see memory rise during active usage, but it should peak at a reasonable level and
