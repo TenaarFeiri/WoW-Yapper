@@ -8,10 +8,34 @@
 
 local YapperName, YapperTable = ...
 
--- Check for YapperTable. Something went wrong if it's not here.
+-- This should never happen, but IF IT DOES, then it means we're dead
+-- in the water. Without YapperTable, we can't do anything, and it means
+-- something went very, very wrong during loading.
 if not YapperTable then
-    -- Abort! Abort!
+    error((YapperName or "Yapper") .. ": YapperTable is missing. Yapper is disabled. Please report this to the developer.")
     return
+end
+
+-- check for errors
+if not YapperTable.Error then
+    error((YapperName or "Yapper") .. ": YapperTable.Error is missing. Yapper needs error handling to function, and is therefore disabled.")
+end
+
+-- Check for compat lib, but we can work without it.
+if not YapperTable.CompatLib then
+    YapperTable.Error:PrintError("MISSING_COMPATLIB")
+end
+
+if not YapperTable.Defaults then
+    YapperTable.Error:Throw("MISSING_DEFAULTS")
+end
+
+if not YapperTable.Events then
+    YapperTable.Error:Throw("MISSING_EVENTS")
+end
+
+if not YapperTable.Frames then
+    YapperTable.Error:Throw("MISSING_FRAMES")
 end
 
 -------------------------------------------------------------------------------------
@@ -22,9 +46,8 @@ end
 local function OnPlayerEnteringWorld()
     -- Initialise chat frame hooks.
     YapperTable.Chat:Init()
-    
-    if YapperTable.Debug then
-        print("|cff00ff00" .. YapperName .. "|r: v" .. YapperTable.Core:GetYapperVersion() .. " loaded and ready. Happy RP-ing!")
+    if _G.YAPPER_UTILS then
+        _G.YAPPER_UTILS:Print("v" .. YapperTable.Core:GetYapperVersion() .. " loaded and ready. Happy RP-ing!")
     end
 end
 
@@ -33,3 +56,32 @@ YapperTable.Frames:Init()
 
 -- Register for entering world so we can finalise everything.
 YapperTable.Events:Register("PARENT_FRAME", "PLAYER_ENTERING_WORLD", OnPlayerEnteringWorld)
+
+function YapperTable:OverrideYapper(Bool)
+    if type(Bool) ~= "boolean" then
+            YapperTable.Error:PrintError("BAD_TYPE", "OverrideYapper expected a boolean, got " .. type(Bool))
+        return
+    end
+    YapperTable.YAPPER_OVERRIDE = Bool or false
+    if Bool then
+        -- If overridden then we unset and unregister everything and hand control back to Blizz.
+        YapperTable.Events:UnregisterAll()
+        YapperTable.Chat:RestoreBlizzardDefaults()
+        YapperTable.Frames:HideParent()
+        if _G.YAPPER_UTILS then
+            _G.YAPPER_UTILS:Print("|cffff0000Overridden|r. Control returned to Blizzard.")
+        end
+    else
+        -- Re-initialise everything.
+        YapperTable.Frames:Init()
+        YapperTable.Chat:Init()
+        if _G.YAPPER_UTILS then
+            _G.YAPPER_UTILS:Print("|cff00ff00Enabled|r. Yapper is back in control.")
+        end
+    end
+end
+
+function YapperTable:YapperOverridden()
+    return YapperTable.YAPPER_OVERRIDE
+end
+
