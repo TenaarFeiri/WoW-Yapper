@@ -1,4 +1,4 @@
--- do event handlers, registration, and execution
+-- Do event handlers, registration, and execution.
 local YapperName, YapperTable = ...
 local Events = {}
 YapperTable.Events = Events
@@ -7,80 +7,91 @@ YapperTable.Events = Events
 -- FUNCTIONS --
 
 --- Register an event handler.
---- @param frameName string The key in YapperTable.Frames.Container to register the event for.
---- @param event string The event to register.
---- @param func function The function to call when the event is triggered.
---- @param handlerId string|boolean Optional! The ID of the handler.
-function Events:Register(frameName, event, func, handlerId)
-    local frame = YapperTable.Frames.Container[frameName]
-    if not frame then
-        -- If the frame doesn't exist, do nothing but complain.
-        YapperTable.Error:PrintError("EVENT_REGISTER_MISSING_FRAME", event, frameName)
+--- Throws an error and stops execution if the Frame doesn't exist.
+--- @param FrameName string The key in YapperTable.Frames.Container to register the Event for.
+--- @param Event string The Event to register.
+--- @param Func function The function to call when the Event is triggered.
+--- @param HandlerId string|boolean Optional! The ID of the handler.
+function Events:Register(FrameName, Event, Func, HandlerId)
+    local Frame = YapperTable.Frames.Container[FrameName]
+    if not Frame then
+        -- If the Frame doesn't exist, stop execution.
+        YapperTable.Error:Throw("EVENT_REGISTER_MISSING_FRAME", Event, FrameName)
         return
     end
 
-    if not Events[event] then
-        -- First time seeing this event? Let's get it set up.
-        Events[event] = { handlers = {} }
-        frame:RegisterEvent(event)
+    if not Events[Event] then
+        -- First time seeing this Event? Let's get it set up.
+        Events[Event] = { Handlers = {} }
+        Frame:RegisterEvent(Event)
         
         -- Set up the main OnEvent handler if it doesn't exist yet.
-        if not frame:GetScript("OnEvent") then
-            frame:SetScript("OnEvent", function(f, e, ...)
+        if not Frame:GetScript("OnEvent") then
+            Frame:SetScript("OnEvent", function(f, e, ...)
                 Events:DoEvent(e, ...)
             end)
         end
     end
 
     -- Stick our new handler in the list.
-    if handlerId then
-        Events[event].handlers[handlerId] = func
+    if HandlerId then
+        Events[Event].Handlers[HandlerId] = Func
     else
-        table.insert(Events[event].handlers, func)
+        table.insert(Events[Event].Handlers, Func)
     end
 end
 
---- Unregister handlers for an event. Simple.
---- @param frameName string
---- @param event string
-function Events:Unregister(frameName, event)
-    local frame = YapperTable.Frames.Container[frameName]
-    if not frame then
-        -- complain if we can't find it.
-        YapperTable.Error:PrintError("EVENT_UNREGISTER_MISSING_FRAME", event, frameName)
+--- Unregister handlers for an Event. Simple.
+--- @param FrameName string
+--- @param Event string
+function Events:Unregister(FrameName, Event)
+    local Frame = YapperTable.Frames.Container[FrameName]
+    if not Frame then
+        -- Complain if we can't find it.
+        YapperTable.Error:PrintError("EVENT_UNREGISTER_MISSING_FRAME", Event, FrameName)
         return
     end
 
-    if not Events[event] then
-        -- nope
+    if not Events[Event] then
+        -- Nope.
         return
     end
     
-    frame:UnregisterEvent(event)
-    -- Clean up handlers table
-    if Events[event] and Events[event].handlers then
-        for k, _ in pairs(Events[event].handlers) do
-            Events[event].handlers[k] = nil
+    Frame:UnregisterEvent(Event)
+    Events[Event] = nil
+end
+
+--- Unregister ALL events from ALL frames.
+function Events:UnregisterAll()
+    for Event, Data in pairs(Events) do
+        if type(Data) == "table" and Data.Handlers then
+            -- We need to find which frame registered this.
+            -- In Yapper, most events are on the PARENT_FRAME.
+            for FrameName, Frame in pairs(YapperTable.Frames.Container) do
+                Frame:UnregisterEvent(Event)
+            end
+            Events[Event] = nil
         end
     end
-    Events[event] = nil
 end
 
 --- Execute events when triggered. 
 --- This goes through and lets everyone registered know what happened.
---- @param event string The event to trigger.
+--- @param Event string The Event to trigger.
 --- @param ... any Arguments passed by WoW.
-function Events:DoEvent(event, ...)
-    -- does anyone care?
-    if not Events[event] or not Events[event].handlers then
-        -- nobody cares, do fuck-all
+function Events:DoEvent(Event, ...)
+    -- Does anyone care?
+    if not Events[Event] or not Events[Event].Handlers then
+        -- Nobody cares, do nothing.
         return
     end
     
-    -- call all the registered event handlers one by one.
-    for _, handler in pairs(Events[event].handlers) do
-        if type(handler) == "function" then
-            handler(...) -- pass on the arguments from Blizzard.
+    -- Call all the registered Event handlers one by one.
+    for _, Handler in pairs(Events[Event].Handlers) do
+        if type(Handler) == "function" then
+            Handler(...) -- pass on the Arguments from Blizzard.
+        else
+            YapperTable.Error:PrintError("EVENT_HANDLER_NOT_FUNCTION", Event, Handler)
         end
     end
 end
