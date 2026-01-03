@@ -1,3 +1,9 @@
+-- 0.8.2
+    - Changed versioning system.
+    - Implemented visual segmentation when splitting (use of >>).
+    - Fixed an issue causing whispers to be erroneously attempted split.
+    - Fixed a bug causing edit box to become unresponsive after an erroneous whisper split.
+
 -- 0.8c
     - Created an early (currently clunky) framework for adding compatibility patches,
       including API exposure so developers can add their own patches. This is currently undocumented and
