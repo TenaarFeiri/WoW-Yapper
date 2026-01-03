@@ -10,9 +10,21 @@ end
 local AddonPatchTarget = "ADDONNAME" -- REPLACE: The name of the addon we are patching.
 
 local PatchTable = {
-    Patched = false,
-    AddonName = AddonPatchTarget,
-    Patch = function() return false end -- Default function.
+    -- Optional fields, args, whatever you need that need to be exposed to Yapper or elsewhere, go below this line!
+    ---------------------------------------------------------------------------------
+    -- Example: ThrowParty = true,
+
+
+    -- Don't forget the trailing comma. I KNOW YOU FORGOT THE COMMA.
+    -------------------------------------------------------------------------------------
+    -- DO NOT MODIFY BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING --
+    -------------------------------------------------------------------------------------
+    -- MANDATORY FIELDS --
+    Patched = false, -- Mandatory: Set to true when the patch has been applied.
+    InProgress = false, -- Mandatory: Set to true while the patch is being applied to prevent re-entrance.
+    AddonName = AddonPatchTarget, -- Mandatory: The name of the addon we are patching.
+    -- Patch should return (ok, info). `ok` is boolean; `info` is optional diagnostic data.
+    Patch = function() return false end -- Default function. Obviously also mandatory.
 }
 
 -------------------------------------------------------------------------------------
@@ -70,10 +82,39 @@ function PatchTable:Patch()
     -- automatically, when the edit box is shown.
     -- Without this, whatever you do from this point on will happen every time
     -- the user opens their edit box to chat. EVERY. TIME.
-    if self.Patched then return true end
+    if self.Patched then
+        return true
+    end
 
-    -- 3. APPLY MAGIC HERE --
-    -- example: hooksecurefunc(_G.ADDON_GLOBAL, "FunctionName", function(...) end)
+    -- Furthermore, prevent re-entrance if Patch() is already running.
+    -- We really don't want a race condition to occur.
+    if self.InProgress then
+        return false
+    end
+
+    -- Apply patch guarded in pcall so failures won't leave InProgress set.
+    self.InProgress = true
+    local ok, info = pcall(function()
+        -- 3. All your patch execution happens here. --
+        -- example: hooksecurefunc(_G.ADDON_GLOBAL, "FunctionName", function(...) end)
+        -- If you need to signal failure, error("reason") inside this block.
+        --
+        -- This is where you can override Yapper, set your own events, etc., and everything
+        -- originates from Patch(). If you need further executions AFTER this, Patch() has to set
+        -- that up, so you're responsible for creating any further hooks, timers, or whatever.
+        -- The patch file itself can contain all the functions, extra tables, etc., that you 
+        -- need to manage the program, and the patch is not discarded after execution,
+        -- BUT IT WILL ONLY BE LOADED ONCE per session.
+        -- If you set Patched to false here, that's on you; Yapper will run EVERY patch that is not
+        -- Patched each time the edit box is shown. 
+        -- Repeat: ---***YAPPER WILL RUN EVERY UNPATCHED PATCH EACH TIME THE EDIT BOX IS SHOWN!!!***---
+    end)
+    self.InProgress = false
+
+    if not ok then
+        -- pcall returns (false, err) on failure; return that to our caller.
+        return ok, info
+    end
 
     self.Patched = true
     return true
