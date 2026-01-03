@@ -7,6 +7,7 @@ end
 
 local PatchTable = {
     Patched = false,
+    InProgress = false,
     AddonName = nil,
     Patch = function() return false end -- Default function.
 }
@@ -22,33 +23,50 @@ function PatchTable:Patch() -- Patch the Gopher addon.
     end
     if PatchTable.Patched then
         return true
-    else
-        if _G.LibGopher.Listen then
-
-            local ChatTypes = {
-                SAY = true,
-                YELL = true,
-                PARTY = true,
-                RAID = true,
-                EMOTE = true,
-                GUILD = true
-            }
-            YapperTable.SendChatMessageOverride = _G.LibGopher.Internal.hooks.SendChatMessage -- Gopher saves the original hook before it overrides it.
-            -- If Listen exists, we apply our patch.
-            _G.LibGopher.Listen("CHAT_NEW", function(Event, Text, Chat_Type, Arg3, Target)
-                    if ChatTypes[Chat_Type] then
-                        -- If the chat type is a Yapper type, we return false to prevent the message from
-                        -- being read by Gopher.
-                        return false
-                    end
-                    -- Nil, i.e Gopher takes over.
-                end)
-            PatchTable.Patched = true
-        else
-            return false
-        end
     end
-    return true
+
+    if PatchTable.InProgress then
+        return false
+    end
+
+    PatchTable.InProgress = true -- Mark as applying early to prevent re-entry.
+    local ok, info = pcall(function()
+        if not _G.LibGopher.Listen then error("LibGopher.Listen missing") end
+
+        local ChatTypes = {
+            SAY = true,
+            YELL = true,
+            PARTY = true,
+            RAID = true,
+            EMOTE = true,
+            GUILD = true
+        }
+        YapperTable.SendChatMessageOverride = _G.LibGopher.Internal.hooks.SendChatMessage -- Gopher saves the original hook before it overrides it.
+        -- If Listen exists, we apply our patch.
+        _G.LibGopher.Listen("CHAT_NEW", function(Event, Text, Chat_Type, Arg3, Target)
+            if ChatTypes[Chat_Type] then
+                -- If the chat type is a Yapper type, we return false to prevent the message from
+                -- being read by Gopher.
+                return false
+            end
+            -- Nil, i.e Gopher takes over.
+        end)
+        PatchTable.Patched = true
+        _G.YAPPER_UTILS:Print("Gopher detected and patched successfully.")
+    end)
+
+    -- Ensure InProgress is cleared regardless of success or error
+    PatchTable.InProgress = false
+
+    if not ok then
+        -- Log the failure but do not leave InProgress set.
+        if YapperTable and YapperTable.Error and type(YapperTable.Error.PrintError) == "function" then
+            YapperTable.Error:PrintError("UNKNOWN", "GopherPatch", tostring(info))
+        end
+        return ok, info
+    end
+
+    return ok, info
 end
 
 -- Register the patch immediately. CompatLib will call Patch() when needed.
