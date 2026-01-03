@@ -8,10 +8,44 @@ local CompatLib = {}
 YapperTable.CompatLib = CompatLib
 CompatLib.Patches = {}
 
+-- Compatibility system contract:
+-- - Each registered patch is a table (PatchTable) exposing at least:
+--     * PatchTable.Patch: function() -> returns (ok, info) where `ok` is boolean
+--       and `info` is optional diagnostic data (string/table) or nil.
+--     * PatchTable.Patched: boolean flag set to true after a successful patch.
+--     * (optional) PatchTable.InProgress: boolean used to guard concurrent runs.
+--     * (set by CompatLib) PatchTable.PatchReturnData = { ok = bool, info = ... }
+-- - `CompatLib:ApplyPatches(name)` will call `PatchTable:Patch()` for each matching
+--   registered patch and store its return in `PatchTable.PatchReturnData`.
+-- - The `Applied` return value from `ApplyPatches` is an array of
+--   `{ AddonName, PatchReturnData }` entries for diagnostics and testing.
+
 local reservedNames = {
     all = true,
     compatlib = true
 }
+
+--- Validates a PatchTable to ensure required fields exist and initializes defaults.
+-- @param PatchTable table The patch table to validate.
+-- @return boolean, string True if valid, otherwise false and a reason string.
+function CompatLib:ValidatePatch(PatchTable)
+    if type(PatchTable) ~= "table" then
+        return false, "table", type(PatchTable)
+    end
+    if type(PatchTable.Patch) ~= "function" then
+        return false, "Patch function", type(PatchTable.Patch)
+    end
+    if type(PatchTable.Patched) ~= "boolean" then
+        return false, "Patched boolean", type(PatchTable.Patched)
+    end
+    if type(PatchTable.InProgress) ~= "boolean" then
+        return false, "InProgress boolean", type(PatchTable.InProgress)
+    end
+    if type(PatchTable.AddonName) ~= "string" then
+        return false, "AddonName string", type(PatchTable.AddonName)
+    end
+    return true
+end
 
 --- Checks if a patch is registered and returns its version.
 -- @param PatchName The name of the patch (case-insensitive).
@@ -41,9 +75,10 @@ function CompatLib:RegisterPatch(AddonName, PatchTable)
         return
     end
     
-    if type(PatchTable) ~= "table" then
-        -- if not a table then it's not a patch; halt execution.
-        YapperTable.Error:Throw("BAD_ARG", "RegisterPatch", "table", type(PatchTable))
+    -- Validate the patch structure; throw on invalid patch tables (developer error).
+    local ok, expected, got = CompatLib:ValidatePatch(PatchTable)
+    if not ok then
+        YapperTable.Error:Throw("BAD_ARG", "RegisterPatch", expected, got)
         return
     end
     
@@ -73,16 +108,20 @@ function CompatLib:ApplyPatches(AddonName)
     end
 
     local Applied = {}
-    if AddonName == "all" then 
+    if AddonName == "all" then
         for Addon, PatchTable in pairs(CompatLib.Patches) do
-        if type(PatchTable.Patch) == "function" then
-            table.insert(Applied, {Addon, PatchTable:Patch()})
+            if type(PatchTable.Patch) == "function" and PatchTable.Patched ~= true then
+                local ok, info = PatchTable:Patch()
+                PatchTable.PatchReturnData = { ok = ok, info = info }
+                table.insert(Applied, { Addon, PatchTable.PatchReturnData })
+            end
         end
-    end
     elseif CompatLib.Patches[AddonName] then
         local PatchTable = CompatLib.Patches[AddonName]
-        if type(PatchTable.Patch) == "function" then
-            table.insert(Applied, {AddonName, PatchTable:Patch()})
+        if type(PatchTable.Patch) == "function" and PatchTable.Patched ~= true then
+            local ok, info = PatchTable:Patch()
+            PatchTable.PatchReturnData = { ok = ok, info = info }
+            table.insert(Applied, { AddonName, PatchTable.PatchReturnData })
         end
     end
     
