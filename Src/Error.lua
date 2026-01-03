@@ -29,6 +29,9 @@ local ErrorCode = {
     ["PATCH_MISSING_COMPATLIB"] = "Missing YapperTable.CompatLib. This shouldn't be missing. Did it fail to load? CompatLib.lua must be loaded before any patches.",
     ["YAPPER_MISSING_COMPATLIB"] = "Yapper could not find CompatLib. This is most likely a bug, but just means compatibility patches for other addons will not be applied or work.",
 
+    -- Chat errors
+    ["CHAT_WHISPER_TRUNCATED"] = "Whisper message was truncated to %s characters due to being too long. You may recover the full post in your chat history (open chatbox & hit alt+up by default).",
+
     -- Generic errors
     ["UNKNOWN"] = "Yapper encountered an unknown error. String: %s || Error: %s"
 }
@@ -70,8 +73,13 @@ function Error:Throw(ErrCode, ...)
     if not ErrorCode[ErrCode] then
         ErrCode = "UNKNOWN"
     end
+    -- Print an error message (includes traceback for UNKNOWN codes)
     self:PrintError(ErrCode, ...)
-    error(PadMissingArgs(ErrorCode[ErrCode], ...))
+    local msg = PadMissingArgs(ErrorCode[ErrCode], ...)
+    if ErrCode == "UNKNOWN" then
+        msg = msg .. "\n" .. (debug and debug.traceback("Traceback (most recent call):", 2) or "")
+    end
+    error(msg)
 end
 
 --- Prints a formatted error message to the chat frame without stopping execution.
@@ -81,6 +89,11 @@ function Error:PrintError(ErrCode, ...)
     if not ErrorCode[ErrCode] then
         ErrCode = "UNKNOWN"
     end
-    _G.YAPPER_UTILS:Print("Error: " .. PadMissingArgs(ErrorCode[ErrCode], ...))
+    local formatted = PadMissingArgs(ErrorCode[ErrCode], ...)
+    -- If UNKNOWN is used, append a short traceback to help locate the caller.
+    if ErrCode == "UNKNOWN" and debug then
+        formatted = formatted .. " -- " .. (debug.traceback(nil, 2) or "")
+    end
+    _G.YAPPER_UTILS:Print("Error: " .. formatted)
 end
 
