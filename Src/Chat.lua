@@ -241,6 +241,7 @@ local function UnlockLimits(self)
     if YapperTable.YAPPER_DISABLED then return end
     -- Run compatibility patches.
     YapperTable.CompatLib:ApplyPatches("all")
+
     -- Unlock the chat so we can type more than 255 chars.
     self:SetMaxBytes(0)
     self:SetMaxLetters(0)
@@ -293,6 +294,25 @@ local function OnEnterPressed(self)
     -- Commands go to ChatEdit_SendText
     if string.sub(TrimmedText, 1, 1) == "/" then
         ChatEdit_SendText(self)
+        -- Log it to history.
+        self:AddHistoryLine(TrimmedText)
+        PratRememberChannel(self, CurrentChatType)
+        return
+    end
+
+    if CurrentChatType == "WHISPER" then
+        if string.len(TrimmedText) > YapperTable.Config.Chat.CHARACTER_LIMIT then
+            -- Add the full text to history so it can be recovered.
+            self:AddHistoryLine(TrimmedText)
+            TrimmedText = string.sub(TrimmedText, 1, YapperTable.Config.Chat.CHARACTER_LIMIT) -- Then trim to the limit.
+            -- Then just print an error.
+            YapperTable.Error:PrintError("CHAT_WHISPER_TRUNCATED", YapperTable.Config.Chat.CHARACTER_LIMIT)
+        end
+        -- Send as a normal whisper.
+        SendFunc(TrimmedText, CurrentChatType, self:GetAttribute("language"), self:GetAttribute("tellTarget") or self:GetAttribute("channelTarget"))
+        self:SetText("")
+        self:ClearFocus()
+        PratRememberChannel(self, CurrentChatType)
         return
     end
 
@@ -403,8 +423,12 @@ end
 --- @param EditBox table The EditBox frame object.
 function Chat:SetupEditBox(EditBox)
     -- Hook Blizzard edit boxes and swap the OnEnter script.
-    if OriginalScriptHandlers[EditBox] then return end
-    
+    -- If we've already hooked this EditBox and our handler is still installed, skip.
+    local currentScript = EditBox:GetScript("OnEnterPressed")
+    if OriginalScriptHandlers[EditBox] and currentScript == OnEnterPressed then
+        return
+    end
+
     UnlockLimits(EditBox)
     
     -- Hook scripts for persistence
@@ -419,8 +443,11 @@ function Chat:SetupEditBox(EditBox)
     end)
 
     -- Borrow the original script so we can still use it for short messages.
-    OriginalScriptHandlers[EditBox] = EditBox:GetScript("OnEnterPressed")
-    EditBox:SetScript("OnEnterPressed", OnEnterPressed)
+    OriginalScriptHandlers[EditBox] = currentScript
+    -- If another addon replaced our handler, (re)install ours so we keep control.
+    if currentScript ~= OnEnterPressed then
+        EditBox:SetScript("OnEnterPressed", OnEnterPressed)
+    end
     YapperTable.Utils:VerbosePrint("Chat EditBox hooked: " .. EditBox:GetName())
 end
 
