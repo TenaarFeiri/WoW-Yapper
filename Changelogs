@@ -1,3 +1,12 @@
+-- 0.9
+    - New post queue system with confirmation-based ordering for EMOTE/GUILD.
+    - SAY/YELL now send in batches of 3 per Enter press (avoids WoW throttle drops).
+    - TRP3 integration: RP names now work correctly with message confirmation.
+    - Added Escape key to cancel in-progress posts.
+    - Item links now pause batching (they require hardware events).
+    - Configurable throttle settings (BATCH_SIZE, BATCH_THROTTLE, STALL_TIMEOUT).
+    - Code cleanup: removed unused legacy functions.
+
 -- 0.8.2
     - Changed versioning system.
     - Implemented visual segmentation when splitting (use of >>).
