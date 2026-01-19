@@ -1,7 +1,6 @@
 -- Define global addon tables and default settings.
 local YapperName, YapperTable = ...
 
-YapperTable.Debug = false -- True when debugging, false otherwise.
 YapperTable.Core = {} -- Here is where the core functions live.
 
 -- Centralised configuration table
@@ -17,9 +16,13 @@ YapperTable.Config = {
         MAX_HISTORY_LINES = 15,
         DELINEATOR = " >>",
         PREFIX = ">> ",
-        MIN_POST_INTERVAL = 0.5,
-        INSTANT_SEND_LIMIT = 3 -- Maximum number of posts to send immediately. 3 is safe,
-                               -- any more and we risk rate limit or desyncing.
+        MIN_POST_INTERVAL = 1.0, -- Seconds between posts (anti-spam throttle).
+        POST_TIMEOUT = 2,        -- Seconds to wait for server confirmation before giving up.
+        -- Batching for SAY/YELL (need hardware events)
+        BATCH_SIZE = 3,          -- Max chunks per Enter press for SAY/YELL
+        BATCH_THROTTLE = 2.0,    -- Minimum seconds between SAY/YELL batch sends
+        -- EMOTE queue (confirmation-based)
+        STALL_TIMEOUT = 1.0      -- Seconds before showing continue prompt for EMOTE
     }
 }
 
@@ -41,5 +44,5 @@ function YapperTable.Core:SetVerbose(Bool)
         return
     end
     YapperTable.Config.System.VERBOSE = Bool
-    _G.YAPPER_UTILS:Print("Verbose mode " .. (Bool and "enabled." or "disabled."))
+    YapperTable.Utils:Print("Verbose mode " .. (Bool and "enabled." or "disabled."))
 end
