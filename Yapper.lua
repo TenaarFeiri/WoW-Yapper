@@ -72,6 +72,8 @@ local function OnPlayerEnteringWorld()
     
     if _G.YAPPER_UTILS then
         _G.YAPPER_UTILS:Print("v" .. C_AddOns.GetAddOnMetadata(YapperName, "Version") .. " loaded. Happy roleplaying!")
+        -- Then we unregister. We don't need this again.
+        YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
     end
     -- Then we unregister. We don't need this again.
     YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
