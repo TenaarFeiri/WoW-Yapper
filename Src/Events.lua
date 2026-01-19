@@ -98,3 +98,59 @@ function Events:DoEvent(Event, ...)
         end
     end
 end
+
+-------------------------------------------------------------------------------------
+-- POST QUEUE VERIFICATION (v0.8.3+) --
+-- These handlers listen for chat events and verify that our messages arrived
+-- in the correct order by matching the text content.
+
+--- Handler for chat message events. Verifies message arrived in expected order.
+--- @param text string The message text
+--- @param playerName string Sender name  
+--- @param ... any Additional arguments from the chat event
+local function OnChatMsgReceived(text, playerName, ...)
+    -- Pass to Chat module for verification
+    -- The event name tells us the chat type (SAY, EMOTE, etc.)
+    if YapperTable.Chat and YapperTable.Chat.OnChatMessageReceived then
+        -- Extract chat type from event name (e.g., "CHAT_MSG_SAY" -> "SAY")
+        -- We'll get the actual event name from the last registered context
+        YapperTable.Chat:OnChatMessageReceived(text, nil, playerName)
+    end
+end
+
+--- Registers handlers for all chat types we support.
+--- Called during addon init.
+function Events:RegisterChatVerificationHandlers()
+    -- All the chat types Yapper can split messages for.
+    local chatTypes = {
+        "CHAT_MSG_SAY",
+        "CHAT_MSG_YELL",
+        "CHAT_MSG_PARTY",
+        "CHAT_MSG_PARTY_LEADER",
+        "CHAT_MSG_RAID",
+        "CHAT_MSG_RAID_LEADER",
+        "CHAT_MSG_EMOTE",
+        "CHAT_MSG_GUILD"
+    }
+    
+    for _, eventName in ipairs(chatTypes) do
+        Events:Register("PARENT_FRAME", eventName, OnChatMsgReceived, "YAPPER_QUEUE_VERIFY")
+    end
+    
+    YapperTable.Utils:VerbosePrint("Chat verification handlers registered.")
+end
+
+--- Cleanup handler for logout/reload.
+--- @param ... any Arguments from PLAYER_LEAVING_WORLD
+local function OnPlayerLeavingWorld(...)
+    -- Clear the queue to prevent ghost posts on re-login.
+    if YapperTable.Chat then
+        YapperTable.Chat:ClearOutboundQueue()
+    end
+    YapperTable.Utils:VerbosePrint("Player leaving world, queue cleared.")
+end
+
+--- Registers the logout cleanup handler.
+function Events:RegisterLogoutHandler()
+    Events:Register("PARENT_FRAME", "PLAYER_LEAVING_WORLD", OnPlayerLeavingWorld, "YAPPER_LOGOUT_CLEANUP")
+end
