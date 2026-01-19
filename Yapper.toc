@@ -1,8 +1,9 @@
 ## Interface: 120001, 110207
 ## Title: Yapper
-## Notes: Lightweight replacement for EmoteSplitter.
-## Version: 0.8.2
+## Notes: Light-ish replacement for EmoteSplitter.
+## Version: 0.9.0
 ## Author: Sara Schulze Øverby
+## SavedVariables: YapperDB
 
 # Core files
 Src\Core.lua
@@ -10,6 +11,7 @@ Src\Utils.lua
 Src\Error.lua
 Src\Frames.lua
 Src\Events.lua
+Src\History.lua
 
 # Patch files
 # CompatLib must be loaded before other patch files.
