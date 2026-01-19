@@ -7,20 +7,6 @@ YapperTable.Frames = Frames
 YapperTable.Frames.Container = Container
 
 -------------------------------------------------------------------------------------
--- LOCAL FUNCTIONS --
-
-local function SetFrameDefaultSettings(FrameIdentifier)
-    -- Set defaults when creating a Frame.
-    local Frame = Container[FrameIdentifier]
-    if not Frame then
-        -- complain if we can't find it.
-        YapperTable.Error:PrintError("FRAME_ID_ABSENT", FrameIdentifier)
-        return
-    end
-    -- Various code here to set defaults if we need them later.
-end
-
--------------------------------------------------------------------------------------
 -- GLOBAL FUNCTIONS --
 
 function Frames:Init()
@@ -51,7 +37,6 @@ function Frames:MakeNewFrame(FrameIdentifier, FrameName, Parent, Width, Height)
     Frame:Show()
     
     Container[FrameIdentifier] = Frame
-    SetFrameDefaultSettings(FrameIdentifier) -- Apply defaults.
     return Frame
 end
 
