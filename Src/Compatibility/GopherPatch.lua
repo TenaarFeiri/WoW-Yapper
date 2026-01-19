@@ -31,28 +31,15 @@ function PatchTable:Patch() -- Patch the Gopher addon.
 
     PatchTable.InProgress = true -- Mark as applying early to prevent re-entry.
     local ok, info = pcall(function()
-        if not _G.LibGopher.Listen then error("LibGopher.Listen missing") end
-
-        local ChatTypes = {
-            SAY = true,
-            YELL = true,
-            PARTY = true,
-            RAID = true,
-            EMOTE = true,
-            GUILD = true
-        }
-        YapperTable.SendChatMessageOverride = _G.LibGopher.Internal.hooks.SendChatMessage -- Gopher saves the original hook before it overrides it.
-        -- If Listen exists, we apply our patch.
-        _G.LibGopher.Listen("CHAT_NEW", function(Event, Text, Chat_Type, Arg3, Target)
-            if ChatTypes[Chat_Type] then
-                -- If the chat type is a Yapper type, we return false to prevent the message from
-                -- being read by Gopher.
-                return false
-            end
-            -- Nil, i.e Gopher takes over.
-        end)
+        -- Gopher saves the original C_ChatInfo.SendChatMessage before hooking it.
+        -- Using this bypasses Gopher's queue completely and returns msgID.
+        if _G.LibGopher.Internal and _G.LibGopher.Internal.hooks and _G.LibGopher.Internal.hooks.SendChatMessage then
+            YapperTable.SendChatMessageOverride = _G.LibGopher.Internal.hooks.SendChatMessage
+        else
+            error("LibGopher.Internal.hooks.SendChatMessage not found")
+        end
         PatchTable.Patched = true
-        _G.YAPPER_UTILS:Print("Gopher detected and patched successfully.")
+        YapperTable.Utils:Print("Gopher detected and patched successfully.")
     end)
 
     -- Ensure InProgress is cleared regardless of success or error
@@ -71,6 +58,5 @@ end
 
 -- Register the patch immediately. CompatLib will call Patch() when needed.
 -- The Patch() function has built-in guards against re-execution.
-if _G.YAPPER_COMPATIBILITY and _G.YAPPER_COMPATIBILITY:IsLoaded() then
-    _G.YAPPER_COMPATIBILITY:RegisterPatch(AddonPatchTarget, PatchTable)
-end
+-- TOC load order guarantees CompatLib is available here.
+YapperTable.CompatLib:RegisterPatch(AddonPatchTarget, PatchTable)
