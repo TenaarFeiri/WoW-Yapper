@@ -134,11 +134,3 @@ end
 
 -- Finally, expose CompatLib to the global namespace.
 _G.YAPPER_COMPATIBILITY = CompatLib
-
-if _G.YAPPER_COMPATIBILITY and YapperTable.Debug then
-    if _G.YAPPER_UTILS then
-        _G.YAPPER_UTILS:Print("Yapper Compatibility library is loaded.")
-    else
-        YapperTable.Utils:Print("Yapper Compatibility library is loaded.")
-    end
-end
