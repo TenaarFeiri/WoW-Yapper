@@ -1,24 +1,31 @@
-## Interface: 120001, 110207
+## Interface: 120000
 ## Title: Yapper
-## Notes: Light-ish replacement for EmoteSplitter.
-## Version: 0.9.0
+## Notes: Taint-free long-message splitting for WoW roleplay chat.
+## Version: 1.0.0
 ## Author: Sara Schulze Øverby
 ## SavedVariables: YapperDB
 
-# Core files
 Src\Core.lua
 Src\Utils.lua
 Src\Error.lua
 Src\Frames.lua
 Src\Events.lua
+
+# Editbox must load here or this won't work.
+Src\EditBox.lua
+
+# These files must load in this order:
+# Router  — resolves which WoW send API to use (SendChatMessage / BNSendWhisper / C_Club.SendMessage).
+# Chunking — splits long messages into chunks that fit the byte limit.
+# Queue   — ordered delivery with server-confirmation and hardware-event batching.
+# Chat    — orchestrator that wires EditBox -> Chunking -> Queue -> Router.
+Src\Router.lua
+Src\Chunking.lua
+Src\Queue.lua
+Src\Chat.lua
+
+# From here on the order doesn't matter.
 Src\History.lua
 
-# Patch files
-# CompatLib must be loaded before other patch files.
-# Events and Frames must be loaded before patches since they use the Events system.
-Src\Compatibility\CompatLib.lua
-Src\Compatibility\GopherPatch.lua
-
-# The rest of the addon.
-Src\Chat.lua
+# Always last.
 Yapper.lua
