@@ -1,18 +1,18 @@
 -- 1.0.0
     - FULL REFACTOR
     - DOES NOT TAINT BLIZZARD'S EDITBOX!
+    - Improved post splitting.
     - Allows chatter to continue during lockdowns.
     - Now creates a custom chat frame while out of chat lockdown, and uses Blizzard's otherwise.
     - Near parity with Blizzard's EditBox.
-    - Improved post splitting.
     - Much-needed cleanup.
     - API compatibility system REMOVED (pending rework)
-    - Began work on customisability options like font sizes and types.
-    - Most code either refactored or cleaned up.
+    - Began work on customisability options like font sizes and types. (Not Yet Implemented)
     - Draft system that saves your messages as you type them, and lets you recover them
       in the event you disconnect or reload, or otherwise have your editbox closed on you.
-    - Improved post history. Still works the same, but more reliable now.
-      Currently global, but will be per-character soon.
+    - Per-character persistent post history (up to 50 posts saved, use alt+up/down to navigate)
+    - Saves your post as a draft if you enter an encounter while typing, allowing you to recover it
+      after it's over.
 
 -- 0.9
     - New post queue system with confirmation-based ordering for EMOTE/GUILD.
