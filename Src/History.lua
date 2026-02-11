@@ -1,316 +1,327 @@
--- History module: Undo/Redo and persistent chat history.
--- This gives us Ctrl+Z / Ctrl+Y in editboxes, and preserves sent message
--- history across reloads (the up/down arrow stuff).
+--[[
+    History.lua — Yapper 1.0.0
+    Persistent chat history (survives reloads), crash-safe draft auto-save
+    (ring buffer into SavedVariables), and per-session undo/redo.
+]]
+
 local YapperName, YapperTable = ...
 
 local History = {}
 YapperTable.History = History
 
+-- ---------------------------------------------------------------------------
 -- Configuration
-local UNDO_HISTORY_SIZE = 20       -- How many undo states to keep per editbox
-local CHAT_HISTORY_SIZE = 50       -- How many sent messages to remember
-local SNAPSHOT_THRESHOLD = 20     -- Minimum character change to trigger snapshot
+-- ---------------------------------------------------------------------------
+local UNDO_HISTORY_SIZE  = 20   -- Max undo snapshots per editbox
+local CHAT_HISTORY_SIZE  = 50   -- Max persistent sent messages
+local SNAPSHOT_THRESHOLD = 20   -- Min character delta for auto-snapshot
+local DRAFT_SLOTS        = 5    -- Ring buffer size for crash-safe drafts
 
--- Per-editbox state (keyed by editbox name)
--- Structure: { position = n, entries = {{text, cursor}, ...} }
+-- Per-editbox undo buffers (keyed by name string).
 local UndoBuffers = {}
 
--- Tracks last known text per editbox to detect changes
+-- Last known text per editbox (for change detection).
 local LastText = {}
 
--------------------------------------------------------------------------------------
--- SAVED VARIABLES --
--- YapperDB is defined in the TOC. It'll be nil until ADDON_LOADED fires,
--- then WoW populates it with saved data (or leaves it nil if first run).
-
---- Default structure for our saved data.
+-- ---------------------------------------------------------------------------
+-- SavedVariable defaults
+-- ---------------------------------------------------------------------------
 local DB_DEFAULTS = {
-    undo = {},       -- Per-character undo history (keyed by editbox name)
-    chatHistory = {} -- Sent message history (the up-arrow stuff)
+    chatHistory = {},  -- Flat array of sent strings, newest last.
+    draft = {
+        ring     = {},    -- Ring buffer: up to DRAFT_SLOTS text snapshots.
+        pos      = 0,     -- Next write index (1-based, wraps).
+        chatType = nil,   -- Chat type when draft was taken.
+        target   = nil,   -- Whisper target / channel when draft was taken.
+        dirty    = false, -- True if editbox was NOT closed via Enter/send.
+    },
 }
 
---- Initialise the database. Called after ADDON_LOADED.
+-- ---------------------------------------------------------------------------
+-- Init / save
+-- ---------------------------------------------------------------------------
+
+--- Set up DB from SavedVariables (call after ADDON_LOADED).
 function History:InitDB()
-    -- If YapperDB doesn't exist or is empty, create defaults.
     if not _G.YapperDB then
         _G.YapperDB = {}
     end
-    
-    -- Merge defaults for any missing keys.
     for key, default in pairs(DB_DEFAULTS) do
         if _G.YapperDB[key] == nil then
             _G.YapperDB[key] = default
         end
     end
-    
-    -- Load undo buffers from saved data.
-    for name, data in pairs(_G.YapperDB.undo) do
-        UndoBuffers[name] = data
+    -- Upgrade from older DB versions.
+    local d = _G.YapperDB.draft
+    if type(d) ~= "table" then
+        _G.YapperDB.draft = DB_DEFAULTS.draft
+    else
+        if d.ring == nil then d.ring = {} end
+        if d.pos  == nil then d.pos  = 0  end
     end
-    
-    YapperTable.Utils:VerbosePrint("History database initialised.")
 end
 
---- Save current state to the database. Called before logout.
 function History:SaveDB()
-    if not _G.YapperDB then return end
-    
-    -- Save undo buffers.
-    _G.YapperDB.undo = {}
-    for name, data in pairs(UndoBuffers) do
-        _G.YapperDB.undo[name] = data
+    -- Mark dirty if the editbox is still open (user mid-type).
+    if YapperTable.EditBox and YapperTable.EditBox.Overlay
+       and YapperTable.EditBox.Overlay:IsShown() then
+        self:SaveDraft(YapperTable.EditBox.OverlayEdit)
+        self:MarkDirty(true)
     end
-    
-    YapperTable.Utils:VerbosePrint("History database saved.")
 end
 
--------------------------------------------------------------------------------------
--- UNDO BUFFER MANAGEMENT --
+-- ---------------------------------------------------------------------------
+-- Persistent chat history (Up / Down arrows)
+-- ---------------------------------------------------------------------------
+
+--- Add a sent message to persistent history.
+function History:AddChatHistory(text)
+    if not _G.YapperDB then return end
+    if not text or text == "" then return end
+
+    local h = _G.YapperDB.chatHistory
+    -- Skip duplicates of the most recent entry.
+    if h[#h] == text then return end
+
+    h[#h + 1] = text
+    while #h > CHAT_HISTORY_SIZE do
+        table.remove(h, 1)
+    end
+end
+
+--- Return the persistent chat history array.
+function History:GetChatHistory()
+    if _G.YapperDB and _G.YapperDB.chatHistory then
+        return _G.YapperDB.chatHistory
+    end
+    return {}
+end
+
+-- ---------------------------------------------------------------------------
+-- Draft auto-save (crash-safe)
+-- ---------------------------------------------------------------------------
+
+--- Save current editbox text into the draft ring buffer.
+function History:SaveDraft(editbox)
+    if not _G.YapperDB then return end
+    if not editbox then return end
+
+    local raw = editbox.GetText and editbox:GetText() or ""
+    local text = raw:match("^%s*(.-)%s*$") or ""
+    if text == "" then return end  -- don't waste a slot on empty/whitespace-only
+
+    local d = _G.YapperDB.draft
+    -- Advance ring position (wraps at DRAFT_SLOTS).
+    d.pos = (d.pos % DRAFT_SLOTS) + 1
+    d.ring[d.pos] = text
+
+    -- Save channel context so recovery re-opens in the right mode.
+    local eb = YapperTable.EditBox
+    if eb then
+        d.chatType = eb.ChatType
+        d.target   = eb.Target
+    end
+
+    d.dirty = true  -- Assume dirty until proven clean.
+end
+
+--- Retrieve the most recent draft text, or nil.
+function History:GetDraft()
+    if not _G.YapperDB then return nil end
+    local d = _G.YapperDB.draft
+    if not d or not d.dirty then return nil end
+    if not d.ring or d.pos == 0 then return nil end
+
+    -- Walk backwards through the ring for the most recent non-empty entry.
+    local count = math.min(#d.ring, DRAFT_SLOTS)
+    for i = 0, count - 1 do
+        local idx = ((d.pos - 1 - i) % DRAFT_SLOTS) + 1
+        local text = d.ring[idx]
+        if text and type(text) == "string" then
+            local trimmed = text:match("^%s*(.-)%s*$") or ""
+            if trimmed ~= "" then
+                return text, d.chatType, d.target
+            end
+        end
+    end
+    return nil
+end
+
+--- Mark the draft as clean (send) or dirty (everything else).
+function History:MarkDirty(dirty)
+    if not _G.YapperDB or not _G.YapperDB.draft then return end
+    _G.YapperDB.draft.dirty = dirty
+end
+
+--- Clear the draft ring entirely (after successful send).
+function History:ClearDraft()
+    if not _G.YapperDB then return end
+    _G.YapperDB.draft = {
+        ring     = {},
+        pos      = 0,
+        chatType = nil,
+        target   = nil,
+        dirty    = false,
+    }
+end
+
+-- ---------------------------------------------------------------------------
+-- Undo / Redo internals
+-- ---------------------------------------------------------------------------
 
 --- Get or create the undo buffer for an editbox.
---- @param editbox table The editbox frame
---- @return table The undo buffer for this editbox
 local function GetUndoBuffer(editbox)
-    local name = editbox:GetName()
+    local name = editbox.GetName and editbox:GetName()
     if not name then return nil end
-    
     if not UndoBuffers[name] then
         UndoBuffers[name] = {
             position = 1,
-            entries = {
-                { text = "", cursor = 0 }  -- Initial empty state
-            }
+            entries  = { { text = "", cursor = 0 } },
         }
     end
     return UndoBuffers[name]
 end
 
---- Add a snapshot to the undo history.
---- @param editbox table The editbox frame
---- @param force boolean If true, snapshot regardless of change size
+-- ---------------------------------------------------------------------------
+-- Public undo/redo API
+-- ---------------------------------------------------------------------------
+
+--- Snapshot the current editbox state into the undo buffer.
 function History:AddSnapshot(editbox, force)
-    local buffer = GetUndoBuffer(editbox)
-    if not buffer then return end
-    
-    local text = editbox:GetText() or ""
+    local buf = GetUndoBuffer(editbox)
+    if not buf then return end
+
+    local text   = editbox:GetText() or ""
     local cursor = editbox:GetCursorPosition() or 0
-    local currentEntry = buffer.entries[buffer.position]
-    
-    -- Skip if text hasn't changed.
-    if currentEntry and text == currentEntry.text then
-        return
-    end
-    
-    -- Skip if change is too small (unless forced).
-    if not force and currentEntry then
-        local delta = math.abs(#text - #currentEntry.text)
-        if delta < SNAPSHOT_THRESHOLD and text ~= "" then
+    local cur    = buf.entries[buf.position]
+
+    -- Skip if text unchanged.
+    if cur and text == cur.text then return end
+
+    -- Skip if delta is too small (unless forced).
+    if not force and cur then
+        if math.abs(#text - #cur.text) < SNAPSHOT_THRESHOLD and text ~= "" then
             return
         end
     end
-    
-    -- If we're not at the end, we're rewriting history (heh).
-    -- Discard any redo states.
-    if buffer.position < #buffer.entries then
-        for i = #buffer.entries, buffer.position + 1, -1 do
-            table.remove(buffer.entries, i)
-        end
+
+    -- Discard redo states past current position.
+    for i = #buf.entries, buf.position + 1, -1 do
+        table.remove(buf.entries, i)
     end
-    
-    -- Add new entry.
-    buffer.position = buffer.position + 1
-    buffer.entries[buffer.position] = {
-        text = text,
-        cursor = cursor
-    }
-    
-    -- Trim old entries if we're over the limit.
-    while #buffer.entries > UNDO_HISTORY_SIZE do
-        table.remove(buffer.entries, 1)
-        buffer.position = buffer.position - 1
+
+    buf.position = buf.position + 1
+    buf.entries[buf.position] = { text = text, cursor = cursor }
+
+    -- Trim old entries.
+    while #buf.entries > UNDO_HISTORY_SIZE do
+        table.remove(buf.entries, 1)
+        buf.position = buf.position - 1
     end
-    
-    YapperTable.Utils:VerbosePrint("Snapshot added, position: " .. buffer.position .. "/" .. #buffer.entries)
 end
 
---- Undo: Go back one step in history.
---- @param editbox table The editbox frame
 function History:Undo(editbox)
-    local buffer = GetUndoBuffer(editbox)
-    if not buffer then return end
-    
-    -- Snapshot current state first (in case user made changes).
+    local buf = GetUndoBuffer(editbox)
+    if not buf then return end
+
     self:AddSnapshot(editbox, true)
-    
-    -- Can't undo if we're at the beginning.
-    if buffer.position <= 1 then
-        YapperTable.Utils:VerbosePrint("Nothing to undo.")
-        return
-    end
-    
-    buffer.position = buffer.position - 1
-    local entry = buffer.entries[buffer.position]
-    
-    -- Restore text and cursor.
+    if buf.position <= 1 then return end
+
+    buf.position = buf.position - 1
+    local entry = buf.entries[buf.position]
     editbox:SetText(entry.text)
     editbox:SetCursorPosition(entry.cursor)
-    
-    -- Update tracking so we don't re-snapshot this.
-    LastText[editbox:GetName()] = entry.text
-    
-    YapperTable.Utils:VerbosePrint("Undo to position: " .. buffer.position)
+
+    local name = editbox.GetName and editbox:GetName()
+    if name then LastText[name] = entry.text end
 end
 
---- Redo: Go forward one step in history.
---- @param editbox table The editbox frame
 function History:Redo(editbox)
-    local buffer = GetUndoBuffer(editbox)
-    if not buffer then return end
-    
-    -- Snapshot current state first (might have changed since last undo).
+    local buf = GetUndoBuffer(editbox)
+    if not buf then return end
+
     self:AddSnapshot(editbox, true)
-    
-    -- Can't redo if we're at the end.
-    if buffer.position >= #buffer.entries then
-        YapperTable.Utils:VerbosePrint("Nothing to redo.")
-        return
-    end
-    
-    buffer.position = buffer.position + 1
-    local entry = buffer.entries[buffer.position]
-    
-    -- Restore text and cursor.
+    if buf.position >= #buf.entries then return end
+
+    buf.position = buf.position + 1
+    local entry = buf.entries[buf.position]
     editbox:SetText(entry.text)
     editbox:SetCursorPosition(entry.cursor)
-    
-    -- Update tracking.
-    LastText[editbox:GetName()] = entry.text
-    
-    YapperTable.Utils:VerbosePrint("Redo to position: " .. buffer.position)
+
+    local name = editbox.GetName and editbox:GetName()
+    if name then LastText[name] = entry.text end
 end
 
--------------------------------------------------------------------------------------
--- CHAT HISTORY (UP/DOWN ARROW) --
-
---- Add a sent message to persistent chat history.
---- @param text string The message that was sent
-function History:AddChatHistory(text)
-    if not _G.YapperDB then return end
-    if not text or text == "" then return end
-    
-    local history = _G.YapperDB.chatHistory
-    
-    -- Don't add duplicates of the last entry.
-    if history[#history] == text then
-        return
-    end
-    
-    table.insert(history, text)
-    
-    -- Trim if over limit.
-    while #history > CHAT_HISTORY_SIZE do
-        table.remove(history, 1)
-    end
-end
-
---- Load persistent chat history into an editbox.
---- Call this after the editbox is set up.
---- @param editbox table The editbox frame
-function History:LoadChatHistoryIntoEditbox(editbox)
-    if not _G.YapperDB or not _G.YapperDB.chatHistory then return end
-    
-    -- WoW's editbox has AddHistoryLine which we can populate.
-    -- We add from oldest to newest so the order is correct.
-    for _, text in ipairs(_G.YapperDB.chatHistory) do
-        editbox:AddHistoryLine(text)
-    end
-    
-    YapperTable.Utils:VerbosePrint("Loaded " .. #_G.YapperDB.chatHistory .. " history lines into " .. (editbox:GetName() or "editbox"))
-end
-
--------------------------------------------------------------------------------------
--- EDITBOX HOOKS --
-
---- OnTextChanged handler: detect significant changes for snapshots.
---- @param editbox table The editbox frame
-local function OnTextChanged(editbox)
-    if YapperTable.YAPPER_DISABLED then return end
-    
-    local name = editbox:GetName()
-    if not name then return end
-    
-    local text = editbox:GetText() or ""
-    local last = LastText[name] or ""
-    
-    -- Check if change is significant enough.
-    local delta = math.abs(#text - #last)
-    if delta >= SNAPSHOT_THRESHOLD then
-        History:AddSnapshot(editbox, false)
-        LastText[name] = text
-    end
-end
-
---- OnKeyDown handler: catch Ctrl+Z and Ctrl+Y.
---- @param editbox table The editbox frame
---- @param key string The key that was pressed
-local function OnKeyDown(editbox, key)
-    if YapperTable.YAPPER_DISABLED then return end
-    
-    -- Only handle Ctrl+Z and Ctrl+Y for undo/redo.
-    -- Don't touch SetPropagateKeyboardInput at all - editboxes capture keys by default.
-    if IsControlKeyDown() then
-        if key == "Z" then
-            History:Undo(editbox)
-        elseif key == "Y" then
-            History:Redo(editbox)
-        end
-    end
-end
-
---- OnEditFocusLost handler: snapshot when leaving the editbox.
---- @param editbox table The editbox frame
-local function OnEditFocusLost(editbox)
-    if YapperTable.YAPPER_DISABLED then return end
-    History:AddSnapshot(editbox, true)
-end
-
---- Hook an editbox for history functionality.
---- @param editbox table The editbox frame
-function History:HookEditbox(editbox)
-    if not editbox then return end
-    
-    local name = editbox:GetName()
-    if not name then return end
-    
-    -- Initialise tracking.
-    LastText[name] = editbox:GetText() or ""
-    
-    -- Hook for text changes (snapshot detection).
-    editbox:HookScript("OnTextChanged", OnTextChanged)
-    
-    -- Hook for keyboard input (Ctrl+Z / Ctrl+Y).
-    editbox:HookScript("OnKeyDown", OnKeyDown)
-    
-    -- Hook for focus lost (final snapshot).
-    editbox:HookScript("OnEditFocusLost", OnEditFocusLost)
-    
-    -- Load any saved chat history into this editbox.
-    self:LoadChatHistoryIntoEditbox(editbox)
-    
-    YapperTable.Utils:VerbosePrint("History hooks added to: " .. name)
-end
-
---- Clear undo history for an editbox (e.g., after successful send).
---- @param editbox table The editbox frame
 function History:ClearUndoBuffer(editbox)
-    local name = editbox:GetName()
+    local name = editbox.GetName and editbox:GetName()
     if not name then return end
-    
     UndoBuffers[name] = {
         position = 1,
-        entries = {
-            { text = "", cursor = 0 }
-        }
+        entries  = { { text = "", cursor = 0 } },
     }
     LastText[name] = ""
+end
+
+-- ---------------------------------------------------------------------------
+-- Overlay EditBox hooks
+-- ---------------------------------------------------------------------------
+
+--- Hook the overlay EditBox for undo/redo and draft saving.
+function History:HookOverlayEditBox()
+    local editBox = YapperTable.EditBox
+    if not editBox then
+        YapperTable.Utils:VerbosePrint("History: EditBox module not loaded, skipping hooks.")
+        return
+    end
+
+    -- Ensure overlay exists (created lazily).
+    editBox:CreateOverlay()
+
+    local eb = editBox.OverlayEdit
+    if not eb then
+        YapperTable.Utils:VerbosePrint("History: overlay EditBox not ready, skipping hooks.")
+        return
+    end
+
+    -- Text-change tracking for undo snapshots and draft saving.
+    eb:HookScript("OnTextChanged", function(box, userInput)
+        if YapperTable.YAPPER_DISABLED then return end
+        if not userInput then return end
+
+        local name = box.GetName and box:GetName() or "YapperOverlayEdit"
+        local text = box:GetText() or ""
+        local last = LastText[name] or ""
+
+        -- Undo snapshot on large deltas.
+        if math.abs(#text - #last) >= SNAPSHOT_THRESHOLD then
+            self:AddSnapshot(box, false)
+            LastText[name] = text
+        end
+
+        -- Draft save on whitespace (Space, Tab, Enter — natural pause points).
+        if #text > 0 then
+            local lastChar = text:byte(#text)
+            if lastChar == 32 or lastChar == 9 or lastChar == 10 or lastChar == 13 then
+                self:SaveDraft(box)
+            end
+        end
+    end)
+
+    -- Ctrl+Z / Ctrl+Y.
+    eb:HookScript("OnKeyDown", function(box, key)
+        if YapperTable.YAPPER_DISABLED then return end
+        if IsControlKeyDown() then
+            if key == "Z" then
+                self:Undo(box)
+            elseif key == "Y" then
+                self:Redo(box)
+            end
+        end
+    end)
+
+    -- Snapshot on focus lost.
+    eb:HookScript("OnEditFocusLost", function(box)
+        if YapperTable.YAPPER_DISABLED then return end
+        self:AddSnapshot(box, true)
+    end)
 end
