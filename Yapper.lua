@@ -1,123 +1,99 @@
 --[[
-    Yapper by Sara Schulze Øverby, aka Tenaar Feiri, Arru/Arruh and a whole bunch of other names...
-    Licence: Use, modify, distribute however you like, but give attribution. Thanks <3
-    
-    Yapper is meant to be a simple, no-interface works-out-of-the-box replacement for addons like EmoteSplitter.
-    This is the main entry point where we kick things off.
+    Yapper.lua — Yapper 1.0.0
+    Entry point.  Loaded last; boots the addon and wires modules together.
 ]]
 
 local YapperName, YapperTable = ...
 
--- This should never happen, but IF IT DOES, then it means we're dead
--- in the water. Without YapperTable, we can't do anything, and it means
--- something went very, very wrong during loading.
+-- ---------------------------------------------------------------------------
+-- Sanity checks — abort early if anything critical failed to load.
+-- ---------------------------------------------------------------------------
 if not YapperTable then
-    error((YapperName or "Yapper") .. ": YapperTable is missing. Yapper is disabled. Please report this to the developer.")
+    error(YapperName .. ": addon table missing. Yapper cannot start.")
 end
-
--- check for errors
 if not YapperTable.Error then
-    error((YapperName or "Yapper") .. ": YapperTable.Error is missing. Yapper needs error handling to function, and is therefore disabled.")
+    error(YapperName .. ": Error module missing. Yapper cannot start.")
 end
+if not YapperTable.Config  then YapperTable.Error:Throw("MISSING_CONFIG")  end
+if not YapperTable.Events  then YapperTable.Error:Throw("MISSING_EVENTS")  end
+if not YapperTable.Frames  then YapperTable.Error:Throw("MISSING_FRAMES")  end
 
--- Check for compat lib, but we can work without it.
-if not YapperTable.CompatLib then
-    YapperTable.Error:PrintError("YAPPER_MISSING_COMPATLIB")
-end
+-- ---------------------------------------------------------------------------
+-- Boot sequence
+-- ---------------------------------------------------------------------------
 
-if not YapperTable.Config then
-    YapperTable.Error:Throw("MISSING_CONFIG")
-end
+-- 1. Create the hidden event frame.
+YapperTable.Frames:Init()
 
-if not YapperTable.Events then
-    YapperTable.Error:Throw("MISSING_EVENTS")
-end
-
-if not YapperTable.Frames then
-    YapperTable.Error:Throw("MISSING_FRAMES")
-end
-
--------------------------------------------------------------------------------------
--- INITIALISATION --
-
--- Called when our addon is loaded. This is when SavedVariables become available.
+-- 2. ADDON_LOADED — access SavedVariables.
 local function OnAddonLoaded(addonName)
     if addonName ~= YapperName then return end
-    
-    -- Initialise the history database (undo/redo + persistent chat history).
+
+    -- Initialise persistent history store.
     if YapperTable.History then
         YapperTable.History:InitDB()
     end
-    
-    -- We only need this once.
+
     YapperTable.Events:Unregister("PARENT_FRAME", "ADDON_LOADED")
 end
 
--- Called before logout/reload. Save our data.
-local function OnPlayerLogout()
-    if YapperTable.History then
-        YapperTable.History:SaveDB()
-    end
-end
+YapperTable.Events:Register("PARENT_FRAME", "ADDON_LOADED", OnAddonLoaded)
 
--- This runs once the player enters the world. 
--- We finish setting up the chat hooks here.
+-- 3. PLAYER_ENTERING_WORLD — hook chat frames and initialise pipeline.
 local function OnPlayerEnteringWorld()
-    -- Initialise chat frame hooks.
-    YapperTable.Chat:Init()
-    
-    -- Register handlers for the new post queue system (v0.8.3+).
-    -- These listen for chat events to verify message delivery.
-    YapperTable.Events:RegisterChatVerificationHandlers()
-    
-    if _G.YAPPER_UTILS then
-        _G.YAPPER_UTILS:Print("v" .. C_AddOns.GetAddOnMetadata(YapperName, "Version") .. " loaded. Happy roleplaying!")
-        -- Then we unregister. We don't need this again.
-        YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
+    -- Hook all Blizzard chat editboxes with our taint-free overlay.
+    if YapperTable.EditBox then
+        YapperTable.EditBox:HookAllChatFrames()
     end
-    -- Then we unregister. We don't need this again.
+
+    -- Boot the chat pipeline (Chat → Router + Queue).
+    if YapperTable.Chat then
+        YapperTable.Chat:Init()
+    end
+
+    -- Hook the overlay EditBox for undo/redo and persistent history.
+    if YapperTable.History then
+        YapperTable.History:HookOverlayEditBox()
+    end
+
+    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Happy roleplaying!")
     YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
 end
 
--- Create the main event-listening frame so the magic can happen.
-YapperTable.Frames:Init()
-
--- Register for addon loaded so we can access SavedVariables.
-YapperTable.Events:Register("PARENT_FRAME", "ADDON_LOADED", OnAddonLoaded)
-
--- Register for entering world so we can finalise everything.
 YapperTable.Events:Register("PARENT_FRAME", "PLAYER_ENTERING_WORLD", OnPlayerEnteringWorld)
 
--- Register cleanup handler for logout/reload (clears the queue).
-YapperTable.Events:RegisterLogoutHandler()
+-- 4. PLAYER_LOGOUT — persist data.
+YapperTable.Events:Register("PARENT_FRAME", "PLAYER_LOGOUT", function()
+    if YapperTable.History then
+        YapperTable.History:SaveDB()
+    end
+end)
 
--- Register for logout to save history data.
-YapperTable.Events:Register("PARENT_FRAME", "PLAYER_LOGOUT", OnPlayerLogout)
-
-function YapperTable:OverrideYapper(Bool)
-    if type(Bool) ~= "boolean" then
-            YapperTable.Error:PrintError("BAD_ARG", "OverrideYapper expected a boolean, got " .. type(Bool))
+-- ---------------------------------------------------------------------------
+-- Override toggle (disable Yapper and hand control back to Blizzard).
+-- ---------------------------------------------------------------------------
+function YapperTable:OverrideYapper(disable)
+    if type(disable) ~= "boolean" then
+        YapperTable.Error:PrintError("BAD_ARG", "OverrideYapper", "boolean", type(disable))
         return
     end
-    YapperTable.YAPPER_DISABLED = Bool
-    if Bool then
-        -- If overridden then we unset and unregister everything and hand control back to Blizz.
+    YapperTable.YAPPER_DISABLED = disable
+    if disable then
+        -- Cancel any in-flight sends.
+        if YapperTable.Queue then
+            YapperTable.Queue:Cancel()
+        end
         YapperTable.Events:UnregisterAll()
-        YapperTable.Chat:ClearOutboundQueue()
-        YapperTable.Chat:RestoreBlizzardDefaults()
         YapperTable.Frames:HideParent()
-        if _G.YAPPER_UTILS then
-            _G.YAPPER_UTILS:Print("|cffff0000Overridden|r. Control returned to Blizzard.")
-        end
+        YapperTable.Utils:Print("|cFFFF4444Disabled.|r Control returned to Blizzard.")
     else
-        -- Re-initialise everything.
         YapperTable.Frames:Init()
-        YapperTable.Chat:Init()
-        YapperTable.Events:RegisterChatVerificationHandlers()
-        YapperTable.Events:RegisterLogoutHandler()
-        if _G.YAPPER_UTILS then
-            _G.YAPPER_UTILS:Print("|cff00ff00Enabled|r. Yapper is back in control.")
+        if YapperTable.EditBox then
+            YapperTable.EditBox:HookAllChatFrames()
         end
+        if YapperTable.Chat then
+            YapperTable.Chat:Init()
+        end
+        YapperTable.Utils:Print("|cFF00FF00Enabled.|r Yapper is back in control.")
     end
 end
-
