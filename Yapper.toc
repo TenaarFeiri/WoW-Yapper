@@ -1,9 +1,11 @@
 ## Interface: 120000
 ## Title: Yapper
-## Notes: Taint-free long-message splitting for WoW roleplay chat.
+## Notes: Encounter-safe editbox replacement for RP. (And yes, it splits posts.)
 ## Version: 1.0.0
 ## Author: Sara Schulze Øverby
 ## SavedVariables: YapperDB
+## SavedVariablesPerCharacter: YapperLocalConf, YapperLocalHistory
+## LoadSavedVariablesFirst 1
 
 Src\Core.lua
 Src\Utils.lua
