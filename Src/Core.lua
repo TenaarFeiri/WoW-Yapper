@@ -1,48 +1,71 @@
--- Define global addon tables and default settings.
+--[[
+    Core.lua — Yapper 1.0.0
+    Addon-wide configuration and version info.
+    Loaded first; every other module reads from YapperTable.Config.
+]]
+
 local YapperName, YapperTable = ...
 
-YapperTable.Core = {} -- Here is where the core functions live.
+YapperTable.Core = {}
 
--- Centralised configuration table
+-- ---------------------------------------------------------------------------
+-- Centralised configuration
+-- ---------------------------------------------------------------------------
 YapperTable.Config = {
     System = {
         VERBOSE = false,
-        FRAME_ID_PARENT = "PARENT_FRAME",
-        RUN_ALL_PATCHES = true -- If true, all compatibility patches are run on EditBox show.
+        DEBUG   = false,
+        FRAME_ID_PARENT  = "PARENT_FRAME",
+        RUN_ALL_PATCHES  = true,
     },
     Chat = {
-        USE_DELINEATORS = true,
-        CHARACTER_LIMIT = 255,
+        USE_DELINEATORS   = true,
+        CHARACTER_LIMIT   = 255,
         MAX_HISTORY_LINES = 15,
-        DELINEATOR = " >>",
-        PREFIX = ">> ",
-        MIN_POST_INTERVAL = 1.0, -- Seconds between posts (anti-spam throttle).
-        POST_TIMEOUT = 2,        -- Seconds to wait for server confirmation before giving up.
-        -- Batching for SAY/YELL (need hardware events)
-        BATCH_SIZE = 3,          -- Max chunks per Enter press for SAY/YELL
-        BATCH_THROTTLE = 2.0,    -- Minimum seconds between SAY/YELL batch sends
-        -- EMOTE queue (confirmation-based)
-        STALL_TIMEOUT = 1.0      -- Seconds before showing continue prompt for EMOTE
-    }
+        DELINEATOR        = " >>",
+        PREFIX            = ">> ",
+        MIN_POST_INTERVAL = 1.0,
+        POST_TIMEOUT      = 2,
+        BATCH_SIZE        = 3,
+        BATCH_THROTTLE    = 2.0,
+        STALL_TIMEOUT     = 1.0,
+    },
+    -- ── EditBox appearance (defaults until a settings panel exists) ───
+    EditBox = {
+        -- Input area background
+        InputBg = {
+            r = 0.05, g = 0.05, b = 0.05, a = 1.0,
+        },
+        -- Label area background
+        LabelBg = {
+            r = 0.06, g = 0.06, b = 0.06, a = 1.0,
+        },
+        -- Font: nil means "inherit from Blizzard editbox".
+        -- Set a string like "Fonts\\FRIZQT__.TTF" to override.
+        FontFace  = nil,
+        FontSize  = 0,          -- 0 = inherit from Blizzard editbox
+        FontFlags = "",         -- e.g. "OUTLINE", "THICKOUTLINE"
+        -- Text colour (nil = white)
+        TextColor = { r = 1, g = 1, b = 1, a = 1 },
+        -- Vertical sizing
+        MinHeight  = 0,         -- 0 = match Blizzard editbox height (auto)
+        FontPad    = 8,         -- extra pixels above + below the text baseline
+    },
 }
 
--------------------------------------------------------------------------------------
--- FUNCTIONS --
+-- ---------------------------------------------------------------------------
+-- API
+-- ---------------------------------------------------------------------------
 
--- get the addon version as a string.
-function YapperTable.Core:GetYapperVersion()
+function YapperTable.Core:GetVersion()
     return C_AddOns.GetAddOnMetadata(YapperName, "Version")
 end
 
--------------------------------------------------------------------------------------
--- Settings Functions --
-
---- Set whether Yapper will be verbose or not!
-function YapperTable.Core:SetVerbose(Bool)
-    if type(Bool) ~= "boolean" then
-            YapperTable.Error:PrintError("BAD_ARG", "SetVerbose", "boolean", type(Bool))
+function YapperTable.Core:SetVerbose(bool)
+    if type(bool) ~= "boolean" then
+        YapperTable.Error:PrintError("BAD_ARG", "SetVerbose", "boolean", type(bool))
         return
     end
-    YapperTable.Config.System.VERBOSE = Bool
-    YapperTable.Utils:Print("Verbose mode " .. (Bool and "enabled." or "disabled."))
+    YapperTable.Config.System.VERBOSE = bool
+    YapperTable.Utils:Print("Verbose mode " .. (bool and "enabled." or "disabled."))
 end
