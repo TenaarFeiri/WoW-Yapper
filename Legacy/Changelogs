@@ -1,0 +1,60 @@
+-- 0.9
+    - New post queue system with confirmation-based ordering for EMOTE/GUILD.
+    - SAY/YELL now send in batches of 3 per Enter press (avoids WoW throttle drops).
+    - TRP3 integration: RP names now work correctly with message confirmation.
+    - Added Escape key to cancel in-progress posts.
+    - Item links now pause batching (they require hardware events).
+    - Configurable throttle settings (BATCH_SIZE, BATCH_THROTTLE, STALL_TIMEOUT).
+    - Code cleanup: removed unused legacy functions.
+
+-- 0.8.2
+    - Changed versioning system.
+    - Implemented visual segmentation when splitting (use of >>).
+    - Fixed an issue causing whispers to be erroneously attempted split.
+    - Fixed a bug causing edit box to become unresponsive after an erroneous whisper split.
+
+-- 0.8c
+    - Created an early (currently clunky) framework for adding compatibility patches,
+      including API exposure so developers can add their own patches. This is currently undocumented and
+      extremely limited, I do not recommend using it yourselves yet.
+    - Implemented compatibility patch for Gopher. *Should* preserve Gopher's own features while using
+      Yapper's own chat implementations. This should allow Yapper to be used in conjunction with addons
+      using Gopher, like CrossRP.
+    - Implemented a fix for Prat's sticky channels.
+
+    TODO:
+            - Improve the posting queue to make it more robust and at the very least match Gopher's verification.
+
+-- 0.8b
+    * Added some cleanup functions for extra memory management.
+    * Patched a memory leak. You will see memory rise during active usage, but it should peak at a reasonable level and
+      go back down again on its own.
+
+-- 0.8
+    * Completely refactored the entire codebase.
+    * Streamlined multiple event and hooking methods.
+    * Improved chat handling.
+    * Error handling is better.
+    * Fixed issue causing Yapper to block macros (but /target, /petattack and other protected commands don't work in the chat window)
+    * Reduced throttling to 0.5s when multiposting.
+    * Multiple performance optimisations; Yapper should be even faster now and able to keep up with even the most enthusiastic typist!
+
+-- 0.7
+    * Added message throttling. If post produces more than 3 messages, require enter presses at 1s intervals (enforced) to clear queue.
+      Posts 2 messages at a time until queue cleared.
+    * Removed RecolourEmote() function as it didn't work anyway and TRP handles that.
+
+-- 0.6b
+    * Yapper confirmed to work in Midnight Beta.
+
+-- 0.6
+	* Minor polish and practice getting metadata. The greeting looks better, I guess?
+    * Removed some unused variables, cleaned out some commented-out features.
+    * Added details and usage terms to yapper.lua.
+    * Updated TOC.
+
+-- 0.5
+    * Added word-wrapping in an effort to stop the add-on splitting the text in the middle of a word.
+
+-- 0.4
+    * Fixed issue causing split messages to fail to display target markers like {square} etc.
