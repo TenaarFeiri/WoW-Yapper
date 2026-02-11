@@ -898,8 +898,8 @@ function EditBox:NavigateHistory(direction)
         self.HistoryCache = {}
         if YapperTable.History and YapperTable.History.GetChatHistory then
             self.HistoryCache = YapperTable.History:GetChatHistory() or {}
-        elseif _G.YapperDB and _G.YapperDB.chatHistory then
-            local saved = _G.YapperDB.chatHistory
+        elseif _G.YapperLocalHistory and _G.YapperLocalHistory.chatHistory then
+            local saved = _G.YapperLocalHistory.chatHistory
             if type(saved) == "table" then
                 if saved.global then
                     for _, v in ipairs(saved.global) do
@@ -987,6 +987,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 -- Defer to next frame; overlay creation needs to be
                 -- outside the SetAttribute hook context.
                 C_Timer.After(0, function()
+                    -- If the editbox was dismissed (Escape) rather than
+                    -- channel-switched, it will be hidden by now — bail out.
+                    if not savedEB or not savedEB:IsShown() then
+                        self._bnetEditBox = nil
+                        return
+                    end
+
                     -- Read leftover text after ParseText stripped the slash prefix.
                     local leftover = savedEB and savedEB.GetText and savedEB:GetText() or ""
                     leftover = leftover:match("^%s*(.-)%s*$") or ""
@@ -1063,6 +1070,12 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
+        -- If the user Escaped out of a BNet whisper, don't re-open ours.
+        if self._bnetDismissed then
+            self._bnetDismissed = false
+            return
+        end
+
         -- In lockdown Blizzard's untainted box can still send; leave it alone.
         if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
             return
@@ -1094,6 +1107,20 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
         -- Present our overlay.
         self:Show(eb)
+    end)
+
+    -- Track when the user Escapes out of a BNet whisper so we don't
+    -- immediately re-open Yapper when Blizzard re-shows the editbox.
+    hooksecurefunc(blizzEditBox, "Hide", function(eb)
+        if self._bnetEditBox == eb then
+            self._bnetEditBox   = nil
+            self._bnetDismissed = true
+            -- Clear on next frame so only the immediately-following Show
+            -- is suppressed, not future ones.
+            C_Timer.After(0, function()
+                self._bnetDismissed = false
+            end)
+        end
     end)
 end
 
