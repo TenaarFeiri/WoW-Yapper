@@ -29,6 +29,9 @@ YapperTable.Frames:Init()
 local function OnAddonLoaded(addonName)
     if addonName ~= YapperName then return end
 
+    -- Initialise all three SavedVariables (YapperDB, YapperLocalConf, YapperLocalHistory).
+    YapperTable.Core:InitSavedVars()
+
     -- Initialise persistent history store.
     if YapperTable.History then
         YapperTable.History:InitDB()
