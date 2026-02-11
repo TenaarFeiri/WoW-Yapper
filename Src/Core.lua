@@ -9,9 +9,9 @@ local YapperName, YapperTable = ...
 YapperTable.Core = {}
 
 -- ---------------------------------------------------------------------------
--- Centralised configuration
+-- Centralised configuration (hardcoded defaults)
 -- ---------------------------------------------------------------------------
-YapperTable.Config = {
+local DEFAULTS = {
     System = {
         VERBOSE = false,
         DEBUG   = false,
@@ -52,6 +52,59 @@ YapperTable.Config = {
         FontPad    = 8,         -- extra pixels above + below the text baseline
     },
 }
+
+-- Pre-ADDON_LOADED fallback — modules that read Config at load time get defaults.
+YapperTable.Config = DEFAULTS
+
+-- ---------------------------------------------------------------------------
+-- SavedVariable initialisation
+-- ---------------------------------------------------------------------------
+
+--- Deep-apply missing keys from `src` into `dest`.
+local function ApplyDefaults(dest, src)
+    for k, v in pairs(src) do
+        if dest[k] == nil then
+            if type(v) == "table" then
+                dest[k] = {}
+                ApplyDefaults(dest[k], v)
+            else
+                dest[k] = v
+            end
+        elseif type(v) == "table" and type(dest[k]) == "table" then
+            ApplyDefaults(dest[k], v)
+        end
+    end
+end
+
+--- Recursively wire `child` tables to inherit from `parent` via metatables.
+local function InheritDefaults(child, parent)
+    for key, parentVal in pairs(parent) do
+        if type(parentVal) == "table" then
+            if type(child[key]) ~= "table" then
+                child[key] = {}
+            end
+            InheritDefaults(child[key], parentVal)
+        end
+    end
+    setmetatable(child, { __index = parent })
+end
+
+--- Initialise all three SavedVariables.  Call once from ADDON_LOADED.
+function YapperTable.Core:InitSavedVars()
+    -- 1. YapperDB — account-wide defaults / settings.
+    if not _G.YapperDB then _G.YapperDB = {} end
+    ApplyDefaults(_G.YapperDB, DEFAULTS)
+
+    -- 2. YapperLocalConf — per-character config (inherits from YapperDB).
+    if not _G.YapperLocalConf then _G.YapperLocalConf = {} end
+    InheritDefaults(_G.YapperLocalConf, _G.YapperDB)
+
+    -- Switch the live Config reference to the per-character table.
+    YapperTable.Config = _G.YapperLocalConf
+
+    -- 3. YapperLocalHistory — per-character history / drafts.
+    if not _G.YapperLocalHistory then _G.YapperLocalHistory = {} end
+end
 
 -- ---------------------------------------------------------------------------
 -- API
