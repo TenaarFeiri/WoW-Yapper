@@ -26,7 +26,7 @@ local LastText = {}
 -- ---------------------------------------------------------------------------
 -- SavedVariable defaults
 -- ---------------------------------------------------------------------------
-local DB_DEFAULTS = {
+local HISTORY_DEFAULTS = {
     chatHistory = {},  -- Flat array of sent strings, newest last.
     draft = {
         ring     = {},    -- Ring buffer: up to DRAFT_SLOTS text snapshots.
@@ -41,20 +41,35 @@ local DB_DEFAULTS = {
 -- Init / save
 -- ---------------------------------------------------------------------------
 
---- Set up DB from SavedVariables (call after ADDON_LOADED).
+--- Set up per-character history from SavedVariables (call after ADDON_LOADED).
 function History:InitDB()
-    if not _G.YapperDB then
-        _G.YapperDB = {}
+    if not _G.YapperLocalHistory then
+        _G.YapperLocalHistory = {}
     end
-    for key, default in pairs(DB_DEFAULTS) do
-        if _G.YapperDB[key] == nil then
-            _G.YapperDB[key] = default
+
+    -- ── Migrate from legacy YapperDB (pre-1.0.0) ──
+    if _G.YapperDB then
+        if _G.YapperDB.chatHistory ~= nil and _G.YapperLocalHistory.chatHistory == nil then
+            _G.YapperLocalHistory.chatHistory = _G.YapperDB.chatHistory
+            _G.YapperDB.chatHistory = nil
+        end
+        if _G.YapperDB.draft ~= nil and _G.YapperLocalHistory.draft == nil then
+            _G.YapperLocalHistory.draft = _G.YapperDB.draft
+            _G.YapperDB.draft = nil
         end
     end
+
+    -- Apply defaults for any missing keys.
+    for key, default in pairs(HISTORY_DEFAULTS) do
+        if _G.YapperLocalHistory[key] == nil then
+            _G.YapperLocalHistory[key] = default
+        end
+    end
+
     -- Upgrade from older DB versions.
-    local d = _G.YapperDB.draft
+    local d = _G.YapperLocalHistory.draft
     if type(d) ~= "table" then
-        _G.YapperDB.draft = DB_DEFAULTS.draft
+        _G.YapperLocalHistory.draft = HISTORY_DEFAULTS.draft
     else
         if d.ring == nil then d.ring = {} end
         if d.pos  == nil then d.pos  = 0  end
@@ -76,10 +91,10 @@ end
 
 --- Add a sent message to persistent history.
 function History:AddChatHistory(text)
-    if not _G.YapperDB then return end
+    if not _G.YapperLocalHistory then return end
     if not text or text == "" then return end
 
-    local h = _G.YapperDB.chatHistory
+    local h = _G.YapperLocalHistory.chatHistory
     -- Skip duplicates of the most recent entry.
     if h[#h] == text then return end
 
@@ -91,8 +106,8 @@ end
 
 --- Return the persistent chat history array.
 function History:GetChatHistory()
-    if _G.YapperDB and _G.YapperDB.chatHistory then
-        return _G.YapperDB.chatHistory
+    if _G.YapperLocalHistory and _G.YapperLocalHistory.chatHistory then
+        return _G.YapperLocalHistory.chatHistory
     end
     return {}
 end
@@ -103,14 +118,14 @@ end
 
 --- Save current editbox text into the draft ring buffer.
 function History:SaveDraft(editbox)
-    if not _G.YapperDB then return end
+    if not _G.YapperLocalHistory then return end
     if not editbox then return end
 
     local raw = editbox.GetText and editbox:GetText() or ""
     local text = raw:match("^%s*(.-)%s*$") or ""
     if text == "" then return end  -- don't waste a slot on empty/whitespace-only
 
-    local d = _G.YapperDB.draft
+    local d = _G.YapperLocalHistory.draft
     -- Advance ring position (wraps at DRAFT_SLOTS).
     d.pos = (d.pos % DRAFT_SLOTS) + 1
     d.ring[d.pos] = text
@@ -127,8 +142,8 @@ end
 
 --- Retrieve the most recent draft text, or nil.
 function History:GetDraft()
-    if not _G.YapperDB then return nil end
-    local d = _G.YapperDB.draft
+    if not _G.YapperLocalHistory then return nil end
+    local d = _G.YapperLocalHistory.draft
     if not d or not d.dirty then return nil end
     if not d.ring or d.pos == 0 then return nil end
 
@@ -149,14 +164,14 @@ end
 
 --- Mark the draft as clean (send) or dirty (everything else).
 function History:MarkDirty(dirty)
-    if not _G.YapperDB or not _G.YapperDB.draft then return end
-    _G.YapperDB.draft.dirty = dirty
+    if not _G.YapperLocalHistory or not _G.YapperLocalHistory.draft then return end
+    _G.YapperLocalHistory.draft.dirty = dirty
 end
 
 --- Clear the draft ring entirely (after successful send).
 function History:ClearDraft()
-    if not _G.YapperDB then return end
-    _G.YapperDB.draft = {
+    if not _G.YapperLocalHistory then return end
+    _G.YapperLocalHistory.draft = {
         ring     = {},
         pos      = 0,
         chatType = nil,
