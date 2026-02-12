@@ -1,14 +1,13 @@
 --[[
-    Router.lua — Yapper 1.0.0
-    Message send routing.
+        Message send routing.
 
-    Resolves which WoW API to use for a given (chatType, target) pair:
-      1. C_ChatInfo.SendChatMessage  — SAY, EMOTE, YELL, PARTY, WHISPER, etc.
-      2. BNSendWhisper               — Battle.net whispers.
-      3. C_Club.SendMessage          — Communities / Guild / Officer chat.
+        Resolves which WoW API to use for a given (chatType, target) pair:
+            1. C_ChatInfo.SendChatMessage  — SAY, EMOTE, YELL, PARTY, WHISPER, etc.
+            2. BNSendWhisper               — Battle.net whispers.
+            3. C_Club.SendMessage          — Communities / Guild / Officer chat.
 
-    If Gopher (LibGopher) is present, we bypass its hooks by calling the
-    original functions it saved internally, so Yapper controls its own split.
+        If Gopher (LibGopher) is present, we bypass its hooks by calling the
+        original functions it saved internally, so Yapper controls its own split.
 ]]
 
 local YapperName, YapperTable = ...
@@ -25,11 +24,11 @@ Router.ClubSendMessage = nil
 -- Initialisation
 -- ---------------------------------------------------------------------------
 
---- Detect Gopher and store bypass hooks.  Call once during addon boot.
-function Router:Init()
+--- Probe for LibGopher and attach bypass hooks if available.
+-- Exposed so other addons can override or call it before `Init()`.
+-- Returns true if LibGopher hooks were applied.
+function Router:DetectGopher()
     local gopherBypass = false
-
-    -- LibGopher stores the originals in its hooks table.
     local ok, gopher = pcall(function()
         if _G.LibStub then
             return _G.LibStub("Gopher", true)
@@ -50,6 +49,13 @@ function Router:Init()
             gopherBypass = true
         end
     end
+
+    return gopherBypass
+end
+
+--- Initialise Router. Calls `DetectGopher()` and then falls back to WoW APIs.
+function Router:Init()
+    local gopherBypass = self:DetectGopher()
 
     -- Fall back to standard APIs for anything not bypassed.
     self.SendChatMessage = self.SendChatMessage or C_ChatInfo.SendChatMessage
