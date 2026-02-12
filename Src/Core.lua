@@ -1,5 +1,4 @@
 --[[
-    Core.lua — Yapper 1.0.0
     Addon-wide configuration and version info.
     Loaded first; every other module reads from YapperTable.Config.
 ]]
@@ -13,10 +12,23 @@ YapperTable.Core = {}
 -- ---------------------------------------------------------------------------
 local DEFAULTS = {
     System = {
+        VERSION = 1.02, -- Schema version for SavedVariables migration; bump only when data structure changes.
         VERBOSE = false,
         DEBUG   = false,
         FRAME_ID_PARENT  = "PARENT_FRAME",
         RUN_ALL_PATCHES  = true,
+        ["SettingsHaveChanged"] = false
+    },
+    ["FrameSettings"] = {
+        ["MouseWheelStepRate"] = 30,
+        ["SettingsViewMode"] = "basic",
+        ["EnableMinimapButton"] = true,
+        ["MainWindowPosition"] = {
+            point = "CENTER",
+            relativePoint = "CENTER",
+            x = 0,
+            y = 0,
+        },
     },
     Chat = {
         USE_DELINEATORS   = true,
@@ -30,7 +42,7 @@ local DEFAULTS = {
         BATCH_THROTTLE    = 2.0,
         STALL_TIMEOUT     = 1.0,
     },
-    -- ── EditBox appearance (defaults until a settings panel exists) ───
+    -- EditBox appearance defaults
     EditBox = {
         -- Input area background
         InputBg = {
@@ -43,13 +55,59 @@ local DEFAULTS = {
         -- Font: nil means "inherit from Blizzard editbox".
         -- Set a string like "Fonts\\FRIZQT__.TTF" to override.
         FontFace  = nil,
-        FontSize  = 0,          -- 0 = inherit from Blizzard editbox
+        FontSize  = 14,
         FontFlags = "",         -- e.g. "OUTLINE", "THICKOUTLINE"
+        AutoFitLabel = true,     -- true = shrink label font to fit, false = truncate with ellipsis
         -- Text colour (nil = white)
         TextColor = { r = 1, g = 1, b = 1, a = 1 },
+        ChannelColorMaster = "",
+        ChannelColorOverrides = {
+            SAY = false,
+            YELL = false,
+            PARTY = false,
+            WHISPER = false,
+            INSTANCE_CHAT = false,
+            RAID = false,
+            RAID_WARNING = false,
+        },
+        ChannelTextColors = {
+            SAY = { r = 1.00, g = 1.00, b = 1.00, a = 1 },
+            YELL = { r = 1.00, g = 0.25, b = 0.25, a = 1 },
+            PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
+            WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
+            INSTANCE_CHAT = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
+            RAID = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
+            RAID_WARNING = { r = 1.00, g = 0.28, b = 0.03, a = 1 },
+        },
         -- Vertical sizing
         MinHeight  = 0,         -- 0 = match Blizzard editbox height (auto)
         FontPad    = 8,         -- extra pixels above + below the text baseline
+    },
+}
+
+local HISTORY_DEFAULTS = {
+    VERSION = DEFAULTS.System.VERSION,
+    chatHistory = {},
+    draft = {
+        ring     = {},
+        pos      = 0,
+        chatType = nil,
+        target   = nil,
+        dirty    = false,
+    },
+}
+
+local KEEP_TABLE_CONTENTS = {}
+
+local HISTORY_PARITY_SCHEMA = {
+    VERSION = HISTORY_DEFAULTS.VERSION,
+    chatHistory = KEEP_TABLE_CONTENTS,
+    draft = {
+        ring     = KEEP_TABLE_CONTENTS,
+        pos      = 0,
+        chatType = nil,
+        target   = nil,
+        dirty    = false,
     },
 }
 
@@ -76,6 +134,61 @@ local function ApplyDefaults(dest, src)
     end
 end
 
+local function DeepCopy(src)
+    if type(src) ~= "table" then
+        return src
+    end
+
+    local out = {}
+    for k, v in pairs(src) do
+        out[k] = DeepCopy(v)
+    end
+    return out
+end
+
+local function SyncParity(dest, schema)
+    if type(dest) ~= "table" or type(schema) ~= "table" then
+        return
+    end
+
+    for key, schemaVal in pairs(schema) do
+        local currentVal = dest[key]
+
+        if schemaVal == KEEP_TABLE_CONTENTS then
+            if type(currentVal) ~= "table" then
+                dest[key] = {}
+            end
+        elseif type(schemaVal) == "table" then
+            if type(currentVal) ~= "table" then
+                dest[key] = DeepCopy(schemaVal)
+            else
+                SyncParity(currentVal, schemaVal)
+            end
+        else
+            if currentVal == nil or type(currentVal) ~= type(schemaVal) then
+                dest[key] = schemaVal
+            end
+        end
+    end
+
+    for key in pairs(dest) do
+        if schema[key] == nil then
+            dest[key] = nil
+        end
+    end
+end
+
+local function GetConfigVersion(tbl)
+    if type(tbl) ~= "table" then return nil end
+    if type(tbl.System) ~= "table" then return nil end
+    return tonumber(tbl.System.VERSION)
+end
+
+local function GetHistoryVersion(tbl)
+    if type(tbl) ~= "table" then return nil end
+    return tonumber(tbl.VERSION)
+end
+
 --- Recursively wire `child` tables to inherit from `parent` via metatables.
 local function InheritDefaults(child, parent)
     for key, parentVal in pairs(parent) do
@@ -91,19 +204,79 @@ end
 
 --- Initialise all three SavedVariables.  Call once from ADDON_LOADED.
 function YapperTable.Core:InitSavedVars()
+    local currentVersion = tonumber(DEFAULTS.System.VERSION) or 0
+
+    if type(_G.YapperDB) ~= "table" then _G.YapperDB = {} end
+    if type(_G.YapperLocalConf) ~= "table" then _G.YapperLocalConf = {} end
+    if type(_G.YapperLocalHistory) ~= "table" then _G.YapperLocalHistory = {} end
+
+    local dbVersion   = GetConfigVersion(_G.YapperDB)
+    local confVersion = GetConfigVersion(_G.YapperLocalConf)
+    local histVersion = GetHistoryVersion(_G.YapperLocalHistory)
+
+    -- Missing version markers indicate old/invalid schema.
+    -- Rebuild ONLY the affected table, not everything.
+    if dbVersion == nil then
+        _G.YapperDB = {}
+    end
+    if confVersion == nil then
+        _G.YapperLocalConf = {}
+    end
+    if histVersion == nil then
+        _G.YapperLocalHistory = {}
+    end
+
     -- 1. YapperDB — account-wide defaults / settings.
-    if not _G.YapperDB then _G.YapperDB = {} end
     ApplyDefaults(_G.YapperDB, DEFAULTS)
 
+    if dbVersion and currentVersion > dbVersion then
+        SyncParity(_G.YapperDB, DEFAULTS)
+    end
+
+    if type(_G.YapperDB.System) ~= "table" then
+        _G.YapperDB.System = {}
+    end
+    _G.YapperDB.System.VERSION = currentVersion
+    _G.YapperDB.chatHistory = nil
+    _G.YapperDB.draft = nil
+
     -- 2. YapperLocalConf — per-character config (inherits from YapperDB).
-    if not _G.YapperLocalConf then _G.YapperLocalConf = {} end
+    ApplyDefaults(_G.YapperLocalConf, DEFAULTS)
+
+    if confVersion and currentVersion > confVersion then
+        SyncParity(_G.YapperLocalConf, DEFAULTS)
+    end
+
+    if type(_G.YapperLocalConf.System) ~= "table" then
+        _G.YapperLocalConf.System = {}
+    end
+    _G.YapperLocalConf.System.VERSION = currentVersion
+
     InheritDefaults(_G.YapperLocalConf, _G.YapperDB)
 
     -- Switch the live Config reference to the per-character table.
     YapperTable.Config = _G.YapperLocalConf
 
+    -- Runtime validation flags should always start clean on login/reload.
+    if type(_G.YapperLocalConf.System) ~= "table" then
+        _G.YapperLocalConf.System = {}
+    end
+    _G.YapperLocalConf.System.SettingsHaveChanged = false
+
+    if type(_G.YapperDB.InterfaceUI) ~= "table" then
+        _G.YapperDB.InterfaceUI = {}
+    end
+    _G.YapperDB.InterfaceUI.VERSION = currentVersion
+    _G.YapperDB.InterfaceUI.dirty = false
+
     -- 3. YapperLocalHistory — per-character history / drafts.
-    if not _G.YapperLocalHistory then _G.YapperLocalHistory = {} end
+    ApplyDefaults(_G.YapperLocalHistory, HISTORY_DEFAULTS)
+
+    if histVersion and currentVersion > histVersion then
+        SyncParity(_G.YapperLocalHistory, HISTORY_PARITY_SCHEMA)
+    end
+
+    _G.YapperLocalHistory.VERSION = currentVersion
 end
 
 -- ---------------------------------------------------------------------------
@@ -112,6 +285,10 @@ end
 
 function YapperTable.Core:GetVersion()
     return C_AddOns.GetAddOnMetadata(YapperName, "Version")
+end
+
+function YapperTable.Core:GetDefaults()
+    return DEFAULTS
 end
 
 function YapperTable.Core:SetVerbose(bool)
