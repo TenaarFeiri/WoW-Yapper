@@ -1,4 +1,4 @@
-# WoW-Yapper
+# Yapper EditBox & Post Splitter
 Yapper is functionally a replacement of the EditBox for your chat window. It allows you to longpost as much as you like (until the server throttles you) and offers other neat features like draft recovery (if you crash or disconnect while typing), persistent chat history (recover your posts with Alt+ArrowUp/Down), and it gracefully falls back to Blizzard's default EditBox when a lockdown event is in progress.
 This should allow you to RP *and* do content without having to worry about disabling an addon in the middle of a boss encounter, to ask the Havoc DH to please get back into melee.
 ## Please download the addon from here: https://github.com/TenaarFeiri/WoW-Yapper/releases
