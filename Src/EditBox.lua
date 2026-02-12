@@ -1,5 +1,4 @@
 --[[
-    EditBox.lua — Yapper 1.0.0
     Taint-free overlay that replaces Blizzard's chat input.
 
     Since WoW 12.0.0 any addon touching the default EditBox taints it,
@@ -82,6 +81,48 @@ local LABEL_PREFIXES = {
     CHANNEL        = "Channel",
 }
 
+-- Hot-path locals
+local strmatch = string.match
+local strlower = string.lower
+local strbyte  = string.byte
+
+local CHATTYPE_TO_OVERRIDE_KEY = {
+    SAY = "SAY",
+    YELL = "YELL",
+    PARTY = "PARTY",
+    PARTY_LEADER = "PARTY",
+    WHISPER = "WHISPER",
+    INSTANCE_CHAT = "INSTANCE_CHAT",
+    RAID = "RAID",
+    RAID_LEADER = "RAID",
+    RAID_WARNING = "RAID_WARNING",
+}
+
+local function IsWIMFocusActive()
+    local wim = _G.WIM
+    local focus = wim and wim.EditBoxInFocus
+    if not focus then
+        return false
+    end
+
+    local shown = focus.IsShown and focus:IsShown()
+    local visible = focus.IsVisible and focus:IsVisible()
+    local focused = focus.HasFocus and focus:HasFocus()
+    return shown == true or visible == true or focused == true
+end
+
+local function SetFrameFillColor(frame, r, g, b, a)
+    if not frame then return end
+    if not frame._yapperSolidFill then
+        local tex = frame:CreateTexture(nil, "BACKGROUND")
+        tex:SetAllPoints(frame)
+        frame._yapperSolidFill = tex
+    end
+    frame._yapperSolidFill:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
+end
+
+
+
 -- Resolve a numeric channel ID to its display name, or nil.
 local function ResolveChannelName(id)
     id = tonumber(id)
@@ -118,11 +159,6 @@ local function BuildLabelText(chatType, target, channelName)
         label = pretty or (chatType or "Say")
     end
 
-    -- Truncate long labels.
-    if #label > 25 then
-        label = label:sub(1, 22) .. "..."
-    end
-
     -- Colour from ChatTypeInfo.
     local r, g, b = 1, 0.82, 0  -- gold fallback
     if chatType and ChatTypeInfo and ChatTypeInfo[chatType] then
@@ -131,6 +167,82 @@ local function BuildLabelText(chatType, target, channelName)
     end
 
     return label, r, g, b
+end
+
+local function GetLabelUsableWidth(self)
+    if not self or not self.LabelBg then return 80 end
+    local rawWidth = self.LabelBg:GetWidth() or 100
+    return math.max(40, rawWidth - 10)
+end
+
+local function ResetLabelToBaseFont(self)
+    if not self or not self.ChannelLabel then return end
+    if self.OverlayEdit and self.OverlayEdit.GetFont then
+        local face, size, flags = self.OverlayEdit:GetFont()
+        if face and size then
+            self.ChannelLabel:SetFont(face, size, flags or "")
+            return
+        end
+    end
+
+    if self.OrigEditBox and self.OrigEditBox.GetFontObject then
+        local fontObj = self.OrigEditBox:GetFontObject()
+        if fontObj then
+            self.ChannelLabel:SetFontObject(fontObj)
+        end
+    end
+end
+
+local function TruncateLabelToWidth(fontString, text, maxWidth)
+    if not fontString or type(text) ~= "string" then
+        return text
+    end
+
+    fontString:SetText(text)
+    if (fontString:GetStringWidth() or 0) <= maxWidth then
+        return text
+    end
+
+    local truncated = text
+    while #truncated > 0 do
+        truncated = truncated:sub(1, #truncated - 1)
+        local candidate = truncated .. "..."
+        fontString:SetText(candidate)
+        if (fontString:GetStringWidth() or 0) <= maxWidth then
+            return candidate
+        end
+    end
+
+    return "..."
+end
+
+local function FitLabelFontToWidth(self, text, maxWidth)
+    if not self or not self.ChannelLabel then return false end
+
+    local fontString = self.ChannelLabel
+    fontString:SetText(text)
+
+    if (fontString:GetStringWidth() or 0) <= maxWidth then
+        return true
+    end
+
+    local face, size, flags = fontString:GetFont()
+    if not face or not size then
+        return false
+    end
+
+    local minSize = 8
+    local targetSize = math.floor(size)
+    while targetSize > minSize do
+        targetSize = targetSize - 1
+        fontString:SetFont(face, targetSize, flags or "")
+        fontString:SetText(text)
+        if (fontString:GetStringWidth() or 0) <= maxWidth then
+            return true
+        end
+    end
+
+    return false
 end
 
 -- ---------------------------------------------------------------------------
@@ -145,30 +257,17 @@ function EditBox:CreateOverlay()
     local labelCfg = cfg.LabelBg or {}
 
     -- Container frame — matches position/size of the original editbox.
-    local frame = CreateFrame("Frame", "YapperOverlayFrame", UIParent, "BackdropTemplate")
+    local frame = CreateFrame("Frame", "YapperOverlayFrame", UIParent)
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
     frame:Hide()
 
-    -- Container backdrop (visible background for the input area).
-    frame:SetBackdrop({
-        bgFile   = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 8,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    frame:SetBackdropColor(inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
-    frame:SetBackdropBorderColor(inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    -- Container background fill (flat colour only).
+    SetFrameFillColor(frame, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
 
     -- ── Label background (left portion) ──────────────────────────────
-    local labelBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    labelBg:SetBackdrop({
-        bgFile   = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 8,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
-    })
-    labelBg:SetBackdropColor(labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 0.9)
+    local labelBg = CreateFrame("Frame", nil, frame)
+    SetFrameFillColor(labelBg, labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 0.9)
     labelBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     labelBg:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
     labelBg:SetWidth(100) -- will be recalculated on show
@@ -220,14 +319,14 @@ function EditBox:SetupOverlayScripts()
         if not isUserInput then return end
 
         local text = box:GetText() or ""
-        if text:sub(1, 1) ~= "/" then
+        if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil
             return
         end
 
         -- Bare numeric channel: "/2 message"
-        local num, rest = text:match("^/(%d+)%s+(.*)")
+        local num, rest = strmatch(text, "^/(%d+)%s+(.*)")
         if num then
             local resolved = ResolveChannelName(tonumber(num))
             if resolved then
@@ -245,14 +344,14 @@ function EditBox:SetupOverlayScripts()
         end
 
         -- "/cmd rest" — need a space before we act.
-        local cmd, rest2 = text:match("^/([%w_]+)%s+(.*)")
+        local cmd, rest2 = strmatch(text, "^/([%w_]+)%s+(.*)")
         if not cmd then return end
-        cmd = cmd:lower()
+        cmd = strlower(cmd)
 
         -- /c, /channel — wait for a space after the channel ID too,
         -- so we don't fire while the user is still typing it.
         if cmd == "c" or cmd == "channel" then
-            local ch, remainder = (rest2 or ""):match("^(%S+)%s+(.*)")
+            local ch, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
             if ch then
                 local chNum = tonumber(ch)
                 if chNum then
@@ -278,7 +377,7 @@ function EditBox:SetupOverlayScripts()
 
         -- /w, /whisper, /tell, /t — wait for a space after the target name.
         if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" then
-            local target, remainder = (rest2 or ""):match("^(%S+)%s+(.*)")
+            local target, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
             if target then
                 self.ChatType = "WHISPER"
                 self.Target   = target
@@ -330,10 +429,15 @@ function EditBox:SetupOverlayScripts()
     -- ── OnEnterPressed: send or forward ──────────────────────────────
     edit:SetScript("OnEnterPressed", function(box)
         local text = box:GetText() or ""
-        local trimmed = text:match("^%s*(.-)%s*$") or ""
+        local trimmed = strmatch(text, "^%s*(.-)%s*$") or ""
 
         -- Empty input — remember channel and close (clean).
         if trimmed == "" then
+            if self._openedFromBnetTransition
+               and self.ChatType
+               and self.ChatType ~= "BN_WHISPER" then
+                self._preferStickyAfterBnet = true
+            end
             self._closedClean = true
             if YapperTable.History then
                 YapperTable.History:ClearDraft()
@@ -346,15 +450,15 @@ function EditBox:SetupOverlayScripts()
         -- Slash commands: some (/w Name, /r) won't have been consumed by
         -- OnTextChanged because it waits for a trailing space.  Handle
         -- those here before forwarding anything unrecognised to Blizzard.
-        if trimmed:sub(1, 1) == "/" then
-            local enterCmd, enterRest = trimmed:match("^/([%w_]+)%s*(.*)")
+        if strbyte(trimmed, 1) == 47 then -- '/'
+            local enterCmd, enterRest = strmatch(trimmed, "^/([%w_]+)%s*(.*)")
             if enterCmd then
-                enterCmd = enterCmd:lower()
+                enterCmd = strlower(enterCmd)
 
                 -- /w, /t, /whisper, /tell — switch to whisper.
                 if enterCmd == "w" or enterCmd == "whisper"
                    or enterCmd == "tell" or enterCmd == "t" then
-                    local target = (enterRest or ""):match("^(%S+)")
+                    local target = strmatch(enterRest or "", "^(%S+)")
                     if target then
                         self.ChatType = "WHISPER"
                         self.Target   = target
@@ -389,7 +493,7 @@ function EditBox:SetupOverlayScripts()
 
                 -- /c, /channel — switch to a channel.
                 if enterCmd == "c" or enterCmd == "channel" then
-                    local ch = (enterRest or ""):match("^(%S+)")
+                    local ch = strmatch(enterRest or "", "^(%S+)")
                     if ch then
                         local chNum = tonumber(ch)
                         if chNum then
@@ -437,7 +541,7 @@ function EditBox:SetupOverlayScripts()
             end
 
             -- Unrecognised — forward to Blizzard.
-            if trimmed:sub(1, 1) == "/" then
+            if strbyte(trimmed, 1) == 47 then -- '/'
                 self._closedClean = true
                 if YapperTable.History then
                     YapperTable.History:ClearDraft()
@@ -579,7 +683,7 @@ function EditBox:SetupOverlayScripts()
                     if not C_ChatInfo.InChatMessagingLockdown
                        or not C_ChatInfo.InChatMessagingLockdown() then
                         self._lockdownHandedOff = false
-                        print("|cFFFFAA00Yapper:|r Lockdown ended — press Enter to resume typing.")
+                        YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
                         ticker:Cancel()
                         return
                     end
@@ -600,6 +704,10 @@ end
 --- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.
 function EditBox:Show(origEditBox)
     self:CreateOverlay()
+
+    local openedFromBnetTransition = self._nextShowFromBnetTransition == true
+    self._nextShowFromBnetTransition = false
+    self._openedFromBnetTransition = openedFromBnetTransition
 
     self.OrigEditBox = origEditBox
 
@@ -625,6 +733,20 @@ function EditBox:Show(origEditBox)
     local blizzChan = cache.channelTarget or (origEditBox and origEditBox:GetAttribute("channelTarget"))
     local blizzLang = cache.language    or (origEditBox and origEditBox:GetAttribute("language"))
     local blizzText = origEditBox and origEditBox.GetText and origEditBox:GetText()
+
+    -- One-shot BN guard expiry: if we open normally a couple times without
+    -- consuming this flag, treat it as stale and clear it.
+    if self._ignoreNextBnetLiveUpdateFor then
+        if blizzType ~= "BN_WHISPER" then
+            self._ignoreNextBnetLiveUpdateOpenCount = (self._ignoreNextBnetLiveUpdateOpenCount or 0) + 1
+            if self._ignoreNextBnetLiveUpdateOpenCount >= 2 then
+                self._ignoreNextBnetLiveUpdateFor = nil
+                self._ignoreNextBnetLiveUpdateOpenCount = 0
+            end
+        else
+            self._ignoreNextBnetLiveUpdateOpenCount = 0
+        end
+    end
 
     self._attrCache[origEditBox] = {}
 
@@ -725,27 +847,11 @@ function EditBox:Show(origEditBox)
         overlay:SetHeight(finalH)
     end
 
-    -- Re-apply backdrop from config.
+    -- Re-apply background colours from config.
     local inputBg = cfg.InputBg or {}
     local labelCfg = cfg.LabelBg or {}
-    if overlay.SetBackdropColor then
-        overlay:SetBackdropColor(inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
-    end
-    if overlay.SetBackdropBorderColor then
-        overlay:SetBackdropBorderColor(inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
-    end
-    self.LabelBg:SetBackdropColor(labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
-
-    -- Inherit backdrop structure from the parent for the label border.
-    local parent = origEditBox:GetParent()
-    if parent and parent.GetBackdrop and parent:GetBackdrop() then
-        local bd = parent:GetBackdrop()
-        self.LabelBg:SetBackdrop(bd)
-        self.LabelBg:SetBackdropColor(labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 0.9)
-        if parent.GetBackdropBorderColor then
-            self.LabelBg:SetBackdropBorderColor(parent:GetBackdropBorderColor())
-        end
-    end
+    SetFrameFillColor(overlay, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    SetFrameFillColor(self.LabelBg, labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
 
     -- Stay on top of the original.
     local origLevel = origEditBox:GetFrameLevel() or 0
@@ -783,11 +889,24 @@ function EditBox:Show(origEditBox)
 end
 
 function EditBox:Hide()
+    local prevOrig = self.OrigEditBox
+
     if self.Overlay then
         self.Overlay:Hide()
     end
     self.OverlayEdit:ClearFocus()
     self.OrigEditBox = nil
+
+    -- Suppress one immediate Blizzard Show for the same editbox to avoid
+    -- hide/show contention on outside-click dismissals.
+    if prevOrig then
+        self._suppressNextShowFor = prevOrig
+        C_Timer.After(0, function()
+            if self._suppressNextShowFor == prevOrig then
+                self._suppressNextShowFor = nil
+            end
+        end)
+    end
 end
 
 --- Save draft, close overlay, and notify during lockdown.
@@ -808,7 +927,7 @@ function EditBox:HandoffToBlizzard()
     self:Hide()
 
     self._lockdownHandedOff = true
-    print("|cFFFFAA00Yapper:|r Chat in lockdown — your message has been saved. Press Enter after lockdown ends to continue.")
+    YapperTable.Utils:Print("info", "Chat in lockdown — your message has been saved. Press Enter after lockdown ends to continue.")
 
     -- Cancel the polling ticker if one is running.
     if self._lockdownTicker then
@@ -817,17 +936,135 @@ function EditBox:HandoffToBlizzard()
     end
 end
 
+--- Re-apply current config values to a live overlay (if present/shown).
+function EditBox:ApplyConfigToLiveOverlay()
+    if not self.Overlay or not self.OverlayEdit then return end
+
+    local localConf = _G.YapperLocalConf
+    if type(localConf) ~= "table"
+       or type(localConf.System) ~= "table"
+       or localConf.System.SettingsHaveChanged ~= true then
+        return
+    end
+
+    local cfg = YapperTable.Config.EditBox or {}
+    local inputBg = cfg.InputBg or {}
+    local labelCfg = cfg.LabelBg or {}
+
+    SetFrameFillColor(self.Overlay, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    SetFrameFillColor(self.LabelBg, labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
+
+    local cfgFace  = cfg.FontFace
+    local cfgSize  = cfg.FontSize or 0
+    local cfgFlags = cfg.FontFlags or ""
+
+    if cfgFace or cfgSize > 0 then
+        local baseFace, baseSize, baseFlags
+        if self.OrigEditBox and self.OrigEditBox.GetFont then
+            baseFace, baseSize, baseFlags = self.OrigEditBox:GetFont()
+        end
+
+        local _, currentSize = self.OverlayEdit:GetFont()
+        local face  = cfgFace or baseFace
+        local size  = cfgSize > 0 and cfgSize or baseSize or currentSize or 14
+        local flags = (cfgFlags ~= "") and cfgFlags or baseFlags or ""
+        if face then
+            self.OverlayEdit:SetFont(face, size, flags)
+            if self.ChannelLabel then
+                self.ChannelLabel:SetFont(face, size, flags)
+            end
+        end
+    elseif self.OrigEditBox and self.OrigEditBox.GetFontObject then
+        local fontObj = self.OrigEditBox:GetFontObject()
+        if fontObj then
+            self.OverlayEdit:SetFontObject(fontObj)
+            if self.ChannelLabel then
+                self.ChannelLabel:SetFontObject(fontObj)
+            end
+        end
+    end
+
+    if self.Overlay and self.Overlay:IsShown() and self.OrigEditBox then
+        local _, activeSize = self.OverlayEdit:GetFont()
+        activeSize = activeSize or 14
+        local fontPad    = cfg.FontPad or 8
+        local fontNeeded = activeSize + fontPad
+        local blizzH     = self.OrigEditBox:GetHeight() or 32
+        local minH       = (cfg.MinHeight and cfg.MinHeight > 0) and cfg.MinHeight or blizzH
+        local finalH     = math.max(minH, fontNeeded)
+
+        self.Overlay:ClearAllPoints()
+        self.Overlay:SetPoint("TOPLEFT", self.OrigEditBox, "TOPLEFT", 0, 0)
+        self.Overlay:SetPoint("RIGHT", self.OrigEditBox, "RIGHT", 0, 0)
+        self.Overlay:SetHeight(finalH > blizzH and finalH or blizzH)
+    end
+
+    self:RefreshLabel()
+    localConf.System.SettingsHaveChanged = false
+end
+
 -- ---------------------------------------------------------------------------
 -- Label
 -- ---------------------------------------------------------------------------
 
 function EditBox:RefreshLabel()
     local label, r, g, b = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
+    local cfg = YapperTable.Config.EditBox or {}
+    local resolvedR, resolvedG, resolvedB = r, g, b
+
+    local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
+    local masterKey = cfg.ChannelColorMaster
+    local overrides = cfg.ChannelColorOverrides
+    local channelColors = cfg.ChannelTextColors
+
+    if currentKey and type(channelColors) == "table"
+       and type(channelColors[currentKey]) == "table" then
+        local own = channelColors[currentKey]
+        if type(own.r) == "number" and type(own.g) == "number" and type(own.b) == "number" then
+            resolvedR, resolvedG, resolvedB = own.r, own.g, own.b
+        end
+    end
+
+    if currentKey and type(masterKey) == "string" and type(overrides) == "table"
+       and masterKey ~= "" and currentKey ~= masterKey and overrides[currentKey] == true then
+        if type(channelColors) == "table"
+           and type(channelColors[masterKey]) == "table"
+           and type(channelColors[masterKey].r) == "number"
+           and type(channelColors[masterKey].g) == "number"
+           and type(channelColors[masterKey].b) == "number" then
+            resolvedR = channelColors[masterKey].r
+            resolvedG = channelColors[masterKey].g
+            resolvedB = channelColors[masterKey].b
+        elseif ChatTypeInfo and ChatTypeInfo[masterKey] then
+            local info = ChatTypeInfo[masterKey]
+            resolvedR = info.r or resolvedR
+            resolvedG = info.g or resolvedG
+            resolvedB = info.b or resolvedB
+        end
+    end
+
+    local usableWidth = GetLabelUsableWidth(self)
+    if self.ChannelLabel.SetWidth then
+        self.ChannelLabel:SetWidth(usableWidth)
+    end
+
+    ResetLabelToBaseFont(self)
+
+    if cfg.AutoFitLabel == true then
+        local fitOk = FitLabelFontToWidth(self, label, usableWidth)
+        if not fitOk then
+            label = TruncateLabelToWidth(self.ChannelLabel, label, usableWidth)
+        end
+    else
+        label = TruncateLabelToWidth(self.ChannelLabel, label, usableWidth)
+    end
+
     self.ChannelLabel:SetText(label)
-    self.ChannelLabel:SetTextColor(r, g, b)
-    -- Text colour matches the channel.
+    self.ChannelLabel:SetTextColor(resolvedR, resolvedG, resolvedB)
+
+    -- Labels stay channel-coloured. Input text uses channel colour, or master override.
     if self.OverlayEdit then
-        self.OverlayEdit:SetTextColor(r, g, b)
+        self.OverlayEdit:SetTextColor(resolvedR, resolvedG, resolvedB)
     end
 end
 
@@ -994,6 +1231,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                         return
                     end
 
+                    -- If WIM grabbed whisper focus in the meantime, do not
+                    -- reclaim this box for Yapper's overlay.
+                    if IsWIMFocusActive() then
+                        self._bnetEditBox = nil
+                        return
+                    end
+
                     -- Read leftover text after ParseText stripped the slash prefix.
                     local leftover = savedEB and savedEB.GetText and savedEB:GetText() or ""
                     leftover = leftover:match("^%s*(.-)%s*$") or ""
@@ -1001,6 +1245,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     if savedEB and savedEB.Hide and savedEB:IsShown() then
                         savedEB:Hide()
                     end
+                    self._nextShowFromBnetTransition = true
                     self:Show(savedEB)
 
                     -- Force the correct chat type (cache may hold stale BNet attrs).
@@ -1036,6 +1281,17 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
             -- BNet arrived late — hand back to Blizzard.
             if ct == "BN_WHISPER" then
+                if self._ignoreNextBnetLiveUpdateFor == eb then
+                    self._ignoreNextBnetLiveUpdateFor = nil
+                    self._ignoreNextBnetLiveUpdateOpenCount = 0
+                    return
+                end
+                if self._preferStickyAfterBnet
+                   and self.ChatType
+                   and self.ChatType ~= "BN_WHISPER" then
+                    self._preferStickyAfterBnet = false
+                    return
+                end
                 self:Hide()
                 if eb and eb.Show then
                     eb:Show()
@@ -1064,6 +1320,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     end)
 
     hooksecurefunc(blizzEditBox, "Show", function(eb)
+        if self._suppressNextShowFor == eb then
+            self._suppressNextShowFor = nil
+            return
+        end
+
         -- Re-entrancy guard: hooksecurefunc fires even if already shown,
         -- and SetFocus causes a Show→ActivateChat→Show loop.
         if self.Overlay and self.Overlay:IsShown() then
@@ -1081,11 +1342,36 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
+        -- If WIM currently owns chat focus, do not present Yapper overlay.
+        if IsWIMFocusActive() then
+            return
+        end
+
         -- BNet whispers — let Blizzard handle natively.  Save the
         -- editbox ref so SetAttribute can reclaim it on type-switch.
         local c = self._attrCache[eb] or {}
         local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
         if ct == "BN_WHISPER" then
+            if self._preferStickyAfterBnet
+               and self.LastUsed
+               and self.LastUsed.chatType
+               and self.LastUsed.chatType ~= "BN_WHISPER" then
+                self._preferStickyAfterBnet = false
+                self._ignoreNextBnetLiveUpdateFor = eb
+                self._ignoreNextBnetLiveUpdateOpenCount = 0
+
+                C_Timer.After(0, function()
+                    if eb and eb.Hide and eb:IsShown() then
+                        eb:Hide()
+                    end
+                end)
+
+                -- Respect WIM ownership before forcing an overlay show.
+                if not IsWIMFocusActive() then
+                    self:Show(eb)
+                end
+                return
+            end
             self._bnetEditBox = eb
             return
         end
