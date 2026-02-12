@@ -1,5 +1,5 @@
 --[[
-    Frames.lua — Yapper 1.0.0
+    Frames.lua
     Lightweight frame factory and container.
 ]]
 
@@ -19,20 +19,6 @@ function Frames:Init()
     end
     local id = YapperTable.Config.System.FRAME_ID_PARENT
     Container[id] = CreateFrame("Frame", YapperName .. "EventFrame", UIParent)
-end
-
---- Create and register an arbitrary frame.
-function Frames:MakeNewFrame(id, name, parent, w, h)
-    if not id then
-        YapperTable.Error:Throw("NO_FRAME_ID", name or "Unknown")
-        return
-    end
-    local f = CreateFrame("Frame", name, parent)
-    f:SetSize(w, h)
-    f:SetPoint("CENTER")
-    f:Show()
-    Container[id] = f
-    return f
 end
 
 --- Hide the main event frame (used during override/disable).
