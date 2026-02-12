@@ -1,3 +1,18 @@
+-- 1.0.1
+  - In-game UI to change settings. See addon compartment, minimap button (if supported) or type '/yapper' in chat.
+
+  - New accessibility options!
+    - Better text styling controls, can set font size, outline mode, and per-channel colour customization!
+    - Background styling for the edit box, set to any colour combination and opacity!
+
+  - Improved chat label behavior and sticky-channel handling, including reduced BNet handoff issues.
+  - Improved message-splitting marker handling and spacing behavior. Now customisable!
+  - Better undo/redo reliability and local SavedVariables migration safety.
+
+  Known Issues:
+    - Rare BNet editbox contention can still occur in some whisper transition sequences.
+    - Workaround: type `/s` or `/say` (without trailing whitespace) and press Enter to recover cleanly.
+
 -- 1.0.0
     - FULL REFACTOR
     - DOES NOT TAINT BLIZZARD'S EDITBOX!
