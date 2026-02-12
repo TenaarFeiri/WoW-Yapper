@@ -1,5 +1,5 @@
 --[[
-    Events.lua — Yapper 1.0.0
+    Events.lua
     Simple event bus: register/unregister handlers per Blizzard event.
 ]]
 
