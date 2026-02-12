@@ -1,5 +1,5 @@
 --[[
-    Queue.lua — Yapper 1.0.0
+    Queue.lua
     Three-mode delivery queue.
 
     BATCH   (SAY, YELL, CHANNEL) — need a hardware event per batch.
