@@ -1,5 +1,4 @@
 --[[
-    Chunking.lua — Yapper 1.0.0
     Message splitting.
 
     Splits text into chunks that fit within WoW's byte limit, preserving
@@ -301,16 +300,39 @@ end
 -- Delineator API
 -- ---------------------------------------------------------------------------
 
+local function NormalizeMarker(raw)
+    local marker = tostring(raw or "")
+    marker = marker:match("^%s*(.-)%s*$") or ""
+    return marker
+end
+
 --- Returns the delineation markers currently in use.
 function Chunking:GetDelineators()
     local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-    return cfg.DELINEATOR or " >>", cfg.PREFIX or ">> "
+    local marker = NormalizeMarker(cfg.DELINEATOR or cfg.PREFIX)
+    if marker == "" then
+        return "", ""
+    end
+    return " " .. marker, marker .. " "
 end
 
 --- Update delineation markers.
 function Chunking:SetDelineators(newDelineator, newPrefix)
     local cfg = YapperTable.Config and YapperTable.Config.Chat
     if not cfg then return end
-    cfg.DELINEATOR = tostring(newDelineator or " >>")
-    cfg.PREFIX     = tostring(newPrefix or ">> ")
+    local source = (newDelineator ~= nil and newDelineator)
+                or (newPrefix ~= nil and newPrefix)
+                or cfg.DELINEATOR
+                or cfg.PREFIX
+    local marker = NormalizeMarker(source)
+
+    -- Prefix/suffix use the same marker, with whitespace added by us.
+    -- Marker is treated as an opaque UTF-8 byte string (no slicing performed).
+    if marker == "" then
+        cfg.DELINEATOR = ""
+        cfg.PREFIX     = ""
+    else
+        cfg.DELINEATOR = " " .. marker
+        cfg.PREFIX     = marker .. " "
+    end
 end
