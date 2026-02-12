@@ -1,5 +1,5 @@
 --[[
-    Error.lua — Yapper 1.0.0
+    Error.lua
     Centralised error codes, formatted printing, and fatal throws.
 ]]
 
@@ -26,8 +26,6 @@ local CODE = {
     MISSING_FRAMES  = "YapperTable.Frames is missing — did it fail to load?",
 
     -- Frames
-    NO_FRAME_ID     = "No frame identifier provided for new frame %s.",
-    FRAME_ID_ABSENT = "Frame ID %s does not exist.",
     HOOKS_NOT_TABLE    = "Hooks were not a table for frame %s.",
     HOOK_NOT_FUNCTION  = "Hook %s for frame %s is not a function.",
 
@@ -77,7 +75,7 @@ function Error:PrintError(code, ...)
     if code == "UNKNOWN" and debug then
         msg = msg .. " — " .. (debug.traceback(nil, 2) or "")
     end
-    _G.YAPPER_UTILS:Print("|cFFFF4444Error:|r " .. msg)
+    YapperTable.Utils:Print("warn", "Error: " .. msg)
 end
 
 --- Print a formatted error AND halt execution (error()).
