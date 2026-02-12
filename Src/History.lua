@@ -1,5 +1,4 @@
 --[[
-    History.lua — Yapper 1.0.0
     Persistent chat history (survives reloads), crash-safe draft auto-save
     (ring buffer into SavedVariables), and per-session undo/redo.
 ]]
@@ -16,6 +15,7 @@ local UNDO_HISTORY_SIZE  = 20   -- Max undo snapshots per editbox
 local CHAT_HISTORY_SIZE  = 50   -- Max persistent sent messages
 local SNAPSHOT_THRESHOLD = 20   -- Min character delta for auto-snapshot
 local DRAFT_SLOTS        = 5    -- Ring buffer size for crash-safe drafts
+local CURRENT_VERSION    = tonumber((YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.VERSION)) or 1.0
 
 -- Per-editbox undo buffers (keyed by name string).
 local UndoBuffers = {}
@@ -23,10 +23,23 @@ local UndoBuffers = {}
 -- Last known text per editbox (for change detection).
 local LastText = {}
 
+local function DeepCopy(src)
+    if type(src) ~= "table" then
+        return src
+    end
+
+    local out = {}
+    for k, v in pairs(src) do
+        out[k] = DeepCopy(v)
+    end
+    return out
+end
+
 -- ---------------------------------------------------------------------------
 -- SavedVariable defaults
 -- ---------------------------------------------------------------------------
 local HISTORY_DEFAULTS = {
+    VERSION = CURRENT_VERSION,
     chatHistory = {},  -- Flat array of sent strings, newest last.
     draft = {
         ring     = {},    -- Ring buffer: up to DRAFT_SLOTS text snapshots.
@@ -47,33 +60,34 @@ function History:InitDB()
         _G.YapperLocalHistory = {}
     end
 
-    -- ── Migrate from legacy YapperDB (pre-1.0.0) ──
-    if _G.YapperDB then
-        if _G.YapperDB.chatHistory ~= nil and _G.YapperLocalHistory.chatHistory == nil then
-            _G.YapperLocalHistory.chatHistory = _G.YapperDB.chatHistory
-            _G.YapperDB.chatHistory = nil
-        end
-        if _G.YapperDB.draft ~= nil and _G.YapperLocalHistory.draft == nil then
-            _G.YapperLocalHistory.draft = _G.YapperDB.draft
-            _G.YapperDB.draft = nil
-        end
+    -- History is now per-character only.
+    -- Ensure any legacy account-wide history payload stays removed.
+    if type(_G.YapperDB) == "table" then
+        _G.YapperDB.chatHistory = nil
+        _G.YapperDB.draft = nil
     end
 
     -- Apply defaults for any missing keys.
     for key, default in pairs(HISTORY_DEFAULTS) do
         if _G.YapperLocalHistory[key] == nil then
-            _G.YapperLocalHistory[key] = default
+            if type(default) == "table" then
+                _G.YapperLocalHistory[key] = DeepCopy(default)
+            else
+                _G.YapperLocalHistory[key] = default
+            end
         end
     end
 
     -- Upgrade from older DB versions.
     local d = _G.YapperLocalHistory.draft
     if type(d) ~= "table" then
-        _G.YapperLocalHistory.draft = HISTORY_DEFAULTS.draft
+        _G.YapperLocalHistory.draft = DeepCopy(HISTORY_DEFAULTS.draft)
     else
         if d.ring == nil then d.ring = {} end
         if d.pos  == nil then d.pos  = 0  end
     end
+
+    _G.YapperLocalHistory.VERSION = tonumber(_G.YapperLocalHistory.VERSION) or CURRENT_VERSION
 end
 
 function History:SaveDB()
@@ -202,12 +216,23 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Snapshot the current editbox state into the undo buffer.
-function History:AddSnapshot(editbox, force)
+function History:AddSnapshot(editbox, force, textOverride, cursorOverride)
     local buf = GetUndoBuffer(editbox)
     if not buf then return end
 
-    local text   = editbox:GetText() or ""
-    local cursor = editbox:GetCursorPosition() or 0
+    local text
+    if textOverride ~= nil then
+        text = textOverride
+    else
+        text = editbox:GetText() or ""
+    end
+
+    local cursor
+    if cursorOverride ~= nil then
+        cursor = cursorOverride
+    else
+        cursor = editbox:GetCursorPosition() or 0
+    end
     local cur    = buf.entries[buf.position]
 
     -- Skip if text unchanged.
@@ -255,7 +280,14 @@ function History:Redo(editbox)
     local buf = GetUndoBuffer(editbox)
     if not buf then return end
 
-    self:AddSnapshot(editbox, true)
+    local currentText = editbox:GetText() or ""
+    local currentEntry = buf.entries[buf.position]
+
+    -- If user edited after undo, redo chain is invalid.
+    if currentEntry and currentText ~= (currentEntry.text or "") then
+        return
+    end
+
     if buf.position >= #buf.entries then return end
 
     buf.position = buf.position + 1
@@ -307,11 +339,24 @@ function History:HookOverlayEditBox()
         local text = box:GetText() or ""
         local last = LastText[name] or ""
 
-        -- Undo snapshot on large deltas.
-        if math.abs(#text - #last) >= SNAPSHOT_THRESHOLD then
-            self:AddSnapshot(box, false)
-            LastText[name] = text
+        local function IsWhitespaceByte(b)
+            return b == 32 or b == 9 or b == 10 or b == 13
         end
+
+        local textLast = (#text > 0) and text:byte(#text) or nil
+        local lastLast = (#last > 0) and last:byte(#last) or nil
+        local insertedWhitespace = (#text > #last) and IsWhitespaceByte(textLast)
+        local removedWhitespace  = (#text < #last) and IsWhitespaceByte(lastLast)
+
+        -- Undo snapshot on whitespace insert/remove using PRE-change text,
+        -- otherwise snapshot on large deltas.
+        if insertedWhitespace or removedWhitespace then
+            self:AddSnapshot(box, true, last, #last)
+        elseif math.abs(#text - #last) >= SNAPSHOT_THRESHOLD then
+            self:AddSnapshot(box, false)
+        end
+
+        LastText[name] = text
 
         -- Draft save on whitespace (Space, Tab, Enter — natural pause points).
         if #text > 0 then
