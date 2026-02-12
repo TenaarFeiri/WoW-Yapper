@@ -1,5 +1,4 @@
 --[[
-    Yapper.lua — Yapper 1.0.0
     Entry point.  Loaded last; boots the addon and wires modules together.
 ]]
 
@@ -22,8 +21,41 @@ if not YapperTable.Frames  then YapperTable.Error:Throw("MISSING_FRAMES")  end
 -- Boot sequence
 -- ---------------------------------------------------------------------------
 
--- 1. Create the hidden event frame.
+-- 1. Expose YapperTable as Yapper globally and create the hidden event frame.
+Yapper = YapperTable
 YapperTable.Frames:Init()
+
+-- Slash command entry point for quickly opening/toggling settings.
+SLASH_YAPPER1 = "/yapper"
+SlashCmdList["YAPPER"] = function(msg)
+    local input = tostring(msg or "")
+    input = (input:match("^%s*(.-)%s*$") or "")
+    input = string.lower(input)
+
+    if not YapperTable.Interface then
+        YapperTable.Utils:Print("warn", "Interface module unavailable.")
+        return
+    end
+
+    if input == "" or input == "toggle" then
+        YapperTable.Interface:ToggleMainWindow()
+        return
+    end
+
+    if input == "open" or input == "show" then
+        YapperTable.Interface:ShowMainWindow()
+        return
+    end
+
+    if input == "close" or input == "hide" then
+        if YapperTable.Interface.MainWindowFrame and YapperTable.Interface.MainWindowFrame:IsShown() then
+            YapperTable.Interface:CloseFrame(YapperTable.Interface.MainWindowFrame)
+        end
+        return
+    end
+
+    YapperTable.Utils:Print("info", "Usage: /yapper [toggle|open|close]")
+end
 
 -- 2. ADDON_LOADED — access SavedVariables.
 local function OnAddonLoaded(addonName)
@@ -31,6 +63,11 @@ local function OnAddonLoaded(addonName)
 
     -- Initialise all three SavedVariables (YapperDB, YapperLocalConf, YapperLocalHistory).
     YapperTable.Core:InitSavedVars()
+
+    -- Register launcher at startup (Addon Compartment preferred, fallbacks inside Interface).
+    if YapperTable.Interface and YapperTable.Interface.CreateLauncher then
+        YapperTable.Interface:CreateLauncher()
+    end
 
     -- Initialise persistent history store.
     if YapperTable.History then
@@ -44,6 +81,10 @@ YapperTable.Events:Register("PARENT_FRAME", "ADDON_LOADED", OnAddonLoaded)
 
 -- 3. PLAYER_ENTERING_WORLD — hook chat frames and initialise pipeline.
 local function OnPlayerEnteringWorld()
+    if YapperTable.Interface and YapperTable.Interface.PurgeRenderCache then
+        YapperTable.Interface:PurgeRenderCache()
+    end
+
     -- Hook all Blizzard chat editboxes with our taint-free overlay.
     if YapperTable.EditBox then
         YapperTable.EditBox:HookAllChatFrames()
@@ -59,7 +100,7 @@ local function OnPlayerEnteringWorld()
         YapperTable.History:HookOverlayEditBox()
     end
 
-    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Happy roleplaying!")
+    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Use /yapper to open settings.")
     YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
 end
 
