@@ -375,7 +375,6 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- /w, /whisper, /tell, /t — wait for a space after the target name.
         if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" then
             local target, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
             if target then
@@ -391,7 +390,6 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- /r, /reply
         if cmd == "r" or cmd == "reply" then
             local lastTell
             if ChatEdit_GetLastTellTarget then
@@ -410,7 +408,6 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- Standard chat-type switch (/s, /e, /p, etc.).
         if SLASH_MAP[cmd] then
             self.ChatType = SLASH_MAP[cmd]
             self.Target   = nil
@@ -422,16 +419,12 @@ function EditBox:SetupOverlayScripts()
             box:SetCursorPosition(#(rest2 or ""))
             return
         end
-
-        -- Unknown — leave as-is; forwarded to Blizzard on Enter.
     end)
 
-    -- ── OnEnterPressed: send or forward ──────────────────────────────
     edit:SetScript("OnEnterPressed", function(box)
         local text = box:GetText() or ""
         local trimmed = strmatch(text, "^%s*(.-)%s*$") or ""
 
-        -- Empty input — remember channel and close (clean).
         if trimmed == "" then
             if self._openedFromBnetTransition
                and self.ChatType
@@ -448,14 +441,13 @@ function EditBox:SetupOverlayScripts()
         end
 
         -- Slash commands: some (/w Name, /r) won't have been consumed by
-        -- OnTextChanged because it waits for a trailing space.  Handle
+        -- OnTextChanged because it waits for a trailing space. Handle
         -- those here before forwarding anything unrecognised to Blizzard.
         if strbyte(trimmed, 1) == 47 then -- '/'
             local enterCmd, enterRest = strmatch(trimmed, "^/([%w_]+)%s*(.*)")
             if enterCmd then
                 enterCmd = strlower(enterCmd)
-
-                -- /w, /t, /whisper, /tell — switch to whisper.
+                
                 if enterCmd == "w" or enterCmd == "whisper"
                    or enterCmd == "tell" or enterCmd == "t" then
                     local target = strmatch(enterRest or "", "^(%S+)")
@@ -463,7 +455,9 @@ function EditBox:SetupOverlayScripts()
                         self.ChatType = "WHISPER"
                         self.Target   = target
                         self.Language = nil
-                        updatingText = true
+                        if eb and eb.Hide and eb:IsShown() then
+                            eb:Hide()
+                        end
                         box:SetText("")
                         updatingText = false
                         self:RefreshLabel()
@@ -472,7 +466,6 @@ function EditBox:SetupOverlayScripts()
                     end
                 end
 
-                -- /r, /reply — switch to whisper-reply.
                 if enterCmd == "r" or enterCmd == "reply" then
                     local lastTell
                     if ChatEdit_GetLastTellTarget then
@@ -491,7 +484,6 @@ function EditBox:SetupOverlayScripts()
                     end
                 end
 
-                -- /c, /channel — switch to a channel.
                 if enterCmd == "c" or enterCmd == "channel" then
                     local ch = strmatch(enterRest or "", "^(%S+)")
                     if ch then
@@ -523,7 +515,6 @@ function EditBox:SetupOverlayScripts()
                     end
                 end
 
-                -- Other known slash commands (e.g. "/e" alone — switch mode).
                 if SLASH_MAP[enterCmd] then
                     self.ChatType = SLASH_MAP[enterCmd]
                     self.Target   = nil
@@ -540,7 +531,6 @@ function EditBox:SetupOverlayScripts()
                 end
             end
 
-            -- Unrecognised — forward to Blizzard.
             if strbyte(trimmed, 1) == 47 then -- '/'
                 self._closedClean = true
                 if YapperTable.History then
@@ -552,22 +542,18 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
-        -- Normal message — fire OnSend callback or send directly.
         if self.OnSend then
             self.OnSend(trimmed, self.ChatType or "SAY", self.Language, self.Target)
         else
-            local sendFn = YapperTable.SendChatMessageOverride or C_ChatInfo.SendChatMessage
-            if sendFn then
-                sendFn(trimmed, self.ChatType or "SAY", self.Language, self.Target)
+            if C_ChatInfo and C_ChatInfo.SendChatMessage then
+                C_ChatInfo.SendChatMessage(trimmed, self.ChatType or "SAY", self.Language, self.Target)
             end
         end
 
-        -- Add to Blizzard's history so Up/Down works across reloads.
         if self.OrigEditBox then
             self.OrigEditBox:AddHistoryLine(text)
         end
 
-        -- Clean close — message handed off successfully.
         self._closedClean = true
         if YapperTable.History then
             YapperTable.History:ClearDraft()
@@ -576,17 +562,15 @@ function EditBox:SetupOverlayScripts()
         self:Hide()
     end)
 
-    -- ── OnEscapePressed: close overlay ───────────────────────────────
     edit:SetScript("OnEscapePressed", function(box)
         local text = box:GetText() or ""
         if text == "" then
-            -- Nothing to lose — clean close.
             self._closedClean = true
             if YapperTable.History then
                 YapperTable.History:ClearDraft()
             end
         else
-            -- User bailed with text in the box — dirty close.
+            -- User bailed with text in the box
             -- Draft is saved in OnHide below.
             self._closedClean = false
         end
@@ -594,7 +578,6 @@ function EditBox:SetupOverlayScripts()
         self:Hide()
     end)
 
-    -- ── OnKeyDown: Tab cycling + history ───────────────────────────
     edit:HookScript("OnKeyDown", function(box, key)
         if key == "TAB" then
             self:CycleChat(IsShiftKeyDown() and -1 or 1)
@@ -605,12 +588,10 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    -- ── OnHide: save draft if dirty ───────────────────────────────
     frame:SetScript("OnHide", function()
         self.HistoryIndex = nil
         self.HistoryCache = nil
 
-        -- Draft tracking: dirty close → save text.
         if not self._closedClean and YapperTable.History then
             local eb = self.OverlayEdit
             if eb then
@@ -621,11 +602,10 @@ function EditBox:SetupOverlayScripts()
                 YapperTable.History:MarkDirty(true)
             end
         end
-        -- Reset for next open.
         self._closedClean = false
     end)
 
-    -- ── Combat lockdown detection ────────────────────────────────────
+    -- Combat lockdown detection
     -- When InChatMessagingLockdown becomes true mid-typing, hand the
     -- overlay state back to Blizzard's secure editbox.
     -- Lockdown may activate slightly AFTER PLAYER_REGEN_DISABLED, so
@@ -711,7 +691,7 @@ function EditBox:Show(origEditBox)
 
     self.OrigEditBox = origEditBox
 
-    -- ── Determine chat mode and target ───────────────────────────────
+    -- Determine chat mode and target
     -- Two paths exist in Blizzard's code:
     --   • BNet whisper: SetAttribute fires BEFORE Show (cache is populated)
     --   • WoW friend whisper: SendTellWithMessage → OpenChat → Show fires
@@ -787,7 +767,7 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- ── Position & size ──────────────────────────────────────────────
+    -- Position & size
     -- Anchor directly on top of the original editbox so it looks identical.
     local overlay = self.Overlay
     local cfg = YapperTable.Config.EditBox or {}
@@ -805,7 +785,7 @@ function EditBox:Show(origEditBox)
     local labelW  = math.max(80, math.min(math.floor(ebWidth * 0.28), ebWidth - 80))
     self.LabelBg:SetWidth(labelW)
 
-    -- ── Font ─────────────────────────────────────────────────────────
+    -- Font 
     -- Config overrides Blizzard's font; otherwise inherit.
     local cfgFace  = cfg.FontFace
     local cfgSize  = cfg.FontSize or 0
@@ -829,7 +809,7 @@ function EditBox:Show(origEditBox)
 
     -- Text colour is set by RefreshLabel() to match the active channel.
 
-    -- ── Vertical scaling ────────────────────────────────────────────
+    -- Vertical scaling
     -- The overlay must be tall enough for the chosen font.  If the font
     -- size (+ padding) exceeds the Blizzard editbox height, grow.
     -- A configured MinHeight also serves as a floor.
@@ -861,7 +841,7 @@ function EditBox:Show(origEditBox)
     self._closedClean = false
 
     -- Draft recovery: restore if the last close was dirty.
-    -- Skip if Blizzard set a target (e.g. Friends-list whisper) — stale.
+    -- Skip if Blizzard set a target (e.g. Friends-list whisper).
     local draftText
     if not blizzHasTarget and YapperTable.History then
         local text, draftType, draftTarget = YapperTable.History:GetDraft()
@@ -885,6 +865,9 @@ function EditBox:Show(origEditBox)
     end
     self:RefreshLabel()
     overlay:Show()
+    if YapperTable.Router then
+        YapperTable.Router:NeutralizeGopher()
+    end
     self.OverlayEdit:SetFocus()
 end
 
@@ -1361,7 +1344,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 self._ignoreNextBnetLiveUpdateOpenCount = 0
 
                 C_Timer.After(0, function()
-                    if eb and eb.Hide and eb:IsShown() then
+                        if eb and eb.Hide and eb:IsShown() then
                         eb:Hide()
                     end
                 end)
@@ -1379,14 +1362,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- PreShowCheck: lets Queue suppress the overlay to grab the event.
         if self.PreShowCheck and self.PreShowCheck(eb) then
             C_Timer.After(0, function()
-                if eb and eb.Hide and eb:IsShown() then eb:Hide() end
+                if eb and eb.Hide and eb:IsShown() then
+                    eb:Hide()
+                end
             end)
             return
         end
 
         -- Hide Blizzard's box next frame (can't interfere mid-Show).
         C_Timer.After(0, function()
-            if eb and eb.Hide and eb:IsShown() then
+                if eb and eb.Hide and eb:IsShown() then
                 eb:Hide()
             end
         end)

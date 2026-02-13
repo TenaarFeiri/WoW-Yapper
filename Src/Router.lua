@@ -6,8 +6,8 @@
             2. BNSendWhisper               — Battle.net whispers.
             3. C_Club.SendMessage          — Communities / Guild / Officer chat.
 
-        If Gopher (LibGopher) is present, we bypass its hooks by calling the
-        original functions it saved internally, so Yapper controls its own split.
+        If Gopher (LibGopher) is present we destructively unhook it — Yapper
+        replaces all of Gopher's functionality.
 ]]
 
 local YapperName, YapperTable = ...
@@ -15,55 +15,133 @@ local YapperName, YapperTable = ...
 local Router = {}
 YapperTable.Router = Router
 
--- Real send functions (Gopher originals if present, else WoW APIs).
+-- Live send functions — always point at the real Blizzard APIs.
 Router.SendChatMessage = nil
 Router.BNSendWhisper   = nil
 Router.ClubSendMessage = nil
 
 -- ---------------------------------------------------------------------------
--- Initialisation
+-- Gopher neutralisation
 -- ---------------------------------------------------------------------------
+-- Gopher hooks three globals at file scope (before PLAYER_LOGIN):
+--   C_ChatInfo.SendChatMessage  →  Me.SendChatMessageHook
+--   BNSendWhisper               →  Me.BNSendWhisperHook
+--   C_Club.SendMessage          →  Me.ClubSendMessageHook
+-- It stores the originals in LibGopher.Internal.hooks.*.
+-- Strategy: restore globals, gut the internals, make it idempotent.
 
---- Probe for LibGopher and attach bypass hooks if available.
--- Exposed so other addons can override or call it before `Init()`.
--- Returns true if LibGopher hooks were applied.
-function Router:DetectGopher()
-    local gopherBypass = false
-    local ok, gopher = pcall(function()
-        if _G.LibStub then
-            return _G.LibStub("Gopher", true)
-        end
-    end)
+Router._gopherNeutralized = false
 
-    if ok and gopher and gopher.hooks then
-        if gopher.hooks.SendChatMessage then
-            self.SendChatMessage = gopher.hooks.SendChatMessage
-            gopherBypass = true
+--- Find LibGopher.Internal via every known path. Returns the Internal table
+--- or nil.
+local function FindGopherInternal()
+    -- Path 1: global LibGopher table (most common — Gopher sets _G.LibGopher)
+    if _G.LibGopher and type(_G.LibGopher.Internal) == "table" then
+        return _G.LibGopher.Internal
+    end
+    -- Path 2: LibStub (some builds register through it)
+    if _G.LibStub then
+        local ok, lib = pcall(_G.LibStub, _G.LibStub, "Gopher", true)
+        if ok and lib and type(lib.Internal) == "table" then
+            return lib.Internal
         end
-        if gopher.hooks.BNSendWhisper then
-            self.BNSendWhisper = gopher.hooks.BNSendWhisper
-            gopherBypass = true
+    end
+    return nil
+end
+
+--- Destroy Gopher idempotently.
+--- Can be called at any point — Init, EditBox:Show, EditBox:Hide, before
+--- every send, executes only once.
+function Router:NeutralizeGopher()
+    if self._gopherNeutralized then return false end
+
+    local me = FindGopherInternal()
+    if not me then return false end
+    local hooks = me.hooks
+    if type(hooks) ~= "table" then return false end
+
+    -- Restore Gopher's saved APIs.
+    if hooks.SendChatMessage then
+        C_ChatInfo.SendChatMessage = hooks.SendChatMessage
+    end
+    if hooks.BNSendWhisper then
+        _G.BNSendWhisper = hooks.BNSendWhisper
+    end
+    if hooks.ClubSendMessage and _G.C_Club then
+        _G.C_Club.SendMessage = hooks.ClubSendMessage
+    end
+
+    -- Replace Gopher's hook functions with thin pass-throughs so any
+    -- stale reference that still calls them is passed to Blizz.
+    if hooks.SendChatMessage then
+        local orig = hooks.SendChatMessage
+        me.SendChatMessageHook = function(msg, chatType, lang, channel)
+            return orig(msg, chatType, lang, channel)
         end
-        if gopher.hooks.ClubSendMessage then
-            self.ClubSendMessage = gopher.hooks.ClubSendMessage
-            gopherBypass = true
+    end
+    if hooks.BNSendWhisper then
+        local orig = hooks.BNSendWhisper
+        me.BNSendWhisperHook = function(presenceID, text)
+            return orig(presenceID, text)
+        end
+    end
+    if hooks.ClubSendMessage then
+        local orig = hooks.ClubSendMessage
+        me.ClubSendMessageHook = function(clubId, streamId, message)
+            return orig(clubId, streamId, message)
         end
     end
 
-    return gopherBypass
+    -- Now we kill the event and listener system.
+    me.event_hooks = {}
+    me.FireEvent   = function() end
+    me.FireEventEx = function() end
+    me.Listen      = function() return false end
+    me.StopListening = function() return false end
+
+    -- Kill AddChat so that Gopher cannot add to its queue.
+    me.AddChat     = function() end
+    me.QueueChat   = function() end
+
+    -- Don't re-hook.
+    me.load = false
+
+    -- If there's any active queue or throttler state, kill that too.
+    if type(me.chat_queue) == "table" then
+        _G.wipe(me.chat_queue)
+    end
+    if type(me.out_chat_buffer) == "table" then
+        _G.wipe(me.out_chat_buffer)
+    end
+    me.sending_active    = false
+    me.send_queue_started = false
+
+    -- Detach Gopher's event frames.
+    if me.frame and me.frame.UnregisterAllEvents then
+        me.frame:UnregisterAllEvents()
+        me.frame:SetScript("OnEvent", nil)
+    end
+
+    self._gopherNeutralized = true -- RIP, you gave me more trouble than I wanted
+    return true
 end
 
---- Initialise Router. Calls `DetectGopher()` and then falls back to WoW APIs.
+-- ---------------------------------------------------------------------------
+-- Initialisation
+-- ---------------------------------------------------------------------------
+
+--- Initialise Router.  Tries to neutralise Gopher, then sets send-function
+--- references to the global Blizzard APIs.
 function Router:Init()
-    local gopherBypass = self:DetectGopher()
+    local killed = self:NeutralizeGopher()
 
-    -- Fall back to standard APIs for anything not bypassed.
-    self.SendChatMessage = self.SendChatMessage or C_ChatInfo.SendChatMessage
-    self.BNSendWhisper   = self.BNSendWhisper   or BNSendWhisper
-    self.ClubSendMessage = self.ClubSendMessage or (C_Club and C_Club.SendMessage)
+    -- After neutralisation the globals are the real Blizzard functions.
+    self.SendChatMessage = C_ChatInfo.SendChatMessage
+    self.BNSendWhisper   = _G.BNSendWhisper
+    self.ClubSendMessage = _G.C_Club and _G.C_Club.SendMessage or nil
 
-    if gopherBypass then
-        YapperTable.Utils:VerbosePrint("Router: Gopher detected — using bypass hooks.")
+    if killed then
+        YapperTable.Utils:VerbosePrint("Router: Gopher detected and neutralised.")
     else
         YapperTable.Utils:VerbosePrint("Router: using standard WoW send APIs.")
     end
@@ -95,7 +173,6 @@ end
 -- SAY, YELL, CHANNEL, CLUB need one; EMOTE, PARTY, RAID, BNet don't.
 function Router:NeedsHardwareEvent(chatType)
     if chatType == "SAY" or chatType == "YELL" then
-        -- Play it safe — always assume these need one.
         return true
     end
     if chatType == "CHANNEL" or chatType == "CLUB" then
@@ -116,10 +193,14 @@ end
 -- Send
 -- ---------------------------------------------------------------------------
 
---- Send a single message through the appropriate API. No splitting or queuing.
+--- Send a single message through the appropriate API.  No splitting or
+--- queuing.  Calls NeutralizeGopher() as a safety net before every send.
 function Router:Send(msg, chatType, language, target)
     if not msg or msg == "" then return false end
     chatType = chatType or "SAY"
+
+    -- Defensive: ensure Gopher is dead even if it loaded late.
+    self:NeutralizeGopher()
 
     -- ── Battle.net whisper ───────────────────────────────────────────
     if chatType == "BN_WHISPER" or chatType == "BNET" then
