@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: Yapper
 ## Notes: Encounter-safe editbox replacement for RP. (And yes, it splits posts.)
-## Version: 1.0.2
+## Version: 1.0.3
 ## Author: Sara Schulze Øverby
 ## SavedVariables: YapperDB
 ## SavedVariablesPerCharacter: YapperLocalConf, YapperLocalHistory
@@ -17,10 +17,12 @@ Src\Events.lua
 Src\EditBox.lua
 
 # These files must load in this order:
+# GopherBridge — compatibility bridge for LibGopher (CrossRP, etc.).
 # Router  — resolves which WoW send API to use (SendChatMessage / BNSendWhisper / C_Club.SendMessage).
 # Chunking — splits long messages into chunks that fit the byte limit.
 # Queue   — ordered delivery with server-confirmation and hardware-event batching.
 # Chat    — orchestrator that wires EditBox -> Chunking -> Queue -> Router.
+Src\GopherBridge.lua
 Src\Router.lua
 Src\Chunking.lua
 Src\Queue.lua
