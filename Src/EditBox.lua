@@ -865,9 +865,6 @@ function EditBox:Show(origEditBox)
     end
     self:RefreshLabel()
     overlay:Show()
-    if YapperTable.Router then
-        YapperTable.Router:NeutralizeGopher()
-    end
     self.OverlayEdit:SetFocus()
 end
 
