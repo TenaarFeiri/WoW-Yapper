@@ -1,3 +1,7 @@
+-- 1.0.3
+  - Reverted bugfix from 1.0.2 that unhooked LibGopher, breaking addons like CrossRP.
+  - Added new bridge module that detects if LibGopher is present, and forwards our processed messages to it for queueing.
+
 -- 1.0.2
   - Bugfix: Due to the way we now operate, the regular patch for Gopher no longer worked. Since Yapper does
             basically everything Gopher does, functionally, we just unhook it from everything when it's present.
