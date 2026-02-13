@@ -1,3 +1,9 @@
+-- 1.0.2
+  - Bugfix: Due to the way we now operate, the regular patch for Gopher no longer worked. Since Yapper does
+            basically everything Gopher does, functionally, we just unhook it from everything when it's present.
+            This had caused issued with CrossRP before, and may cause issues with other addons that implement Gopher.
+            Needless to say, UCM and EmoteSplitter will not be compatible with Yapper due to this.
+
 -- 1.0.1
   - In-game UI to change settings. See addon compartment, minimap button (if supported) or type '/yapper' in chat.
 
