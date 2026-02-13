@@ -65,6 +65,13 @@ function Chat:Init()
                 return true
             end
 
+            -- When Gopher is handling delivery, suppress the overlay until
+            -- its queue has drained so we don't interleave new input.
+            local bridge = YapperTable.GopherBridge
+            if bridge and bridge:IsActive() and bridge:IsBusy() then
+                return true
+            end
+
             -- If WIM currently owns the chat focus for whisper handling,
             -- let Blizzard/WIM keep control and do not show Yapper's overlay.
             local ct = blizzEditBox and blizzEditBox.GetAttribute
@@ -100,10 +107,14 @@ function Chat:OnSend(text, chatType, language, target)
     local cfg   = YapperTable.Config and YapperTable.Config.Chat or {}
     local limit = cfg.CHARACTER_LIMIT or 255
 
-    -- Don't interleave with an active queue.
-    if YapperTable.Queue and YapperTable.Queue.Active then
-        YapperTable.Utils:Print("Please wait — still sending previous message.")
-        return
+    -- Don't interleave with an active Yapper queue (not relevant when
+    -- GopherBridge is active — Gopher manages its own queue).
+    local bridge = YapperTable.GopherBridge
+    if not (bridge and bridge:IsActive()) then
+        if YapperTable.Queue and YapperTable.Queue.Active then
+            YapperTable.Utils:Print("Please wait — still sending previous message.")
+            return
+        end
     end
 
     if YapperTable.History then
@@ -162,8 +173,20 @@ function Chat:OnSend(text, chatType, language, target)
 
     -- Feed to Queue for ordered delivery.
     local Q = YapperTable.Queue
+
+    -- When GopherBridge is active, Gopher has its own queue / throttle /
+    -- confirmation system.  Send each chunk directly through Router →
+    -- GopherBridge; Gopher will serialise them for us.
+    local bridge = YapperTable.GopherBridge
+    if bridge and bridge:IsActive() then
+        for _, chunk in ipairs(chunks) do
+            self:DirectSend(chunk, chatType, language, target)
+        end
+        return
+    end
+
     if not Q then
-        -- No queue — fire all at once.
+        -- No queue and no Gopher — fire all at once.
         for _, chunk in ipairs(chunks) do
             self:DirectSend(chunk, chatType, language, target)
         end
