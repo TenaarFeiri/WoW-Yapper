@@ -104,15 +104,31 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Add a sent message to persistent history.
-function History:AddChatHistory(text)
+--- @param text string The message text
+--- @param chatType string|nil Optional: The chat channel (SAY, PARTY, CHANNEL, etc)
+--- @param target string|nil Optional: The target (channel number or whisper name)
+function History:AddChatHistory(text, chatType, target)
     if not _G.YapperLocalHistory then return end
     if not text or text == "" then return end
 
     local h = _G.YapperLocalHistory.chatHistory
-    -- Skip duplicates of the most recent entry.
-    if h[#h] == text then return end
+    
+    -- Check duplication against the most recent entry.
+    -- Handle both string and table entries in history.
+    local last = h[#h]
+    local lastText = (type(last) == "table") and last.text or last
+    
+    if lastText == text then return end
 
-    h[#h + 1] = text
+    -- Store as table if we have context, or if we just want uniform storage.
+    -- We'll switch to always storing tables for consistency moving forward,
+    -- but readers must still handle legacy strings.
+    h[#h + 1] = {
+        text = text,
+        chatType = chatType,
+        target = target
+    }
+    
     while #h > CHAT_HISTORY_SIZE do
         table.remove(h, 1)
     end
