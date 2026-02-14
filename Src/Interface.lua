@@ -1187,7 +1187,12 @@ function Interface:CreateTextInput(parent, label, path, y)
 
     local current = self:GetConfigPath(path)
     if current ~= nil then
-        edit:SetText(tostring(current))
+        -- For chat marker fields, show the trimmed marker (no added spacing)
+        if JoinPath(path) == "Chat.DELINEATOR" or JoinPath(path) == "Chat.PREFIX" then
+            edit:SetText(TrimString(current))
+        else
+            edit:SetText(tostring(current))
+        end
     else
         edit:SetText("")
     end
@@ -1216,7 +1221,12 @@ function Interface:CreateTextInput(parent, label, path, y)
         else
             local stored = Interface:SetLocalPath(path, raw)
             if type(stored) == "string" then
-                edit:SetText(stored)
+                -- For marker fields, display the trimmed marker to the user
+                if JoinPath(path) == "Chat.DELINEATOR" or JoinPath(path) == "Chat.PREFIX" then
+                    edit:SetText(TrimString(stored))
+                else
+                    edit:SetText(stored)
+                end
             end
         end
     end
