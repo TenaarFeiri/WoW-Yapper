@@ -118,7 +118,7 @@ function Chat:OnSend(text, chatType, language, target)
     end
 
     if YapperTable.History then
-        YapperTable.History:AddChatHistory(text)
+        YapperTable.History:AddChatHistory(text, chatType, target)
     end
 
     -- Whispers: truncate, don't split.
