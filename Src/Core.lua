@@ -34,8 +34,9 @@ local DEFAULTS = {
         USE_DELINEATORS   = true,
         CHARACTER_LIMIT   = 255,
         MAX_HISTORY_LINES = 15,
-        DELINEATOR        = " >>",
-        PREFIX            = ">> ",
+        DELINEATOR        = ">>", -- Posting system normalises this by prepending/appending a whitespace to the delineator
+                                  -- at the end and beginning of a split post. You can always assume this to be the case.
+        PREFIX            = ">>", -- Always synced to DELINEATOR.
         MIN_POST_INTERVAL = 1.0,
         POST_TIMEOUT      = 2,
         BATCH_SIZE        = 3,
