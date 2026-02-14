@@ -1,3 +1,8 @@
+-- 1.0.4
+  - Added channel memory to chat history. Yapper remembers which channels you sent posts to and will target those channels when you recall them with alt+up/down.
+  - Fixed a bug where system chat commands (like /reload) were not added to the chat history.
+  - Tightened up the use of delineators in the posting system to make it a little easier to integrate with.
+
 -- 1.0.3
   - Reverted bugfix from 1.0.2 that unhooked LibGopher, breaking addons like CrossRP.
   - Added new bridge module that detects if LibGopher is present, and forwards our processed messages to it for queueing.
