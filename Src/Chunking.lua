@@ -172,6 +172,14 @@ end
 -- Main split function
 -- ---------------------------------------------------------------------------
 
+-- Normalize marker helper (defined early so Split can call it).
+local function NormalizeMarker(raw)
+    local marker = tostring(raw or "")
+    marker = marker:match("^%s*(.-)%s*$") or ""
+    return marker
+end
+
+
 --- Split text into chunks that each fit within the byte limit.
 function Chunking:Split(text, limit, useDelineators, delineator, prefix)
     local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
@@ -179,8 +187,19 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
     limit          = limit or cfg.CHARACTER_LIMIT or 255
     useDelineators = (useDelineators ~= nil) and useDelineators
                      or (cfg.USE_DELINEATORS ~= false)
-    delineator     = delineator or cfg.DELINEATOR or " >>"
-    prefix         = prefix     or cfg.PREFIX     or ">> "
+    -- Normalize markers: accept explicit args or config values (which
+    -- may already include or omit spacing).  Treat the marker as an
+    -- opaque UTF-8 string and add spacing here to ensure consistent
+    -- behaviour when building chunks.
+    local markerSource = delineator or cfg.DELINEATOR or cfg.PREFIX or ""
+    local marker = NormalizeMarker(markerSource)
+    if marker == "" then
+        delineator = ""
+        prefix = ""
+    else
+        delineator = " " .. marker
+        prefix = marker .. " "
+    end
 
     if not useDelineators then
         delineator = ""
