@@ -535,6 +535,8 @@ function EditBox:SetupOverlayScripts()
                 self._closedClean = true
                 if YapperTable.History then
                     YapperTable.History:ClearDraft()
+                    -- Add regular slash commands to history (no channel context).
+                    YapperTable.History:AddChatHistory(trimmed, nil, nil)
                 end
                 self:ForwardSlashCommand(trimmed)
                 self:Hide()
@@ -1144,8 +1146,42 @@ function EditBox:NavigateHistory(direction)
     if newIdx > #cache then
         self.OverlayEdit:SetText("")
     else
-        self.OverlayEdit:SetText(cache[newIdx] or "")
-        self.OverlayEdit:SetCursorPosition(#(cache[newIdx] or ""))
+        local item = cache[newIdx]
+        local text = ""
+        local chatType = nil
+        local target = nil
+
+        if type(item) == "table" then
+            text = item.text or ""
+            chatType = item.chatType
+            target = item.target
+        else
+            text = item or ""
+        end
+
+        self.OverlayEdit:SetText(text)
+        self.OverlayEdit:SetCursorPosition(#text)
+
+        -- Context switching: restore channel if recorded.
+        if chatType then
+             -- Validate availability before switching?
+             -- If we can't talk in that channel anymore (e.g. left party),
+             -- we might want to fallback or just try anyway.
+             -- For now, just restore state.
+            self.ChatType = chatType
+            self.Target = target
+           
+            if chatType == "CHANNEL" and target then
+                local num = tonumber(target)
+                if num then
+                    self.ChannelName = ResolveChannelName(num)
+                end
+            else
+                self.ChannelName = nil
+            end
+            self:RefreshLabel()
+        end
+        -- If no chatType (legacy or slash command), keep current channel.
     end
 end
 
