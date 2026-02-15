@@ -1,8 +1,20 @@
 ## Interface: 120001
 ## Title: Yapper
-## Notes: Encounter-safe editbox replacement for RP. (And yes, it splits posts.)
-## Version: 1.0.4
+## Notes: Accessibility-centric and encounter-safe editbox replacement for your chat, incl. post splitting.
+## Version: 1.0.5
 ## Author: Sara Schulze Øverby
+## IconTexture: 6624474
+## Category: Chat
+## Category-deDE: Chat
+## Category-esES: Chat
+## Category-esMX: Chat
+## Category-frFR: Discussion
+## Category-itIT: Chat
+## Category-koKR: 대화
+## Category-ptBR: Bate-papo
+## Category-ruRU: Чат
+## Category-zhCN: 聊天
+## Category-zhTW: 對話
 ## SavedVariables: YapperDB
 ## SavedVariablesPerCharacter: YapperLocalConf, YapperLocalHistory
 ## LoadSavedVariablesFirst: 1

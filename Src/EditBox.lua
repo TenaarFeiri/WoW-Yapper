@@ -544,6 +544,12 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
+        -- If chat is locked down (combat/m+ lockdown), save draft and handoff
+        if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+            self:HandoffToBlizzard()
+            return
+        end
+
         if self.OnSend then
             self.OnSend(trimmed, self.ChatType or "SAY", self.Language, self.Target)
         else
@@ -617,6 +623,14 @@ function EditBox:SetupOverlayScripts()
     frame:RegisterEvent("CHALLENGE_MODE_START")
     frame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
 
+    -- Also we want to watch for when the user shows or hides their UI, to close our editbox.
+    UIParent:HookScript("OnHide", function() 
+        -- Make sure we're hidden.
+        if EditBox.Overlay and EditBox.Overlay:IsShown() then
+            EditBox:Hide()
+        end
+    end)
+
     frame:HookScript("OnEvent", function(_, event)
         if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
             -- Immediate check.
@@ -685,6 +699,13 @@ end
 --- Present the overlay in place of a Blizzard editbox.
 --- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.
 function EditBox:Show(origEditBox)
+    -- Don't want to open the overlay while UI is hidden.
+    if not UIParent:IsShown() then
+        if EditBox.Overlay and EditBox.Overlay:IsShown() then
+            EditBox:Hide()
+        end
+        return
+    end
     self:CreateOverlay()
 
     local openedFromBnetTransition = self._nextShowFromBnetTransition == true
@@ -1192,6 +1213,12 @@ end
 --- Forward an unrecognised slash command to Blizzard.
 function EditBox:ForwardSlashCommand(text)
     if not self.OrigEditBox then return end
+
+    -- If chat is locked down (combat/m+ lockdown), save draft and handoff
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+        self:HandoffToBlizzard()
+        return
+    end
 
     self.OrigEditBox:SetText(text)
     ChatEdit_SendText(self.OrigEditBox)
