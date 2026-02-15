@@ -6,6 +6,7 @@
     hooking Show() (taint-safe), hiding Blizzard's box, and presenting
     our own overlay in the same spot.  The overlay was never part of the
     protected hierarchy so it can send freely even in combat.
+    We then defer back to Blizzard's own editbox under lockdown.
 ]]
 
 local YapperName, YapperTable = ...
@@ -246,7 +247,7 @@ local function FitLabelFontToWidth(self, text, maxWidth)
 end
 
 -- ---------------------------------------------------------------------------
--- Overlay creation (one-time)
+-- Overlay creation
 -- ---------------------------------------------------------------------------
 
 function EditBox:CreateOverlay()
@@ -300,6 +301,39 @@ function EditBox:CreateOverlay()
 
     -- ── Wire up scripts ──────────────────────────────────────────────
     self:SetupOverlayScripts()
+
+    -- Hook into SendChatMessage so we can capture and propagate chatType, language and target
+    -- to Yapper for synchronisity.
+    if not self._cChatInfoSendHooked then
+        self._cChatInfoSendHooked = true
+        if C_ChatInfo and C_ChatInfo.SendChatMessage then
+            hooksecurefunc(C_ChatInfo, "SendChatMessage", function(message, chatType, language, target)
+                if not chatType or chatType == "BN_WHISPER" then return end
+                    if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+                        -- Update the LastUsed vars
+                        self.LastUsed.chatType = chatType
+                        self.LastUsed.target = target
+                        self.LastUsed.language = language
+
+                        self.ChatType = chatType
+                        self.Target = target
+                        self.Language = language
+                        if chatType == "CHANNEL" and target then
+                            local num = tonumber(target)
+                            if num then
+                                self.ChannelName = ResolveChannelName(num)
+                            else
+                                self.ChannelName = nil
+                            end
+                        else
+                            self.ChannelName = nil
+                        end
+
+                        self._lastSavedDuringLockdown = true
+                    end
+            end)
+        end
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -606,6 +640,9 @@ function EditBox:SetupOverlayScripts()
                 local text = eb:GetText() or ""
                 if text ~= "" then
                     YapperTable.History:SaveDraft(eb)
+                    -- Normal (non-lockdown) saves should not be treated
+                    -- as lockdown drafts.
+                    self._lastSavedDraftIsLockdown = false
                 end
                 YapperTable.History:MarkDirty(true)
             end
@@ -679,6 +716,14 @@ function EditBox:SetupOverlayScripts()
                     if not C_ChatInfo.InChatMessagingLockdown
                        or not C_ChatInfo.InChatMessagingLockdown() then
                         self._lockdownHandedOff = false
+                        -- If Blizzard sends during lockdown changed the channel,
+                        -- persist that sticky choice now.
+                        if self._lastSavedDuringLockdown then
+                            self:PersistLastUsed()
+                            self._lastSavedDuringLockdown = nil
+                        end
+                        -- Allow Show-hook lockdown logic to run again after lockdown.
+                        self._lockdownShowHandled = false
                         YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
                         ticker:Cancel()
                         return
@@ -757,12 +802,19 @@ function EditBox:Show(origEditBox)
     local blizzHasTarget = (blizzType == "WHISPER" and blizzTell and blizzTell ~= "")
                         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
-    if blizzHasTarget then
+    -- When we open, we pick one sticky channel to default to from three conditional vars:
+    -- LastUsed is top priority, unless we have a draft saved in a lockdown event. That draft will get prio.
+    -- Then Blizzard's provided target channel (f.ex. whispers).
+    -- Then move down sticky, Blizzard's data, and failing all else, default to SAY.
+    if (self.LastUsed and self.LastUsed.chatType) and not self._lastSavedDraftIsLockdown then
+        self.ChatType = self.LastUsed.chatType
+        self.Language = self.LastUsed.language or blizzLang or nil
+        self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
+    elseif blizzHasTarget then
         self.ChatType = blizzType
         self.Language = blizzLang or nil
         self.Target   = blizzTell or blizzChan or nil
     else
-        -- Fall back to sticky → Blizzard → SAY.
         self.ChatType = (self.LastUsed.chatType)
                      or blizzType
                      or "SAY"
@@ -803,11 +855,6 @@ function EditBox:Show(origEditBox)
     local scale = origEditBox:GetEffectiveScale() / UIParent:GetEffectiveScale()
     overlay:SetScale(scale)
 
-    -- Label width: ~28% of the editbox, clamped.
-    local ebWidth = origEditBox:GetWidth() or 350
-    local labelW  = math.max(80, math.min(math.floor(ebWidth * 0.28), ebWidth - 80))
-    self.LabelBg:SetWidth(labelW)
-
     -- Font 
     -- Config overrides Blizzard's font; otherwise inherit.
     local cfgFace  = cfg.FontFace
@@ -830,7 +877,20 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Text colour is set by RefreshLabel() to match the active channel.
+    -- Label width: dynamically size to fit the label text but cap at
+    -- ~28% of the editbox.  Leave a minimum typing area of 80px.
+    local ebWidth = origEditBox:GetWidth() or 350
+    local maxAllowed = math.floor(ebWidth * 0.28)
+    local padding = (cfg.LabelPadding and tonumber(cfg.LabelPadding)) or 20
+    local labelText = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
+    self.ChannelLabel:SetText(labelText)
+    local rawWidth = (self.ChannelLabel:GetStringWidth() or 0)
+    local needed = math.ceil(rawWidth + padding)
+    local labelW = math.max(80, math.min(needed, maxAllowed, ebWidth - 80))
+    self.LabelBg:SetWidth(labelW)
+
+    -- If you're looking for text colour here, it's set by RefreshLabel() to match the active channel.
+    -- CTFL+F, friend.
 
     -- Vertical scaling
     -- The overlay must be tall enough for the chosen font.  If the font
@@ -922,11 +982,18 @@ function EditBox:HandoffToBlizzard()
     if text ~= "" and YapperTable.History then
         YapperTable.History:SaveDraft(self.OverlayEdit)
         YapperTable.History:MarkDirty(true)
+        -- Mark that this draft was saved due to lockdown so callers
+        -- can decide whether to restore it to Blizzard's editbox.
+        self._lastSavedDraftIsLockdown = true
     end
 
     -- OnHide won't double-save because _closedClean is true.
     self._closedClean = true
-    self.OverlayEdit:SetText("")
+
+    -- Close overlay and mark the draft as handed off to Blizzard's flow.
+    if self.OverlayEdit then
+        self.OverlayEdit:SetText("")
+    end
     self:Hide()
 
     self._lockdownHandedOff = true
@@ -1073,6 +1140,11 @@ end
 
 --- Save selection for stickiness across show/hide.
 function EditBox:PersistLastUsed()
+    -- Don't make YELL sticky.
+    if self.ChatType == "YELL" then
+        return
+    end
+
     self.LastUsed.chatType = self.ChatType
     self.LastUsed.target   = self.Target
     self.LastUsed.language = self.Language
@@ -1184,11 +1256,7 @@ function EditBox:NavigateHistory(direction)
         self.OverlayEdit:SetCursorPosition(#text)
 
         -- Context switching: restore channel if recorded.
-        if chatType then
-             -- Validate availability before switching?
-             -- If we can't talk in that channel anymore (e.g. left party),
-             -- we might want to fallback or just try anyway.
-             -- For now, just restore state.
+        if chatType then    
             self.ChatType = chatType
             self.Target = target
            
@@ -1252,6 +1320,37 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         if key == "chatType" or key == "tellTarget"
            or key == "channelTarget" or key == "language" then
             c[key] = value
+        end
+
+        -- If chat is locked down and Blizzard's untainted editbox is
+        -- being manipulated (user changed channel/target/language),
+        -- mirror that choice into our sticky `LastUsed` unless we have
+        -- a draft saved due to lockdown (the draft should take
+        -- precedence).
+        if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
+           and C_ChatInfo.InChatMessagingLockdown() then
+            local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
+            if ct and ct ~= "BN_WHISPER" then
+                local target = nil
+                if ct == "WHISPER" then
+                    target = c.tellTarget or (eb.GetAttribute and eb:GetAttribute("tellTarget"))
+                elseif ct == "CHANNEL" then
+                    target = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
+                end
+                local lang = c.language or (eb.GetAttribute and eb:GetAttribute("language"))
+
+                if not self._lastSavedDraftIsLockdown then
+                    self.LastUsed.chatType = ct
+                    self.LastUsed.target = target
+                    self.LastUsed.language = lang
+                    -- Persist after lockdown ends if we are still locked.
+                    if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+                        self._lastSavedDuringLockdown = true
+                    else
+                        self:PersistLastUsed()
+                    end
+                end
+            end
         end
 
         -- ── BNet → non-BNet transition ───────────────────────────────
@@ -1382,8 +1481,29 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
         -- In lockdown Blizzard's untainted box can still send; leave it alone.
         if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+            if not self._lockdownShowHandled then
+                self._lockdownShowHandled = true
+                local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
+                eb:SetAttribute("chatType", chosenCT)
+                if chosenCT == "WHISPER" then
+                    eb:SetAttribute("tellTarget", self.Target)
+                    eb:SetAttribute("channelTarget", nil)
+                elseif chosenCT == "CHANNEL" then
+                    eb:SetAttribute("channelTarget", self.Target)
+                    eb:SetAttribute("tellTarget", nil)
+                else
+                    eb:SetAttribute("tellTarget", nil)
+                    eb:SetAttribute("channelTarget", nil)
+                end
+                if self.Language then
+                    eb:SetAttribute("language", self.Language)
+                else
+                    eb:SetAttribute("language", nil)
+                end
+            end
             return
         end
+
 
         -- If WIM currently owns chat focus, do not present Yapper overlay.
         if IsWIMFocusActive() then
@@ -1417,6 +1537,25 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end
             self._bnetEditBox = eb
             return
+        end
+
+        -- Propagate Blizzard editbox attributes into LastUsed for consistency
+        -- (do not change overlay state here; just record sticky preferences).
+        local c = self._attrCache[eb] or {}
+        local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
+        if ct and ct ~= "BN_WHISPER" then
+            local lastCT = ct
+            local lastTarget = nil
+            if ct == "WHISPER" then
+                lastTarget = c.tellTarget or (eb.GetAttribute and eb:GetAttribute("tellTarget"))
+            elseif ct == "CHANNEL" then
+                lastTarget = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
+            end
+            local lastLang = c.language or (eb.GetAttribute and eb:GetAttribute("language"))
+            self.LastUsed.chatType = lastCT
+            self.LastUsed.target = lastTarget
+            self.LastUsed.language = lastLang
+            self:PersistLastUsed()
         end
 
         -- PreShowCheck: lets Queue suppress the overlay to grab the event.
