@@ -1,3 +1,8 @@
+-- 1.0.7
+  - Fixed a bug where the unstick option ironically got stuck on the channel you were last on when unsticking.
+  - Fixed a bug where the Chat Reply keybind would not open Yapper and set the whisper at all.
+  - Fixed a bug where toggling the sticky channel options did not immediately update.
+
 -- 1.0.6
   - Fixed a bug where the color picker opacity would toggle between visible and invisible or default to 0 due to inverted alpha handling.
   - Fixed a bug where the Typing Tracker Bridge toggle would not persist its enabled state or correctly initialize on startup.
