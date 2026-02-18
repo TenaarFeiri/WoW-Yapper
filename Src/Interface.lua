@@ -503,6 +503,12 @@ function Interface:SetLocalPath(path, value)
         if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.UpdateState then
             YapperTable.TypingTrackerBridge:UpdateState(normalizedValue)
         end
+    elseif (JoinPath(path) == "EditBox.StickyChannel" or JoinPath(path) == "EditBox.StickyGroupChannel")
+        and YapperTable.EditBox
+        and YapperTable.EditBox.PersistLastUsed then
+        -- Apply the new stickiness rules to LastUsed immediately so the next
+        -- open reflects the change without needing an open/close cycle first.
+        YapperTable.EditBox:PersistLastUsed()
     end
 
     if path[1] == "EditBox"

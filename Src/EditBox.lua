@@ -841,26 +841,28 @@ function EditBox:Show(origEditBox)
     local blizzHasTarget = (blizzType == "WHISPER" and blizzTell and blizzTell ~= "")
         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
-    -- When we open, we pick one sticky channel to default to from three conditional vars:
-    -- LastUsed is top priority, unless we have a draft saved in a lockdown event. That draft will get prio.
-    -- Then Blizzard's provided target channel (f.ex. whispers).
-    -- Then move down sticky, Blizzard's data, and failing all else, default to SAY.
-    if (self.LastUsed and self.LastUsed.chatType) and not self._lastSavedDraftIsLockdown then
-        self.ChatType = self.LastUsed.chatType
-        self.Language = self.LastUsed.language or blizzLang or nil
-        self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
-    elseif blizzHasTarget then
+    -- Priority for picking the channel on open:
+    --   1. Blizzard explicitly provided a whisper/channel target (reply key,
+    --      name-click, Contacts list, etc.) — always honour it.
+    --   2. Lockdown draft — restore the channel the user was on mid-combat.
+    --   3. LastUsed sticky — remember the last channel the user chose.
+    --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
+    if blizzHasTarget and not self._lastSavedDraftIsLockdown then
         self.ChatType = blizzType
         self.Language = blizzLang or nil
         self.Target   = blizzTell or blizzChan or nil
+    elseif (self.LastUsed and self.LastUsed.chatType) and not self._lastSavedDraftIsLockdown then
+        self.ChatType = self.LastUsed.chatType
+        self.Language = self.LastUsed.language or blizzLang or nil
+        self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
     else
-        self.ChatType = (self.LastUsed.chatType)
+        self.ChatType = (self.LastUsed and self.LastUsed.chatType)
             or blizzType
             or "SAY"
-        self.Language = (self.LastUsed.language)
+        self.Language = (self.LastUsed and self.LastUsed.language)
             or blizzLang
             or nil
-        self.Target   = (self.LastUsed.target)
+        self.Target   = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
             or nil
     end
@@ -1179,7 +1181,8 @@ end
 
 --- Save selection for stickiness across show/hide.
 function EditBox:PersistLastUsed()
-    -- Don't make YELL sticky.
+    -- Don't make YELL sticky — but don't clear LastUsed either,
+    -- so we restore to whatever was sticky before YELL.
     if self.ChatType == "YELL" then
         return
     end
@@ -1189,6 +1192,13 @@ function EditBox:PersistLastUsed()
         -- Group channels stay sticky unless StickyGroupChannel is also off.
         if not GROUP_CHAT_TYPES[self.ChatType]
             or cfg.StickyGroupChannel == false then
+            -- Stickiness is off for this channel type.
+            -- Actively reset to SAY so the next open doesn't inherit a
+            -- stale channel (e.g. if the user disabled sticky mid-session
+            -- or the Show-hook seeded LastUsed from Blizzard's editbox).
+            self.LastUsed.chatType = "SAY"
+            self.LastUsed.target   = nil
+            self.LastUsed.language = nil
             return
         end
     end
@@ -1684,6 +1694,13 @@ function EditBox:HookAllChatFrames()
             end
         end
     end
+
+    -- ── Chat Reply hotkey ────────────────────────────────────────────────
+    -- The WoW Chat Reply keybinding is a secure C++ binding — there is no
+    -- hookable Lua function for it.  It works by setting chatType/tellTarget
+    -- attributes on the editbox and calling Show(), which our Show hook
+    -- already intercepts.  The priority fix in EditBox:Show() (blizzHasTarget
+    -- beats LastUsed) is what makes the reply key work correctly.
 end
 
 -- ---------------------------------------------------------------------------
