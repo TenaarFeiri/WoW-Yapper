@@ -12,13 +12,38 @@ YapperTable.Core = {}
 -- ---------------------------------------------------------------------------
 local DEFAULTS = {
     System = {
-        VERSION = 1.02, -- Schema version for SavedVariables migration; bump only when data structure changes.
-        VERBOSE = false,
-        DEBUG   = false,
-        FRAME_ID_PARENT  = "PARENT_FRAME",
-        RUN_ALL_PATCHES  = true,
-        ["SettingsHaveChanged"] = false
+        -- Schema version for SavedVariables migration; bump only when data structure changes.
+        VERSION                   = 1.02,
+
+        -- VERBOSE and DEBUG are largely for debugging.
+        -- VERBOSE is for general debugging messages, or just declaring certain actions.
+        -- DEBUG is for more detailed debugging messages.
+        VERBOSE                   = false,
+        DEBUG                     = false,
+
+        -- The name we give to the parent frame. CAN be anything but...
+        -- I'm not very original...
+        FRAME_ID_PARENT           = "PARENT_FRAME",
+
+        -- RUN_ALL_PATCHES is a setup for a future feature where developers are given
+        -- a framework they can write their own patches for Yapper in their addons.
+        -- Rather than, you know, digging through the guts of everything.
+        RUN_ALL_PATCHES           = true,
+
+        -- If settings have changed, reparse and recache our interface schema.
+        ["SettingsHaveChanged"]   = false,
+
+        -- Bridge Toggles
+        EnableGopherBridge        = true,
+        EnableTypingTrackerBridge = true,
+
+        -- Possibly used for system messages where some customisation is necessary. Reset to nil after every use.
+        SYSTEM_PREFIX             = nil,
     },
+
+    -- Obviously this holds settings for our interface frames.
+    -- Don't worry about these unless you know what you're doing. They're
+    -- for things like scrolling and moving the window.
     ["FrameSettings"] = {
         ["MouseWheelStepRate"] = 30,
         ["SettingsViewMode"] = "basic",
@@ -30,38 +55,63 @@ local DEFAULTS = {
             y = 0,
         },
     },
+
     Chat = {
+
         USE_DELINEATORS   = true,
+
+        -- Anything above the character limit gets chunked.
         CHARACTER_LIMIT   = 255,
-        MAX_HISTORY_LINES = 15,
-        DELINEATOR        = ">>", -- Posting system normalises this by prepending/appending a whitespace to the delineator
-                                  -- at the end and beginning of a split post. You can always assume this to be the case.
-        PREFIX            = ">>", -- Always synced to DELINEATOR.
+
+        -- How many lines to keep in memory.
+        MAX_HISTORY_LINES = 50, -- 50 by default.
+
+        -- The delineator used to split posts.
+        -- Posting system normalises this by prepending/appending a whitespace to the delineator
+        -- at the end and beginning of a split post. You can always assume this to be the case.
+        DELINEATOR        = ">>",
+
+        -- Always synced to DELINEATOR.
+        PREFIX            = ">>",
+
+        -- Minimum time between posts.
         MIN_POST_INTERVAL = 1.0,
+
+        -- How long to wait before sending the next post.
         POST_TIMEOUT      = 2,
+
+        -- How many posts to send at once.
         BATCH_SIZE        = 3,
+
+        -- How long to wait between batches.
         BATCH_THROTTLE    = 2.0,
+
+        -- How long to wait before giving up.
         STALL_TIMEOUT     = 1.0,
     },
+
     -- EditBox appearance defaults
     EditBox = {
         -- Input area background
-        InputBg = {
+        InputBg               = {
             r = 0.05, g = 0.05, b = 0.05, a = 1.0,
         },
+
         -- Label area background
-        LabelBg = {
+        LabelBg               = {
             r = 0.06, g = 0.06, b = 0.06, a = 1.0,
         },
+
         -- Font: nil means "inherit from Blizzard editbox".
         -- Set a string like "Fonts\\FRIZQT__.TTF" to override.
-        FontFace  = nil,
-        FontSize  = 14,
-        FontFlags = "",         -- e.g. "OUTLINE", "THICKOUTLINE"
-        AutoFitLabel = true,     -- true = shrink label font to fit, false = truncate with ellipsis
+        FontFace              = nil,
+        FontSize              = 14,
+        FontFlags             = "",   -- e.g. "OUTLINE", "THICKOUTLINE"
+        AutoFitLabel          = true, -- true = shrink label font to fit, false = truncate with ellipsis
+
         -- Text colour (nil = white)
-        TextColor = { r = 1, g = 1, b = 1, a = 1 },
-        ChannelColorMaster = "",
+        TextColor             = { r = 1, g = 1, b = 1, a = 1 },
+        ChannelColorMaster    = "",
         ChannelColorOverrides = {
             SAY = false,
             YELL = false,
@@ -71,7 +121,8 @@ local DEFAULTS = {
             RAID = false,
             RAID_WARNING = false,
         },
-        ChannelTextColors = {
+
+        ChannelTextColors     = {
             SAY = { r = 1.00, g = 1.00, b = 1.00, a = 1 },
             YELL = { r = 1.00, g = 0.25, b = 0.25, a = 1 },
             PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
@@ -80,9 +131,16 @@ local DEFAULTS = {
             RAID = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
             RAID_WARNING = { r = 1.00, g = 0.28, b = 0.03, a = 1 },
         },
+
         -- Vertical sizing
-        MinHeight  = 0,         -- 0 = match Blizzard editbox height (auto)
-        FontPad    = 8,         -- extra pixels above + below the text baseline
+        MinHeight             = 0, -- minimum overlay height; only applies if larger than the native editbox height
+        FontPad               = 8, -- extra pixels above + below the text baseline
+
+        -- Sticky channel: remember last-used channel across opens.
+        -- Group channels (Party/Instance/Raid) stay sticky even when StickyChannel
+        -- is off, unless StickyGroupChannel is also disabled.
+        StickyChannel         = true,
+        StickyGroupChannel    = true,
     },
 }
 
