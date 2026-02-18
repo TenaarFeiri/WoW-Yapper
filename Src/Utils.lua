@@ -25,7 +25,8 @@ function Utils:Print(...)
     local args = { ... }
 
     -- Optional preset as first arg: Utils:Print("info", "message...")
-    local prefix = PREFIX and (PREFIX .. ": ") or (YapperName .. ": ")
+    local prefix = YapperTable.Config.System.PREFIX and (YapperTable.Config.System.PREFIX .. ": ") or
+        (YapperName .. ": ")
     if type(args[1]) == "string" and SENDER_PRESETS[args[1]] then
         local preset = table.remove(args, 1)
         prefix = ("|c%s%s:|r "):format(SENDER_PRESETS[preset], YapperName)
