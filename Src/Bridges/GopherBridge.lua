@@ -14,14 +14,14 @@
 
 local YapperName, YapperTable = ...
 
-local GopherBridge = {}
-YapperTable.GopherBridge = GopherBridge
+local GopherBridge            = {}
+YapperTable.GopherBridge      = GopherBridge
 
-GopherBridge.active  = false   -- true after a successful Init
-GopherBridge._gopher = nil
+GopherBridge.active           = false -- true after a successful Init
+GopherBridge._gopher          = nil
 
 -- A chunk size large enough that Gopher will never re-split our text.
-local PASSTHROUGH_CHUNK_SIZE = 6000
+local PASSTHROUGH_CHUNK_SIZE  = 6000
 
 -- ---------------------------------------------------------------------------
 -- Detection
@@ -48,6 +48,11 @@ end
 function GopherBridge:Init()
     if self.active then return true end
 
+    -- Respect user config
+    if YapperTable.Config.System.EnableGopherBridge == false then
+        return false
+    end
+
     local gopher = FindGopher()
     if not gopher then return false end
 
@@ -59,6 +64,19 @@ function GopherBridge:Init()
 
     YapperTable.Utils:VerbosePrint("GopherBridge: LibGopher detected — sending through Gopher's pipeline.")
     return true
+end
+
+--- Called by Interface when the toggle is changed.
+function GopherBridge:UpdateState()
+    local enabled = (YapperTable.Config.System.EnableGopherBridge == true)
+
+    if not enabled and self.active then
+        self.active = false
+        YapperTable.Utils:VerbosePrint("GopherBridge: Disabled by user setting.")
+    elseif enabled and not self.active then
+        -- Attempt to re-init if available
+        self:Init()
+    end
 end
 
 -- ---------------------------------------------------------------------------
