@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: Yapper
 ## Notes: Accessibility-centric and encounter-safe editbox replacement for your chat, incl. post splitting.
-## Version: 1.0.6
+## Version: 1.0.7
 ## Author: Sara Schulze Øverby
 ## IconTexture: 6624474
 ## Category: Chat
