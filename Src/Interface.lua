@@ -16,26 +16,27 @@ local COLOR_KEYS = {
 }
 
 local CHANNEL_OVERRIDE_OPTIONS = {
-    { key = "SAY",          label = "Say" },
-    { key = "YELL",         label = "Yell" },
-    { key = "PARTY",        label = "Party" },
-    { key = "WHISPER",      label = "Whisper" },
-    { key = "INSTANCE_CHAT",label = "Instance" },
-    { key = "RAID",         label = "Raid" },
-    { key = "RAID_WARNING", label = "Raid Warning" },
+    { key = "SAY",           label = "Say" },
+    { key = "YELL",          label = "Yell" },
+    { key = "PARTY",         label = "Party" },
+    { key = "WHISPER",       label = "Whisper" },
+    { key = "INSTANCE_CHAT", label = "Instance" },
+    { key = "RAID",          label = "Raid" },
+    { key = "RAID_WARNING",  label = "Raid Warning" },
 }
 
 -- Friendly dropdown values for font outline modes.
 local FONT_OUTLINE_OPTIONS = {
-    { value = "", label = "Default (None)" },
-    { value = "OUTLINE", label = "Outline" },
+    { value = "",             label = "Default (None)" },
+    { value = "OUTLINE",      label = "Outline" },
     { value = "THICKOUTLINE", label = "Thick Outline" },
 }
 
 -- Tooltip copy keyed by setting path / synthetic header keys.
 local SETTING_TOOLTIPS = {
     ["HEADER.AUTOSAVE"] = "Settings are automatically saved; go ahead and change them!",
-    ["HEADER.VIEWMODE"] = "Basic should be all you need but if you want a little more technical customisation, you can change some chat mechanics in advanced.",
+    ["HEADER.VIEWMODE"] =
+    "Basic should be all you need but if you want a little more technical customisation, you can change some chat mechanics in advanced.",
     ["SECTION.Chat"] = "Controls chat splitting and send behaviour.",
     ["SECTION.EditBox"] = "Customises your editbox appearance and behaviour.",
     ["SECTION.FrameSettings"] = "Controls window and scrolling behaviour.",
@@ -52,12 +53,27 @@ local SETTING_TOOLTIPS = {
     ["EditBox.FontFace"] = "Custom font file path. Leave empty to use default font.",
     ["EditBox.FontFlags"] = "Choose whether text has an outline effect.",
     ["EditBox.FontSize"] = "The editbox will automatically expand to fit your selected font size.",
-    ["EditBox.AutoFitLabel"] = "If enabled, label text shrinks to fit. If disabled, long labels are truncated with ellipsis.",
-    ["EditBox.MinHeight"] = "Font size will not reduce the editbox below this value.",
-    ["CHANNEL.HEADER"] = "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
+    ["EditBox.AutoFitLabel"] =
+    "If enabled, label text shrinks to fit. If disabled, long labels are truncated with ellipsis.",
+    ["EditBox.StickyChannel"] =
+    "When enabled, the overlay remembers the last channel you used and reopens with it selected.",
+    ["EditBox.StickyGroupChannel"] =
+    "When 'Remember last channel' is off, group channels (Party, Instance, Raid, Raid Warning) still remain sticky. Uncheck to disable that too.",
+    ["EditBox.MinHeight"] =
+    "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
+    ["CHANNEL.HEADER"] =
+    "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
     ["CHANNEL.MASTER"] = "One selected channel can act as a colour source.",
     ["CHANNEL.OVERRIDE"] = "When checked, this channel uses the selected master channel's colour.",
     ["CHANNEL.RESET_ALL"] = "Restore all channel colours to defaults.",
+    ["System.DEBUG"] = "Enables debug output. Warning: this is very spammy!",
+    ["System.VERBOSE"] = "Yapper will announce when it does something unusual — a less spammy alternative to Debug.",
+    ["System.RUN_ALL_PATCHES"] =
+    "Placeholder for a future patching framework that will let other addons integrate more easily with Yapper. Currently does nothing.",
+    ["System.EnableGopherBridge"] =
+    "Toggle integration with Gopher (CrossRP compatibility). |cFFFF4444Disabling this WHILE using a Gopher-powered addon like CrossRP is a BAD idea and will cause stalls and chat problems.|r",
+    ["System.EnableTypingTrackerBridge"] =
+    "Toggle integration with Simply_RP_Typing_Tracker. Disabling this stops typing indicators from being sent.",
 }
 
 -- UI-only aliases to not scare the normies.
@@ -66,6 +82,8 @@ local FRIENDLY_LABELS = {
     ["SECTION.EditBox"] = "Chat Input Appearance",
     ["SECTION.FrameSettings"] = "Window & Scrolling",
     ["FrameSettings.EnableMinimapButton"] = "Show minimap button",
+    ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
+    ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
 
     ["Chat.USE_DELINEATORS"] = "Add split marker",
     ["Chat.DELINEATOR"] = "Split marker text",
@@ -81,6 +99,8 @@ local FRIENDLY_LABELS = {
     ["EditBox.FontFlags"] = "Font outline mode",
     ["EditBox.FontSize"] = "Font size",
     ["EditBox.AutoFitLabel"] = "Auto-fit long labels",
+    ["EditBox.StickyChannel"] = "Remember last channel",
+    ["EditBox.StickyGroupChannel"] = "Keep group channels sticky",
     ["EditBox.MinHeight"] = "Minimum input height",
 }
 
@@ -96,14 +116,84 @@ local ADVANCED_PATHS = {
     ["Chat.MAX_HISTORY_LINES"] = true,
     ["EditBox.FontFace"] = true,
     ["EditBox.MinHeight"] = true,
+    ["System.EnableGopherBridge"] = true,
+    ["System.EnableTypingTrackerBridge"] = true,
 }
+
+-- ---------------------------------------------------------------------------
+-- Layout constants — every pixel value centralised in one place.
+-- ---------------------------------------------------------------------------
+local LAYOUT = {
+    -- Main window
+    WINDOW_WIDTH           = 420,
+    WINDOW_HEIGHT          = 640,
+    WINDOW_PADDING         = 8,
+    SCROLLBAR_WIDTH        = 14,
+    SCROLLBAR_GAP          = 2,
+    TITLE_INSET            = 28,
+    BOTTOM_BAR             = 36,
+
+    -- Widget row heights
+    ROW_CHECKBOX           = 30,
+    ROW_TEXT_INPUT         = 30,
+    ROW_COLOR_PICKER       = 30,
+    ROW_FONT_OUTLINE       = 30,
+    ROW_FONT_SIZE          = 84,
+    ROW_SECTION            = 24,
+    ROW_CHANNEL_ROW        = 26,
+    ROW_CHANNEL_HEADER     = 22,
+    ROW_CHANNEL_LABELS     = 16,
+
+    -- Starting Y for dynamic content (below fixed header area)
+    CONTENT_START_Y        = -68,
+
+    -- Horizontal positions
+    LABEL_X                = 10,
+    LABEL_WIDTH            = 160,
+    CONTROL_X              = 180,
+    RESET_X                = 306,
+
+    -- Close button
+    CLOSE_BTN_WIDTH        = 120,
+    CLOSE_BTN_HEIGHT       = 24,
+    CLOSE_BTN_OFFSET_Y     = 10,
+
+    -- Scrollbar fixed offsets
+    SCROLLBAR_TOP_INSET    = 48,
+    SCROLLBAR_BOTTOM_INSET = 44,
+}
+
+-- ---------------------------------------------------------------------------
+-- LayoutCursor — replaces manual `y = y - N` tracking.
+-- ---------------------------------------------------------------------------
+local LayoutCursor = {}
+LayoutCursor.__index = LayoutCursor
+
+---@param startY number?
+---@return table
+function LayoutCursor.New(startY)
+    return setmetatable({ _y = startY or 0 }, LayoutCursor)
+end
+
+function LayoutCursor:Y()
+    return self._y
+end
+
+function LayoutCursor:Advance(amount)
+    self._y = self._y - (amount or 0)
+    return self._y
+end
+
+function LayoutCursor:Pad(px)
+    return self:Advance(px or 4)
+end
 
 -- Basic RGB(A) shape check for config colour tables.
 local function IsColorTable(tbl)
     return type(tbl) == "table"
-       and type(tbl.r) == "number"
-       and type(tbl.g) == "number"
-       and type(tbl.b) == "number"
+        and type(tbl.r) == "number"
+        and type(tbl.g) == "number"
+        and type(tbl.b) == "number"
 end
 
 -- Compare two colours including alpha, with implicit alpha=1 fallback.
@@ -351,9 +441,9 @@ function Interface:SetLocalPath(path, value)
     local normalizedValue = NormalizeChatMarkers(path, value)
 
     if type(normalizedValue) == "table"
-       and #path >= 2
-       and path[1] == "EditBox"
-       and COLOR_KEYS[path[2]] then
+        and #path >= 2
+        and path[1] == "EditBox"
+        and COLOR_KEYS[path[2]] then
         normalizedValue = {
             r = Clamp01(normalizedValue.r, 1),
             g = Clamp01(normalizedValue.g, 1),
@@ -367,8 +457,8 @@ function Interface:SetLocalPath(path, value)
     local syncedChatPrefix = nil
 
     if #path == 2 and path[1] == "Chat"
-       and (path[2] == "DELINEATOR" or path[2] == "PREFIX")
-       and type(normalizedValue) == "string" then
+        and (path[2] == "DELINEATOR" or path[2] == "PREFIX")
+        and type(normalizedValue) == "string" then
         local marker = TrimString(normalizedValue)
         if marker == "" then
             syncedChatDelineator = ""
@@ -405,11 +495,19 @@ function Interface:SetLocalPath(path, value)
         Interface.MouseWheelStepRate = normalizedValue
     elseif JoinPath(path) == "FrameSettings.EnableMinimapButton" then
         Interface:ApplyMinimapButtonVisibility()
+    elseif JoinPath(path) == "System.EnableGopherBridge" then
+        if YapperTable.GopherBridge and YapperTable.GopherBridge.UpdateState then
+            YapperTable.GopherBridge:UpdateState(normalizedValue)
+        end
+    elseif JoinPath(path) == "System.EnableTypingTrackerBridge" then
+        if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.UpdateState then
+            YapperTable.TypingTrackerBridge:UpdateState(normalizedValue)
+        end
     end
 
     if path[1] == "EditBox"
-       and YapperTable.EditBox
-       and YapperTable.EditBox.ApplyConfigToLiveOverlay then
+        and YapperTable.EditBox
+        and YapperTable.EditBox.ApplyConfigToLiveOverlay then
         YapperTable.EditBox:ApplyConfigToLiveOverlay()
     end
 
@@ -506,20 +604,23 @@ function Interface:BuildRenderSchema()
     local function shouldSkipPath(path)
         local full = JoinPath(path)
         if full == "System.SettingsHaveChanged"
-              or full == "System.VERSION"
-           or full == "System.FRAME_ID_PARENT"
-           or full == "FrameSettings.MouseWheelStepRate"
-              or full == "FrameSettings.MainWindowPosition"
-              or full == "FrameSettings.SettingsViewMode"
-           or full == "EditBox.FontPad"
-           or full == "Chat.STALL_TIMEOUT"
-           or full == "Chat.CHARACTER_LIMIT"
-           or full == "Chat.PREFIX" then
+            or full == "System.VERSION"
+            or full == "System.FRAME_ID_PARENT"
+            or full == "FrameSettings.MouseWheelStepRate"
+            or full == "FrameSettings.MainWindowPosition"
+            or full == "FrameSettings.SettingsViewMode"
+            or full == "EditBox.FontPad"
+            or full == "Chat.STALL_TIMEOUT"
+            or full == "Chat.CHARACTER_LIMIT"
+            or full == "Chat.CHARACTER_LIMIT"
+            or full == "Chat.PREFIX"
+            or full == "System.EnableGopherBridge"
+            or full == "System.EnableTypingTrackerBridge" then
             return true
         end
 
         if #path == 2 and path[1] == "EditBox"
-           and (path[2] == "ChannelColorMaster"
+            and (path[2] == "ChannelColorMaster"
                 or path[2] == "ChannelColorOverrides"
                 or path[2] == "ChannelTextColors"
                 or path[2] == "TextColor") then
@@ -685,156 +786,149 @@ end
 -- Frame functions
 -- ---------------------------------------------------------------------------
 
--- Create the main frame where we will configure our options.
--- Though we have the wrapper, we are **not** using Frames.lua here as we have to do a lot of code,
--- and Frames.lua is more a convenience feature for other parts of the program.
-function Interface:CreateMainWindow()
-    -- Duplicating the frame is not allowed!
-    if Interface.MainWindowFrame
-       and Interface.MainWindowFrame.IsObjectType
-       and Interface.MainWindowFrame:IsObjectType("Frame") then
-        return
-    end
-    -- Out of an abundance of caution, nil MainWindowFrame just in case anything fucked with it.
-    -- They shouldn't have, but it is globally accessible for all addons and you never know.
-    Interface.MainWindowFrame = nil
+-- Create the scrollable content area inside a parent window frame.
+local function CreateScrollableContent(parent)
+    local P = LAYOUT
+    local scrollFrame = CreateFrame("ScrollFrame", nil, parent)
+    parent.ScrollFrame = scrollFrame
+    scrollFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", P.WINDOW_PADDING, -P.TITLE_INSET)
+    scrollFrame:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT",
+        -(P.WINDOW_PADDING + P.SCROLLBAR_WIDTH + P.SCROLLBAR_GAP), P.BOTTOM_BAR)
+    scrollFrame:SetClipsChildren(true)
 
-    -- Create main window and store it on the Interface table.
-    Interface.MainWindowFrame = CreateFrame(
-        "Frame",
-        YapperName .. "MainWindow",
-        UIParent,
-        "BasicFrameTemplateWithInset" -- Standard blizz template with a close button, saves on some work.
-    )
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 0, 0)
+    content:SetPoint("TOPRIGHT", scrollFrame, "TOPRIGHT", 0, 0)
+    content:SetHeight(1000)
+    parent.ContentFrame = content
 
-    -- Creating the frame might show it immediately so before we do anything, we hide it.
-    Interface.MainWindowFrame:Hide()
-
-    Interface.MainWindowFrame:SetSize(420, 640)
-    Interface.MainWindowFrame:SetMovable(true)
-    Interface.MainWindowFrame:RegisterForDrag("LeftButton")
-    Interface.MainWindowFrame:EnableMouse(true)
-    Interface.MainWindowFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
-    Interface.MainWindowFrame:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        Interface:SaveMainWindowPosition(self)
-    end)
-    Interface.MainWindowFrame:SetClampedToScreen(true)
-    Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
-
-    if Interface.MainWindowFrame.TitleText and Interface.MainWindowFrame.TitleText.SetText then
-        Interface.MainWindowFrame.TitleText:SetText("Yapper Settings")
-    end
-
-    -- Set up frame closure.
-    if Interface.MainWindowFrame.CloseButton ~= nil then
-        Interface.MainWindowFrame.CloseButton:SetScript("OnClick", function(self)
-            Interface:CloseFrame(self:GetParent())
-        end)
-    end
-
-    -- Bullshit amount of work to implement scrolling.
-    local PADDING = 8
-    local SCROLLBAR_WIDTH = 14 -- keep it narrow; parity with left padding via reserved space.
-    local GAP = 2 -- tiny gap between content area and scrollbar.
-
-    local ScrollFrame = CreateFrame("ScrollFrame", nil, Interface.MainWindowFrame)
-    Interface.MainWindowFrame.ScrollFrame = ScrollFrame
-    ScrollFrame:SetPoint("TOPLEFT", Interface.MainWindowFrame, "TOPLEFT", PADDING, -28)
-    ScrollFrame:SetPoint("BOTTOMRIGHT", Interface.MainWindowFrame, "BOTTOMRIGHT", -(PADDING + SCROLLBAR_WIDTH + GAP), 36)
-    ScrollFrame:SetClipsChildren(true)
-
-    -- Set up the content frame so we can scroll.
-    local content = CreateFrame("Frame", nil, ScrollFrame)
-    content:SetPoint("TOPLEFT", ScrollFrame, "TOPLEFT", 0, 0)
-    content:SetPoint("TOPRIGHT", ScrollFrame, "TOPRIGHT", 0, 0)
-    content:SetHeight(1000) -- We only bother to scroll vertically.
-    -- Keep a reference for other code that wants to stick stuff into the scroll area.
-    Interface.MainWindowFrame.ContentFrame = content
-
-    -- Keep content width in sync with the scroll viewport so horizontal scrolling never happens.
+    -- Keep content width in sync with the scroll viewport.
     local function UpdateContentWidth()
-        content:SetWidth(ScrollFrame:GetWidth())
+        content:SetWidth(scrollFrame:GetWidth())
     end
-
-    ScrollFrame:SetScript("OnSizeChanged", function()
-        UpdateContentWidth()
-    end)
+    scrollFrame:SetScript("OnSizeChanged", UpdateContentWidth)
     UpdateContentWidth()
-
-    ScrollFrame:SetScrollChild(content)
+    scrollFrame:SetScrollChild(content)
 
     -- Mouse wheel support.
-    ScrollFrame:EnableMouse(true)
-    ScrollFrame:EnableMouseWheel(true)
-    ScrollFrame:SetScript("OnMouseWheel", function(self, delta)
-        local step = tonumber(Interface:GetConfigPath({"FrameSettings", "MouseWheelStepRate"})) or Interface.MouseWheelStepRate
+    scrollFrame:EnableMouse(true)
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local step = tonumber(Interface:GetConfigPath({ "FrameSettings", "MouseWheelStepRate" }))
+            or Interface.MouseWheelStepRate
         local cur = self:GetVerticalScroll()
-        local minv, maxv = 0, self:GetVerticalScrollRange()
-        local nxt = math.min(maxv, math.max(minv, cur - delta * step))
+        local maxv = self:GetVerticalScrollRange()
+        local nxt = math.min(maxv, math.max(0, cur - delta * step))
         self:SetVerticalScroll(nxt)
         if self.ScrollBar and self.ScrollBar:IsShown() then
             self.ScrollBar:SetValue(nxt)
         end
     end)
-    ScrollFrame:SetScript("OnHorizontalScroll", function(self) self:SetHorizontalScroll(0) end)
+    scrollFrame:SetScript("OnHorizontalScroll", function(self) self:SetHorizontalScroll(0) end)
 
-    -- Finally get the scrollbar done...
-    local ScrollBar = CreateFrame("Slider", nil, Interface.MainWindowFrame, "UIPanelScrollBarTemplate")
-    Interface.MainWindowFrame.ScrollBar = ScrollBar
-    ScrollFrame.ScrollBar = ScrollBar
+    return scrollFrame, content
+end
 
-    ScrollBar:SetPoint("TOPRIGHT", Interface.MainWindowFrame, "TOPRIGHT", -PADDING, -48)
-    ScrollBar:SetPoint("BOTTOMRIGHT", Interface.MainWindowFrame, "BOTTOMRIGHT", -PADDING, 44)
-    ScrollBar:SetMinMaxValues(0, 0)
-    ScrollBar:SetValueStep(1)
-    ScrollBar:SetObeyStepOnDrag(true)
-    ScrollBar:SetWidth(SCROLLBAR_WIDTH)
+-- Attach a scrollbar to a parent frame that drives an existing ScrollFrame.
+local function CreateScrollBarForFrame(parent, scrollFrame)
+    local P = LAYOUT
+    local scrollBar = CreateFrame("Slider", nil, parent, "UIPanelScrollBarTemplate")
+    parent.ScrollBar = scrollBar
+    scrollFrame.ScrollBar = scrollBar
 
-    local function UpdateScrollBarVisibility(yRange)
+    scrollBar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -P.WINDOW_PADDING, -P.SCROLLBAR_TOP_INSET)
+    scrollBar:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -P.WINDOW_PADDING, P.SCROLLBAR_BOTTOM_INSET)
+    scrollBar:SetMinMaxValues(0, 0)
+    scrollBar:SetValueStep(1)
+    scrollBar:SetObeyStepOnDrag(true)
+    scrollBar:SetWidth(P.SCROLLBAR_WIDTH)
+
+    local function UpdateVisibility(yRange)
         yRange = math.max(0, yRange or 0)
         local needsScroll = yRange > 0
-        ScrollBar:SetMinMaxValues(0, yRange)
-        ScrollBar:SetShown(needsScroll)
+        scrollBar:SetMinMaxValues(0, yRange)
+        scrollBar:SetShown(needsScroll)
         if not needsScroll then
-            ScrollFrame:SetVerticalScroll(0)
-            ScrollBar:SetValue(0)
+            scrollFrame:SetVerticalScroll(0)
+            scrollBar:SetValue(0)
         else
-            local cur = ScrollFrame:GetVerticalScroll()
+            local cur = scrollFrame:GetVerticalScroll()
             if cur > yRange then
-                ScrollFrame:SetVerticalScroll(yRange)
-                ScrollBar:SetValue(yRange)
+                scrollFrame:SetVerticalScroll(yRange)
+                scrollBar:SetValue(yRange)
             end
         end
     end
 
-    ScrollBar:SetScript("OnValueChanged", function(_, value)
-        ScrollFrame:SetVerticalScroll(value)
+    scrollBar:SetScript("OnValueChanged", function(_, value)
+        scrollFrame:SetVerticalScroll(value)
     end)
-
-    ScrollFrame:SetScript("OnScrollRangeChanged", function(self, _, yRange)
-        UpdateScrollBarVisibility(yRange)
+    scrollFrame:SetScript("OnScrollRangeChanged", function(_, _, yRange)
+        UpdateVisibility(yRange)
     end)
-
-    ScrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+    scrollFrame:SetScript("OnVerticalScroll", function(self, offset)
         self:SetVerticalScroll(offset)
-        if ScrollBar:IsShown() then
-            ScrollBar:SetValue(offset)
-        end
+        if scrollBar:IsShown() then scrollBar:SetValue(offset) end
     end)
 
-    -- Force initial range calculation and visibility.
-    ScrollFrame:UpdateScrollChildRect()
-    UpdateScrollBarVisibility(ScrollFrame:GetVerticalScrollRange())
+    scrollFrame:UpdateScrollChildRect()
+    UpdateVisibility(scrollFrame:GetVerticalScrollRange())
+    return scrollBar
+end
 
-    local bottomClose = CreateFrame("Button", nil, Interface.MainWindowFrame, "UIPanelButtonTemplate")
-    bottomClose:SetSize(120, 24)
-    bottomClose:SetPoint("BOTTOM", Interface.MainWindowFrame, "BOTTOM", 0, 10)
+-- Create the main settings window.
+function Interface:CreateMainWindow()
+    -- Prevent duplicate creation.
+    if Interface.MainWindowFrame
+        and Interface.MainWindowFrame.IsObjectType
+        and Interface.MainWindowFrame:IsObjectType("Frame") then
+        return
+    end
+    Interface.MainWindowFrame = nil
+
+    local frame = CreateFrame(
+        "Frame",
+        YapperName .. "MainWindow",
+        UIParent,
+        "BasicFrameTemplateWithInset"
+    )
+    Interface.MainWindowFrame = frame
+    frame:Hide()
+
+    frame:SetSize(LAYOUT.WINDOW_WIDTH, LAYOUT.WINDOW_HEIGHT)
+    frame:SetMovable(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:EnableMouse(true)
+    frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    frame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        Interface:SaveMainWindowPosition(self)
+    end)
+    frame:SetClampedToScreen(true)
+    Interface:ApplyMainWindowPosition(frame)
+
+    if frame.TitleText and frame.TitleText.SetText then
+        frame.TitleText:SetText("Yapper Settings")
+    end
+    if frame.CloseButton ~= nil then
+        frame.CloseButton:SetScript("OnClick", function(self)
+            Interface:CloseFrame(self:GetParent())
+        end)
+    end
+
+    -- Delegate scrolling to focused helpers.
+    local scrollFrame = CreateScrollableContent(frame)
+    CreateScrollBarForFrame(frame, scrollFrame)
+
+    -- Bottom close button.
+    local bottomClose = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    bottomClose:SetSize(LAYOUT.CLOSE_BTN_WIDTH, LAYOUT.CLOSE_BTN_HEIGHT)
+    bottomClose:SetPoint("BOTTOM", frame, "BOTTOM", 0, LAYOUT.CLOSE_BTN_OFFSET_Y)
     bottomClose:SetText("Close")
     bottomClose:SetScript("OnClick", function()
-        Interface:CloseFrame(Interface.MainWindowFrame)
+        Interface:CloseFrame(frame)
     end)
-    Interface.MainWindowFrame.BottomCloseButton = bottomClose
+    frame.BottomCloseButton = bottomClose
 end
 
 -- ---------------------------------------------------------------------------
@@ -846,17 +940,97 @@ function Interface:ClearConfigControls()
         self.DynamicControls = {}
         return
     end
-    for _, frame in ipairs(self.DynamicControls) do
-        if frame and frame.Hide then frame:Hide() end
+    for _, widget in ipairs(self.DynamicControls) do
+        self:ReleaseWidget(widget)
     end
     self.DynamicControls = {}
 end
 
-function Interface:AddControl(frame)
+function Interface:AddControl(widget)
     if type(self.DynamicControls) ~= "table" then
         self.DynamicControls = {}
     end
-    self.DynamicControls[#self.DynamicControls + 1] = frame
+    self.DynamicControls[#self.DynamicControls + 1] = widget
+end
+
+-- ---------------------------------------------------------------------------
+-- WidgetShownState pooling to efficiently create frames and prevent memory leaks
+-- ---------------------------------------------------------------------------
+
+Interface.WidgetPool = {
+    -- Keyed by widget type string.
+    -- Values are arrays of hidden frames.
+}
+
+---@param widgetType string
+---@param parent table
+---@param template string?
+---@param frameType string?
+---@return table
+function Interface:AcquireWidget(widgetType, parent, template, frameType)
+    if not self.WidgetPool[widgetType] then
+        self.WidgetPool[widgetType] = {}
+    end
+
+    local pool = self.WidgetPool[widgetType]
+    local widget = table.remove(pool)
+
+    if not widget then
+        -- Create new if pool is empty.
+        if frameType == "FontString" then
+            widget = parent:CreateFontString(nil, "OVERLAY", template)
+        else
+            widget = CreateFrame(frameType or "Frame", nil, parent, template)
+        end
+        widget.widgetType = widgetType
+        widget:Show()
+    else
+        -- Recycle existing.
+        widget:SetParent(parent)
+        widget:ClearAllPoints()
+        widget:Show()
+    end
+
+    -- Ensure visibility above parent (fixes vanishing buttons behind backgrounds)
+    if widget.SetFrameLevel then
+        widget:SetFrameLevel(parent:GetFrameLevel() + 5)
+    end
+
+    return widget
+end
+
+function Interface:ReleaseWidget(widget)
+    if not widget or not widget.widgetType then return end
+
+    local pool = self.WidgetPool[widget.widgetType]
+    if not pool then
+        pool = {}
+        self.WidgetPool[widget.widgetType] = pool
+    end
+
+    widget:Hide()
+    widget:ClearAllPoints()
+    widget:SetParent(nil)
+
+    -- Clear script handlers to prevent ghost callbacks from previous lifecycle.
+    if widget.SetScript then
+        local scripts = {
+            "OnClick", "OnEnter", "OnLeave", "OnValueChanged",
+            "OnEditFocusLost", "OnEnterPressed", "OnChar", "OnTextChanged"
+        }
+        for _, scriptName in ipairs(scripts) do
+            if widget:HasScript(scriptName) then
+                widget:SetScript(scriptName, nil)
+            end
+        end
+    end
+
+    -- Reset visual state that might persist.
+    widget:SetAlpha(1)
+    if widget.Enable then widget:Enable() end
+    if widget.SetScale then widget:SetScale(1) end
+
+    pool[#pool + 1] = widget
 end
 
 function Interface:GetTooltip(key)
@@ -890,7 +1064,7 @@ end
 
 function Interface:CreateResetButton(parent, x, y, onClick)
     -- Shared reset control helper for scalar/color rows.
-    local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    local btn = self:AcquireWidget("ResetButton", parent, "UIPanelButtonTemplate", "Button")
     btn:SetSize(58, 22)
     btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     btn:SetText("Reset")
@@ -899,9 +1073,20 @@ function Interface:CreateResetButton(parent, x, y, onClick)
     return btn
 end
 
-function Interface:CreateLabel(parent, text, x, y, width, tooltipText)
+function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj)
     -- Labels are tracked like controls so rebuild cleanup is consistent.
-    local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    -- Default to White (GameFontHighlight) for option labels.
+    local font = fontObj or "GameFontHighlight"
+
+    local fs = self:AcquireWidget("Label", parent, font, "FontString")
+    fs:SetFontObject(font)
+
+    if font == "GameFontNormal" then
+        fs:SetTextColor(1, 0.82, 0, 1) -- Gold for Titles
+    else
+        fs:SetTextColor(1, 1, 1, 1)    -- White for Options
+    end
+
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     fs:SetWidth(width)
     fs:SetJustifyH("LEFT")
@@ -911,11 +1096,161 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText)
     return fs
 end
 
-function Interface:CreateCheckBox(parent, label, path, y)
-    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, y)
+-- ---------------------------------------------------------------------------
+-- Unified ColorPicker helper — used by both channel and config pickers.
+-- ---------------------------------------------------------------------------
+-- opts = {
+--   color       : {r,g,b,a}   — starting colour
+--   hasOpacity  : boolean      — show alpha slider?
+--   onApply     : function(newColor)   — called on confirm / live tick
+--   onCancel    : function(prevColor)  — called on cancel
+-- }
+local function OpenColorPicker(opts)
+    local color       = opts.color
+    local previous    = CopyColor(color)
+    local liveTicker  = nil
+    local lastApplied = nil
 
-    local text = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local function sameColor(lhs, rhs)
+        if type(lhs) ~= "table" or type(rhs) ~= "table" then return false end
+        return lhs.r == rhs.r and lhs.g == rhs.g and lhs.b == rhs.b and lhs.a == rhs.a
+    end
+
+    local function stopLiveTicker()
+        if liveTicker then
+            liveTicker:Cancel(); liveTicker = nil
+        end
+    end
+
+    -- Read current state from whichever picker API is available.
+    local function readPickerColor(callbackData)
+        local r, g, b = color.r or 1, color.g or 1, color.b or 1
+        local a = color.a or 1
+        local hasRgb, hasAlpha = false, false
+
+        if type(callbackData) == "table" then
+            if type(callbackData.r) == "number" then
+                r, g, b, hasRgb = callbackData.r, callbackData.g, callbackData.b, true
+            end
+            if type(callbackData.opacity) == "number" then
+                a, hasAlpha = callbackData.opacity, true
+            elseif type(callbackData.a) == "number" then
+                a, hasAlpha = callbackData.a, true
+            end
+        end
+
+        -- Direct frame polling fallback (for live-updates).
+        if not hasRgb and ColorPickerFrame then
+            if ColorPickerFrame.GetColorRGB then
+                local pr, pg, pb = ColorPickerFrame:GetColorRGB()
+                if pr then r, g, b, hasRgb = pr, pg, pb, true end
+            elseif ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker then
+                local picker = ColorPickerFrame.Content.ColorPicker
+                if picker.GetColorRGB then
+                    local pr, pg, pb = picker:GetColorRGB()
+                    if pr then r, g, b, hasRgb = pr, pg, pb, true end
+                end
+            end
+        end
+
+        if not hasAlpha and ColorPickerFrame then
+            if ColorPickerFrame.GetColorAlpha then
+                local alpha = ColorPickerFrame:GetColorAlpha()
+                if alpha then a, hasAlpha = alpha, true end
+            elseif ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker then
+                local picker = ColorPickerFrame.Content.ColorPicker
+                if picker.GetColorAlpha then
+                    local alpha = picker:GetColorAlpha()
+                    if alpha then a, hasAlpha = alpha, true end
+                end
+            end
+            -- Last resort: legacy property check.
+            if not hasAlpha and type(ColorPickerFrame.opacity) == "number" then
+                a = 1 - ColorPickerFrame.opacity
+            end
+        end
+
+        return Clamp01(r, 1), Clamp01(g, 1), Clamp01(b, 1), Clamp01(a, 1)
+    end
+
+    local function applyCurrentColor(callbackData)
+        local r, g, b, a = readPickerColor(callbackData)
+        local nextColor = { r = r, g = g, b = b, a = a }
+        if sameColor(lastApplied, nextColor) then return end
+        lastApplied = CopyColor(nextColor)
+        opts.onApply(nextColor)
+    end
+
+    local function restorePreviousColor(prev)
+        stopLiveTicker()
+        prev = prev or previous
+        if prev then
+            opts.onCancel(CopyColor(prev))
+            lastApplied = CopyColor(prev)
+        end
+    end
+
+    local function startLiveTicker()
+        stopLiveTicker()
+        if not (C_Timer and C_Timer.NewTicker) then return end
+        liveTicker = C_Timer.NewTicker(0.05, function(ticker)
+            if not ColorPickerFrame or not ColorPickerFrame:IsShown() then
+                ticker:Cancel(); liveTicker = nil; return
+            end
+            applyCurrentColor()
+        end)
+    end
+
+    -- Modern API path.
+    if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+        local info                      = {
+            r              = color.r,
+            g              = color.g,
+            b              = color.b,
+            opacity        = opts.hasOpacity and (color.a or 1) or nil,
+            hasOpacity     = opts.hasOpacity,
+            swatchFunc     = function(data) applyCurrentColor(data) end,
+            opacityFunc    = opts.hasOpacity and function(data) applyCurrentColor(data) end or nil,
+            cancelFunc     = function(prev) restorePreviousColor(prev) end,
+            previousValues = previous,
+        }
+        ColorPickerFrame.previousValues = previous
+        ColorPickerFrame.func           = applyCurrentColor
+        ColorPickerFrame.opacityFunc    = applyCurrentColor
+        ColorPickerFrame.cancelFunc     = restorePreviousColor
+        ColorPickerFrame:SetupColorPickerAndShow(info)
+        if opts.hasOpacity then startLiveTicker() end
+        return
+    end
+
+    -- Legacy API fallback.
+    if ColorPickerFrame then
+        ---@diagnostic disable: undefined-field
+        ColorPickerFrame.hasOpacity = opts.hasOpacity
+        ColorPickerFrame.opacity    = opts.hasOpacity and (1 - (color.a or 1)) or nil
+        if ColorPickerFrame.SetColorRGB then
+            ColorPickerFrame:SetColorRGB(color.r, color.g, color.b)
+        end
+        ColorPickerFrame.previousValues = previous
+        ColorPickerFrame.func           = applyCurrentColor
+        ColorPickerFrame.opacityFunc    = applyCurrentColor
+        ColorPickerFrame.cancelFunc     = restorePreviousColor
+        ---@diagnostic enable: undefined-field
+        ColorPickerFrame:Hide()
+        ColorPickerFrame:Show()
+        if opts.hasOpacity then startLiveTicker() end
+    end
+end
+
+function Interface:CreateCheckBox(parent, label, path, cursor)
+    local y = cursor:Y()
+    local cb = self:AcquireWidget("CheckBox", parent, "UICheckButtonTemplate", "CheckButton")
+    cb:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, y)
+
+
+    local text = self:AcquireWidget("Label", parent, "GameFontHighlight", "FontString")
+    text:SetFontObject("GameFontHighlight")
+    text:SetTextColor(1, 1, 1, 1) -- Force white text (fix recycling color retention)
     text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
     text:SetText(label)
 
@@ -932,13 +1267,15 @@ function Interface:CreateCheckBox(parent, label, path, y)
     self:AttachTooltip(cb, tooltip)
     self:AttachTooltip(text, tooltip)
 
-    return cb, y - 30
+    cursor:Advance(LAYOUT.ROW_CHECKBOX)
+    return cb
 end
 
-function Interface:CreateChannelOverrideControls(parent, y)
+function Interface:CreateChannelOverrideControls(parent, cursor)
     -- Custom row block (outside schema renderer) for per-channel colours.
-    local title = self:CreateLabel(parent, "Channel Text Colour Overrides", 8, y, 340, self:GetTooltip("CHANNEL.HEADER"))
-    title:SetFontObject(GameFontHighlight)
+    local y = cursor:Y()
+    local title = self:CreateLabel(parent, "Channel Text Colour Overrides",
+        LAYOUT.WINDOW_PADDING, y, 340, self:GetTooltip("CHANNEL.HEADER"), "GameFontNormal")
 
     local rows = {}
 
@@ -977,13 +1314,14 @@ function Interface:CreateChannelOverrideControls(parent, y)
     resetAllBtn:SetText("Reset all")
     self:AttachTooltip(resetAllBtn, self:GetTooltip("CHANNEL.RESET_ALL"))
 
-    y = y - 22
+    cursor:Advance(LAYOUT.ROW_CHANNEL_HEADER)
+    y = cursor:Y()
 
     self:CreateLabel(parent, "Colour", 136, y, 60)
     self:CreateLabel(parent, "Master", 252, y, 50, self:GetTooltip("CHANNEL.MASTER"))
     self:CreateLabel(parent, "Override", 322, y, 60, self:GetTooltip("CHANNEL.OVERRIDE"))
 
-    local masterHelp = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    local masterHelp = self:AcquireWidget("HelpButton", parent, "UIPanelButtonTemplate", "Button")
     masterHelp:SetSize(14, 14)
     masterHelp:SetPoint("TOPLEFT", parent, "TOPLEFT", 236, y + 2)
     masterHelp:SetText("?")
@@ -998,7 +1336,8 @@ function Interface:CreateChannelOverrideControls(parent, y)
     masterHelp:SetScript("OnLeave", function() GameTooltip:Hide() end)
     self:AddControl(masterHelp)
 
-    y = y - 16
+    cursor:Advance(LAYOUT.ROW_CHANNEL_LABELS)
+    y = cursor:Y()
 
     local function getMaster()
         local m = self:GetConfigPath({ "EditBox", "ChannelColorMaster" })
@@ -1010,67 +1349,6 @@ function Interface:CreateChannelOverrideControls(parent, y)
             end
         end
         return nil
-    end
-
-    -- Handles both modern and legacy color picker callback styles.
-    local function openChannelColorPicker(key, refreshRow)
-        local color = CopyColor(getChannelColor(key))
-        local previous = CopyColor(color)
-
-        local function applyCurrentColor(callbackData)
-            local r, g, b = color.r, color.g, color.b
-
-            if type(callbackData) == "table"
-               and type(callbackData.r) == "number"
-               and type(callbackData.g) == "number"
-               and type(callbackData.b) == "number" then
-                r, g, b = callbackData.r, callbackData.g, callbackData.b
-            elseif ColorPickerFrame and ColorPickerFrame.GetColorRGB then
-                local pr, pg, pb = ColorPickerFrame:GetColorRGB()
-                if type(pr) == "number" and type(pg) == "number" and type(pb) == "number" then
-                    r, g, b = pr, pg, pb
-                end
-            end
-
-            setChannelColor(key, {
-                r = Clamp01(r, 1),
-                g = Clamp01(g, 1),
-                b = Clamp01(b, 1),
-                a = 1,
-            })
-
-            if refreshRow then refreshRow() end
-        end
-
-        local function restorePreviousColor()
-            setChannelColor(key, previous)
-            if refreshRow then refreshRow() end
-        end
-
-        if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
-            ColorPickerFrame:SetupColorPickerAndShow({
-                r = color.r,
-                g = color.g,
-                b = color.b,
-                hasOpacity = false,
-                swatchFunc = function(data) applyCurrentColor(data) end,
-                cancelFunc = function() restorePreviousColor() end,
-                previousValues = previous,
-            })
-            return
-        end
-
-        if ColorPickerFrame then
-            ColorPickerFrame.hasOpacity = false
-            if ColorPickerFrame.SetColorRGB then
-                ColorPickerFrame:SetColorRGB(color.r, color.g, color.b)
-            end
-            ColorPickerFrame.previousValues = previous
-            ColorPickerFrame.func = applyCurrentColor
-            ColorPickerFrame.cancelFunc = restorePreviousColor
-            ColorPickerFrame:Hide()
-            ColorPickerFrame:Show()
-        end
     end
 
     local function getOverrideValue(key)
@@ -1098,25 +1376,43 @@ function Interface:CreateChannelOverrideControls(parent, y)
     end
 
     for _, option in ipairs(CHANNEL_OVERRIDE_OPTIONS) do
-        self:CreateLabel(parent, option.label, 10, y - 2, 160)
+        self:CreateLabel(parent, option.label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH)
 
-        local colorBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+        local colorBtn = self:AcquireWidget("ColorPickerButtonSmall", parent, "UIPanelButtonTemplate", "Button")
         colorBtn:SetSize(72, 20)
         colorBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 132, y + 1)
         colorBtn:SetText("Pick")
 
-        local swatch = colorBtn:CreateTexture(nil, "ARTWORK")
-        swatch:SetPoint("LEFT", colorBtn, "LEFT", 6, 0)
-        swatch:SetSize(14, 14)
-        swatch:SetTexture("Interface\\Buttons\\WHITE8x8")
+        local swatch = colorBtn.swatch
+        if not swatch then
+            swatch = colorBtn:CreateTexture(nil, "ARTWORK")
+            swatch:SetPoint("LEFT", colorBtn, "LEFT", 6, 0)
+            swatch:SetSize(14, 14)
+            swatch:SetTexture("Interface\\Buttons\\WHITE8x8")
+            colorBtn.swatch = swatch
+        end
 
         local function refreshColor()
-            local c = getChannelColor(option.key)
+            local c = getChannelColor(option.key) or { r = 1, g = 1, b = 1, a = 1 }
             swatch:SetVertexColor(c.r or 1, c.g or 1, c.b or 1, 1)
         end
 
         colorBtn:SetScript("OnClick", function()
-            openChannelColorPicker(option.key, refreshColor)
+            local clr = CopyColor(getChannelColor(option.key))
+            OpenColorPicker({
+                color      = clr,
+                hasOpacity = false,
+                onApply    = function(newColor)
+                    setChannelColor(option.key, {
+                        r = newColor.r, g = newColor.g, b = newColor.b, a = 1,
+                    })
+                    refreshColor()
+                end,
+                onCancel   = function(prev)
+                    setChannelColor(option.key, prev)
+                    refreshColor()
+                end,
+            })
         end)
 
         local resetBtn = self:CreateResetButton(parent, 208, y + 1, function()
@@ -1131,10 +1427,10 @@ function Interface:CreateChannelOverrideControls(parent, y)
         resetBtn:ClearAllPoints()
         resetBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 208, y + 1)
 
-        local masterCb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        local masterCb = self:AcquireWidget("CheckBoxSmall", parent, "UICheckButtonTemplate", "CheckButton")
         masterCb:SetPoint("TOPLEFT", parent, "TOPLEFT", 258, y)
 
-        local overrideCb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        local overrideCb = self:AcquireWidget("CheckBoxSmall", parent, "UICheckButtonTemplate", "CheckButton")
         overrideCb:SetPoint("TOPLEFT", parent, "TOPLEFT", 328, y)
 
         masterCb:SetScript("OnClick", function(selfFrame)
@@ -1160,7 +1456,6 @@ function Interface:CreateChannelOverrideControls(parent, y)
         end)
 
         self:AddControl(colorBtn)
-        self:AddControl(resetBtn)
         self:AddControl(masterCb)
         self:AddControl(overrideCb)
         rows[#rows + 1] = {
@@ -1170,20 +1465,22 @@ function Interface:CreateChannelOverrideControls(parent, y)
             refreshColor = refreshColor,
         }
 
-        y = y - 26
+        cursor:Advance(LAYOUT.ROW_CHANNEL_ROW)
+        y = cursor:Y()
     end
 
     refreshRows()
-    return y - 10
+    cursor:Pad(10)
 end
 
-function Interface:CreateTextInput(parent, label, path, y)
-    self:CreateLabel(parent, label, 10, y - 2, 160, self:GetTooltip(JoinPath(path)))
+function Interface:CreateTextInput(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
 
-    local edit = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    local edit = self:AcquireWidget("InputBox", parent, "InputBoxTemplate", "EditBox")
     edit:SetAutoFocus(false)
     edit:SetSize(180, 22)
-    edit:SetPoint("TOPLEFT", parent, "TOPLEFT", 180, y)
+    edit:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.CONTROL_X, y)
 
     local current = self:GetConfigPath(path)
     if current ~= nil then
@@ -1240,35 +1537,44 @@ function Interface:CreateTextInput(parent, label, path, y)
     end)
 
     self:AddControl(edit)
-    return edit, y - 30
+    cursor:Advance(LAYOUT.ROW_TEXT_INPUT)
+    return edit
 end
 
-function Interface:CreateColorPickerControl(parent, label, path, y)
-    self:CreateLabel(parent, label, 10, y - 2, 160, self:GetTooltip(JoinPath(path)))
+function Interface:CreateColorPickerControl(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
     local fullPath = JoinPath(path)
 
-    local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    local btn = self:AcquireWidget("ColorPickerButton", parent, "UIPanelButtonTemplate", "Button")
     btn:SetSize(120, 22)
-    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 180, y)
+    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.CONTROL_X, y)
 
-    local swatch = btn:CreateTexture(nil, "ARTWORK")
-    swatch:SetPoint("LEFT", btn, "LEFT", 6, 0)
-    swatch:SetSize(16, 16)
-    swatch:SetTexture("Interface\\Buttons\\WHITE8x8")
+    local swatch = btn.swatch
+    if not swatch then
+        swatch = btn:CreateTexture(nil, "ARTWORK")
+        swatch:SetPoint("LEFT", btn, "LEFT", 6, 0)
+        swatch:SetSize(16, 16)
+        swatch:SetTexture("Interface\\Buttons\\WHITE8x8")
+        btn.swatch = swatch
+    end
 
-    local labelFS = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    labelFS:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
-    labelFS:SetText("Pick colour")
+    local labelFS = btn.labelFS
+    if not labelFS then
+        labelFS = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        labelFS:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
+        labelFS:SetText("Pick colour")
+        btn.labelFS = labelFS
+    end
 
     -- Keep swatch in sync with live config state.
     local function refreshSwatch()
-        local color = self:GetConfigPath(path)
+        local color = self:GetConfigPath(path) or { r = 1, g = 1, b = 1, a = 1 }
         if IsColorTable(color) then
             swatch:SetVertexColor(color.r, color.g, color.b, color.a or 1)
         else
             swatch:SetVertexColor(1, 1, 1, 1)
         end
-
         if fullPath == "EditBox.TextColor" then
             self:UpdateOverrideTextColorCheckboxState()
         end
@@ -1280,177 +1586,21 @@ function Interface:CreateColorPickerControl(parent, label, path, y)
     end
 
     btn:SetScript("OnClick", function()
-        local color = self:GetConfigPath(path)
+        local color = self:GetConfigPath(path) or { r = 1, g = 1, b = 1, a = 1 }
         if not IsColorTable(color) then
             color = { r = 1, g = 1, b = 1, a = 1 }
         end
         color.a = Clamp01(color.a, 1)
 
-        local previous = CopyColor(color)
-        local liveTicker = nil
-        local lastApplied = nil
-
-        local function sameColor(lhs, rhs)
-            if type(lhs) ~= "table" or type(rhs) ~= "table" then return false end
-            return lhs.r == rhs.r and lhs.g == rhs.g and lhs.b == rhs.b and lhs.a == rhs.a
-        end
-
-        local function stopLiveTicker()
-            if liveTicker then
-                liveTicker:Cancel()
-                liveTicker = nil
-            end
-        end
-
-        -- Defensive extraction for color picker API variants across clients.
-        local function readPickerColor(callbackData)
-            local r, g, b = color.r or 1, color.g or 1, color.b or 1
-            local a = color.a or 1
-            local hasRgb = false
-            local hasAlpha = false
-
-            if type(callbackData) == "table" then
-                if type(callbackData.r) == "number"
-                   and type(callbackData.g) == "number"
-                   and type(callbackData.b) == "number" then
-                    r, g, b = callbackData.r, callbackData.g, callbackData.b
-                    hasRgb = true
-                end
-                if type(callbackData.opacity) == "number" then
-                    a = 1 - callbackData.opacity
-                    hasAlpha = true
-                elseif type(callbackData.a) == "number" then
-                    a = callbackData.a
-                    hasAlpha = true
-                end
-            end
-
-            if not hasRgb and ColorPickerFrame and ColorPickerFrame.GetColorRGB then
-                local pr, pg, pb = ColorPickerFrame:GetColorRGB()
-                if type(pr) == "number" and type(pg) == "number" and type(pb) == "number" then
-                    r, g, b = pr, pg, pb
-                    hasRgb = true
-                end
-            elseif not hasRgb and ColorPickerFrame and ColorPickerFrame.Content
-               and ColorPickerFrame.Content.ColorPicker then
-                local picker = ColorPickerFrame.Content.ColorPicker
-                if picker.GetColorRGB then
-                    local pr, pg, pb = picker:GetColorRGB()
-                    if type(pr) == "number" and type(pg) == "number" and type(pb) == "number" then
-                        r, g, b = pr, pg, pb
-                        hasRgb = true
-                    end
-                end
-            end
-
-            if not hasAlpha and ColorPickerFrame and ColorPickerFrame.GetColorAlpha then
-                local alpha = ColorPickerFrame:GetColorAlpha()
-                if type(alpha) == "number" then
-                    a = alpha
-                    hasAlpha = true
-                end
-            end
-
-            if not hasAlpha and ColorPickerFrame and ColorPickerFrame.Content
-               and ColorPickerFrame.Content.ColorPicker then
-                local picker = ColorPickerFrame.Content.ColorPicker
-                if picker.GetColorAlpha then
-                    local alpha = picker:GetColorAlpha()
-                    if type(alpha) == "number" then
-                        a = alpha
-                        hasAlpha = true
-                    end
-                elseif picker.OpacitySlider and picker.OpacitySlider.GetValue then
-                    a = 1 - picker.OpacitySlider:GetValue()
-                    hasAlpha = true
-                end
-            end
-
-            if not hasAlpha and OpacitySliderFrame and OpacitySliderFrame.GetValue then
-                a = 1 - OpacitySliderFrame:GetValue()
-                hasAlpha = true
-            end
-
-            if not hasAlpha and ColorPickerFrame and type(ColorPickerFrame.opacity) == "number" then
-                a = 1 - ColorPickerFrame.opacity
-            end
-
-            return Clamp01(r, 1), Clamp01(g, 1), Clamp01(b, 1), Clamp01(a, 1)
-        end
-
-        local function applyCurrentColor(callbackData)
-            local r, g, b, a = readPickerColor(callbackData)
-            local nextColor = { r = r, g = g, b = b, a = a }
-            if sameColor(lastApplied, nextColor) then
-                return
-            end
-            lastApplied = CopyColor(nextColor)
-            applyStoredColor(nextColor)
-        end
-
-        local function restorePreviousColor(prev)
-            stopLiveTicker()
-            prev = prev or previous
-            if prev then
-                applyStoredColor(CopyColor(prev))
-                lastApplied = CopyColor(prev)
-            end
-        end
-
-        local function startLiveTicker()
-            stopLiveTicker()
-            if not (C_Timer and C_Timer.NewTicker) then return end
-            liveTicker = C_Timer.NewTicker(0.05, function(ticker)
-                if not ColorPickerFrame or not ColorPickerFrame:IsShown() then
-                    ticker:Cancel()
-                    liveTicker = nil
-                    return
-                end
-                applyCurrentColor()
-            end)
-        end
-
-        if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
-            local info = {
-                r = color.r,
-                g = color.g,
-                b = color.b,
-                opacity = 1 - Clamp01(color.a, 1),
-                hasOpacity = true,
-                swatchFunc = function(data) applyCurrentColor(data) end,
-                opacityFunc = function(data) applyCurrentColor(data) end,
-                cancelFunc = function(prev) restorePreviousColor(prev) end,
-                previousValues = previous,
-            }
-
-            -- Also seed legacy callback fields for client variants that still consult them.
-            ColorPickerFrame.previousValues = previous
-            ColorPickerFrame.func = applyCurrentColor
-            ColorPickerFrame.opacityFunc = applyCurrentColor
-            ColorPickerFrame.cancelFunc = restorePreviousColor
-
-            ColorPickerFrame:SetupColorPickerAndShow(info)
-            startLiveTicker()
-            return
-        end
-
-        if ColorPickerFrame then
-            ColorPickerFrame.hasOpacity = true
-            ColorPickerFrame.opacity = 1 - (color.a or 1)
-            if ColorPickerFrame.SetColorRGB then
-                ColorPickerFrame:SetColorRGB(color.r, color.g, color.b)
-            end
-            ColorPickerFrame.previousValues = previous
-            ColorPickerFrame.func = applyCurrentColor
-            ColorPickerFrame.opacityFunc = applyCurrentColor
-            ColorPickerFrame.cancelFunc = restorePreviousColor
-            ColorPickerFrame:Hide()
-            ColorPickerFrame:Show()
-            startLiveTicker()
-        end
+        OpenColorPicker({
+            color      = CopyColor(color),
+            hasOpacity = true,
+            onApply    = function(newColor) applyStoredColor(newColor) end,
+            onCancel   = function(prev) applyStoredColor(CopyColor(prev)) end,
+        })
     end)
 
-    Interface:CreateResetButton(parent, 306, y, function()
+    Interface:CreateResetButton(parent, LAYOUT.RESET_X, y, function()
         local defaultColor = Interface:GetDefaultPath(path)
         if IsColorTable(defaultColor) then
             applyStoredColor(CopyColor(defaultColor))
@@ -1459,13 +1609,15 @@ function Interface:CreateColorPickerControl(parent, label, path, y)
 
     refreshSwatch()
     self:AddControl(btn)
-    return btn, y - 30
+    cursor:Advance(LAYOUT.ROW_COLOR_PICKER)
+    return btn
 end
 
-function Interface:CreateFontSizeDropdown(parent, label, path, y)
-    self:CreateLabel(parent, label, 10, y - 2, 160, self:GetTooltip(JoinPath(path)))
+function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
 
-    local slider = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
+    local slider = self:AcquireWidget("Slider", parent, "OptionsSliderTemplate", "Slider")
     slider:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y)
     slider:SetWidth(146)
     slider:SetHeight(20)
@@ -1485,11 +1637,11 @@ function Interface:CreateFontSizeDropdown(parent, label, path, y)
     if high then high:SetText("64") end
     if text then text:SetText(tostring(current)) end
 
-    local valueFs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    local valueFs = self:AcquireWidget("Label", parent, "GameFontHighlightSmall", "FontString")
     valueFs:SetPoint("LEFT", slider, "RIGHT", 6, 0)
     valueFs:SetText(tostring(current))
 
-    local dd = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
     dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 155, y - 20)
     UIDropDownMenu_SetWidth(dd, 126)
     UIDropDownMenu_SetText(dd, tostring(current))
@@ -1522,7 +1674,7 @@ function Interface:CreateFontSizeDropdown(parent, label, path, y)
         end
     end)
 
-    local resetBtn = Interface:CreateResetButton(parent, 306, y - 44, function()
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 44, function()
         local defaultSize = RoundToEven(Interface:GetDefaultPath(path))
         slider:SetValue(defaultSize)
         UIDropDownMenu_SetText(dd, tostring(defaultSize))
@@ -1535,13 +1687,15 @@ function Interface:CreateFontSizeDropdown(parent, label, path, y)
     self:AddControl(slider)
     self:AddControl(valueFs)
     self:AddControl(dd)
-    return slider, y - 84
+    cursor:Advance(LAYOUT.ROW_FONT_SIZE)
+    return slider
 end
 
-function Interface:CreateFontOutlineDropdown(parent, label, path, y)
-    self:CreateLabel(parent, label, 10, y - 2, 160, self:GetTooltip(JoinPath(path)))
+function Interface:CreateFontOutlineDropdown(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
 
-    local dd = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
     dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
     UIDropDownMenu_SetWidth(dd, 140)
 
@@ -1563,7 +1717,8 @@ function Interface:CreateFontOutlineDropdown(parent, label, path, y)
     end)
 
     self:AddControl(dd)
-    return dd, y - 30
+    cursor:Advance(LAYOUT.ROW_FONT_OUTLINE)
+    return dd
 end
 
 function Interface:BuildConfigUI()
@@ -1576,7 +1731,7 @@ function Interface:BuildConfigUI()
     local autosaveLabel = self:CreateLabel(
         frame.ContentFrame,
         "Settings are saved automatically.",
-        8,
+        LAYOUT.WINDOW_PADDING,
         -8,
         360,
         self:GetTooltip("HEADER.AUTOSAVE")
@@ -1588,14 +1743,14 @@ function Interface:BuildConfigUI()
     local modeLabel = self:CreateLabel(
         frame.ContentFrame,
         "View",
-        8,
+        LAYOUT.WINDOW_PADDING,
         -30,
         72,
         self:GetTooltip("HEADER.VIEWMODE")
     )
     modeLabel:SetFontObject(GameFontHighlightSmall)
 
-    local modeDd = CreateFrame("Frame", nil, frame.ContentFrame, "UIDropDownMenuTemplate")
+    local modeDd = self:AcquireWidget("Dropdown", frame.ContentFrame, "UIDropDownMenuTemplate", "Frame")
     modeDd:SetPoint("TOPLEFT", frame.ContentFrame, "TOPLEFT", 50, -38)
     UIDropDownMenu_SetWidth(modeDd, 110)
     UIDropDownMenu_SetText(modeDd, mode == "advanced" and "Advanced" or "Basic")
@@ -1621,7 +1776,8 @@ function Interface:BuildConfigUI()
     self:AddControl(modeDd)
     self:AttachTooltip(modeDd, self:GetTooltip("HEADER.VIEWMODE"))
 
-    local y = -68
+    -- Dynamic content begins below the fixed header.
+    local cursor = LayoutCursor.New(LAYOUT.CONTENT_START_Y)
 
     -- Prevent section labels from showing when all children are filtered out.
     local function sectionHasVisibleChildren(sectionIndex)
@@ -1630,8 +1786,8 @@ function Interface:BuildConfigUI()
         for idx = sectionIndex + 1, #schema do
             local candidate = schema[idx]
             if IsDescendantPath(candidate.path, sectionItem.path)
-               and candidate.kind ~= "section"
-               and Interface:IsItemVisibleForMode(candidate, mode) then
+                and candidate.kind ~= "section"
+                and Interface:IsItemVisibleForMode(candidate, mode) then
                 return true
             end
         end
@@ -1640,51 +1796,126 @@ function Interface:BuildConfigUI()
 
     for index, item in ipairs(schema) do
         local existsInDefaults = self:GetDefaultsRoot()
-        local cursor = existsInDefaults
+        local defaultsCursor = existsInDefaults
         for i = 1, #item.path do
-            if type(cursor) ~= "table" then
-                cursor = nil
+            if type(defaultsCursor) ~= "table" then
+                defaultsCursor = nil
                 break
             end
-            cursor = cursor[item.path[i]]
+            defaultsCursor = defaultsCursor[item.path[i]]
         end
 
-        if cursor ~= nil then
+        if defaultsCursor ~= nil then
             if item.kind == "section" then
                 if sectionHasVisibleChildren(index) then
                     local label = self:CreateLabel(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
-                        8,
-                        y,
+                        LAYOUT.WINDOW_PADDING,
+                        cursor:Y(),
                         340,
-                        self:GetTooltip("SECTION." .. item.full)
+                        self:GetTooltip("SECTION." .. item.full),
+                        "GameFontNormal"
                     )
-                    label:SetFontObject(GameFontHighlight)
-                    y = y - 24
+                    cursor:Advance(LAYOUT.ROW_SECTION)
                 end
-            elseif self:IsItemVisibleForMode(item, mode) then
-                local display = self:GetFriendlyLabel(item)
-                if item.kind == "boolean" then
-                    _, y = self:CreateCheckBox(frame.ContentFrame, display, item.path, y)
-                elseif item.kind == "text" then
-                    _, y = self:CreateTextInput(frame.ContentFrame, display, item.path, y)
-                elseif item.kind == "color" then
-                    _, y = self:CreateColorPickerControl(frame.ContentFrame, display, item.path, y)
-                elseif item.kind == "fontsize" then
-                    _, y = self:CreateFontSizeDropdown(frame.ContentFrame, display, item.path, y)
-                elseif item.kind == "fontflags" then
-                    _, y = self:CreateFontOutlineDropdown(frame.ContentFrame, display, item.path, y)
+            elseif item.kind == "boolean" then
+                if Interface:IsItemVisibleForMode(item, mode) then
+                    local cb = self:CreateCheckBox(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                end
+            elseif item.kind == "text" then
+                if Interface:IsItemVisibleForMode(item, mode) then
+                    self:CreateTextInput(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                end
+            elseif item.kind == "color" then
+                if Interface:IsItemVisibleForMode(item, mode) then
+                    self:CreateColorPickerControl(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                end
+            elseif item.kind == "fontsize" then
+                if Interface:IsItemVisibleForMode(item, mode) then
+                    self:CreateFontSizeDropdown(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                end
+            elseif item.kind == "fontflags" then
+                if Interface:IsItemVisibleForMode(item, mode) then
+                    self:CreateFontOutlineDropdown(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
                 end
             end
         end
     end
 
-    if type(self:GetDefaultPath({ "EditBox", "ChannelColorOverrides" })) == "table" then
-        y = self:CreateChannelOverrideControls(frame.ContentFrame, y)
+    -- Manually append "Message Bridges" section at the bottom (Advanced only)
+    if mode == "advanced" then
+        cursor:Pad(10)
+        self:CreateLabel(
+            frame.ContentFrame,
+            "Message Bridges",
+            LAYOUT.WINDOW_PADDING,
+            cursor:Y(),
+            340,
+            "Enable or disable integration with third-party protocols.",
+            "GameFontNormal"
+        )
+        cursor:Advance(LAYOUT.ROW_SECTION)
+
+        self:CreateCheckBox(
+            frame.ContentFrame,
+            FRIENDLY_LABELS["System.EnableGopherBridge"],
+            { "System", "EnableGopherBridge" },
+            cursor
+        )
+
+        -- Visible warning note for Gopher toggle.
+        local gopherWarning = self:CreateLabel(
+            frame.ContentFrame,
+            "BAD IDEA: Disabling this while using Gopher-powered addons (CrossRP, etc.) will cause stalls.",
+            LAYOUT.WINDOW_PADDING + 28,
+            cursor:Y() + 4,
+            320
+        )
+        gopherWarning:SetFontObject(GameFontHighlightSmall)
+        gopherWarning:SetTextColor(1, 0.4, 0.4, 1) -- Light red warning color.
+        cursor:Advance(14)                         -- Extra space for the warning note.
+
+        self:CreateCheckBox(
+            frame.ContentFrame,
+            FRIENDLY_LABELS["System.EnableTypingTrackerBridge"],
+            { "System", "EnableTypingTrackerBridge" },
+            cursor
+        )
     end
 
-    frame.ContentFrame:SetHeight(math.abs(y) + 40)
+    if type(self:GetDefaultPath({ "EditBox", "ChannelColorOverrides" })) == "table" then
+        self:CreateChannelOverrideControls(frame.ContentFrame, cursor)
+    end
+
+    -- Finish layout
+    cursor:Pad(20)
+    frame.ContentFrame:SetHeight(math.abs(cursor:Y()) + 20)
     frame.ScrollFrame:UpdateScrollChildRect()
 end
 
@@ -1779,7 +2010,8 @@ function Interface:CreateLauncher()
 
     local tooltipLines = self:GetLauncherTooltipLines()
 
-    -- Add to addon compatment if exists.
+    -- Add to addon compartment if exists.
+    ---@diagnostic disable: undefined-global
     local compartment = AddonCompartmentFrame or AddonCompartment
     if type(compartment) == "table" and type(compartment.RegisterAddon) == "function" then
         local ok, err = pcall(function()
