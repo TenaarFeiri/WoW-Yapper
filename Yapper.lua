@@ -64,6 +64,18 @@ local function OnAddonLoaded(addonName)
     -- Initialise all three SavedVariables (YapperDB, YapperLocalConf, YapperLocalHistory).
     YapperTable.Core:InitSavedVars()
 
+    -- Restore the previously selected theme so Theme._current is valid for the
+    -- entire session.  SetTheme re-seeds non-overridden colour values from the
+    -- theme into YapperLocalConf.EditBox.*, but honours _themeOverrides so any
+    -- colours the user explicitly changed are kept intact.
+    if YapperTable.Theme and _G.YapperLocalConf then
+        local savedTheme = _G.YapperLocalConf.System
+                       and _G.YapperLocalConf.System.ActiveTheme
+        if type(savedTheme) == "string" and savedTheme ~= "" then
+            pcall(function() YapperTable.Theme:SetTheme(savedTheme) end)
+        end
+    end
+
     -- Register launcher at startup (Addon Compartment preferred, fallbacks inside Interface).
     if YapperTable.Interface and YapperTable.Interface.CreateLauncher then
         YapperTable.Interface:CreateLauncher()

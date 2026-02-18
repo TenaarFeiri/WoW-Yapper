@@ -47,6 +47,38 @@ function Router:Init()
     end
 end
 
+--- Return true if the requested chat target is currently available.
+function Router:CanSendTo(chatType, language, target)
+    chatType = chatType or "SAY"
+    if chatType == "PARTY" or chatType == "PARTY_LEADER" then
+        return IsInGroup() and not IsInRaid()
+    end
+    if chatType == "RAID" or chatType == "RAID_LEADER" or chatType == "RAID_WARNING" then
+        return IsInRaid()
+    end
+    if chatType == "INSTANCE_CHAT" then
+        return IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+    end
+    if chatType == "GUILD" or chatType == "OFFICER" then
+        -- Guild membership check.
+        return IsInGuild()
+    end
+    if chatType == "CHANNEL" then
+        -- Channel target may be a number or name; attempt basic validation.
+        if not target or tostring(target) == "" then return false end
+        -- If GetChannelName returns 0 or nil, it's not present.
+        if GetChannelName then
+            local id = tonumber(target)
+            if id then
+                local cid = select(1, GetChannelName(id))
+                return cid and cid ~= 0
+            end
+        end
+        return true
+    end
+    return true
+end
+
 -- ---------------------------------------------------------------------------
 -- Community channel detection
 -- ---------------------------------------------------------------------------
@@ -97,6 +129,14 @@ end
 function Router:Send(msg, chatType, language, target)
     if not msg or msg == "" then return false end
     chatType = chatType or "SAY"
+    -- Don't attempt sends to unavailable channels (prevents Blizzard spam).
+    if not self:CanSendTo(chatType, language, target) then
+        if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
+            local friendly = "Not in required group/channel for chat type: " .. tostring(chatType)
+            YapperTable.Utils:Print("warn", friendly)
+        end
+        return false
+    end
 
     -- ── GopherBridge path ────────────────────────────────────────────
     local bridge = YapperTable.GopherBridge

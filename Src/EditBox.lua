@@ -136,6 +136,62 @@ local function SetFrameFillColor(frame, r, g, b, a)
     frame._yapperSolidFill:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
 end
 
+-- Single-pass visual refresh: fills, label/edit anchors, text colour, border.
+-- `pad` is 0 (no border) or overlay.BorderPad (border active).
+-- Call this from ShowOverlay and ApplyConfigToLiveOverlay — never write
+-- colours or anchors anywhere else so nothing can fight.
+local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
+    local overlay = editBox.Overlay
+    local labelBg = editBox.LabelBg
+    local edit    = editBox.OverlayEdit
+    if not overlay or not labelBg or not edit then return end
+
+    local inputBg   = cfg.InputBg    or {}
+    local labelCfg  = cfg.LabelBg    or {}
+    local borderCfg = cfg.BorderColor or {}
+    local textCfg   = cfg.TextColor   or {}
+
+    -- Input background fill + dynamic inset so it never bleeds outside the border.
+    SetFrameFillColor(overlay,
+        inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    if overlay._yapperSolidFill then
+        overlay._yapperSolidFill:ClearAllPoints()
+        if pad > 0 then
+            overlay._yapperSolidFill:SetPoint("TOPLEFT",     overlay, "TOPLEFT",      pad, -pad)
+            overlay._yapperSolidFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad,  pad)
+        else
+            overlay._yapperSolidFill:SetAllPoints(overlay)
+        end
+    end
+
+    -- Label background fill + position (inset matches fill when border active).
+    SetFrameFillColor(labelBg,
+        labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
+    labelBg:ClearAllPoints()
+    labelBg:SetPoint("TOPLEFT",    overlay, "TOPLEFT",    pad, -pad)
+    labelBg:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", pad,  pad)
+
+    -- EditBox anchors: left edge follows label; right edge inset to avoid border.
+    edit:ClearAllPoints()
+    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    1,    0)
+    edit:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
+
+    -- Text colour.
+    if edit.SetTextColor then
+        edit:SetTextColor(textCfg.r or 1, textCfg.g or 1, textCfg.b or 1, textCfg.a or 1)
+    end
+
+    -- Border visibility and colour.
+    if overlay.Border then
+        if borderActive then
+            overlay.Border:SetBackdropBorderColor(
+                borderCfg.r or 0.4, borderCfg.g or 0.4, borderCfg.b or 0.4, borderCfg.a or 1)
+            overlay.Border:Show()
+        else
+            overlay.Border:Hide()
+        end
+    end
+end
 
 
 -- Resolve a numeric channel ID to its display name, or nil.
@@ -289,18 +345,37 @@ function EditBox:CreateOverlay()
     local labelCfg = cfg.LabelBg or {}
 
     -- Container frame — matches position/size of the original editbox.
-    local frame = CreateFrame("Frame", "YapperOverlayFrame", UIParent)
+    local frame = CreateFrame("Frame", "YapperOverlayFrame", UIParent, "BackdropTemplate")
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
     frame:Hide()
 
-    -- Container background fill (flat colour only).
+    -- Border frame (separate element so themes can recolour it independently).
+    -- Hidden by default; shown/hidden in ApplyConfigToLiveOverlay when the active
+    -- theme opts into a border.
+    local BORDER_PAD = 6
+    local borderFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    borderFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    borderFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+    borderFrame:SetBackdrop({
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        edgeSize = 8,
+        insets = { left = BORDER_PAD, right = BORDER_PAD, top = BORDER_PAD, bottom = BORDER_PAD },
+    })
+    borderFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+    borderFrame:Hide()  -- hidden until ApplyConfigToLiveOverlay decides based on active theme
+    frame.Border     = borderFrame
+    frame.BorderPad  = BORDER_PAD  -- read by ApplyConfigToLiveOverlay for fill inset
+
+    -- Container background fill — always on the outer frame so ApplyConfigToLiveOverlay
+    -- has a single predictable target.  Anchor is adjusted dynamically when the border
+    -- is active (inset) vs hidden (full bleed).
     SetFrameFillColor(frame, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
 
     -- ── Label background (left portion) ──────────────────────────────
-    local labelBg = CreateFrame("Frame", nil, frame)
-    SetFrameFillColor(labelBg, labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 0.9)
-    labelBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    local labelBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    -- Initial anchors at zero inset; RefreshOverlayVisuals repositions on first show.
+    labelBg:SetPoint("TOPLEFT",    frame, "TOPLEFT",    0, 0)
     labelBg:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
     labelBg:SetWidth(100) -- will be recalculated on show
 
@@ -320,15 +395,19 @@ function EditBox:CreateOverlay()
     edit:SetTextColor(tc.r or 1, tc.g or 1, tc.b or 1, tc.a or 1)
     edit:SetTextInsets(6, 6, 0, 0)
 
-    -- Anchor edit to the right of the label.
-    edit:SetPoint("TOPLEFT", labelBg, "TOPRIGHT", 1, 0)
-    edit:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+    -- Initial anchors at zero inset; RefreshOverlayVisuals repositions on first show.
+    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    1, 0)
+    edit:SetPoint("BOTTOMRIGHT", frame,   "BOTTOMRIGHT", 0, 0)
 
     -- Store references.
     self.Overlay      = frame
     self.OverlayEdit  = edit
     self.ChannelLabel = labelFs
     self.LabelBg      = labelBg
+    -- Also attach to the frame so external theming APIs can find them via the frame object.
+    frame.OverlayEdit  = edit
+    frame.ChannelLabel = labelFs
+    frame.LabelBg      = labelBg
 
     -- ── Wire up scripts ──────────────────────────────────────────────
     self:SetupOverlayScripts()
@@ -945,11 +1024,13 @@ function EditBox:Show(origEditBox)
         overlay:SetHeight(finalH)
     end
 
-    -- Re-apply background colours from config.
-    local inputBg = cfg.InputBg or {}
-    local labelCfg = cfg.LabelBg or {}
-    SetFrameFillColor(overlay, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
-    SetFrameFillColor(self.LabelBg, labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
+    -- Single-pass visual refresh (fills, anchors, text colour, border).
+    do
+        local activeThemeOnShow = YapperTable.Theme and YapperTable.Theme:GetTheme()
+        local borderOnShow      = activeThemeOnShow and activeThemeOnShow.border == true
+        local padOnShow         = (borderOnShow and overlay.BorderPad) or 0
+        RefreshOverlayVisuals(self, cfg, borderOnShow, padOnShow)
+    end
 
     -- Stay on top of the original.
     local origLevel = origEditBox:GetFrameLevel() or 0
@@ -1046,22 +1127,29 @@ function EditBox:HandoffToBlizzard()
 end
 
 --- Re-apply current config values to a live overlay (if present/shown).
-function EditBox:ApplyConfigToLiveOverlay()
+-- @param force boolean: when true, apply regardless of SettingsHaveChanged flag.
+function EditBox:ApplyConfigToLiveOverlay(force)
     if not self.Overlay or not self.OverlayEdit then return end
+    pcall(function()
+        if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+            YapperTable.Utils:VerbosePrint("EditBox:ApplyConfigToLiveOverlay called (force=" .. tostring(force) .. ")")
+        end
+    end)
 
     local localConf = _G.YapperLocalConf
     if type(localConf) ~= "table"
         or type(localConf.System) ~= "table"
-        or localConf.System.SettingsHaveChanged ~= true then
+        or (localConf.System.SettingsHaveChanged ~= true and not force) then
         return
     end
 
     local cfg = YapperTable.Config.EditBox or {}
-    local inputBg = cfg.InputBg or {}
-    local labelCfg = cfg.LabelBg or {}
 
-    SetFrameFillColor(self.Overlay, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
-    SetFrameFillColor(self.LabelBg, labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
+    -- Single-pass visual refresh (fills, anchors, text colour, border).
+    local activeTheme  = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    local borderActive = activeTheme and activeTheme.border == true
+    local pad          = (borderActive and self.Overlay.BorderPad) or 0
+    RefreshOverlayVisuals(self, cfg, borderActive, pad)
 
     local cfgFace  = cfg.FontFace
     local cfgSize  = cfg.FontSize or 0
@@ -1110,6 +1198,13 @@ function EditBox:ApplyConfigToLiveOverlay()
 
     self:RefreshLabel()
     localConf.System.SettingsHaveChanged = false
+
+    -- Apply theme for font overrides / OnApply hook only.
+    -- Colours and border are already handled above from config; Theme:ApplyToFrame
+    -- is now responsible only for font and OnApply so there is no double-write.
+    if YapperTable.Theme and type(YapperTable.Theme.ApplyToFrame) == "function" and self.Overlay then
+        pcall(function() YapperTable.Theme:ApplyToFrame(self.Overlay) end)
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -1120,6 +1215,13 @@ function EditBox:RefreshLabel()
     local label, r, g, b = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
     local cfg = YapperTable.Config.EditBox or {}
     local resolvedR, resolvedG, resolvedB = r, g, b
+
+    -- If a theme provides channel text colours and the config doesn't override,
+    -- prefer the theme values so themes can style channel labels consistently.
+    local theme
+    if YapperTable.Theme and type(YapperTable.Theme.GetTheme) == "function" then
+        theme = YapperTable.Theme:GetTheme()
+    end
 
     local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
     local masterKey = cfg.ChannelColorMaster
@@ -1171,6 +1273,14 @@ function EditBox:RefreshLabel()
     end
 
     self.ChannelLabel:SetText(label)
+    -- Allow theme channel colours to override the resolved colour when present.
+    if theme and type(theme.channelTextColors) == "table" then
+        local tcol = theme.channelTextColors[self.ChatType] or theme.channelTextColors[currentKey]
+        if tcol and type(tcol.r) == "number" and type(tcol.g) == "number" and type(tcol.b) == "number" then
+            resolvedR, resolvedG, resolvedB = tcol.r, tcol.g, tcol.b
+        end
+    end
+
     self.ChannelLabel:SetTextColor(resolvedR, resolvedG, resolvedB)
 
     -- Labels stay channel-coloured. Input text uses channel colour, or master override.

@@ -37,6 +37,9 @@ local DEFAULTS = {
         EnableGopherBridge        = true,
         EnableTypingTrackerBridge = true,
 
+        -- Default active theme name (registered by `Src/Theme.lua`).
+        ActiveTheme               = "Yapper Default",
+
         -- Possibly used for system messages where some customisation is necessary. Reset to nil after every use.
         SYSTEM_PREFIX             = nil,
     },
@@ -111,6 +114,8 @@ local DEFAULTS = {
 
         -- Text colour (nil = white)
         TextColor             = { r = 1, g = 1, b = 1, a = 1 },
+        -- Optional border colour for themes that expose a border element.
+        BorderColor           = { r = 0.00, g = 0.00, b = 0.00, a = 0 },
         ChannelColorMaster    = "",
         ChannelColorOverrides = {
             SAY = false,

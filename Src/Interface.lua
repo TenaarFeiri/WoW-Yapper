@@ -13,6 +13,7 @@ local COLOR_KEYS = {
     InputBg = true,
     LabelBg = true,
     TextColor = true,
+    BorderColor = true,
 }
 
 local CHANNEL_OVERRIDE_OPTIONS = {
@@ -480,6 +481,17 @@ function Interface:SetLocalPath(path, value)
         SetPathValue(root, path, normalizedValue)
     end
 
+    -- If the user is explicitly editing a top-level EditBox colour, mark it
+    -- as an explicit override so theme changes won't stomp the user's choice.
+    if type(normalizedValue) == "table"
+        and #path >= 2
+        and path[1] == "EditBox"
+        and COLOR_KEYS[path[2]] then
+        if type(root._themeOverrides) ~= "table" then root._themeOverrides = {} end
+        root._themeOverrides[path[2]] = true
+        _G.YapperLocalConf = root
+    end
+
     if type(YapperTable.Config) == "table" and YapperTable.Config ~= root then
         if syncedChatDelineator and syncedChatPrefix then
             SetPathValue(YapperTable.Config, { "Chat", "DELINEATOR" }, syncedChatDelineator)
@@ -515,6 +527,20 @@ function Interface:SetLocalPath(path, value)
         and YapperTable.EditBox
         and YapperTable.EditBox.ApplyConfigToLiveOverlay then
         YapperTable.EditBox:ApplyConfigToLiveOverlay()
+    end
+
+    -- Apply active theme immediately when changed.
+    if JoinPath(path) == "System.ActiveTheme" then
+        if YapperTable.Theme and type(YapperTable.Theme.SetTheme) == "function" then
+            pcall(function()
+                YapperTable.Theme:SetTheme(value)
+            end)
+        end
+        if YapperTable.EditBox and YapperTable.EditBox.ApplyConfigToLiveOverlay then
+            pcall(function()
+                YapperTable.EditBox:ApplyConfigToLiveOverlay()
+            end)
+        end
     end
 
     self:SetDirty(true)
@@ -609,6 +635,9 @@ function Interface:BuildRenderSchema()
     -- Hide internal / engine-facing settings from normal rendering.
     local function shouldSkipPath(path)
         local full = JoinPath(path)
+        if full == "System.ActiveTheme" then
+            return true
+        end
         if full == "System.SettingsHaveChanged"
             or full == "System.VERSION"
             or full == "System.FRAME_ID_PARENT"
@@ -629,7 +658,9 @@ function Interface:BuildRenderSchema()
             and (path[2] == "ChannelColorMaster"
                 or path[2] == "ChannelColorOverrides"
                 or path[2] == "ChannelTextColors"
-                or path[2] == "TextColor") then
+                or path[2] == "TextColor"
+                or path[2] == "BorderColor") then
+            -- BorderColor is rendered conditionally near the theme picker instead.
             return true
         end
 
@@ -717,6 +748,14 @@ function Interface:BuildRenderSchema()
     end
 
     walk(defaults, {})
+
+    -- Add theme selector (custom, not derived from defaults).
+    schema[#schema + 1] = {
+        kind = "theme",
+        key = "ActiveTheme",
+        path = { "System", "ActiveTheme" },
+        full = "System.ActiveTheme",
+    }
     return schema
 end
 
@@ -1727,6 +1766,51 @@ function Interface:CreateFontOutlineDropdown(parent, label, path, cursor)
     return dd
 end
 
+function Interface:CreateThemeDropdown(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
+
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
+    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
+    UIDropDownMenu_SetWidth(dd, 180)
+
+    local current = self:GetConfigPath(path) or (YapperTable.Theme and YapperTable.Theme._current)
+    UIDropDownMenu_SetText(dd, tostring(current or "Default"))
+
+    UIDropDownMenu_Initialize(dd, function(frame, level)
+        local names = { }
+        if YapperTable and YapperTable.GetRegisteredThemes then
+            names = YapperTable:GetRegisteredThemes()
+        elseif YapperTable and YapperTable.Theme and YapperTable.Theme.GetRegisteredNames then
+            names = YapperTable.Theme:GetRegisteredNames()
+        end
+
+        -- Ensure there's at least the default entry.
+        if #names == 0 then names = { "Yapper Default" } end
+
+        for _, name in ipairs(names) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = name
+            info.checked = (name == current)
+            info.func = function()
+                current = name
+                Interface:SetLocalPath(path, name)
+                pcall(function()
+                    if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+                        YapperTable.Utils:VerbosePrint("Interface: theme selected -> " .. tostring(name))
+                    end
+                end)
+                UIDropDownMenu_SetText(frame, name)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    self:AddControl(dd)
+    cursor:Advance(LAYOUT.ROW_TEXT_INPUT)
+    return dd
+end
+
 function Interface:BuildConfigUI()
     local frame = self.MainWindowFrame
     if not frame or not frame.ContentFrame then return end
@@ -1870,6 +1954,28 @@ function Interface:BuildConfigUI()
                         cursor
                     )
                 end
+            elseif item.kind == "theme" then
+                if Interface:IsItemVisibleForMode(item, mode) then
+                    self:CreateThemeDropdown(
+                        frame.ContentFrame,
+                        "Active Theme",
+                        item.path,
+                        cursor
+                    )
+                end
+            end
+        end
+    end
+
+    -- If the active theme indicates a border, expose a colour picker for the
+    -- border so users can recolour it. We store it under EditBox.BorderColor.
+    local activeThemeName = self:GetConfigPath({ "System", "ActiveTheme" })
+        or (YapperTable.Theme and YapperTable.Theme._current)
+    if activeThemeName and YapperTable and YapperTable.Theme then
+        local t = YapperTable.Theme:GetTheme(activeThemeName)
+        if type(t) == "table" and t.border == true then
+            if Interface:IsItemVisibleForMode({ kind = "color", path = { "EditBox", "BorderColor" } }, mode) then
+                self:CreateColorPickerControl(frame.ContentFrame, "Border Colour", { "EditBox", "BorderColor" }, cursor)
             end
         end
     end

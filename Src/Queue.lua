@@ -303,10 +303,26 @@ end
 
 function Queue:RawSend(entry)
     local Router = YapperTable.Router
+    local ok = true
     if Router then
-        Router:Send(entry.text, entry.type, entry.lang, entry.target)
+        ok = Router:Send(entry.text, entry.type, entry.lang, entry.target)
     else
         C_ChatInfo.SendChatMessage(entry.text, entry.type, entry.lang, entry.target)
+        ok = true
+    end
+
+    if not ok then
+        -- Treat a declined/failed send as a stall depending on mode to avoid
+        -- tight retry loops that trigger Blizzard "not in party" messages.
+        if self.Mode == MODE_BATCH then
+            self:OnBatchStall()
+        elseif self.Mode == MODE_CONFIRM then
+            self:OnConfirmStall()
+        else
+            -- For BURST, stop the burst and finish to avoid spamming.
+            self:CancelBurstTimer()
+            self:Complete()
+        end
     end
 end
 

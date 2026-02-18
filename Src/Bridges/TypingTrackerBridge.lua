@@ -97,9 +97,22 @@ local function SendSignal(isTyping, chatType)
     end
 
     if chatType == "PARTY" or chatType == "RAID" or chatType == "INSTANCE_CHAT" then
-        -- Send to group channel if in group
-        local distrib = IsInRaid() and "RAID" or "PARTY"
-        if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then distrib = "INSTANCE_CHAT" end
+        -- Only send group signals if we are actually in a group/raid/instance.
+        local inGroup = IsInGroup() or IsInRaid() or IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+        if not inGroup then
+            YapperTable.Utils:DebugPrint("TypingTrackerBridge: Skipping group send - not in a group/raid.")
+            return
+        end
+
+        -- Determine correct distribution for the current group type.
+        local distrib
+        if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+            distrib = "INSTANCE_CHAT"
+        elseif IsInRaid() then
+            distrib = "RAID"
+        else
+            distrib = "PARTY"
+        end
 
         TTAddon:SendCommMessage(COMM_PREFIX, msg, distrib)
         YapperTable.Utils:DebugPrint("TypingTrackerBridge: Sent (Group) -> " .. msg)

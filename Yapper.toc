@@ -45,6 +45,8 @@ Src/Chat.lua
 
 # From here on the order doesn't matter.
 Src/History.lua
+Src/Theme.lua
+Src/Themes/Blizzard.lua
 Src/Interface.lua
 
 # Always last.
