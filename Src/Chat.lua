@@ -15,16 +15,16 @@ YapperTable.Chat = Chat
 
 -- Types we split for.
 local SPLITTABLE = {
-    SAY            = true,
-    EMOTE          = true,
-    YELL           = true,
-    PARTY          = true,
-    RAID           = true,
-    RAID_WARNING   = true,
-    INSTANCE_CHAT  = true,
-    GUILD          = true,
-    OFFICER        = true,
-    CHANNEL        = true,
+    SAY           = true,
+    EMOTE         = true,
+    YELL          = true,
+    PARTY         = true,
+    RAID          = true,
+    RAID_WARNING  = true,
+    INSTANCE_CHAT = true,
+    GUILD         = true,
+    OFFICER       = true,
+    CHANNEL       = true,
 }
 
 -- Types that get truncated, not split (long whispers confuse recipients).
@@ -75,7 +75,7 @@ function Chat:Init()
             -- If WIM currently owns the chat focus for whisper handling,
             -- let Blizzard/WIM keep control and do not show Yapper's overlay.
             local ct = blizzEditBox and blizzEditBox.GetAttribute
-                    and blizzEditBox:GetAttribute("chatType")
+                and blizzEditBox:GetAttribute("chatType")
             local isWhisper = (ct == "BN_WHISPER" or ct == "WHISPER")
             local wimActive = IsWIMFocusActive()
 
@@ -95,7 +95,12 @@ function Chat:Init()
     end
 
     if YapperTable.Router then YapperTable.Router:Init() end
-    if YapperTable.Queue  then YapperTable.Queue:Init()  end
+    if YapperTable.Queue then YapperTable.Queue:Init() end
+
+    -- Initialise bridges
+    if YapperTable.TypingTrackerBridge then
+        YapperTable.TypingTrackerBridge:UpdateState(nil)
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -104,8 +109,8 @@ end
 
 --- Process a message from the user.
 function Chat:OnSend(text, chatType, language, target)
-    local cfg   = YapperTable.Config and YapperTable.Config.Chat or {}
-    local limit = cfg.CHARACTER_LIMIT or 255
+    local cfg    = YapperTable.Config and YapperTable.Config.Chat or {}
+    local limit  = cfg.CHARACTER_LIMIT or 255
 
     -- Don't interleave with an active Yapper queue (not relevant when
     -- GopherBridge is active — Gopher manages its own queue).
@@ -155,14 +160,18 @@ function Chat:OnSend(text, chatType, language, target)
 
     local chunks = Chunking:Split(text, limit)
 
-    -- If a linked message needs chunking, abort — links can't safely
-    -- survive the split (WoW limits links per message).
-    if #chunks > 1 and text:find("|H") then
-        YapperTable.Utils:Print(
-            "|cFFFF4444Message with links exceeds the chat limit "
-            .. "and can't be split. Shorten your message or remove a link. "
-            .. "(Recover via chat history: Alt+Up)|r")
-        return
+    -- Relax link-splitting restriction.
+    -- Chunking:Split is link-aware and keeps hyperlinks atomic, so splitting is safe.
+
+    -- Safety check: WoW rejects messages with more than 2 hyperlinks per chunk.
+    -- If this happens, the queue hangs. We must abort here.
+    for i, chunk in ipairs(chunks) do
+        local _, count = chunk:gsub("|H", "|H")
+        if count > 2 then
+            YapperTable.Utils:Print(
+                "|cFFFF4444Only 2 links allowed per message.|r")
+            return
+        end
     end
 
     -- Edge case: single chunk after split.
