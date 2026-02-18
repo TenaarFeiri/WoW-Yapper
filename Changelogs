@@ -1,3 +1,12 @@
+-- 1.0.6
+  - Fixed a bug where the color picker opacity would toggle between visible and invisible or default to 0 due to inverted alpha handling.
+  - Fixed a bug where the Typing Tracker Bridge toggle would not persist its enabled state or correctly initialize on startup.
+  - Improved Typing Tracker Bridge robustness: added dynamic channel detection to ensure typing indicators accurately follow slash-command channel switches (e.g., `/p` or `/w`).
+  - Added support for Shift+Click quest and specialised link insertion into the overlay editbox.
+  - Resolved link duplication bug caused by overlapping hooks.
+  - Relaxed link-splitting restriction in Chat.lua: long messages with links can now be split safely, but you cannot send more than two links.
+  - Refined chat history uniqueness: identical messages on different channels are now preserved as separate entries.
+
 -- 1.0.5
   - Yapper's editbox should no longer be able to be opened while UI is hidden, and will close automatically if it is open when hiding the UI.
 
