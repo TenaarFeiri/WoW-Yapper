@@ -13,32 +13,32 @@ YapperTable.Error = Error
 -- ---------------------------------------------------------------------------
 local CODE = {
     -- Arguments
-    BAD_STRING = "String is malformed and cannot be posted: %s",
-    BAD_ARG    = "Function %s expected a %s, but received a %s.",
+    BAD_STRING                     = "String is malformed and cannot be posted: %s",
+    BAD_ARG                        = "Function %s expected a %s, but received a %s.",
 
     -- Frames / events
     EVENT_REGISTER_MISSING_FRAME   = "Tried to register event %s on frame %s, but it doesn't exist.",
     EVENT_UNREGISTER_MISSING_FRAME = "Tried to unregister event %s on frame %s, but it doesn't exist.",
     EVENT_HANDLER_NOT_FUNCTION     = "Handler for event %s is not a function.",
-    MISSING_UTILS   = "YapperTable.Utils is missing — did it fail to load?",
-    MISSING_CONFIG  = "YapperTable.Config is missing — did it fail to load?",
-    MISSING_EVENTS  = "YapperTable.Events is missing — did it fail to load?",
-    MISSING_FRAMES  = "YapperTable.Frames is missing — did it fail to load?",
+    MISSING_UTILS                  = "YapperTable.Utils is missing — did it fail to load?",
+    MISSING_CONFIG                 = "YapperTable.Config is missing — did it fail to load?",
+    MISSING_EVENTS                 = "YapperTable.Events is missing — did it fail to load?",
+    MISSING_FRAMES                 = "YapperTable.Frames is missing — did it fail to load?",
 
     -- Frames
-    HOOKS_NOT_TABLE    = "Hooks were not a table for frame %s.",
-    HOOK_NOT_FUNCTION  = "Hook %s for frame %s is not a function.",
+    HOOKS_NOT_TABLE                = "Hooks were not a table for frame %s.",
+    HOOK_NOT_FUNCTION              = "Hook %s for frame %s is not a function.",
 
     -- Patches
-    BAD_PATCH               = "Failed to apply patch for %s.",
-    PATCH_MISSING_COMPATLIB = "CompatLib missing — patches will not work.",
-    YAPPER_MISSING_COMPATLIB = "CompatLib not found; compatibility patches disabled.",
+    BAD_PATCH                      = "Failed to apply patch for %s.",
+    PATCH_MISSING_COMPATLIB        = "CompatLib missing — patches will not work.",
+    YAPPER_MISSING_COMPATLIB       = "CompatLib not found; compatibility patches disabled.",
 
     -- Chat
-    CHAT_WHISPER_TRUNCATED = "Whisper truncated to %s characters. Recover via chat history (Alt+Up).",
+    CHAT_WHISPER_TRUNCATED         = "Whisper truncated to %s characters. Recover via chat history (Alt+Up).",
 
     -- Generic
-    UNKNOWN = "Unknown error. String: %s || Detail: %s",
+    UNKNOWN                        = "Unknown error. String: %s || Detail: %s",
 }
 
 -- ---------------------------------------------------------------------------
@@ -72,8 +72,8 @@ end
 function Error:PrintError(code, ...)
     local template = CODE[code] or CODE.UNKNOWN
     local msg = FormatSafe(template, ...)
-    if code == "UNKNOWN" and debug then
-        msg = msg .. " — " .. (debug.traceback(nil, 2) or "")
+    if code == "UNKNOWN" and YapperTable.Config.System.DEBUG then
+        msg = msg .. " — " .. (debugstack(2, 1, 0) or "")
     end
     YapperTable.Utils:Print("warn", "Error: " .. msg)
 end
@@ -83,8 +83,8 @@ function Error:Throw(code, ...)
     self:PrintError(code, ...)
     local template = CODE[code] or CODE.UNKNOWN
     local msg = FormatSafe(template, ...)
-    if code == "UNKNOWN" and debug then
-        msg = msg .. "\n" .. (debug.traceback("Traceback:", 2) or "")
+    if code == "UNKNOWN" and YapperTable.Config.System.DEBUG then
+        msg = msg .. "\n" .. (debugstack(2, 5, 0) or "")
     end
     error(msg)
 end
