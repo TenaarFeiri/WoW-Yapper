@@ -5,23 +5,24 @@
 
 local YapperName, YapperTable = ...
 
-local History = {}
-YapperTable.History = History
+local History                 = {}
+YapperTable.History           = History
 
 -- ---------------------------------------------------------------------------
 -- Configuration
 -- ---------------------------------------------------------------------------
-local UNDO_HISTORY_SIZE  = 20   -- Max undo snapshots per editbox
-local CHAT_HISTORY_SIZE  = 50   -- Max persistent sent messages
-local SNAPSHOT_THRESHOLD = 20   -- Min character delta for auto-snapshot
-local DRAFT_SLOTS        = 5    -- Ring buffer size for crash-safe drafts
-local CURRENT_VERSION    = tonumber((YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.VERSION)) or 1.0
+local UNDO_HISTORY_SIZE       = 20 -- Max undo snapshots per editbox
+local CHAT_HISTORY_SIZE       = 50 -- Max persistent sent messages
+local SNAPSHOT_THRESHOLD      = 20 -- Min character delta for auto-snapshot
+local DRAFT_SLOTS             = 5 -- Ring buffer size for crash-safe drafts
+local CURRENT_VERSION         = tonumber((YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.VERSION)) or
+1.0
 
 -- Per-editbox undo buffers (keyed by name string).
-local UndoBuffers = {}
+local UndoBuffers             = {}
 
 -- Last known text per editbox (for change detection).
-local LastText = {}
+local LastText                = {}
 
 local function DeepCopy(src)
     if type(src) ~= "table" then
@@ -40,7 +41,7 @@ end
 -- ---------------------------------------------------------------------------
 local HISTORY_DEFAULTS = {
     VERSION = CURRENT_VERSION,
-    chatHistory = {},  -- Flat array of sent strings, newest last.
+    chatHistory = {},     -- Flat array of sent strings, newest last.
     draft = {
         ring     = {},    -- Ring buffer: up to DRAFT_SLOTS text snapshots.
         pos      = 0,     -- Next write index (1-based, wraps).
@@ -84,7 +85,7 @@ function History:InitDB()
         _G.YapperLocalHistory.draft = DeepCopy(HISTORY_DEFAULTS.draft)
     else
         if d.ring == nil then d.ring = {} end
-        if d.pos  == nil then d.pos  = 0  end
+        if d.pos == nil then d.pos = 0 end
     end
 
     _G.YapperLocalHistory.VERSION = tonumber(_G.YapperLocalHistory.VERSION) or CURRENT_VERSION
@@ -93,7 +94,7 @@ end
 function History:SaveDB()
     -- Mark dirty if the editbox is still open (user mid-type).
     if YapperTable.EditBox and YapperTable.EditBox.Overlay
-       and YapperTable.EditBox.Overlay:IsShown() then
+        and YapperTable.EditBox.Overlay:IsShown() then
         self:SaveDraft(YapperTable.EditBox.OverlayEdit)
         self:MarkDirty(true)
     end
@@ -112,23 +113,27 @@ function History:AddChatHistory(text, chatType, target)
     if not text or text == "" then return end
 
     local h = _G.YapperLocalHistory.chatHistory
-    
-    -- Check duplication against the most recent entry.
-    -- Handle both string and table entries in history.
-    local last = h[#h]
-    local lastText = (type(last) == "table") and last.text or last
-    
-    if lastText == text then return end
 
-    -- Store as table if we have context, or if we just want uniform storage.
-    -- We'll switch to always storing tables for consistency moving forward,
-    -- but readers must still handle legacy strings.
+    -- Check duplication against the most recent entry.
+    -- We only skip if the text AND channelcontext (type/target) match.
+    -- This allows identical text on say SAY vs WHISPER to be preserved.
+    local last = h[#h]
+    if type(last) == "table" then
+        if last.text == text and last.chatType == chatType and last.target == target then
+            return
+        end
+    elseif last == text then
+        -- Legacy string entry check.
+        return
+    end
+
+    -- Store as table for uniform storage.
     h[#h + 1] = {
         text = text,
         chatType = chatType,
         target = target
     }
-    
+
     while #h > CHAT_HISTORY_SIZE do
         table.remove(h, 1)
     end
@@ -153,7 +158,7 @@ function History:SaveDraft(editbox)
 
     local raw = editbox.GetText and editbox:GetText() or ""
     local text = raw:match("^%s*(.-)%s*$") or ""
-    if text == "" then return end  -- don't waste a slot on empty/whitespace-only
+    if text == "" then return end -- don't waste a slot on empty/whitespace-only
 
     local d = _G.YapperLocalHistory.draft
     -- Advance ring position (wraps at DRAFT_SLOTS).
@@ -167,7 +172,7 @@ function History:SaveDraft(editbox)
         d.target   = eb.Target
     end
 
-    d.dirty = true  -- Assume dirty until proven clean.
+    d.dirty = true -- Assume dirty until proven clean.
 end
 
 --- Retrieve the most recent draft text, or nil.
@@ -249,7 +254,7 @@ function History:AddSnapshot(editbox, force, textOverride, cursorOverride)
     else
         cursor = editbox:GetCursorPosition() or 0
     end
-    local cur    = buf.entries[buf.position]
+    local cur = buf.entries[buf.position]
 
     -- Skip if text unchanged.
     if cur and text == cur.text then return end
@@ -359,8 +364,8 @@ function History:HookOverlayEditBox()
             return b == 32 or b == 9 or b == 10 or b == 13
         end
 
-        local textLast = (#text > 0) and text:byte(#text) or nil
-        local lastLast = (#last > 0) and last:byte(#last) or nil
+        local textLast           = (#text > 0) and text:byte(#text) or nil
+        local lastLast           = (#last > 0) and last:byte(#last) or nil
         local insertedWhitespace = (#text > #last) and IsWhitespaceByte(textLast)
         local removedWhitespace  = (#text < #last) and IsWhitespaceByte(lastLast)
 
