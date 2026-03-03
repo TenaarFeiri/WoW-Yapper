@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="Bypass Yapper" default="Shift-Enter">
+        Yapper.Chat:OpenBlizzardChat()
+    </Binding>
+</Bindings>
