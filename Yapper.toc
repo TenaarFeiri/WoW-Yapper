@@ -19,6 +19,9 @@
 ## SavedVariablesPerCharacter: YapperLocalConf, YapperLocalHistory
 ## LoadSavedVariablesFirst: 1
 
+# keybindings
+Bindings.xml
+
 Src/Core.lua
 Src/Utils.lua
 Src/Error.lua

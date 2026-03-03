@@ -108,7 +108,15 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
     RAID_LEADER = "RAID",
     RAID_WARNING = "RAID_WARNING",
 }
-
+------------------------------------------------
+--- Bypass Yapper and go straight to Blizzard's editbox.
+------------------------------------------------
+local UserBypassingYapper = false
+function EditBox:OpenBlizzardChat()
+    UserBypassingYapper = true
+    _G.ChatFrame1EditBox:Show()
+end
+------------------------------------------------
 local function IsWIMFocusActive()
     ---@diagnostic disable-next-line: undefined-field
     local wim = _G.WIM or nil
@@ -692,7 +700,8 @@ function EditBox:SetupOverlayScripts()
         end
 
         -- If chat is locked down (combat/m+ lockdown), save draft and handoff
-        if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+        -- ALSO hand off to blizz if we are manually sidestepping.
+        if (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()) or UserBypassingYapper then
             self:HandoffToBlizzard()
             return
         end
@@ -1094,7 +1103,7 @@ end
 --- Save draft, close overlay, and notify during lockdown.
 function EditBox:HandoffToBlizzard()
     if not self.Overlay or not self.Overlay:IsShown() then return end
-
+    UserBypassingYapper = false
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
 
     -- Save as dirty draft for recovery on next open.
@@ -1632,6 +1641,18 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
     end)
 
+    -- mirror Blizzard's SetText while we're overlaid so slash / prefill works
+    hooksecurefunc(blizzEditBox, "SetText", function(eb, text)
+        if self.OrigEditBox == eb and self.Overlay and self.Overlay:IsShown()
+            and self.OverlayEdit then
+            local cur = self.OverlayEdit:GetText() or ""
+            if text and text ~= "" and text ~= cur then
+                self.OverlayEdit:SetText(text)
+                self.OverlayEdit:SetCursorPosition(#text)
+            end
+        end
+    end)
+
     hooksecurefunc(blizzEditBox, "Show", function(eb)
         if self._suppressNextShowFor == eb then
             self._suppressNextShowFor = nil
@@ -1805,13 +1826,22 @@ function EditBox:HookAllChatFrames()
         end
     end
 
-    -- ── Chat Reply hotkey ────────────────────────────────────────────────
-    -- The WoW Chat Reply keybinding is a secure C++ binding — there is no
-    -- hookable Lua function for it.  It works by setting chatType/tellTarget
-    -- attributes on the editbox and calling Show(), which our Show hook
-    -- already intercepts.  The priority fix in EditBox:Show() (blizzHasTarget
-    -- beats LastUsed) is what makes the reply key work correctly.
+    end
+
+    -- Capture the raw OpenChat argument so we can preserve leading slashes
+    -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
+    if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
+        hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, ...)
+            if type(text) == "string" and text ~= "" then
+                -- Store on the instance so EditBox:Show can prefer it.
+                self._pendingOpenChatText = text
+            end
+        end)
+        self._openChatHooked = true
+    end
+
 end
+    
 
 -- ---------------------------------------------------------------------------
 -- Public callbacks
