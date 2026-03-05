@@ -5,6 +5,7 @@
   - Added ability to bypass Yapper via keybind & access normal chatbox direct (default: Shift-Enter)
   - When the user presses just /, Yapper should open with the / pre-filled.
   - Redesigned the Settings interface. It's now a lot cleaner.
+  - Fixed bug where switching chat tabs opened Yapper.
 
 -- 1.0.7
   - Fixed a bug where the unstick option ironically got stuck on the channel you were last on when unsticking.

@@ -2064,14 +2064,22 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
-        -- Present our overlay.
-        self:Show(eb)
-
-        -- Hide Blizzard's editbox next frame (can't interfere mid-Show).
+        -- Fix for tab-switching causing overlay to activate.
+        -- Defer one frame so we can check HasFocus; only overlay
+        -- when the user actually pressed Enter to chat.
         C_Timer.After(0, function()
-            if eb and eb.IsShown and eb:IsShown() and eb.Hide then
-                eb:Hide()
-            end
+            if not eb or not eb:IsShown() then return end
+            if not eb.HasFocus or not eb:HasFocus() then return end
+            if self.Overlay and self.Overlay:IsShown() then return end
+
+            self:Show(eb)
+
+            -- Hide Blizzard's editbox next frame.
+            C_Timer.After(0, function()
+                if eb and eb.IsShown and eb:IsShown() and eb.Hide then
+                    eb:Hide()
+                end
+            end)
         end)
     end)
 
