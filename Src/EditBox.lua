@@ -71,17 +71,17 @@ local TAB_CYCLE                = {
 
 -- Pretty names for the channel label.
 local LABEL_PREFIXES           = {
-    SAY           = "Say",
+    SAY           = "Say:",
     EMOTE         = "Emote",
-    YELL          = "Yell",
-    PARTY         = "Party",
-    PARTY_LEADER  = "Party Leader",
-    RAID          = "Raid",
-    RAID_LEADER   = "Raid Leader",
-    RAID_WARNING  = "Raid Warning",
-    INSTANCE_CHAT = "Instance",
-    GUILD         = "Guild",
-    OFFICER       = "Officer",
+    YELL          = "Yell:",
+    PARTY         = "Party:",
+    PARTY_LEADER  = "Party Leader:",
+    RAID          = "Raid:",
+    RAID_LEADER   = "Raid Leader:",
+    RAID_WARNING  = "Raid Warning:",
+    INSTANCE_CHAT = "Instance:",
+    GUILD         = "Guild:",
+    OFFICER       = "Officer:",
     WHISPER       = "Whisper",
     CHANNEL       = "Channel",
 }
@@ -470,7 +470,7 @@ end
 local function BuildLabelText(chatType, target, channelName)
     local label
     if chatType == "WHISPER" and target then
-        label = "To: " .. target
+        label = "To " .. target .. ":"
     elseif chatType == "EMOTE" then
         -- Show the player's character name for emotes.
         local name = UnitName and UnitName("player") or "You"
@@ -483,6 +483,7 @@ local function BuildLabelText(chatType, target, channelName)
         else
             label = "Channel"
         end
+        label = label .. ":"
     else
         local pretty = LABEL_PREFIXES[chatType]
         label = pretty or (chatType or "Say")
