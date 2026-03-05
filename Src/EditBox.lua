@@ -14,6 +14,10 @@ local YapperName, YapperTable  = ...
 local EditBox                  = {}
 YapperTable.EditBox            = EditBox
 
+-- User bypass flag
+local UserBypassingYapper      = false
+local BypassEditBox            = nil
+
 -- Overlay widgets (created lazily).
 EditBox.Overlay                = nil
 EditBox.OverlayEdit            = nil
@@ -111,10 +115,30 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
 ------------------------------------------------
 --- Bypass Yapper and go straight to Blizzard's editbox.
 ------------------------------------------------
-local UserBypassingYapper = false
 function EditBox:OpenBlizzardChat()
     UserBypassingYapper = true
-    _G.ChatFrame1EditBox:Show()
+    local eb = self.OrigEditBox or _G.ChatFrame1EditBox
+    BypassEditBox = eb
+
+    -- Ensure any overlay state is handed off and saved first.
+    if self.Overlay and self.Overlay:IsShown() then
+        self:HandoffToBlizzard()
+    end
+
+    -- Defer the actual opening to the next frame so our Show-hook
+    -- observes `UserBypassingYapper` and lets Blizzard's editbox win.
+    C_Timer.After(0, function()
+        -- Try direct show + focus if available.
+        if eb and eb.Show then
+            if eb.Show then eb:Show() end
+            if eb.SetFocus then eb:SetFocus() end
+        else
+            -- Fallback to ChatFrame_OpenChat which instructs Blizzard to open chat.
+            if ChatFrame_OpenChat then
+                pcall(ChatFrame_OpenChat, "", eb)
+            end
+        end
+    end)
 end
 ------------------------------------------------
 local function IsWIMFocusActive()
@@ -144,10 +168,205 @@ local function SetFrameFillColor(frame, r, g, b, a)
     frame._yapperSolidFill:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
 end
 
--- Single-pass visual refresh: fills, label/edit anchors, text colour, border.
--- `pad` is 0 (no border) or overlay.BorderPad (border active).
--- Call this from ShowOverlay and ApplyConfigToLiveOverlay — never write
--- colours or anchors anywhere else so nothing can fight.
+--- Copy every texture from Blizzard’s editbox onto our overlay so it
+--- wears the same skin; afterwards the original box can simply hide.
+--- @param origEditBox table  The Blizzard ChatFrameNEditBox.
+--- @param overlayHeight number|nil  Resolved overlay height.
+function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
+    local cfg = YapperTable.Config.EditBox or {}
+    if cfg.UseBlizzardSkinProxy == false then
+        return
+    end
+    if not self.Overlay or not origEditBox then
+        return
+    end
+
+    -- Already cloned for this editbox -- nothing to do.
+    if self._skinProxyTextures then
+        return
+    end
+
+    -- Detach any previous clone.
+    self:DetachBlizzardSkinProxy()
+
+    local overlay = self.Overlay
+    local clones  = {}
+
+    -- When our overlay is taller than Blizzard’s editbox we compute two
+    -- scales.  One keeps anchor points aligned to the real ratio, the
+    -- other grows texture heights with a margin so the skin’s corner caps
+    -- aren’t squashed and text doesn’t spill past the inset.
+    local origH  = origEditBox:GetHeight() or 0
+    local vScaleAnchors = 1
+    local vScaleSize    = 1
+    if origH > 0 and overlayHeight and overlayHeight > 0 then
+        local baseScale = overlayHeight / origH
+        vScaleAnchors = math.max(1, baseScale)
+        -- Extra margin: 50% of the growth beyond 1× for texture sizes.
+        local margin = math.max(0, (baseScale - 1) * 0.5)
+        vScaleSize = math.max(1, baseScale + margin)
+    end
+
+    -- Reattach every anchor from the original box to our overlay; y offsets
+    -- are scaled by the true height ratio while texture size uses the
+    -- boosted scale so visuals keep up.
+    local function mirrorAnchors(tex, region)
+        tex:ClearAllPoints()
+        local numPoints = region:GetNumPoints() or 0
+        if numPoints == 0 then
+            -- No anchors at all, fall back to stretching.
+            tex:SetAllPoints(overlay)
+            return
+        end
+        for pi = 1, numPoints do
+            local point, relTo, relPoint, xOfs, yOfs = region:GetPoint(pi)
+            if relTo == origEditBox then
+                relTo = overlay   -- remap to our overlay
+            end
+            -- Scale Y offsets by the real ratio so anchors track the
+            -- actual frame size -- not the boosted texture size.
+            local scaledYOfs = yOfs
+            if vScaleAnchors > 1 then
+                scaledYOfs = yOfs * vScaleAnchors
+            end
+            tex:SetPoint(point, relTo, relPoint, xOfs, scaledYOfs)
+        end
+    end
+
+    -- Clone each visible Texture region from the editbox onto our overlay.
+    local regions = { origEditBox:GetRegions() }
+    for i = 1, #regions do
+        local region = regions[i]
+        if region and region.GetObjectType and region:GetObjectType() == "Texture" then
+            local ok = pcall(function()
+                -- Preserve sub-layer ordering within the same draw layer.
+                local drawLayer, subLevel = region:GetDrawLayer()
+                local tex = overlay:CreateTexture(nil, drawLayer or "BACKGROUND", nil, subLevel or 0)
+
+                -- Copy atlas or file texture.
+                local atlas = region.GetAtlas and region:GetAtlas()
+                if atlas and atlas ~= "" then
+                    tex:SetAtlas(atlas, region.IsAtlasUsingSize and region:IsAtlasUsingSize() or false)
+                else
+                    local file = region.GetTexture and region:GetTexture()
+                    if file then
+                        tex:SetTexture(file)
+                        pcall(function()
+                            tex:SetTexCoord(region:GetTexCoord())
+                        end)
+                    end
+                end
+
+                -- Copy colour tint.
+                pcall(function()
+                    tex:SetVertexColor(region:GetVertexColor())
+                end)
+
+                -- Copy alpha.
+                pcall(function()
+                    tex:SetAlpha(region:GetAlpha())
+                end)
+
+                -- Copy blend mode.
+                pcall(function()
+                    local blend = region:GetBlendMode()
+                    if blend then tex:SetBlendMode(blend) end
+                end)
+
+                -- Copy explicit size.  Heights are scaled by the boosted
+                -- factor so the skin visually covers beyond the frame edge.
+                pcall(function()
+                    local w, h = region:GetSize()
+                    if w and w > 0 then tex:SetWidth(w) end
+                    if h and h > 0 then tex:SetHeight(h * vScaleSize) end
+                end)
+
+                -- Mirror anchor points: remap editbox references → overlay.
+                mirrorAnchors(tex, region)
+
+                tex:Show()
+                clones[#clones + 1] = tex
+            end)
+            -- If a single region fails, skip it and keep going.
+        end
+    end
+
+    if #clones == 0 then
+        return  -- nothing to adopt
+    end
+
+    self._skinProxyTextures = clones
+
+    -- Apply user's backdrop colour as a tint over the cloned textures.
+    local inputBg = cfg.InputBg or {}
+    self:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
+
+    -- Suppress Yapper's own solid fill and border so the cloned skin shows.
+    if overlay._yapperSolidFill then
+        overlay._yapperSolidFill:Hide()
+    end
+    if overlay.Border then
+        overlay.Border:Hide()
+    end
+end
+
+--- Tint all cloned skin proxy textures with the given colour.
+--- Passing nil/default values preserves the original Blizzard appearance;
+--- non-default values blend multiplicatively with the base texture.
+--- @param r number|nil  Red   (0-1, default = Blizzard original)
+--- @param g number|nil  Green (0-1, default = Blizzard original)
+--- @param b number|nil  Blue  (0-1, default = Blizzard original)
+--- @param a number|nil  Alpha (0-1, default = Blizzard original)
+function EditBox:TintSkinProxyTextures(r, g, b, a)
+    local clones = self._skinProxyTextures
+    if not clones then return end
+
+    -- Only tint if the user has set a non-default colour.
+    -- Default InputBg is ~0.05/0.05/0.05/1.0 which is near-black;
+    -- detect change by checking if any channel deviates
+    -- from the factory defaults significantly.
+    local defR, defG, defB, defA = 0.05, 0.05, 0.05, 1.0
+    r = r or defR
+    g = g or defG
+    b = b or defB
+    a = a or defA
+
+    local isDefault = (math.abs(r - defR) < 0.01)
+                  and (math.abs(g - defG) < 0.01)
+                  and (math.abs(b - defB) < 0.01)
+                  and (math.abs(a - defA) < 0.01)
+    if isDefault then
+        return  -- leave the original Blizzard tint as-is
+    end
+
+    for i = 1, #clones do
+        pcall(function()
+            clones[i]:SetVertexColor(r, g, b)
+            clones[i]:SetAlpha(a)
+        end)
+    end
+end
+
+--- Remove cloned Blizzard skin textures and restore Yapper's own fills.
+function EditBox:DetachBlizzardSkinProxy()
+    local clones = self._skinProxyTextures
+    if not clones then return end
+
+    for i = 1, #clones do
+        pcall(function()
+            clones[i]:Hide()
+            clones[i]:SetTexture(nil)
+        end)
+    end
+    self._skinProxyTextures = nil
+
+    -- Re-show Yapper's own fill (RefreshOverlayVisuals will recolour it).
+    if self.Overlay and self.Overlay._yapperSolidFill then
+        self.Overlay._yapperSolidFill:Show()
+    end
+end
+
+-- Perform one-pass visual refresh (fills, anchors, colours, border). `pad` is 0 or overlay.BorderPad; call only from ShowOverlay/ApplyConfigToLiveOverlay.
 local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local overlay = editBox.Overlay
     local labelBg = editBox.LabelBg
@@ -159,22 +378,50 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local borderCfg = cfg.BorderColor or {}
     local textCfg   = cfg.TextColor   or {}
 
+    -- When the Blizzard skin proxy is active, make the overlay background fully
+    -- transparent so the cloned skin textures show through.
+    local proxyActive = editBox._skinProxyTextures
+    local fillR, fillG, fillB, fillA
+    if proxyActive then
+        fillR, fillG, fillB, fillA = 0, 0, 0, 0
+        -- Re-tint cloned textures with the user's backdrop colour so live
+        -- config changes are reflected immediately.
+        editBox:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
+    else
+        fillR = inputBg.r or 0.05
+        fillG = inputBg.g or 0.05
+        fillB = inputBg.b or 0.05
+        fillA = inputBg.a or 1.0
+    end
+
     -- Input background fill + dynamic inset so it never bleeds outside the border.
-    SetFrameFillColor(overlay,
-        inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    SetFrameFillColor(overlay, fillR, fillG, fillB, fillA)
     if overlay._yapperSolidFill then
-        overlay._yapperSolidFill:ClearAllPoints()
-        if pad > 0 then
-            overlay._yapperSolidFill:SetPoint("TOPLEFT",     overlay, "TOPLEFT",      pad, -pad)
-            overlay._yapperSolidFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad,  pad)
+        if proxyActive then
+            -- Keep hidden; cloned skin textures replace the solid fill.
+            overlay._yapperSolidFill:Hide()
         else
-            overlay._yapperSolidFill:SetAllPoints(overlay)
+            overlay._yapperSolidFill:Show()
+            overlay._yapperSolidFill:ClearAllPoints()
+            if pad > 0 then
+                overlay._yapperSolidFill:SetPoint("TOPLEFT",     overlay, "TOPLEFT",      pad, -pad)
+                overlay._yapperSolidFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad,  pad)
+            else
+                overlay._yapperSolidFill:SetAllPoints(overlay)
+            end
         end
     end
 
     -- Label background fill + position (inset matches fill when border active).
-    SetFrameFillColor(labelBg,
-        labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
+    -- Hidden when skin proxy is active so cloned skin textures show.
+    if proxyActive then
+        SetFrameFillColor(labelBg, 0, 0, 0, 0)
+        if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Hide() end
+    else
+        SetFrameFillColor(labelBg,
+            labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
+        if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Show() end
+    end
     labelBg:ClearAllPoints()
     labelBg:SetPoint("TOPLEFT",    overlay, "TOPLEFT",    pad, -pad)
     labelBg:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", pad,  pad)
@@ -190,8 +437,11 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     end
 
     -- Border visibility and colour.
+    -- Hidden when Blizzard skin proxy is active (the cloned skin provides the border).
     if overlay.Border then
-        if borderActive then
+        if proxyActive then
+            overlay.Border:Hide()
+        elseif borderActive then
             overlay.Border:SetBackdropBorderColor(
                 borderCfg.r or 0.4, borderCfg.g or 0.4, borderCfg.b or 0.4, borderCfg.a or 1)
             overlay.Border:Show()
@@ -701,7 +951,14 @@ function EditBox:SetupOverlayScripts()
 
         -- If chat is locked down (combat/m+ lockdown), save draft and handoff
         -- ALSO hand off to blizz if we are manually sidestepping.
-        if (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()) or UserBypassingYapper then
+        if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+            self:HandoffToBlizzard()
+            return
+        end
+
+        -- If user is manually bypassing Yapper, hand off to Blizzard
+        if UserBypassingYapper then
+            UserBypassingYapper = false
             self:HandoffToBlizzard()
             return
         end
@@ -1033,7 +1290,15 @@ function EditBox:Show(origEditBox)
         overlay:SetHeight(finalH)
     end
 
-    -- Single-pass visual refresh (fills, anchors, text colour, border).
+    -- Stay on top of the original.
+    local origLevel = origEditBox:GetFrameLevel() or 0
+    overlay:SetFrameLevel(origLevel + 5)
+    pcall(function()
+        -- Wear Blizzard's skin.
+        self:AttachBlizzardSkinProxy(origEditBox, finalH)
+    end)
+
+    -- Visual refresh.
     do
         local activeThemeOnShow = YapperTable.Theme and YapperTable.Theme:GetTheme()
         local borderOnShow      = activeThemeOnShow and activeThemeOnShow.border == true
@@ -1041,11 +1306,7 @@ function EditBox:Show(origEditBox)
         RefreshOverlayVisuals(self, cfg, borderOnShow, padOnShow)
     end
 
-    -- Stay on top of the original.
-    local origLevel = origEditBox:GetFrameLevel() or 0
-    overlay:SetFrameLevel(origLevel + 5)
-
-    -- ── Final setup ──────────────────────────────────────────────────
+    -- Final setup
     self._closedClean = false
 
     -- Draft recovery: restore if the last close was dirty.
@@ -1074,6 +1335,7 @@ function EditBox:Show(origEditBox)
     self:RefreshLabel()
     overlay:Show()
     self.OverlayEdit:SetFocus()
+
     if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
         YapperTable.TypingTrackerBridge:OnOverlayFocusGained(self.ChatType)
     end
@@ -1081,6 +1343,9 @@ end
 
 function EditBox:Hide()
     local prevOrig = self.OrigEditBox
+
+    -- Restore any cloned Blizzard skin textures before clearing refs.
+    self:DetachBlizzardSkinProxy()
 
     if self.Overlay then
         self.Overlay:Hide()
@@ -1103,7 +1368,6 @@ end
 --- Save draft, close overlay, and notify during lockdown.
 function EditBox:HandoffToBlizzard()
     if not self.Overlay or not self.Overlay:IsShown() then return end
-    UserBypassingYapper = false
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
 
     -- Save as dirty draft for recovery on next open.
@@ -1135,7 +1399,7 @@ function EditBox:HandoffToBlizzard()
     end
 end
 
---- Re-apply current config values to a live overlay (if present/shown).
+--- Re-apply current config values to a live overlay if visible.
 -- @param force boolean: when true, apply regardless of SettingsHaveChanged flag.
 function EditBox:ApplyConfigToLiveOverlay(force)
     if not self.Overlay or not self.OverlayEdit then return end
@@ -1154,12 +1418,7 @@ function EditBox:ApplyConfigToLiveOverlay(force)
 
     local cfg = YapperTable.Config.EditBox or {}
 
-    -- Single-pass visual refresh (fills, anchors, text colour, border).
-    local activeTheme  = YapperTable.Theme and YapperTable.Theme:GetTheme()
-    local borderActive = activeTheme and activeTheme.border == true
-    local pad          = (borderActive and self.Overlay.BorderPad) or 0
-    RefreshOverlayVisuals(self, cfg, borderActive, pad)
-
+    -- Font update (before visuals so height calc reflects new size)
     local cfgFace  = cfg.FontFace
     local cfgSize  = cfg.FontSize or 0
     local cfgFlags = cfg.FontFlags or ""
@@ -1190,6 +1449,7 @@ function EditBox:ApplyConfigToLiveOverlay(force)
         end
     end
 
+    -- Height recalculation
     if self.Overlay and self.Overlay:IsShown() and self.OrigEditBox then
         local _, activeSize = self.OverlayEdit:GetFont()
         activeSize          = activeSize or 14
@@ -1198,20 +1458,37 @@ function EditBox:ApplyConfigToLiveOverlay(force)
         local blizzH        = self.OrigEditBox:GetHeight() or 32
         local minH          = (cfg.MinHeight and cfg.MinHeight > 0) and cfg.MinHeight or blizzH
         local finalH        = math.max(minH, fontNeeded)
+        local resolvedH     = finalH > blizzH and finalH or blizzH
 
         self.Overlay:ClearAllPoints()
         self.Overlay:SetPoint("TOPLEFT", self.OrigEditBox, "TOPLEFT", 0, 0)
         self.Overlay:SetPoint("RIGHT", self.OrigEditBox, "RIGHT", 0, 0)
-        self.Overlay:SetHeight(finalH > blizzH and finalH or blizzH)
+        self.Overlay:SetHeight(resolvedH)
+
+        -- Re-clone proxy textures at the new overlay height so left/right
+        -- caps scale okay-ish when font size changes.
+        if self._skinProxyTextures and self.OrigEditBox then
+            self:DetachBlizzardSkinProxy()
+            pcall(function()
+                self:AttachBlizzardSkinProxy(self.OrigEditBox, resolvedH)
+            end)
+        end
     end
+
+    -- Single-pass visual refresh (fills, anchors, text colour, border)
+    local activeTheme  = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    local borderActive = activeTheme and activeTheme.border == true
+    local pad          = (borderActive and self.Overlay.BorderPad) or 0
+    RefreshOverlayVisuals(self, cfg, borderActive, pad)
 
     self:RefreshLabel()
     localConf.System.SettingsHaveChanged = false
 
-    -- Apply theme for font overrides / OnApply hook only.
-    -- Colours and border are already handled above from config; Theme:ApplyToFrame
-    -- is now responsible only for font and OnApply so there is no double-write.
-    if YapperTable.Theme and type(YapperTable.Theme.ApplyToFrame) == "function" and self.Overlay then
+    -- Invoke theme only for font/OnApply. Colours/borders come from config; skip if skin proxy active.
+    local proxyActiveOnApply = self._skinProxyTextures
+    if not proxyActiveOnApply
+        and YapperTable.Theme and type(YapperTable.Theme.ApplyToFrame) == "function"
+        and self.Overlay then
         pcall(function() YapperTable.Theme:ApplyToFrame(self.Overlay) end)
     end
 end
@@ -1282,11 +1559,25 @@ function EditBox:RefreshLabel()
     end
 
     self.ChannelLabel:SetText(label)
-    -- Allow theme channel colours to override the resolved colour when present.
-    if theme and type(theme.channelTextColors) == "table" then
+
+    -- Use theme colour *only* when the user's per‑channel config still equals the defaults
+    -- (i.e. they haven't overridden that channel).  Otherwise stick with the configured value.
+    if theme and type(theme.channelTextColors) == "table" and currentKey then
         local tcol = theme.channelTextColors[self.ChatType] or theme.channelTextColors[currentKey]
         if tcol and type(tcol.r) == "number" and type(tcol.g) == "number" and type(tcol.b) == "number" then
-            resolvedR, resolvedG, resolvedB = tcol.r, tcol.g, tcol.b
+            -- Only use theme colour when user's config colour matches defaults.
+            local defaults = YapperTable.Core and YapperTable.Core.GetDefaults
+                and YapperTable.Core:GetDefaults()
+            local defColors = defaults and defaults.EditBox
+                and defaults.EditBox.ChannelTextColors
+                and defaults.EditBox.ChannelTextColors[currentKey]
+            local userColor = channelColors and channelColors[currentKey]
+            if defColors and userColor
+                and math.abs((userColor.r or 0) - (defColors.r or 0)) < 0.01
+                and math.abs((userColor.g or 0) - (defColors.g or 0)) < 0.01
+                and math.abs((userColor.b or 0) - (defColors.b or 0)) < 0.01 then
+                resolvedR, resolvedG, resolvedB = tcol.r, tcol.g, tcol.b
+            end
         end
     end
 
@@ -1659,8 +1950,21 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
-        -- Re-entrancy guard: hooksecurefunc fires even if already shown,
-        -- and SetFocus causes a Show→ActivateChat→Show loop.
+        if UserBypassingYapper then
+            if not BypassEditBox then
+                BypassEditBox = eb
+            end
+            if BypassEditBox == eb then
+                UserBypassingYapper = false
+                return
+            end
+        end
+
+        -- While bypass session is active for this editbox, never overlay it.
+        if BypassEditBox and BypassEditBox == eb then
+            return
+        end
+        
         if self.Overlay and self.Overlay:IsShown() then
             return
         end
@@ -1760,20 +2064,26 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
-        -- Hide Blizzard's box next frame (can't interfere mid-Show).
+        -- Present our overlay.
+        self:Show(eb)
+
+        -- Hide Blizzard's editbox next frame (can't interfere mid-Show).
         C_Timer.After(0, function()
-            if eb and eb.Hide and eb:IsShown() then
+            if eb and eb.IsShown and eb:IsShown() and eb.Hide then
                 eb:Hide()
             end
         end)
-
-        -- Present our overlay.
-        self:Show(eb)
     end)
 
     -- Track when the user Escapes out of a BNet whisper so we don't
     -- immediately re-open Yapper when Blizzard re-shows the editbox.
     hooksecurefunc(blizzEditBox, "Hide", function(eb)
+        -- Bypass session ends when Blizzard's editbox closes.
+        if BypassEditBox == eb then
+            BypassEditBox = nil
+            UserBypassingYapper = false
+        end
+
         if self._bnetEditBox == eb then
             self._bnetEditBox   = nil
             self._bnetDismissed = true
@@ -1784,6 +2094,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end)
         end
     end)
+
+    -- clear bypass if focus leaves the bypassed editbox without a Hide.
+    if blizzEditBox and blizzEditBox.HookScript then
+        blizzEditBox:HookScript("OnEditFocusLost", function(eb)
+            if BypassEditBox == eb then
+                BypassEditBox = nil
+                UserBypassingYapper = false
+            end
+        end)
+    end
 end
 
 --- Hook all NUM_CHAT_WINDOWS editboxes.  Call once on init.
@@ -1824,8 +2144,6 @@ function EditBox:HookAllChatFrames()
                 return origUtilActive(...)
             end
         end
-    end
-
     end
 
     -- Capture the raw OpenChat argument so we can preserve leading slashes
