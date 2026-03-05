@@ -113,6 +113,14 @@ local function OnPlayerEnteringWorld()
     end
 
     YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Use /yapper to open settings.")
+
+    -- First-run appearance choice (once per schema bump, or every reload in DEBUG).
+    if YapperTable.Interface and YapperTable.Interface.ShouldShowWelcomeChoice then
+        if YapperTable.Interface:ShouldShowWelcomeChoice() then
+            YapperTable.Interface:CreateWelcomeChoiceFrame()
+        end
+    end
+
     YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
 end
 
