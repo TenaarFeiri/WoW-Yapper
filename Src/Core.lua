@@ -13,7 +13,7 @@ YapperTable.Core = {}
 local DEFAULTS = {
     System = {
         -- Schema version for SavedVariables migration; bump only when data structure changes.
-        VERSION                   = 1.02,
+        VERSION                   = 1.1,
 
         -- VERBOSE and DEBUG are largely for debugging.
         -- VERBOSE is for general debugging messages, or just declaring certain actions.
@@ -39,6 +39,10 @@ local DEFAULTS = {
 
         -- Default active theme name (registered by `Src/Theme.lua`).
         ActiveTheme               = "Yapper Default",
+
+        -- Tracks whether the welcome/appearance-choice popup has been shown.
+        -- Set to the VERSION at which it was last displayed; 0 means never.
+        _welcomeShown             = 0,
 
         -- Possibly used for system messages where some customisation is necessary. Reset to nil after every use.
         SYSTEM_PREFIX             = nil,
