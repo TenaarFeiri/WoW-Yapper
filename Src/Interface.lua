@@ -62,6 +62,10 @@ local SETTING_TOOLTIPS = {
     "When 'Remember last channel' is off, group channels (Party, Instance, Raid, Raid Warning) still remain sticky. Uncheck to disable that too.",
     ["EditBox.MinHeight"] =
     "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
+    ["EditBox.UseBlizzardSkinProxy"] =
+    "When enabled, Yapper temporarily snaps Blizzard's editbox backdrop/skin frame around the overlay so external chat-skin addons can style it.",
+    ["EditBox.BlizzardSkinProxyPad"] =
+    "Extra padding (in pixels) around the borrowed Blizzard skin frame when wrapped around Yapper's overlay.",
     ["CHANNEL.HEADER"] =
     "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
     ["CHANNEL.MASTER"] = "One selected channel can act as a colour source.",
@@ -103,9 +107,14 @@ local FRIENDLY_LABELS = {
     ["EditBox.StickyChannel"] = "Remember last channel",
     ["EditBox.StickyGroupChannel"] = "Keep group channels sticky",
     ["EditBox.MinHeight"] = "Minimum input height",
+    ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
+    ["EditBox.BlizzardSkinProxyPad"] = "Skin proxy padding",
 }
 
 -- Paths hidden in Basic mode and shown in Advanced mode.
+-- NOTE: With the new category system these only affect the Advanced page,
+-- but we keep the table so IsAdvancedItem() still works for any legacy
+-- callers.
 local ADVANCED_PATHS = {
     ["System.DEBUG"] = true,
     ["System.RUN_ALL_PATCHES"] = true,
@@ -117,16 +126,96 @@ local ADVANCED_PATHS = {
     ["Chat.MAX_HISTORY_LINES"] = true,
     ["EditBox.FontFace"] = true,
     ["EditBox.MinHeight"] = true,
+    ["EditBox.BlizzardSkinProxyPad"] = true,
     ["System.EnableGopherBridge"] = true,
     ["System.EnableTypingTrackerBridge"] = true,
 }
 
 -- ---------------------------------------------------------------------------
--- Layout constants — every pixel value centralised in one place.
+-- Category system -- each entry defines a sidebar tab and the settings it owns.
+-- Settings are referenced by their JoinPath() key (e.g. "EditBox.FontSize").
+-- A nil/empty `paths` list means "render nothing from the schema" (the page
+-- builder can still emit custom controls).
+-- ---------------------------------------------------------------------------
+local CATEGORIES = {
+    {
+        id    = "general",
+        label = "General",
+        icon  = nil,  -- reserved for future icon support
+        paths = {
+            -- Minimap button
+            "FrameSettings.EnableMinimapButton",
+            -- Sticky channel behaviour
+            "EditBox.StickyChannel",
+            "EditBox.StickyGroupChannel",
+            -- Label fitting
+            "EditBox.AutoFitLabel",
+            -- Blizzard skin proxy
+            "EditBox.UseBlizzardSkinProxy",
+            -- Chat split marker
+            "Chat.USE_DELINEATORS",
+            "Chat.DELINEATOR",
+        },
+    },
+    {
+        id    = "appearance",
+        label = "Appearance",
+        icon  = nil,
+        paths = {
+            -- Theme
+            "System.ActiveTheme",
+            -- Colours
+            "EditBox.InputBg",
+            "EditBox.LabelBg",
+            -- Font
+            "EditBox.FontSize",
+            "EditBox.FontFlags",
+        },
+        -- Channel override controls and border colour (conditional) are
+        -- appended by custom logic inside the page builder.
+        custom = { "channelOverrides", "borderColor" },
+    },
+    {
+        id    = "advanced",
+        label = "Advanced",
+        icon  = nil,
+        paths = {
+            -- System
+            "System.DEBUG",
+            "System.VERBOSE",
+            "System.RUN_ALL_PATCHES",
+            -- Chat mechanics
+            "Chat.MIN_POST_INTERVAL",
+            "Chat.POST_TIMEOUT",
+            "Chat.BATCH_SIZE",
+            "Chat.BATCH_THROTTLE",
+            "Chat.MAX_HISTORY_LINES",
+            -- EditBox advanced
+            "EditBox.FontFace",
+            "EditBox.MinHeight",
+            "EditBox.BlizzardSkinProxyPad",
+        },
+        -- Bridges are appended by custom logic.
+        custom = { "bridges" },
+    },
+}
+
+-- Quick lookup: path -> category id.
+local PATH_TO_CATEGORY = {}
+for _, cat in ipairs(CATEGORIES) do
+    if cat.paths then
+        for _, p in ipairs(cat.paths) do
+            PATH_TO_CATEGORY[p] = cat.id
+        end
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Layout constants
 -- ---------------------------------------------------------------------------
 local LAYOUT = {
     -- Main window
-    WINDOW_WIDTH           = 420,
+    WINDOW_WIDTH           = 740,
     WINDOW_HEIGHT          = 640,
     WINDOW_PADDING         = 8,
     SCROLLBAR_WIDTH        = 14,
@@ -134,25 +223,31 @@ local LAYOUT = {
     TITLE_INSET            = 28,
     BOTTOM_BAR             = 36,
 
-    -- Widget row heights
-    ROW_CHECKBOX           = 30,
-    ROW_TEXT_INPUT         = 30,
-    ROW_COLOR_PICKER       = 30,
-    ROW_FONT_OUTLINE       = 30,
-    ROW_FONT_SIZE          = 84,
-    ROW_SECTION            = 24,
-    ROW_CHANNEL_ROW        = 26,
-    ROW_CHANNEL_HEADER     = 22,
-    ROW_CHANNEL_LABELS     = 16,
+    -- Sidebar
+    SIDEBAR_WIDTH          = 150,
+    SIDEBAR_BTN_HEIGHT     = 28,
+    SIDEBAR_BTN_PAD        = 2,
+    SIDEBAR_TOP_INSET      = 32,
 
-    -- Starting Y for dynamic content (below fixed header area)
-    CONTENT_START_Y        = -68,
+    -- Widget row heights (generous spacing for readability)
+    ROW_CHECKBOX           = 36,
+    ROW_TEXT_INPUT         = 36,
+    ROW_COLOR_PICKER       = 36,
+    ROW_FONT_OUTLINE       = 36,
+    ROW_FONT_SIZE          = 90,
+    ROW_SECTION            = 28,
+    ROW_CHANNEL_ROW        = 28,
+    ROW_CHANNEL_HEADER     = 24,
+    ROW_CHANNEL_LABELS     = 18,
 
-    -- Horizontal positions
+    -- Starting Y for dynamic content (pushed below the autosave notice)
+    CONTENT_START_Y        = -28,
+
+    -- Horizontal positions (wider labels to avoid word-wrap in 740px window)
     LABEL_X                = 10,
-    LABEL_WIDTH            = 160,
-    CONTROL_X              = 180,
-    RESET_X                = 306,
+    LABEL_WIDTH            = 300,
+    CONTROL_X              = 320,
+    RESET_X                = 500,
 
     -- Close button
     CLOSE_BTN_WIDTH        = 120,
@@ -164,8 +259,13 @@ local LAYOUT = {
     SCROLLBAR_BOTTOM_INSET = 44,
 }
 
+-- Even-increment offsets from the Blizzard base size (used by sidebar +/–).
+local UI_FONT_STEP       = 2
+local UI_FONT_MIN_OFFSET = -4   -- smallest allowed offset (8 pt at base 12)
+local UI_FONT_MAX_OFFSET = 8    -- largest  allowed offset (20 pt at base 12)
+
 -- ---------------------------------------------------------------------------
--- LayoutCursor — replaces manual `y = y - N` tracking.
+-- LayoutCursor... replaces manual `y = y - N` tracking.
 -- ---------------------------------------------------------------------------
 local LayoutCursor = {}
 LayoutCursor.__index = LayoutCursor
@@ -207,7 +307,7 @@ local function IsColorEqual(lhs, rhs)
     return lhs.r == rhs.r and lhs.g == rhs.g and lhs.b == rhs.b and la == ra
 end
 
--- Copy a color table safely, supplying sane defaults.
+-- Copy a colour table safely, supplying sane defaults.
 local function CopyColor(tbl)
     return {
         r = tbl.r or 1,
@@ -257,7 +357,7 @@ local function RoundToEven(value)
     return value
 end
 
--- Normalize legacy/variant font flag values into known dropdown options.
+-- Normalise legacy/variant font flag values into known dropdown options.
 local function NormalizeFontFlags(value)
     if type(value) ~= "string" then return "" end
     local flags = string.upper(TrimString(value))
@@ -641,9 +741,11 @@ function Interface:BuildRenderSchema()
         if full == "System.SettingsHaveChanged"
             or full == "System.VERSION"
             or full == "System.FRAME_ID_PARENT"
+            or full == "System._welcomeShown"
             or full == "FrameSettings.MouseWheelStepRate"
             or full == "FrameSettings.MainWindowPosition"
             or full == "FrameSettings.SettingsViewMode"
+            or full == "FrameSettings.UIFontOffset"
             or full == "EditBox.FontPad"
             or full == "Chat.STALL_TIMEOUT"
             or full == "Chat.CHARACTER_LIMIT"
@@ -832,11 +934,12 @@ end
 -- ---------------------------------------------------------------------------
 
 -- Create the scrollable content area inside a parent window frame.
+-- The content sits to the right of the sidebar.
 local function CreateScrollableContent(parent)
     local P = LAYOUT
     local scrollFrame = CreateFrame("ScrollFrame", nil, parent)
     parent.ScrollFrame = scrollFrame
-    scrollFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", P.WINDOW_PADDING, -P.TITLE_INSET)
+    scrollFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", P.SIDEBAR_WIDTH + P.WINDOW_PADDING, -P.TITLE_INSET)
     scrollFrame:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT",
         -(P.WINDOW_PADDING + P.SCROLLBAR_WIDTH + P.SCROLLBAR_GAP), P.BOTTOM_BAR)
     scrollFrame:SetClipsChildren(true)
@@ -921,6 +1024,173 @@ local function CreateScrollBarForFrame(parent, scrollFrame)
     return scrollBar
 end
 
+-- Active sidebar category — persists for the session.
+Interface._activeCategory = "general"
+
+-- ---------------------------------------------------------------------------
+-- First-run appearance choice popup
+-- ---------------------------------------------------------------------------
+-- Shows once when VERSION < 1.1 (or on every reload if DEBUG is on).
+-- Two columns: "Blizzard Skin" vs "Yapper's Own", each with a preview slot.
+
+function Interface:ShouldShowWelcomeChoice()
+    local debug = YapperTable.Config and YapperTable.Config.System
+        and YapperTable.Config.System.DEBUG == true
+    if debug then return true end
+
+    -- Check raw saved variable — the value before defaults got merged in.
+    local sv = _G.YapperLocalConf
+    if type(sv) ~= "table" then return true end
+    local sys = sv.System
+    if type(sys) ~= "table" then return true end
+    local ver = tonumber(sys._welcomeShown)
+    if not ver or ver < 1.1 then return true end
+    return false
+end
+
+function Interface:MarkWelcomeShown()
+    if type(_G.YapperLocalConf) ~= "table" then return end
+    if type(_G.YapperLocalConf.System) ~= "table" then
+        _G.YapperLocalConf.System = {}
+    end
+    _G.YapperLocalConf.System._welcomeShown = 1.1
+end
+
+function Interface:CreateWelcomeChoiceFrame()
+    if self.WelcomeFrame then return end
+
+    local FRAME_W      = 960
+    local FRAME_H      = 540
+    local COL_W        = 440
+    local PREVIEW_H    = 320
+    local BTN_W        = 200
+    local BTN_H        = 36
+    local PAD           = 20
+
+    -- Fullscreen darkener.
+    local dimmer = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    dimmer:SetFrameStrata("FULLSCREEN_DIALOG")
+    dimmer:SetAllPoints(UIParent)
+    dimmer:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
+    dimmer:SetBackdropColor(0, 0, 0, 0.55)
+    dimmer:EnableMouse(true) -- block clicks through
+
+    -- Main container.
+    local frame = CreateFrame("Frame", "YapperWelcomeChoice", dimmer, "BackdropTemplate")
+    frame:SetSize(FRAME_W, FRAME_H)
+    frame:SetPoint("CENTER")
+    frame:SetFrameStrata("FULLSCREEN_DIALOG")
+    frame:SetFrameLevel(dimmer:GetFrameLevel() + 5)
+    frame:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 14,
+        insets   = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    frame:SetBackdropColor(0.08, 0.08, 0.08, 0.97)
+    frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+
+    -- Title.
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", frame, "TOP", 0, -PAD)
+    title:SetText("Choose Your Editbox Appearance")
+    title:SetTextColor(1, 0.82, 0, 1)
+
+    -- Subtitle.
+    local sub = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    sub:SetPoint("TOP", title, "BOTTOM", 0, -6)
+    sub:SetWidth(FRAME_W - 60)
+    sub:SetText("You can change this at any time in settings. Pick whichever you prefer!")
+    sub:SetTextColor(0.75, 0.75, 0.75, 1)
+
+    local contentTop = -72  -- below title+subtitle
+
+    -- Helper: build one column (button + preview area).
+    local function BuildColumn(anchorX, labelText, descText, onClick)
+        -- Button first (at top of column).
+        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        btn:SetSize(BTN_W, BTN_H)
+        btn:SetPoint("TOP", frame, "TOP", anchorX, contentTop)
+        btn:SetText(labelText)
+        btn:SetScript("OnClick", onClick)
+
+        -- Short description under button.
+        local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        desc:SetPoint("TOP", btn, "BOTTOM", 0, -6)
+        desc:SetWidth(COL_W - 20)
+        desc:SetJustifyH("CENTER")
+        desc:SetText(descText)
+        desc:SetTextColor(0.65, 0.65, 0.65, 1)
+
+        -- Preview placeholder underneath.
+        local preview = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+        preview:SetSize(COL_W, PREVIEW_H)
+        preview:SetPoint("TOP", btn, "BOTTOM", 0, -36)
+        preview:SetBackdrop({
+            bgFile   = "Interface\\Buttons\\WHITE8x8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 10,
+            insets   = { left = 2, right = 2, top = 2, bottom = 2 },
+        })
+        preview:SetBackdropColor(0.04, 0.04, 0.04, 1)
+        preview:SetBackdropBorderColor(0.25, 0.25, 0.25, 0.6)
+
+        -- Preview image texture (filled in per-column after BuildColumn).
+        local tex = preview:CreateTexture(nil, "ARTWORK")
+        tex:SetPoint("TOPLEFT", preview, "TOPLEFT", 3, -3)
+        tex:SetPoint("BOTTOMRIGHT", preview, "BOTTOMRIGHT", -3, 3)
+        preview.Texture = tex
+
+        return btn, preview
+    end
+
+    local function closeWelcome()
+        Interface:MarkWelcomeShown()
+        dimmer:Hide()
+        dimmer:SetParent(nil)
+        Interface.WelcomeFrame = nil
+    end
+
+    -- Left column: Blizzard Skin Proxy.
+    local blizzBtn, blizzPreview = BuildColumn(
+        -(COL_W / 2 + PAD / 2),  -- left of centre
+        "Blizzard",
+        "Imitates Blizzard's default appearance, but offers less customisation. May not be compatible with other re-skinning addons, in which case Yapper's own theme may serve your needs.",
+        function()
+            Interface:SetLocalPath({ "EditBox", "UseBlizzardSkinProxy" }, true)
+            closeWelcome()
+        end
+    )
+
+    -- Right column: Yapper's Own.
+    local yapperBtn, yapperPreview = BuildColumn(
+        (COL_W / 2 + PAD / 2),   -- right of centre
+        "Yapper",
+        "Fully customiseable with background colours, but utilitarian and unstylised.",
+        function()
+            Interface:SetLocalPath({ "EditBox", "UseBlizzardSkinProxy" }, false)
+            closeWelcome()
+        end
+    )
+
+    -- Store references for preview images if added later.
+    frame.BlizzPreview  = blizzPreview
+    frame.YapperPreview = yapperPreview
+    frame.Dimmer        = dimmer
+
+    -- Set preview screenshots.
+    local addonPath = "Interface\\AddOns\\Yapper\\Src\\Img\\"
+    blizzPreview.Texture:SetTexture(addonPath .. "BlizzTheme")
+    blizzPreview.Texture:SetTexCoord(0, 1, 0, 1)
+    yapperPreview.Texture:SetTexture(addonPath .. "YapperTheme")
+    yapperPreview.Texture:SetTexCoord(0, 1, 0, 1)
+
+    self.WelcomeFrame = frame
+    dimmer:Show()
+end
+
+-- ---------------------------------------------------------------------------
+
 -- Create the main settings window.
 function Interface:CreateMainWindow()
     -- Prevent duplicate creation.
@@ -961,6 +1231,130 @@ function Interface:CreateMainWindow()
         end)
     end
 
+    -- -----------------------------------------------------------------------
+    -- Sidebar
+    -- -----------------------------------------------------------------------
+    local P = LAYOUT
+    local sidebar = CreateFrame("Frame", nil, frame)
+    sidebar:SetPoint("TOPLEFT", frame, "TOPLEFT", P.WINDOW_PADDING, -P.SIDEBAR_TOP_INSET)
+    sidebar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", P.WINDOW_PADDING, P.BOTTOM_BAR + 4)
+    sidebar:SetWidth(P.SIDEBAR_WIDTH)
+    frame.Sidebar = sidebar
+
+    -- Vertical divider between sidebar and content.
+    local divider = sidebar:CreateTexture(nil, "ARTWORK")
+    divider:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+    divider:SetWidth(1)
+    divider:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", 0, 0)
+    divider:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", 0, 0)
+
+    -- -----------------------------------------------------------------------
+    -- Font-size +/– control at the top of the sidebar.
+    -- -----------------------------------------------------------------------
+    local fontRow = CreateFrame("Frame", nil, sidebar)
+    fontRow:SetSize(P.SIDEBAR_WIDTH - 8, 24)
+    fontRow:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, 0)
+
+    local fontLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fontLabel:SetPoint("LEFT", fontRow, "LEFT", 4, 0)
+    fontLabel:SetText("Font:")
+    fontLabel:SetTextColor(0.7, 0.7, 0.7, 1)
+
+    -- Current size readout.
+    local sizeLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    sizeLabel:SetPoint("CENTER", fontRow, "CENTER", 0, 0)
+    frame.FontScaleLabel = sizeLabel
+
+    -- Minus button.
+    local minusBtn = CreateFrame("Button", nil, fontRow)
+    minusBtn:SetSize(20, 20)
+    minusBtn:SetPoint("RIGHT", sizeLabel, "LEFT", -4, 0)
+    minusBtn:SetNormalFontObject(GameFontNormal)
+    minusBtn:SetHighlightFontObject(GameFontHighlight)
+    minusBtn:SetText("\226\128\147")  -- en-dash as minus glyph
+    local minusHl = minusBtn:CreateTexture(nil, "HIGHLIGHT")
+    minusHl:SetAllPoints()
+    minusHl:SetColorTexture(1, 1, 1, 0.08)
+    frame.FontMinusBtn = minusBtn
+
+    -- Plus button.
+    local plusBtn = CreateFrame("Button", nil, fontRow)
+    plusBtn:SetSize(20, 20)
+    plusBtn:SetPoint("LEFT", sizeLabel, "RIGHT", 4, 0)
+    plusBtn:SetNormalFontObject(GameFontNormal)
+    plusBtn:SetHighlightFontObject(GameFontHighlight)
+    plusBtn:SetText("+")
+    local plusHl = plusBtn:CreateTexture(nil, "HIGHLIGHT")
+    plusHl:SetAllPoints()
+    plusHl:SetColorTexture(1, 1, 1, 0.08)
+    frame.FontPlusBtn = plusBtn
+
+    minusBtn:SetScript("OnClick", function()
+        local cur = Interface:GetUIFontOffset()
+        Interface:SetUIFontOffset(cur - UI_FONT_STEP)
+        Interface:RefreshFontScaleLabel()
+        Interface:BuildConfigUI()
+    end)
+    plusBtn:SetScript("OnClick", function()
+        local cur = Interface:GetUIFontOffset()
+        Interface:SetUIFontOffset(cur + UI_FONT_STEP)
+        Interface:RefreshFontScaleLabel()
+        Interface:BuildConfigUI()
+    end)
+
+    -- Thin separator between font control and category buttons.
+    local fontSep = sidebar:CreateTexture(nil, "ARTWORK")
+    fontSep:SetColorTexture(0.4, 0.4, 0.4, 0.4)
+    fontSep:SetHeight(1)
+    fontSep:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 4, -28)
+    fontSep:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -8, -28)
+
+    -- Build one button per category.
+    frame.SidebarButtons = {}
+    local btnY = 32  -- start below font row + separator
+    for _, cat in ipairs(CATEGORIES) do
+        local btn = CreateFrame("Button", nil, sidebar)
+        btn:SetSize(P.SIDEBAR_WIDTH - 8, P.SIDEBAR_BTN_HEIGHT)
+        btn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, -btnY)
+        btnY = btnY + P.SIDEBAR_BTN_HEIGHT + P.SIDEBAR_BTN_PAD
+
+        -- Label
+        local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("LEFT", btn, "LEFT", 8, 0)
+        label:SetText(cat.label)
+        btn.Label = label
+
+        -- Highlight texture
+        local hl = btn:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(1, 1, 1, 0.08)
+
+        -- Selected indicator (left accent bar)
+        local sel = btn:CreateTexture(nil, "OVERLAY")
+        sel:SetColorTexture(0.9, 0.75, 0.2, 1)
+        sel:SetWidth(3)
+        sel:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+        sel:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+        sel:Hide()
+        btn.SelectedBar = sel
+
+        -- Background for selected state
+        local selBg = btn:CreateTexture(nil, "BACKGROUND")
+        selBg:SetAllPoints()
+        selBg:SetColorTexture(1, 1, 1, 0.05)
+        selBg:Hide()
+        btn.SelectedBg = selBg
+
+        btn.categoryId = cat.id
+        btn:SetScript("OnClick", function()
+            Interface._activeCategory = cat.id
+            Interface:UpdateSidebarSelection()
+            Interface:BuildConfigUI()
+        end)
+
+        frame.SidebarButtons[cat.id] = btn
+    end
+
     -- Delegate scrolling to focused helpers.
     local scrollFrame = CreateScrollableContent(frame)
     CreateScrollBarForFrame(frame, scrollFrame)
@@ -974,6 +1368,86 @@ function Interface:CreateMainWindow()
         Interface:CloseFrame(frame)
     end)
     frame.BottomCloseButton = bottomClose
+
+    -- Apply initial sidebar selection highlight.
+    self:UpdateSidebarSelection()
+end
+
+-- Refresh the visual state of sidebar buttons to reflect _activeCategory.
+function Interface:UpdateSidebarSelection()
+    local frame = self.MainWindowFrame
+    if not frame or not frame.SidebarButtons then return end
+    for catId, btn in pairs(frame.SidebarButtons) do
+        local selected = (catId == self._activeCategory)
+        btn.SelectedBar:SetShown(selected)
+        btn.SelectedBg:SetShown(selected)
+        if selected then
+            btn.Label:SetFontObject(GameFontHighlight)
+        else
+            btn.Label:SetFontObject(GameFontNormal)
+        end
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Settings-panel font scaling
+-- ---------------------------------------------------------------------------
+
+function Interface:GetUIFontOffset()
+    local v = tonumber(self:GetConfigPath({ "FrameSettings", "UIFontOffset" }))
+    if v then return v end
+    return 0
+end
+
+function Interface:SetUIFontOffset(offset)
+    offset = math.max(UI_FONT_MIN_OFFSET, math.min(UI_FONT_MAX_OFFSET, offset))
+    self:SetLocalPath({ "FrameSettings", "UIFontOffset" }, offset)
+    return offset
+end
+
+--- Return a row height scaled by the current font offset so elements don't
+--- overlap when the user increases the UI font size.
+function Interface:ScaledRow(base)
+    return base + self:GetUIFontOffset()
+end
+
+--- Walk every FontString under the settings window and set its size to
+--- the Blizzard base size + the user's offset.
+function Interface:ApplyUIFontScale()
+    local offset = self:GetUIFontOffset()
+    local frame  = self.MainWindowFrame
+    if not frame then return end
+
+    -- Query the Blizzard base once per pass.
+    local _, blizzBase = GameFontNormal:GetFont()
+    blizzBase = blizzBase or 12
+    local targetSize = math.max(8, blizzBase + offset)
+
+    local function scaleRegions(parent)
+        for _, region in pairs({ parent:GetRegions() }) do
+            if region:IsObjectType("FontString") then
+                local fontFile, _, fontFlags = region:GetFont()
+                if fontFile then
+                    region:SetFont(fontFile, targetSize, fontFlags or "")
+                end
+            end
+        end
+        for _, child in pairs({ parent:GetChildren() }) do
+            scaleRegions(child)
+        end
+    end
+
+    scaleRegions(frame)
+end
+
+--- Update the font-scale label text to reflect the current effective size.
+function Interface:RefreshFontScaleLabel()
+    local frame = self.MainWindowFrame
+    if not frame or not frame.FontScaleLabel then return end
+    local offset = self:GetUIFontOffset()
+    local _, baseSize = GameFontNormal:GetFont()
+    baseSize = baseSize or 12
+    frame.FontScaleLabel:SetText(tostring(math.floor(baseSize + offset)))
 end
 
 -- ---------------------------------------------------------------------------
@@ -1075,35 +1549,123 @@ function Interface:ReleaseWidget(widget)
     if widget.Enable then widget:Enable() end
     if widget.SetScale then widget:SetScale(1) end
 
+    -- FontStrings: clear stale width / word-wrap so recycled labels are clean.
+    if widget.SetWidth and widget.SetWordWrap then
+        widget:SetWidth(0)
+        widget:SetWordWrap(false)
+    end
+
     pool[#pool + 1] = widget
 end
 
 function Interface:GetTooltip(key)
-    return SETTING_TOOLTIPS[key]
+    local tip = SETTING_TOOLTIPS[key]
+    if tip and (key == "EditBox.InputBg" or key == "EditBox.LabelBg") then
+        if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
+            tip = tip .. "\n\n|cFFFFD100Note:|r Blizzard's skin is pre-coloured. For best results, disable the skin proxy and use Yapper's own appearance settings."
+        end
+    end
+    return tip
 end
 
-function Interface:AttachTooltip(region, tooltipText)
+function Interface:AttachTooltip(region, tooltipText, titleText)
     if not region or type(tooltipText) ~= "string" or tooltipText == "" then return end
     if region.EnableMouse then
         region:EnableMouse(true)
     end
 
     local function onEnter(selfFrame)
+        -- Restore any leftover inflated fonts from a prior hover before
+        -- measuring base sizes, so the offset never compounds.
+        if GameTooltip._yFontBackup then
+            for _, bk in ipairs(GameTooltip._yFontBackup) do
+                if bk.fs and bk.file then
+                    pcall(bk.fs.SetFont, bk.fs, bk.file, bk.size, bk.flags)
+                end
+            end
+            GameTooltip._yFontBackup = nil
+        end
+
         GameTooltip:SetOwner(selfFrame, "ANCHOR_RIGHT")
-        GameTooltip:SetText(tooltipText, nil, nil, nil, nil, true)
+        if type(titleText) == "string" and titleText ~= "" then
+            GameTooltip:AddLine(titleText, 1, 1, 1, true)
+            GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
+        else
+            GameTooltip:SetText(tooltipText, nil, nil, nil, nil, true)
+        end
         GameTooltip:Show()
+
+        -- Scale tooltip font proportionally with the UI font offset, but
+        -- clamp so the tooltip never exceeds screen width.
+        local offset = Interface:GetUIFontOffset()
+        if offset ~= 0 then
+            local screenW = GetScreenWidth() or 1920
+            local maxTipW = screenW * 0.45  -- allow up to 45% of screen
+
+            -- Snapshot base sizes BEFORE any modification.
+            local regions = {}
+            for _, region in pairs({ GameTooltip:GetRegions() }) do
+                if region:IsObjectType("FontString") then
+                    local fontFile, fontSize, fontFlags = region:GetFont()
+                    if fontFile and fontSize then
+                        regions[#regions + 1] = { fs = region, file = fontFile, size = fontSize, flags = fontFlags or "" }
+                    end
+                end
+            end
+
+            -- Save originals so onLeave can restore them.
+            GameTooltip._yFontBackup = regions
+
+            -- Binary-search for the largest usable offset in [0, offset].
+            local bestOffset = 0
+            local lo, hi = 0, offset
+            for _ = 1, 8 do
+                local mid = math.floor((lo + hi) / 2 + 0.5)
+                if mid == 0 then lo = 0; break end
+                for _, r in ipairs(regions) do
+                    r.fs:SetFont(r.file, r.size + mid, r.flags)
+                end
+                GameTooltip:Show()
+                local tipW = GameTooltip:GetWidth() or 0
+                if tipW <= maxTipW then
+                    bestOffset = mid
+                    lo = mid
+                else
+                    hi = mid - 1
+                end
+                if lo >= hi then break end
+            end
+
+            -- Apply final sizes.
+            for _, r in ipairs(regions) do
+                r.fs:SetFont(r.file, r.size + bestOffset, r.flags)
+            end
+            GameTooltip:Show()
+        end
     end
 
     local function onLeave()
+        -- Restore original font sizes before hiding so the next tooltip
+        -- starts from genuine base sizes, not our inflated ones.
+        if GameTooltip._yFontBackup then
+            for _, bk in ipairs(GameTooltip._yFontBackup) do
+                if bk.fs and bk.file then
+                    pcall(bk.fs.SetFont, bk.fs, bk.file, bk.size, bk.flags)
+                end
+            end
+            GameTooltip._yFontBackup = nil
+        end
         GameTooltip:Hide()
     end
 
-    if region.HookScript then
-        region:HookScript("OnEnter", onEnter)
-        region:HookScript("OnLeave", onLeave)
-    elseif region.SetScript then
+    -- Cleanly replace recycled pool widgets.
+    if region.SetScript and region.HasScript
+        and region:HasScript("OnEnter") then
         region:SetScript("OnEnter", onEnter)
         region:SetScript("OnLeave", onLeave)
+    elseif region.HookScript then
+        region:HookScript("OnEnter", onEnter)
+        region:HookScript("OnLeave", onLeave)
     end
 end
 
@@ -1134,10 +1696,43 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj)
 
     fs:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     fs:SetWidth(width)
+    fs:SetWordWrap(false)
     fs:SetJustifyH("LEFT")
     fs:SetText(text)
     self:AddControl(fs)
-    self:AttachTooltip(fs, tooltipText)
+
+    -- Detect truncation: if the natural text width exceeds the label width,
+    -- the label is being ellipsized.  In that case, show the full text as a
+    -- title line above the description tooltip.
+    local isTruncated = (fs.IsTruncated and fs:IsTruncated())
+        or ((fs:GetStringWidth() or 0) > width)
+    local titleLine = isTruncated and text or nil
+
+    -- Build a combined tooltip: if no explicit description was provided but
+    -- the label IS truncated, still show a tooltip with just the full text.
+    local effectiveTooltip = tooltipText
+    if not effectiveTooltip or effectiveTooltip == "" then
+        if isTruncated then
+            effectiveTooltip = text   -- tooltip body = full label
+            titleLine = nil           -- no separate title needed
+        end
+    end
+
+    -- For tooltips, spawn an invisible hit-frame sized to the actual rendered
+    -- text so the tooltip appears next to the label, not out in space.
+    if type(effectiveTooltip) == "string" and effectiveTooltip ~= "" then
+        self:AttachTooltip(fs, effectiveTooltip, titleLine)
+        local hitFrame = self:AcquireWidget("LabelHitFrame", parent, nil, "Frame")
+        hitFrame:SetPoint("TOPLEFT", fs, "TOPLEFT", 0, 2)
+        hitFrame:SetPoint("BOTTOMLEFT", fs, "BOTTOMLEFT", 0, -2)
+        -- Size to actual text width so ANCHOR_RIGHT stays near the label.
+        local textW = fs:GetStringWidth() or 100
+        hitFrame:SetWidth(math.min(textW + 8, width))
+        hitFrame:SetFrameLevel(parent:GetFrameLevel() + 6)
+        hitFrame:EnableMouse(true)
+        self:AttachTooltip(hitFrame, effectiveTooltip, titleLine)
+        self:AddControl(hitFrame)
+    end
     return fs
 end
 
@@ -1297,6 +1892,8 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
     text:SetFontObject("GameFontHighlight")
     text:SetTextColor(1, 1, 1, 1) -- Force white text (fix recycling color retention)
     text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+    text:SetWidth(0)              -- Clear stale width from pool
+    text:SetWordWrap(false)
     text:SetText(label)
 
     local tooltip = self:GetTooltip(JoinPath(path))
@@ -1312,7 +1909,7 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
     self:AttachTooltip(cb, tooltip)
     self:AttachTooltip(text, tooltip)
 
-    cursor:Advance(LAYOUT.ROW_CHECKBOX)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHECKBOX))
     return cb
 end
 
@@ -1359,7 +1956,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     resetAllBtn:SetText("Reset all")
     self:AttachTooltip(resetAllBtn, self:GetTooltip("CHANNEL.RESET_ALL"))
 
-    cursor:Advance(LAYOUT.ROW_CHANNEL_HEADER)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHANNEL_HEADER))
     y = cursor:Y()
 
     self:CreateLabel(parent, "Colour", 136, y, 60)
@@ -1381,7 +1978,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     masterHelp:SetScript("OnLeave", function() GameTooltip:Hide() end)
     self:AddControl(masterHelp)
 
-    cursor:Advance(LAYOUT.ROW_CHANNEL_LABELS)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHANNEL_LABELS))
     y = cursor:Y()
 
     local function getMaster()
@@ -1510,7 +2107,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             refreshColor = refreshColor,
         }
 
-        cursor:Advance(LAYOUT.ROW_CHANNEL_ROW)
+        cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHANNEL_ROW))
         y = cursor:Y()
     end
 
@@ -1524,7 +2121,7 @@ function Interface:CreateTextInput(parent, label, path, cursor)
 
     local edit = self:AcquireWidget("InputBox", parent, "InputBoxTemplate", "EditBox")
     edit:SetAutoFocus(false)
-    edit:SetSize(180, 22)
+    edit:SetSize(160, 22)
     edit:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.CONTROL_X, y)
 
     local current = self:GetConfigPath(path)
@@ -1582,7 +2179,7 @@ function Interface:CreateTextInput(parent, label, path, cursor)
     end)
 
     self:AddControl(edit)
-    cursor:Advance(LAYOUT.ROW_TEXT_INPUT)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
     return edit
 end
 
@@ -1654,7 +2251,7 @@ function Interface:CreateColorPickerControl(parent, label, path, cursor)
 
     refreshSwatch()
     self:AddControl(btn)
-    cursor:Advance(LAYOUT.ROW_COLOR_PICKER)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_COLOR_PICKER))
     return btn
 end
 
@@ -1678,16 +2275,17 @@ function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
     local low = sliderName and _G[sliderName .. "Low"] or nil
     local high = sliderName and _G[sliderName .. "High"] or nil
     local text = sliderName and _G[sliderName .. "Text"] or nil
-    if low then low:SetText("8") end
-    if high then high:SetText("64") end
-    if text then text:SetText(tostring(current)) end
+    if low then low:SetText(""); low:Hide() end
+    if high then high:SetText(""); high:Hide() end
+    if text then text:SetText(""); text:Hide() end
 
     local valueFs = self:AcquireWidget("Label", parent, "GameFontHighlightSmall", "FontString")
     valueFs:SetPoint("LEFT", slider, "RIGHT", 6, 0)
     valueFs:SetText(tostring(current))
 
+    local fontPad = self:GetUIFontOffset()
     local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
-    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 155, y - 20)
+    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 155, y - 26 - fontPad)
     UIDropDownMenu_SetWidth(dd, 126)
     UIDropDownMenu_SetText(dd, tostring(current))
 
@@ -1710,7 +2308,6 @@ function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
             selfFrame:SetValue(even)
             return
         end
-        if text then text:SetText(tostring(even)) end
         valueFs:SetText(tostring(even))
         UIDropDownMenu_SetText(dd, tostring(even))
         if selfFrame._lastSaved ~= even then
@@ -1719,7 +2316,7 @@ function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
         end
     end)
 
-    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 44, function()
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 44 - fontPad, function()
         local defaultSize = RoundToEven(Interface:GetDefaultPath(path))
         slider:SetValue(defaultSize)
         UIDropDownMenu_SetText(dd, tostring(defaultSize))
@@ -1732,7 +2329,7 @@ function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
     self:AddControl(slider)
     self:AddControl(valueFs)
     self:AddControl(dd)
-    cursor:Advance(LAYOUT.ROW_FONT_SIZE)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_FONT_SIZE))
     return slider
 end
 
@@ -1762,7 +2359,7 @@ function Interface:CreateFontOutlineDropdown(parent, label, path, cursor)
     end)
 
     self:AddControl(dd)
-    cursor:Advance(LAYOUT.ROW_FONT_OUTLINE)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_FONT_OUTLINE))
     return dd
 end
 
@@ -1807,7 +2404,7 @@ function Interface:CreateThemeDropdown(parent, label, path, cursor)
     end)
 
     self:AddControl(dd)
-    cursor:Advance(LAYOUT.ROW_TEXT_INPUT)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
     return dd
 end
 
@@ -1817,145 +2414,106 @@ function Interface:BuildConfigUI()
 
     self:ClearConfigControls()
 
-    local schema = self:GetRenderSchema()
+    -- Reset scroll position when rebuilding (e.g. category switch).
+    if frame.ScrollFrame then
+        frame.ScrollFrame:SetVerticalScroll(0)
+        if frame.ScrollFrame.ScrollBar then
+            frame.ScrollFrame.ScrollBar:SetValue(0)
+        end
+    end
+
+    local schema    = self:GetRenderSchema()
+    local catId     = self._activeCategory or "general"
+    local activeCat = nil
+    for _, c in ipairs(CATEGORIES) do
+        if c.id == catId then activeCat = c; break end
+    end
+    if not activeCat then activeCat = CATEGORIES[1] end
+
+    -- Build a set of paths owned by this category for fast lookup.
+    local catPaths = {}
+    if activeCat.paths then
+        for _, p in ipairs(activeCat.paths) do
+            catPaths[p] = true
+        end
+    end
+
+    -- Custom flags for conditional blocks.
+    local customSet = {}
+    if activeCat.custom then
+        for _, c in ipairs(activeCat.custom) do
+            customSet[c] = true
+        end
+    end
+
+    -- Small autosave hint at the top of every page.
     local autosaveLabel = self:CreateLabel(
         frame.ContentFrame,
         "Settings are saved automatically.",
         LAYOUT.WINDOW_PADDING,
-        -8,
-        360,
+        -6,
+        500,
         self:GetTooltip("HEADER.AUTOSAVE")
     )
     autosaveLabel:SetFontObject(GameFontHighlightSmall)
 
-    -- View mode toggle lives in header area and rebuilds UI on change.
-    local mode = self:GetSettingsViewMode()
-    local modeLabel = self:CreateLabel(
-        frame.ContentFrame,
-        "View",
-        LAYOUT.WINDOW_PADDING,
-        -30,
-        72,
-        self:GetTooltip("HEADER.VIEWMODE")
-    )
-    modeLabel:SetFontObject(GameFontHighlightSmall)
+    -- Dynamic content begins below the fixed header area.
+    -- Push further down when font is scaled up so the autosave label has room.
+    local cursor = LayoutCursor.New(LAYOUT.CONTENT_START_Y - self:GetUIFontOffset())
 
-    local modeDd = self:AcquireWidget("Dropdown", frame.ContentFrame, "UIDropDownMenuTemplate", "Frame")
-    modeDd:SetPoint("TOPLEFT", frame.ContentFrame, "TOPLEFT", 50, -38)
-    UIDropDownMenu_SetWidth(modeDd, 110)
-    UIDropDownMenu_SetText(modeDd, mode == "advanced" and "Advanced" or "Basic")
-    UIDropDownMenu_Initialize(modeDd, function(dropdown, level)
-        local basic = UIDropDownMenu_CreateInfo()
-        basic.text = "Basic"
-        basic.checked = (mode == "basic")
-        basic.func = function()
-            Interface:SetLocalPath({ "FrameSettings", "SettingsViewMode" }, "basic")
-            Interface:BuildConfigUI()
-        end
-        UIDropDownMenu_AddButton(basic, level)
-
-        local advanced = UIDropDownMenu_CreateInfo()
-        advanced.text = "Advanced"
-        advanced.checked = (mode == "advanced")
-        advanced.func = function()
-            Interface:SetLocalPath({ "FrameSettings", "SettingsViewMode" }, "advanced")
-            Interface:BuildConfigUI()
-        end
-        UIDropDownMenu_AddButton(advanced, level)
-    end)
-    self:AddControl(modeDd)
-    self:AttachTooltip(modeDd, self:GetTooltip("HEADER.VIEWMODE"))
-
-    -- Dynamic content begins below the fixed header.
-    local cursor = LayoutCursor.New(LAYOUT.CONTENT_START_Y)
-
-    -- Prevent section labels from showing when all children are filtered out.
-    local function sectionHasVisibleChildren(sectionIndex)
-        local sectionItem = schema[sectionIndex]
-        if not sectionItem or sectionItem.kind ~= "section" then return false end
-        for idx = sectionIndex + 1, #schema do
-            local candidate = schema[idx]
-            if IsDescendantPath(candidate.path, sectionItem.path)
-                and candidate.kind ~= "section"
-                and Interface:IsItemVisibleForMode(candidate, mode) then
-                return true
-            end
-        end
-        return false
-    end
-
-    for index, item in ipairs(schema) do
-        local existsInDefaults = self:GetDefaultsRoot()
-        local defaultsCursor = existsInDefaults
-        for i = 1, #item.path do
-            if type(defaultsCursor) ~= "table" then
-                defaultsCursor = nil
-                break
-            end
-            defaultsCursor = defaultsCursor[item.path[i]]
-        end
-
-        if defaultsCursor ~= nil then
-            if item.kind == "section" then
-                if sectionHasVisibleChildren(index) then
-                    local label = self:CreateLabel(
-                        frame.ContentFrame,
-                        self:GetFriendlyLabel(item),
-                        LAYOUT.WINDOW_PADDING,
-                        cursor:Y(),
-                        340,
-                        self:GetTooltip("SECTION." .. item.full),
-                        "GameFontNormal"
-                    )
-                    cursor:Advance(LAYOUT.ROW_SECTION)
+    -- Render schema items that belong to this category, preserving render
+    -- order but skipping anything not claimed by the active category.
+    for _, item in ipairs(schema) do
+        if item.kind ~= "section" and catPaths[item.full] then
+            -- Verify the key actually exists in DEFAULTS so we never render
+            -- a control for a removed setting.
+            local existsInDefaults = self:GetDefaultsRoot()
+            local defaultsCursor = existsInDefaults
+            for i = 1, #item.path do
+                if type(defaultsCursor) ~= "table" then
+                    defaultsCursor = nil
+                    break
                 end
-            elseif item.kind == "boolean" then
-                if Interface:IsItemVisibleForMode(item, mode) then
-                    local cb = self:CreateCheckBox(
+                defaultsCursor = defaultsCursor[item.path[i]]
+            end
+
+            if defaultsCursor ~= nil then
+                if item.kind == "boolean" then
+                    self:CreateCheckBox(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
                         cursor
                     )
-                end
-            elseif item.kind == "text" then
-                if Interface:IsItemVisibleForMode(item, mode) then
+                elseif item.kind == "text" then
                     self:CreateTextInput(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
                         cursor
                     )
-                end
-            elseif item.kind == "color" then
-                if Interface:IsItemVisibleForMode(item, mode) then
+                elseif item.kind == "color" then
                     self:CreateColorPickerControl(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
                         cursor
                     )
-                end
-            elseif item.kind == "fontsize" then
-                if Interface:IsItemVisibleForMode(item, mode) then
+                elseif item.kind == "fontsize" then
                     self:CreateFontSizeDropdown(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
                         cursor
                     )
-                end
-            elseif item.kind == "fontflags" then
-                if Interface:IsItemVisibleForMode(item, mode) then
+                elseif item.kind == "fontflags" then
                     self:CreateFontOutlineDropdown(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
                         cursor
                     )
-                end
-            elseif item.kind == "theme" then
-                if Interface:IsItemVisibleForMode(item, mode) then
+                elseif item.kind == "theme" then
                     self:CreateThemeDropdown(
                         frame.ContentFrame,
                         "Active Theme",
@@ -1967,32 +2525,45 @@ function Interface:BuildConfigUI()
         end
     end
 
-    -- If the active theme indicates a border, expose a colour picker for the
-    -- border so users can recolour it. We store it under EditBox.BorderColor.
-    local activeThemeName = self:GetConfigPath({ "System", "ActiveTheme" })
-        or (YapperTable.Theme and YapperTable.Theme._current)
-    if activeThemeName and YapperTable and YapperTable.Theme then
-        local t = YapperTable.Theme:GetTheme(activeThemeName)
-        if type(t) == "table" and t.border == true then
-            if Interface:IsItemVisibleForMode({ kind = "color", path = { "EditBox", "BorderColor" } }, mode) then
-                self:CreateColorPickerControl(frame.ContentFrame, "Border Colour", { "EditBox", "BorderColor" }, cursor)
+    ----- Custom blocks appended per-category -----
+
+    -- Border colour: only when active theme declares a border.
+    if customSet["borderColor"] then
+        local activeThemeName = self:GetConfigPath({ "System", "ActiveTheme" })
+            or (YapperTable.Theme and YapperTable.Theme._current)
+        if activeThemeName and YapperTable and YapperTable.Theme then
+            local t = YapperTable.Theme:GetTheme(activeThemeName)
+            if type(t) == "table" and t.border == true then
+                self:CreateColorPickerControl(
+                    frame.ContentFrame,
+                    "Border Colour",
+                    { "EditBox", "BorderColor" },
+                    cursor
+                )
             end
         end
     end
 
-    -- Manually append "Message Bridges" section at the bottom (Advanced only)
-    if mode == "advanced" then
+    -- Channel colour overrides.
+    if customSet["channelOverrides"] then
+        if type(self:GetDefaultPath({ "EditBox", "ChannelColorOverrides" })) == "table" then
+            self:CreateChannelOverrideControls(frame.ContentFrame, cursor)
+        end
+    end
+
+    -- Message Bridges.
+    if customSet["bridges"] then
         cursor:Pad(10)
         self:CreateLabel(
             frame.ContentFrame,
             "Message Bridges",
             LAYOUT.WINDOW_PADDING,
             cursor:Y(),
-            340,
+            500,
             "Enable or disable integration with third-party protocols.",
             "GameFontNormal"
         )
-        cursor:Advance(LAYOUT.ROW_SECTION)
+        cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
 
         self:CreateCheckBox(
             frame.ContentFrame,
@@ -2007,11 +2578,11 @@ function Interface:BuildConfigUI()
             "BAD IDEA: Disabling this while using Gopher-powered addons (CrossRP, etc.) will cause stalls.",
             LAYOUT.WINDOW_PADDING + 28,
             cursor:Y() + 4,
-            320
+            460
         )
         gopherWarning:SetFontObject(GameFontHighlightSmall)
-        gopherWarning:SetTextColor(1, 0.4, 0.4, 1) -- Light red warning color.
-        cursor:Advance(14)                         -- Extra space for the warning note.
+        gopherWarning:SetTextColor(1, 0.4, 0.4, 1) -- Light red warning colour.
+        cursor:Advance(14)
 
         self:CreateCheckBox(
             frame.ContentFrame,
@@ -2021,14 +2592,14 @@ function Interface:BuildConfigUI()
         )
     end
 
-    if type(self:GetDefaultPath({ "EditBox", "ChannelColorOverrides" })) == "table" then
-        self:CreateChannelOverrideControls(frame.ContentFrame, cursor)
-    end
-
-    -- Finish layout
+    -- Finish layout and size the content child so the scroll range is correct.
     cursor:Pad(20)
     frame.ContentFrame:SetHeight(math.abs(cursor:Y()) + 20)
     frame.ScrollFrame:UpdateScrollChildRect()
+
+    -- Apply UI font scaling and refresh the sidebar size readout.
+    self:RefreshFontScaleLabel()
+    self:ApplyUIFontScale()
 end
 
 function Interface:ShowMainWindow()
