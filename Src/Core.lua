@@ -50,6 +50,7 @@ local DEFAULTS = {
     ["FrameSettings"] = {
         ["MouseWheelStepRate"] = 30,
         ["SettingsViewMode"] = "basic",
+        ["UIFontOffset"] = 0,
         ["EnableMinimapButton"] = true,
         ["MainWindowPosition"] = {
             point = "CENTER",
@@ -140,6 +141,11 @@ local DEFAULTS = {
         -- Vertical sizing
         MinHeight             = 0, -- minimum overlay height; only applies if larger than the native editbox height
         FontPad               = 8, -- extra pixels above + below the text baseline
+
+        -- Tier 1 integration: keep the Blizzard editbox alive (text invisible)
+        -- so its native skin/backdrop wraps the Yapper overlay while typing.
+        UseBlizzardSkinProxy  = true,
+        BlizzardSkinProxyPad  = 0,
 
         -- Sticky channel: remember last-used channel across opens.
         -- Group channels (Party/Instance/Raid) stay sticky even when StickyChannel
