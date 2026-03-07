@@ -112,13 +112,6 @@ function Router:NeedsHardwareEvent(chatType)
     return false
 end
 
---- True if the chat system is in lockdown (encounter-related taint block).
-function Router:IsInLockdown()
-    if C_ChatInfo.InChatMessagingLockdown then
-        return C_ChatInfo.InChatMessagingLockdown()
-    end
-    return false
-end
 
 -- ---------------------------------------------------------------------------
 -- Send
