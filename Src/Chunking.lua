@@ -132,6 +132,10 @@ end
 ---@type { open: string, close: string }[]
 local CONTINUATION_PAIRS = {
     MakeDelim('"'),           -- "dialogue"
+    -- apostrophes are tricky because they also appear in contractions like
+    -- "I'm" or "she's".  FindUnclosedPair treats them specially: when
+    -- counting ':s it skips any instance where the quote is surrounded by
+    -- letters, effectively ignoring normal word‑internal apostrophes.
     MakeDelim("'"),           -- 'dialogue'
     MakeDelim("**"),          -- **emote bold** (before single *)
     MakeDelim("*"),           -- *emote*
@@ -162,12 +166,24 @@ local function FindUnclosedPair(text)
     for _, pair in ipairs(CONTINUATION_PAIRS) do
         if pair.open == pair.close then
             -- Count occurrences; an odd number means one is still open.
+            -- Apostrophes are special: ignore those inside words (contractions)
+            -- by checking the surrounding characters.
             local count = 0
             local pos   = 1
             while true do
                 local s = text:find(pair.open, pos, true)
                 if not s then break end
-                count = count + 1
+                local accept = true
+                if pair.open == "'" then
+                    local before = text:sub(s-1, s-1)
+                    local after  = text:sub(s+1, s+1)
+                    if before:match("%a") and after:match("%a") then
+                        accept = false
+                    end
+                end
+                if accept then
+                    count = count + 1
+                end
                 pos   = s + #pair.open
             end
             if count % 2 == 1 then
