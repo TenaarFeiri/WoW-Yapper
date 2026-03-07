@@ -35,7 +35,7 @@ local CODE = {
     YAPPER_MISSING_COMPATLIB       = "CompatLib not found; compatibility patches disabled.",
 
     -- Chat
-    CHAT_WHISPER_TRUNCATED         = "Whisper truncated to %s characters. Recover via chat history (Alt+Up).",
+    -- nada
 
     -- Generic
     UNKNOWN                        = "Unknown error. String: %s || Detail: %s",
