@@ -48,6 +48,53 @@ function Utils:DebugPrint(...)
     end
 end
 
+--- Return the correct parent frame for chat-related UI.
+--- During housing-editor (or any fullscreen panel) this is the panel
+--- frame; otherwise plain UIParent.
+function Utils:GetChatParent()
+    if FCF_GetCurrentFullScreenFrame then
+        return FCF_GetCurrentFullScreenFrame() or UIParent
+    end
+    return UIParent
+end
+
+--- Ensure frame stays parented to the active fullscreen panel
+--- (housing editor, fullscreen dialogs, etc.).
+--- Hooks FCF_SetFullScreenFrame/ClearFullScreenFrame and updates on
+--- OnShow so the frame is repointed whenever the panel switches.
+--- Frames that already set their parent can use this merely as a fallback.
+function Utils:MakeFullscreenAware(frame)
+    if not frame then return end
+    local function update()
+        if not frame or not frame:IsShown() then return end
+        local target = self:GetChatParent()
+        if frame:GetParent() == target then return end   -- already correct
+        if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
+            FrameUtil.SetParentMaintainRenderLayering(frame, target)
+        else
+            frame:SetParent(target)
+        end
+    end
+    if FCF_SetFullScreenFrame then
+        hooksecurefunc("FCF_SetFullScreenFrame", update)
+    end
+    if FCF_ClearFullScreenFrame then
+        hooksecurefunc("FCF_ClearFullScreenFrame", update)
+    end
+    frame:HookScript("OnShow", update)
+    return update
+end
+
+
+-- Return true if chat is currently under a real lockdown condition.
+function Utils:IsChatLockdown()
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
+        and C_ChatInfo.InChatMessagingLockdown() then
+        return true
+    end
+    return false
+end
+
 -- Expose globally — other addons and compat patches may use this.
 _G.YAPPER_UTILS = Utils
 
