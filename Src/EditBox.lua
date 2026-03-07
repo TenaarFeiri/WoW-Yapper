@@ -461,6 +461,33 @@ local function ResolveChannelName(id)
     local cid, cname = GetChannelName(id)
     if tonumber(cid) == 0 then return nil end
     if type(cname) == "string" and cname ~= "" then
+        -- community channels are reported as "Community:<clubId>:<streamId>";
+        -- let Blizzard turn that into a user-friendly name if it can.
+        if ChatFrameUtil and ChatFrameUtil.ResolveChannelName then
+            -- ResolveChannelName expects the raw community channel string.
+            local resolved = ChatFrameUtil.ResolveChannelName(cname)
+            if resolved and resolved ~= cname then
+                return resolved
+            end
+        end
+
+        -- Fallback: mimic old logic that manually queries C_Club for a name.
+        if YapperTable and YapperTable.Router then
+            local isClub, clubId, streamId = YapperTable.Router:DetectCommunityChannel(id)
+            if isClub and clubId then
+                local display = "Community"
+                if _G.C_Club and _G.C_Club.GetClubInfo then
+                    local info = _G.C_Club.GetClubInfo(clubId)
+                    if info and info.name and info.name ~= "" then
+                        display = info.name
+                    end
+                end
+                if streamId then
+                    display = display .. " #" .. streamId
+                end
+                return display
+            end
+        end
         return cname
     end
     return nil
@@ -586,10 +613,14 @@ local function UpdateLabelBackgroundForText(self, text)
         or (self.Overlay and self.Overlay.GetWidth and self.Overlay:GetWidth())
         or 350
     local maxAllowed = math.floor(ebWidth * 0.28)
-    local padding = (cfg.LabelPadding and tonumber(cfg.LabelPadding)) or 20
+    local basePad = (cfg.LabelPadding and tonumber(cfg.LabelPadding)) or 20
+    local minPad  = 6
     -- Temporarily set text to measure raw width using current font settings.
     self.ChannelLabel:SetText(text)
     local rawWidth = (self.ChannelLabel:GetStringWidth() or 0)
+    -- pad label dynamically.
+    local headroom = maxAllowed - rawWidth
+    local padding  = math.max(minPad, math.min(basePad, headroom))
     local needed = math.ceil(rawWidth + padding)
     local labelW = math.max(80, math.min(needed, maxAllowed, ebWidth - 80))
     self.LabelBg:SetWidth(labelW)
@@ -722,6 +753,25 @@ function EditBox:SetupOverlayScripts()
         if not isUserInput then return end
 
         local text = box:GetText() or ""
+
+        -- enforce limit for whispers/BN whispers immediately as user types or when
+        -- chat type was changed earlier.  This avoids situations where the edit
+        -- box contains more characters than allowed and the Blizzard input
+        -- handler stops responding (see bug report).
+        local ct = self.ChatType
+        local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
+        if (truncateOnly and truncateOnly[ct]) or (ct == "WHISPER" or ct == "BN_WHISPER") then
+            local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
+            local limit = cfg.CHARACTER_LIMIT or 255
+            if #text > limit then
+                updatingText = true
+                box:SetText(text:sub(1, limit))
+                updatingText = false
+                box:SetCursorPosition(limit)
+                text = box:GetText() or ""
+            end
+        end
+
         if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil
@@ -740,6 +790,21 @@ function EditBox:SetupOverlayScripts()
                 updatingText     = true
                 box:SetText(rest or "")
                 updatingText = false
+                -- trim the remainder now that we've switched to a spam‑restricted type
+                do
+                    local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
+                    if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
+                        local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
+                        local limit = cfg.CHARACTER_LIMIT or 255
+                        local cur = box:GetText() or ""
+                        if #cur > limit then
+                            updatingText = true
+                            box:SetText(cur:sub(1, limit))
+                            updatingText = false
+                            box:SetCursorPosition(limit)
+                        end
+                    end
+                end
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest or ""))
             end
@@ -787,6 +852,21 @@ function EditBox:SetupOverlayScripts()
                 updatingText  = true
                 box:SetText(remainder or "")
                 updatingText = false
+                -- trim the remainder when the active chat type is one we cannot split
+                do
+                    local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
+                    if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
+                        local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
+                        local limit = cfg.CHARACTER_LIMIT or 255
+                        local cur = box:GetText() or ""
+                        if #cur > limit then
+                            updatingText = true
+                            box:SetText(cur:sub(1, limit))
+                            updatingText = false
+                            box:SetCursorPosition(limit)
+                        end
+                    end
+                end
                 self:RefreshLabel()
                 box:SetCursorPosition(#(remainder or ""))
             end
@@ -805,6 +885,21 @@ function EditBox:SetupOverlayScripts()
                 updatingText  = true
                 box:SetText(rest2 or "")
                 updatingText = false
+                -- also trim here in case remainder was too long
+                do
+                    local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
+                    if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
+                        local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
+                        local limit = cfg.CHARACTER_LIMIT or 255
+                        local cur = box:GetText() or ""
+                        if #cur > limit then
+                            updatingText = true
+                            box:SetText(cur:sub(1, limit))
+                            updatingText = false
+                            box:SetCursorPosition(limit)
+                        end
+                    end
+                end
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest2 or ""))
             end
@@ -1499,6 +1594,20 @@ end
 -- ---------------------------------------------------------------------------
 
 function EditBox:RefreshLabel()
+-- trim any existing contents when in a restricted chat type
+    if self.OverlayEdit then
+        local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
+        if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
+            local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
+            local limit = cfg.CHARACTER_LIMIT or 255
+            local txt = self.OverlayEdit:GetText() or ""
+            if #txt > limit then
+                self.OverlayEdit:SetText(txt:sub(1, limit))
+                self.OverlayEdit:SetCursorPosition(limit)
+            end
+        end
+    end
+
     local label, r, g, b = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
     local cfg = YapperTable.Config.EditBox or {}
     local resolvedR, resolvedG, resolvedB = r, g, b
