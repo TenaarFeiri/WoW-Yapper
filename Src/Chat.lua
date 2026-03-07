@@ -32,7 +32,12 @@ local TRUNCATE_ONLY = {
     WHISPER    = true,
     BN_WHISPER = true,
 }
+Chat.TRUNCATE_ONLY = TRUNCATE_ONLY
 
+--- Return true if a given chatType should be truncated instead of split.
+function Chat:IsTruncateOnly(chatType)
+    return TRUNCATE_ONLY[chatType] == true
+end
 
 -- ---------------------------------------------------------------------------
 -- Init
@@ -127,11 +132,10 @@ function Chat:OnSend(text, chatType, language, target)
         YapperTable.History:AddChatHistory(text, chatType, target)
     end
 
-    -- Whispers: truncate, don't split.
-    if TRUNCATE_ONLY[chatType] then
+    -- truncate non-splittables
+    if self:IsTruncateOnly(chatType) then
         if #text > limit then
             text = text:sub(1, limit)
-            YapperTable.Error:PrintError("CHAT_WHISPER_TRUNCATED", limit)
         end
         self:DirectSend(text, chatType, language, target)
         return
