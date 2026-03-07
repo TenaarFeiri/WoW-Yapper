@@ -1,3 +1,15 @@
+-- 1.1.2
+  - Fixed visual problems with Yapper's frame; it now resembles Blizzard's more closely.
+  - Fixed issue where community names were not correctly applied to the label.
+  - Fixed limited target channels (whispers, namely) from creating a weird freeze condition by simply...
+    not allowing whispers to exceed 255 characters in the first place.
+  - Added feature to the chunker where if you are using TotalRP 3, it will attempt to preserve
+    its colouring of things like dialogue and emotes in the event of there being a post split.
+  - Fixed a problem where being in Housing Editor would cause Yapper to fail to open, thus preventing
+    chatting.
+  - Fixed issue where the Continue frame would not show while in Housing Editor, in the event of a split
+    post.
+
 -- 1.1.1
   - Fixed missing colon from labels.
 
