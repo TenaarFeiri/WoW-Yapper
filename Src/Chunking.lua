@@ -232,15 +232,30 @@ local function FindUnclosedPair(text)
     return nil
 end
 
--- Look for an unclosed delimiter pair in the accumulated `parts`.
--- If one is found, append its closing string and return the opening string
--- so the caller can add it to the start of the next chunk.  Returns nil
--- when everything is already balanced.
-local function InjectContClose(parts)
+--- Returns true when `close` appears at least once in tokens[fromIndex..#tokens].
+--- We only look for the literal close string — good enough for a "does it exist?"
+--- check without re-running the full heuristics.
+local function CloseExistsAhead(tokens, fromIndex, close)
+    for i = fromIndex, #tokens do
+        if tokens[i]:find(close, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+--- Look for an unclosed delimiter pair in the accumulated `parts`.
+--- Only injects a close (and returns the matching open for the next chunk)
+--- when the closing delimiter actually appears somewhere in the remaining
+--- tokens — i.e. the user *does* intend to close it eventually.  If there
+--- is no closer anywhere ahead, assume mistake or intentional open.
+local function InjectContClose(parts, tokens, fromIndex)
     local pair = FindUnclosedPair(table.concat(parts))
     if pair then
-        parts[#parts + 1] = pair.close
-        return pair.open
+        if CloseExistsAhead(tokens, fromIndex, pair.close) then
+            parts[#parts + 1] = pair.close
+            return pair.open
+        end
     end
     return nil
 end
@@ -355,7 +370,8 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
     local size   = 0    -- byte count of the current chunk
     local colour = nil  -- active |cXXXXXXXX tag (re-opened on new chunks)
 
-    for _, token in ipairs(tokens) do
+    for i = 1, #tokens do
+        local token = tokens[i]
         local isColour = (token:sub(1, 2) == "|c" and #token == 10)
         local isReset  = (token == "|r")
         local isEscape = (#token > 1 and token:sub(1, 1) == "|")
@@ -373,7 +389,7 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
         -- ── Escape sequence that doesn't fit — keep it atomic ────────
         elseif isEscape then
             -- Close current chunk.
-            local nextOpen = InjectContClose(parts)
+            local nextOpen = InjectContClose(parts, tokens, i)
             if colour then parts[#parts + 1] = "|r" end
             if delineator ~= "" then parts[#parts + 1] = delineator end
             parts, size = FlushChunk(chunks, parts)
@@ -404,7 +420,10 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
 
                 if space <= 0 then
                     -- Current chunk is full with just overhead; flush it.
-                    local nextOpen = InjectContClose(parts)
+                    -- Pass i+1 as fromIndex: the remaining text includes the
+                    -- rest of this token (still in `remaining`) plus tokens
+                    -- beyond i.
+                    local nextOpen = InjectContClose(parts, tokens, i)
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
@@ -430,8 +449,9 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
                         remaining = remaining:sub(cut + 1)
                     end
 
-                    -- Close chunk.
-                    local nextOpen = InjectContClose(parts)
+                    -- Close chunk. fromIndex=i so CloseExistsAhead sees both
+                    -- `remaining` (still part of tokens[i]) and all later tokens.
+                    local nextOpen = InjectContClose(parts, tokens, i)
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
