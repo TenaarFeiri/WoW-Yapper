@@ -423,21 +423,31 @@ end
 function Queue:CreateContinueFrame()
     if self.ContinueFrame then return end
 
-    local f = CreateFrame("Frame", "YapperContinueFrame", UIParent,
+    local chatParent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
+    local f = CreateFrame("Frame", "YapperContinueFrame", chatParent,
                           "BackdropTemplate")
     f:SetFrameStrata("DIALOG")
     f:SetSize(380, 36)
     f:Hide()
 
     -- Position above the chat edit box.
+    -- Re-parent each show so it tracks fullscreen-parent changes.
     f:SetScript("OnShow", function(self)
+        local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
+        if self:GetParent() ~= parent then
+            if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
+                FrameUtil.SetParentMaintainRenderLayering(self, parent)
+            else
+                self:SetParent(parent)
+            end
+        end
         self:ClearAllPoints()
         local chatFrame = ChatFrame1
         if chatFrame then
             self:SetPoint("BOTTOMLEFT",  chatFrame, "BOTTOMLEFT",  0, -5)
             self:SetPoint("BOTTOMRIGHT", chatFrame, "BOTTOMRIGHT", 0, -5)
         else
-            self:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 55)
+            self:SetPoint("BOTTOM", parent, "BOTTOM", 0, 55)
         end
     end)
 
@@ -460,19 +470,37 @@ function Queue:CreateContinueFrame()
     f.text:SetWordWrap(false)
 
     self.ContinueFrame = f
+
+    -- follow fullscreen-parent so the prompt isn’t hidden by the housing editor
+    if YapperTable.Utils then
+        YapperTable.Utils:MakeFullscreenAware(f)
+    end
 end
 
 function Queue:ShowContinuePrompt()
     self:CreateContinueFrame()
 
+    -- Reparent before Show so the frame is on a visible parent.
+    -- When UIParent is hidden (housing editor) OnShow won't fire if the
+    -- frame is still parented to UIParent, so we must do this up-front.
+    local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
+    local f = self.ContinueFrame
+    if f:GetParent() ~= parent then
+        if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
+            FrameUtil.SetParentMaintainRenderLayering(f, parent)
+        else
+            f:SetParent(parent)
+        end
+    end
+
     -- Total remaining = queued + in-flight (batch pending or current).
     local remaining = #self.Entries + #self.BatchPending
                       + (self.Current and 1 or 0)
 
-    self.ContinueFrame.text:SetText(
+    f.text:SetText(
         ("Press [Enter] to continue (%d remaining) / double [Esc] to cancel")
             :format(remaining))
-    self.ContinueFrame:Show()
+    f:Show()
     self.NeedsContinue = true
 end
 
