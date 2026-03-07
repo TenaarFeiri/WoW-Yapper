@@ -113,6 +113,101 @@ local function Tokenise(text)
 end
 
 -- ---------------------------------------------------------------------------
+-- Continuation delimiter pairs
+-- ---------------------------------------------------------------------------
+-- When a chunk boundary falls inside one of these pairs the closer is
+-- appended to the outgoing chunk and the opener is prepended to the next,
+-- e.g.  "I am saying >>"  /  ">> that I am splitting."
+-- Longer / more-specific pairs must appear before shorter ones ("((" before "(").
+
+--- Constructor: MakeDelim(open [, close])
+--- When close is omitted the delimiter is symmetric (open == close).
+---
+--- Yes, I totally stole this idea from Chattery.
+--- Sorry!
+local function MakeDelim(open, close)
+    return { open = open, close = close or open }
+end
+
+---@type { open: string, close: string }[]
+local CONTINUATION_PAIRS = {
+    MakeDelim('"'),           -- "dialogue"
+    MakeDelim("'"),           -- 'dialogue'
+    MakeDelim("**"),          -- **emote bold** (before single *)
+    MakeDelim("*"),           -- *emote*
+    MakeDelim("((", "))"),    -- ((OOC double paren)) (before single)
+    MakeDelim("(", ")"),      -- (OOC single paren)
+    MakeDelim("<", ">"),      -- <angle brackets>
+}
+
+-- Returns the first unclosed pair found in text, or nil.
+-- Symmetric pairs (same open/close char) use parity counting.  To avoid
+-- introducing new behaviour for users who don't run TotalRP3, the logic
+-- is gated behind a one‑time AddOn check; if TotalRP3 isn't loaded we
+-- simply act as though no pairs exist.
+local TRP3_DETECTED
+local function EnsureTRP3()
+    if TRP3_DETECTED == nil then
+        -- prefer the secure C_ API
+        TRP3_DETECTED = C_AddOns.IsAddOnLoaded("totalRP3")
+    end
+    return TRP3_DETECTED
+end
+
+local function FindUnclosedPair(text)
+    if not EnsureTRP3() then
+        return nil
+    end
+
+    for _, pair in ipairs(CONTINUATION_PAIRS) do
+        if pair.open == pair.close then
+            -- Count occurrences; an odd number means one is still open.
+            local count = 0
+            local pos   = 1
+            while true do
+                local s = text:find(pair.open, pos, true)
+                if not s then break end
+                count = count + 1
+                pos   = s + #pair.open
+            end
+            if count % 2 == 1 then
+                return pair
+            end
+        else
+            -- Find the last opener; if no closer follows it, the pair is open.
+            local lastOpen = nil
+            local pos      = 1
+            while true do
+                local s = text:find(pair.open, pos, true)
+                if not s then break end
+                lastOpen = s
+                pos      = s + #pair.open
+            end
+            if lastOpen then
+                local closePos = text:find(pair.close, lastOpen + #pair.open, true)
+                if not closePos then
+                    return pair
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Look for an unclosed delimiter pair in the accumulated `parts`.
+-- If one is found, append its closing string and return the opening string
+-- so the caller can add it to the start of the next chunk.  Returns nil
+-- when everything is already balanced.
+local function InjectContClose(parts)
+    local pair = FindUnclosedPair(table.concat(parts))
+    if pair then
+        parts[#parts + 1] = pair.close
+        return pair.open
+    end
+    return nil
+end
+
+-- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
 
@@ -240,12 +335,14 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
         -- ── Escape sequence that doesn't fit — keep it atomic ────────
         elseif isEscape then
             -- Close current chunk.
+            local nextOpen = InjectContClose(parts)
             if colour then parts[#parts + 1] = "|r" end
             if delineator ~= "" then parts[#parts + 1] = delineator end
             parts, size = FlushChunk(chunks, parts)
 
             -- Open new chunk.
             size = StartNewChunk(parts, size, prefix, colour)
+            if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
             parts[#parts + 1] = token
             size = size + #token
 
@@ -269,10 +366,12 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
 
                 if space <= 0 then
                     -- Current chunk is full with just overhead; flush it.
+                    local nextOpen = InjectContClose(parts)
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
                     size = StartNewChunk(parts, size, prefix, colour)
+                    if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                     -- Recalculate and loop.
                 else
                     -- Try to split on a word boundary.
@@ -294,10 +393,12 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
                     end
 
                     -- Close chunk.
+                    local nextOpen = InjectContClose(parts)
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
                     size = StartNewChunk(parts, size, prefix, colour)
+                    if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                 end
             end
         end
