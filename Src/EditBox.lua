@@ -18,6 +18,8 @@ YapperTable.EditBox            = EditBox
 local UserBypassingYapper      = false
 local BypassEditBox            = nil
 
+
+
 -- Overlay widgets (created lazily).
 EditBox.Overlay                = nil
 EditBox.OverlayEdit            = nil
@@ -423,12 +425,13 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Show() end
     end
     labelBg:ClearAllPoints()
-    labelBg:SetPoint("TOPLEFT",    overlay, "TOPLEFT",    pad, -pad)
-    labelBg:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", pad,  pad)
+    local LEFT_MARGIN = 6  -- fixed inset from the overlay's left edge
+    labelBg:SetPoint("TOPLEFT",    overlay, "TOPLEFT",    pad + LEFT_MARGIN, -pad)
+    labelBg:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", pad + LEFT_MARGIN,  pad)
 
     -- EditBox anchors: left edge follows label; right edge inset to avoid border.
     edit:ClearAllPoints()
-    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    1,    0)
+    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    0,    0)
     edit:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
 
     -- Text colour.
@@ -614,15 +617,20 @@ local function UpdateLabelBackgroundForText(self, text)
         or 350
     local maxAllowed = math.floor(ebWidth * 0.28)
     local basePad = (cfg.LabelPadding and tonumber(cfg.LabelPadding)) or 20
-    local minPad  = 6
     -- Temporarily set text to measure raw width using current font settings.
     self.ChannelLabel:SetText(text)
     local rawWidth = (self.ChannelLabel:GetStringWidth() or 0)
     -- pad label dynamically.
     local headroom = maxAllowed - rawWidth
-    local padding  = math.max(minPad, math.min(basePad, headroom))
-    local needed = math.ceil(rawWidth + padding)
-    local labelW = math.max(80, math.min(needed, maxAllowed, ebWidth - 80))
+    -- allow the padding to shrink very small so the edit text is close
+    -- to the box when there's very little label text
+    local padding  = math.max(2, math.min(basePad, headroom))
+    local labelW = math.ceil(rawWidth + padding)
+    -- cap by configuration and available space
+    if labelW > maxAllowed then labelW = maxAllowed end
+    if labelW > (ebWidth - 80) then labelW = ebWidth - 80 end
+    -- only a tiny floor so the bg doesn't fully disappear
+    if labelW < 8 then labelW = 8 end
     self.LabelBg:SetWidth(labelW)
 end
 
@@ -683,10 +691,10 @@ function EditBox:CreateOverlay()
 
     local tc = cfg.TextColor or {}
     edit:SetTextColor(tc.r or 1, tc.g or 1, tc.b or 1, tc.a or 1)
-    edit:SetTextInsets(6, 6, 0, 0)
+    edit:SetTextInsets(1, 6, 0, 0)
 
     -- Initial anchors at zero inset; RefreshOverlayVisuals repositions on first show.
-    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    1, 0)
+    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    0, 0)
     edit:SetPoint("BOTTOMRIGHT", frame,   "BOTTOMRIGHT", 0, 0)
 
     -- Store references.
@@ -699,6 +707,12 @@ function EditBox:CreateOverlay()
     frame.ChannelLabel = labelFs
     frame.LabelBg      = labelBg
 
+    -- make sure the overlay follows fullscreen-parent changes
+    if YapperTable.Utils then
+        YapperTable.Utils:MakeFullscreenAware(frame)
+    end
+
+
     -- ── Wire up scripts ──────────────────────────────────────────────
     self:SetupOverlayScripts()
 
@@ -709,7 +723,7 @@ function EditBox:CreateOverlay()
         if C_ChatInfo and C_ChatInfo.SendChatMessage then
             hooksecurefunc(C_ChatInfo, "SendChatMessage", function(message, chatType, language, target)
                 if not chatType or chatType == "BN_WHISPER" then return end
-                if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+                if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                     -- Update the LastUsed vars
                     self.LastUsed.chatType = chatType
                     self.LastUsed.target = target
@@ -1047,7 +1061,7 @@ function EditBox:SetupOverlayScripts()
 
         -- If chat is locked down (combat/m+ lockdown), save draft and handoff
         -- ALSO hand off to blizz if we are manually sidestepping.
-        if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             self:HandoffToBlizzard()
             return
         end
@@ -1143,6 +1157,11 @@ function EditBox:SetupOverlayScripts()
 
     -- Also we want to watch for when the user shows or hides their UI, to close our editbox.
     UIParent:HookScript("OnHide", function()
+        -- housing editor hides UIParent; don't close if the editor is active.
+        if C_HouseEditor and C_HouseEditor.IsHouseEditorActive
+            and C_HouseEditor.IsHouseEditorActive() then
+            return
+        end
         -- Make sure we're hidden.
         if EditBox.Overlay and EditBox.Overlay:IsShown() then
             EditBox:Hide()
@@ -1152,8 +1171,7 @@ function EditBox:SetupOverlayScripts()
     frame:HookScript("OnEvent", function(_, event)
         if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
             -- Immediate check.
-            if C_ChatInfo.InChatMessagingLockdown
-                and C_ChatInfo.InChatMessagingLockdown() then
+            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                 self:HandoffToBlizzard()
                 return
             end
@@ -1169,8 +1187,7 @@ function EditBox:SetupOverlayScripts()
                     self._lockdownTicker = nil
                     return
                 end
-                if C_ChatInfo.InChatMessagingLockdown
-                    and C_ChatInfo.InChatMessagingLockdown() then
+                if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                     self:HandoffToBlizzard()
                     ticker:Cancel()
                     self._lockdownTicker = nil
@@ -1193,8 +1210,7 @@ function EditBox:SetupOverlayScripts()
                 local checks = 0
                 C_Timer.NewTicker(1, function(ticker)
                     checks = checks + 1
-                    if not C_ChatInfo.InChatMessagingLockdown
-                        or not C_ChatInfo.InChatMessagingLockdown() then
+                    if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
                         self._lockdownHandedOff = false
                         -- If Blizzard sends during lockdown changed the channel,
                         -- persist that sticky choice now.
@@ -1224,12 +1240,19 @@ end
 --- Present the overlay in place of a Blizzard editbox.
 --- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.
 function EditBox:Show(origEditBox)
-    -- Don't want to open the overlay while UI is hidden.
+    -- Don't want to open the overlay while UI is hidden, *unless* we're
+    -- inside the housing editor; that mode purposely hides UIParent but we
+    -- still want the chat overlay available.
     if not UIParent:IsShown() then
-        if EditBox.Overlay and EditBox.Overlay:IsShown() then
-            EditBox:Hide()
+        if C_HouseEditor and C_HouseEditor.IsHouseEditorActive
+            and C_HouseEditor.IsHouseEditorActive() then
+            -- continue, fullscreen-aware parenting will keep us visible
+        else
+            if EditBox.Overlay and EditBox.Overlay:IsShown() then
+                EditBox:Hide()
+            end
+            return
         end
-        return
     end
     self:CreateOverlay()
 
@@ -1328,13 +1351,16 @@ function EditBox:Show(origEditBox)
     -- Anchor directly on top of the original editbox so it looks identical.
     local overlay = self.Overlay
     local cfg = YapperTable.Config.EditBox or {}
-    overlay:SetParent(UIParent)
+    local chatParent = YapperTable.Utils:GetChatParent()
+    overlay:SetParent(chatParent)
     overlay:ClearAllPoints()
     overlay:SetPoint("TOPLEFT", origEditBox, "TOPLEFT", 0, 0)
     overlay:SetPoint("BOTTOMRIGHT", origEditBox, "BOTTOMRIGHT", 0, 0)
 
     -- Match scale for addons that resize chat frames.
-    local scale = origEditBox:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local parentScale = chatParent:GetEffectiveScale()
+    if parentScale == 0 then parentScale = UIParent:GetEffectiveScale() end
+    local scale = origEditBox:GetEffectiveScale() / parentScale
     overlay:SetScale(scale)
 
     -- Font
@@ -1864,7 +1890,7 @@ function EditBox:ForwardSlashCommand(text)
     if not self.OrigEditBox then return end
 
     -- If chat is locked down (combat/m+ lockdown), save draft and handoff
-    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
         self:HandoffToBlizzard()
         return
     end
@@ -1908,8 +1934,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- mirror that choice into our sticky `LastUsed` unless we have
         -- a draft saved due to lockdown (the draft should take
         -- precedence).
-        if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
-            and C_ChatInfo.InChatMessagingLockdown() then
+        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
             if ct and ct ~= "BN_WHISPER" then
                 local target = nil
@@ -1925,7 +1950,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     self.LastUsed.target = target
                     self.LastUsed.language = lang
                     -- Persist after lockdown ends if we are still locked.
-                    if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+                    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                         self._lastSavedDuringLockdown = true
                     else
                         self:PersistLastUsed()
@@ -2086,7 +2111,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
 
         -- In lockdown Blizzard's untainted box can still send; leave it alone.
-        if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             if not self._lockdownShowHandled then
                 self._lockdownShowHandled = true
                 local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
@@ -2273,6 +2298,17 @@ function EditBox:HookAllChatFrames()
                 self._pendingOpenChatText = text
             end
         end)
+        -- Prevent any chat opening when the UI is hidden at all.
+        do
+            local origOpen = ChatFrameUtil.OpenChat
+            ChatFrameUtil.OpenChat = function(text, chatFrame, desiredCursorPosition)
+                if not UIParent:IsShown() and not C_HouseEditor.IsHouseEditorActive() then
+                    return
+                end
+                return origOpen(text, chatFrame, desiredCursorPosition)
+            end
+            ChatFrame_OpenChat = ChatFrameUtil.OpenChat
+        end
         self._openChatHooked = true
     end
 
