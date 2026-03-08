@@ -132,11 +132,6 @@ end
 ---@type { open: string, close: string }[]
 local CONTINUATION_PAIRS = {
     MakeDelim('"'),           -- "dialogue"
-    -- apostrophes are tricky because they also appear in contractions like
-    -- "I'm" or "she's".  FindUnclosedPair treats them specially: when
-    -- counting ':s it skips any instance where the quote is surrounded by
-    -- letters, effectively ignoring normal word‑internal apostrophes.
-    MakeDelim("'"),           -- 'dialogue'
     MakeDelim("**"),          -- **emote bold** (before single *)
     MakeDelim("*"),           -- *emote*
     MakeDelim("((", "))"),    -- ((OOC double paren)) (before single)
@@ -165,51 +160,17 @@ local function FindUnclosedPair(text)
 
     for _, pair in ipairs(CONTINUATION_PAIRS) do
         if pair.open == pair.close then
-            if pair.open == "'" then
-                -- Apostrophes are handled with a simple state machine instead of
-                -- raw parity counting.  This lets us distinguish quotation
-                -- marks from contractions (I'm) and trailing apostrophes in
-                -- words (like if your character addresses someone named Tayen').  
-                -- We only flip `open` when the quote looks like
-                -- an opening (non-letter before, letter after) or a closing
-                -- (letter before, non-letter after).
-                local open = false
-                local pos  = 1
-                while true do
-                    local s = text:find("'", pos, true)
-                    if not s then break end
-                    local before = text:sub(s-1, s-1)
-                    local after  = text:sub(s+1, s+1)
-                    local isLetterBefore = before:match("%a") ~= nil
-                    local isLetterAfter  = after:match("%a") ~= nil
-
-                    if not open then
-                        if (not isLetterBefore) and isLetterAfter then
-                            open = true
-                        end
-                    else
-                        if isLetterBefore and (not isLetterAfter) then
-                            open = false
-                        end
-                    end
-                    pos = s + 1
-                end
-                if open then
-                    return pair
-                end
-            else
-                -- Normal symmetric delimiter: parity count suffices.
-                local count = 0
-                local pos   = 1
-                while true do
-                    local s = text:find(pair.open, pos, true)
-                    if not s then break end
-                    count = count + 1
-                    pos   = s + #pair.open
-                end
-                if count % 2 == 1 then
-                    return pair
-                end
+            -- Normal symmetric delimiter: parity count suffices.
+            local count = 0
+            local pos   = 1
+            while true do
+                local s = text:find(pair.open, pos, true)
+                if not s then break end
+                count = count + 1
+                pos   = s + #pair.open
+            end
+            if count % 2 == 1 then
+                return pair
             end
         else
             -- Find the last opener; if no closer follows it, the pair is open.

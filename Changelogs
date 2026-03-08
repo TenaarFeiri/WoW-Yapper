@@ -1,3 +1,7 @@
+-- 1.1.2b
+  - Fixed a bug which caused the truncation of channel chatter to still engage the chunker.
+  - Removed single quotes from being counted by continuation persistence.
+
 -- 1.1.2
   - Fixed visual problems with Yapper's frame; it now resembles Blizzard's more closely.
   - Fixed issue where community names were not correctly applied to the label.

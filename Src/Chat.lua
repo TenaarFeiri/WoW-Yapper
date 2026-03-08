@@ -24,13 +24,13 @@ local SPLITTABLE = {
     INSTANCE_CHAT = true,
     GUILD         = true,
     OFFICER       = true,
-    CHANNEL       = true,
 }
 
--- Types that get truncated, not split (long whispers confuse recipients).
+-- Types that get truncated, not split.
 local TRUNCATE_ONLY = {
     WHISPER    = true,
     BN_WHISPER = true,
+    CHANNEL    = true,
 }
 Chat.TRUNCATE_ONLY = TRUNCATE_ONLY
 
