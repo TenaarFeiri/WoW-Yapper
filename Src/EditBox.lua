@@ -177,18 +177,31 @@ end
 function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     local cfg = YapperTable.Config.EditBox or {}
     if cfg.UseBlizzardSkinProxy == false then
+        -- Config toggled off: clean up any existing proxy so Yapper's own
+        -- fill can re-appear, then bail.
+        if self._skinProxyTextures then
+            self:DetachBlizzardSkinProxy()
+        end
         return
     end
     if not self.Overlay or not origEditBox then
         return
     end
 
-    -- Already cloned for this editbox -- nothing to do.
-    if self._skinProxyTextures then
+    -- Textures already exist for this exact source editbox.
+    -- The overlay was just hidden and re-shown, so the textures are already
+    -- children of the overlay frame and came back visible with it.
+    -- Nothing to rebuild — just refresh the tint in case config changed.
+    if self._skinProxyTextures and self._skinProxySourceEB == origEditBox then
+        local inputBg = cfg.InputBg or {}
+        self:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
+        -- Ensure our own fill/border stay suppressed.
+        if self.Overlay._yapperSolidFill then self.Overlay._yapperSolidFill:Hide() end
+        if self.Overlay.Border then self.Overlay.Border:Hide() end
         return
     end
 
-    -- Detach any previous clone.
+    -- Source editbox changed (e.g. ChatFrame2) or first attach: rebuild.
     self:DetachBlizzardSkinProxy()
 
     local overlay = self.Overlay
@@ -298,6 +311,7 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     end
 
     self._skinProxyTextures = clones
+    self._skinProxySourceEB  = origEditBox
 
     -- Apply user's backdrop colour as a tint over the cloned textures.
     local inputBg = cfg.InputBg or {}
@@ -350,6 +364,10 @@ function EditBox:TintSkinProxyTextures(r, g, b, a)
 end
 
 --- Remove cloned Blizzard skin textures and restore Yapper's own fills.
+--- Use this only when the source editbox changes, the proxy is disabled via
+--- config, or font size changes require a rescale.  Do NOT call from Hide():
+--- textures are children of the overlay and hide/show with it automatically,
+--- so calling Detach on every close would accumulate orphaned texture objects
 function EditBox:DetachBlizzardSkinProxy()
     local clones = self._skinProxyTextures
     if not clones then return end
@@ -361,6 +379,7 @@ function EditBox:DetachBlizzardSkinProxy()
         end)
     end
     self._skinProxyTextures = nil
+    self._skinProxySourceEB = nil
 
     -- Re-show Yapper's own fill (RefreshOverlayVisuals will recolour it).
     if self.Overlay and self.Overlay._yapperSolidFill then
@@ -1466,8 +1485,12 @@ end
 function EditBox:Hide()
     local prevOrig = self.OrigEditBox
 
-    -- Restore any cloned Blizzard skin textures before clearing refs.
-    self:DetachBlizzardSkinProxy()
+    -- NOTE: DetachBlizzardSkinProxy() is intentionally NOT called here.
+    -- Proxy textures are children of the overlay frame; they hide automatically
+    -- when the overlay hides and reappear when it shows again.  Calling Detach
+    -- on every close would accumulate dead texture objects because WoW has no
+    -- texture-destroy API — each DetachBlizzardSkinProxy call nil-refs the Lua
+    -- table but the C-side texture objects remain on the frame forever.
 
     if self.Overlay then
         self.Overlay:Hide()
