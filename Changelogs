@@ -9,6 +9,10 @@
     chatting.
   - Fixed issue where the Continue frame would not show while in Housing Editor, in the event of a split
     post.
+  
+  a.
+    - Fixed issue wherein you were unable to chat to party while in a raid. Trust Blizz to know where
+      you can chat.
 
 -- 1.1.1
   - Fixed missing colon from labels.
