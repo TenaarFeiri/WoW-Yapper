@@ -427,11 +427,10 @@ function Queue:CreateContinueFrame()
     local f = CreateFrame("Frame", "YapperContinueFrame", chatParent,
                           "BackdropTemplate")
     f:SetFrameStrata("DIALOG")
-    f:SetSize(380, 36)
     f:Hide()
 
-    -- Position above the chat edit box.
-    -- Re-parent each show so it tracks fullscreen-parent changes.
+    -- On each Show, anchor to the Yapper overlay (or Blizzard editbox
+    -- fallback) so the prompt sits in the input-box slot.
     f:SetScript("OnShow", function(self)
         local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
         if self:GetParent() ~= parent then
@@ -442,12 +441,16 @@ function Queue:CreateContinueFrame()
             end
         end
         self:ClearAllPoints()
-        local chatFrame = ChatFrame1
-        if chatFrame then
-            self:SetPoint("BOTTOMLEFT",  chatFrame, "BOTTOMLEFT",  0, -5)
-            self:SetPoint("BOTTOMRIGHT", chatFrame, "BOTTOMRIGHT", 0, -5)
+        local overlay = YapperTable.EditBox.Overlay
+        if overlay and overlay.GetNumPoints and overlay:GetNumPoints() > 0 then
+            self:SetPoint("TOPLEFT",     overlay, "TOPLEFT",     0, 0)
+            self:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", 0, 0)
+        elseif ChatFrame1EditBox then
+            self:SetPoint("TOPLEFT",     ChatFrame1EditBox, "TOPLEFT",     0, 0)
+            self:SetPoint("BOTTOMRIGHT", ChatFrame1EditBox, "BOTTOMRIGHT", 0, 0)
         else
             self:SetPoint("BOTTOM", parent, "BOTTOM", 0, 55)
+            self:SetSize(380, 36)
         end
     end)
 
@@ -496,6 +499,17 @@ function Queue:ShowContinuePrompt()
     -- Total remaining = queued + in-flight (batch pending or current).
     local remaining = #self.Entries + #self.BatchPending
                       + (self.Current and 1 or 0)
+
+    -- Apply the user's EditBox font config so the prompt matches the overlay.
+    local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
+    if cfg.FontFace or (cfg.FontSize and cfg.FontSize > 0) then
+        local baseFace, baseSize, baseFlags = ChatFontNormal:GetFont()
+        local face  = cfg.FontFace or baseFace
+        local size  = (cfg.FontSize and cfg.FontSize > 0) and cfg.FontSize or baseSize
+        local flags = (cfg.FontFlags and cfg.FontFlags ~= "") and cfg.FontFlags or (baseFlags or "")
+        size = math.max(10, math.min(size, 24))
+        f.text:SetFont(face, size, flags)
+    end
 
     f.text:SetText(
         ("Press [Enter] to continue (%d remaining) / double [Esc] to cancel")
