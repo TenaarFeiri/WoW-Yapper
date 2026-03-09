@@ -11,7 +11,7 @@
         remain active for addons like CrossRP.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local Router = {}
 YapperTable.Router = Router
@@ -64,22 +64,6 @@ function Router:DetectCommunityChannel(channelTarget)
     end
     return false
 end
-
--- ---------------------------------------------------------------------------
--- Hardware-event awareness
--- ---------------------------------------------------------------------------
-
---- True if this chat type needs a hardware event (keypress/click) to send.
-function Router:NeedsHardwareEvent(chatType)
-    if chatType == "SAY" or chatType == "YELL" then
-        return true
-    end
-    if chatType == "CHANNEL" or chatType == "CLUB" then
-        return true
-    end
-    return false
-end
-
 
 -- ---------------------------------------------------------------------------
 -- Send

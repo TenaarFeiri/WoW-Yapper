@@ -111,26 +111,6 @@ local FRIENDLY_LABELS = {
     ["EditBox.BlizzardSkinProxyPad"] = "Skin proxy padding",
 }
 
--- Paths hidden in Basic mode and shown in Advanced mode.
--- NOTE: With the new category system these only affect the Advanced page,
--- but we keep the table so IsAdvancedItem() still works for any legacy
--- callers.
-local ADVANCED_PATHS = {
-    ["System.DEBUG"] = true,
-    ["System.RUN_ALL_PATCHES"] = true,
-    ["System.VERBOSE"] = true,
-    ["Chat.MIN_POST_INTERVAL"] = true,
-    ["Chat.POST_TIMEOUT"] = true,
-    ["Chat.BATCH_SIZE"] = true,
-    ["Chat.BATCH_THROTTLE"] = true,
-    ["Chat.MAX_HISTORY_LINES"] = true,
-    ["EditBox.FontFace"] = true,
-    ["EditBox.MinHeight"] = true,
-    ["EditBox.BlizzardSkinProxyPad"] = true,
-    ["System.EnableGopherBridge"] = true,
-    ["System.EnableTypingTrackerBridge"] = true,
-}
-
 -- ---------------------------------------------------------------------------
 -- Category system -- each entry defines a sidebar tab and the settings it owns.
 -- Settings are referenced by their JoinPath() key (e.g. "EditBox.FontSize").
@@ -295,16 +275,6 @@ local function IsColorTable(tbl)
         and type(tbl.r) == "number"
         and type(tbl.g) == "number"
         and type(tbl.b) == "number"
-end
-
--- Compare two colours including alpha, with implicit alpha=1 fallback.
-local function IsColorEqual(lhs, rhs)
-    if not IsColorTable(lhs) or not IsColorTable(rhs) then
-        return false
-    end
-    local la = lhs.a ~= nil and lhs.a or 1
-    local ra = rhs.a ~= nil and rhs.a or 1
-    return lhs.r == rhs.r and lhs.g == rhs.g and lhs.b == rhs.b and la == ra
 end
 
 -- Copy a colour table safely, supplying sane defaults.
@@ -511,11 +481,6 @@ function Interface:SetSettingsChanged(flag)
     root.System.SettingsHaveChanged = (flag == true)
 end
 
-function Interface:SettingsChanged()
-    local root = self:GetLocalConfigRoot()
-    return type(root.System) == "table" and root.System.SettingsHaveChanged == true
-end
-
 function Interface:GetConfigPath(path)
     local localVal = GetPathValue(self:GetLocalConfigRoot(), path)
     if localVal ~= nil then
@@ -526,12 +491,6 @@ end
 
 function Interface:GetDefaultPath(path)
     return GetPathValue(self:GetDefaultsRoot(), path)
-end
-
-function Interface:IsTextColorDefault()
-    local current = self:GetConfigPath({ "EditBox", "TextColor" })
-    local default = self:GetDefaultPath({ "EditBox", "TextColor" })
-    return IsColorEqual(current, default)
 end
 
 function Interface:UpdateOverrideTextColorCheckboxState()
@@ -678,44 +637,12 @@ function Interface:ApplyMinimapButtonVisibility()
     end
 end
 
-function Interface:GetSettingsViewMode()
-    -- Any unexpected value falls back to Basic to keep UI simple by default.
-    local mode = self:GetConfigPath({ "FrameSettings", "SettingsViewMode" })
-    if mode == "advanced" then
-        return "advanced"
-    end
-    return "basic"
-end
-
 function Interface:GetFriendlyLabel(item)
     if not item then return "" end
     if item.kind == "section" then
         return FRIENDLY_LABELS["SECTION." .. item.full] or item.key
     end
     return FRIENDLY_LABELS[item.full] or item.key
-end
-
--- Advanced filtering is path-driven so data model stays unchanged.
-function Interface:IsAdvancedItem(item)
-    if not item or item.kind == "section" then return false end
-    return ADVANCED_PATHS[item.full] == true
-end
-
-function Interface:IsItemVisibleForMode(item, mode)
-    if mode == "advanced" then return true end
-    return not self:IsAdvancedItem(item)
-end
-
-local function IsDescendantPath(path, ancestor)
-    -- True when path starts with ancestor and is deeper than it.
-    if type(path) ~= "table" or type(ancestor) ~= "table" then return false end
-    if #path <= #ancestor then return false end
-    for i = 1, #ancestor do
-        if path[i] ~= ancestor[i] then
-            return false
-        end
-    end
-    return true
 end
 
 function Interface:SanitizeLocalConfig()

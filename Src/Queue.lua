@@ -37,8 +37,6 @@ local BURST_DELAY = 0.05
 -- State.
 Queue.Entries       = {}
 Queue.Active        = false
-Queue.Sent          = 0
-Queue.Total         = 0
 Queue.ChatType      = nil
 Queue.PlayerGUID    = nil
 
@@ -87,8 +85,6 @@ end
 function Queue:Reset()
     self.Entries       = {}
     self.Active        = false
-    self.Sent          = 0
-    self.Total         = 0
     self.ChatType      = nil
     self.Mode          = nil
     self.BatchPending  = {}
@@ -130,8 +126,6 @@ function Queue:Flush()
     if self.Active then return end
 
     self.Active   = true
-    self.Sent     = 0
-    self.Total    = #self.Entries
     self.ChatType = self.Entries[1].type
     self.Mode     = self:GetMode(self.ChatType)
 
@@ -158,7 +152,6 @@ function Queue:BatchSend()
     for i = 1, count do
         local entry = table.remove(self.Entries, 1)
         self.BatchPending[#self.BatchPending + 1] = entry
-        self.Sent = self.Sent + 1
         self:RawSend(entry)
     end
 
@@ -209,7 +202,6 @@ end
 function Queue:OnBatchStall()
     for i = #self.BatchPending, 1, -1 do
         table.insert(self.Entries, 1, self.BatchPending[i])
-        self.Sent = self.Sent - 1
     end
     self.BatchPending = {}
 
@@ -233,7 +225,6 @@ function Queue:ConfirmSend()
 
     local entry = table.remove(self.Entries, 1)
     self.Current = entry
-    self.Sent    = self.Sent + 1
     self:RawSend(entry)
     self:ResetStallTimer()
 end
@@ -277,7 +268,6 @@ function Queue:BurstSend()
     end
 
     local entry = table.remove(self.Entries, 1)
-    self.Sent = self.Sent + 1
     self:RawSend(entry)
 
     if #self.Entries > 0 then
@@ -575,22 +565,4 @@ function Queue:Cancel()
         YapperTable.Utils:Print(
             ("Posting cancelled. %d chunk(s) discarded."):format(discarded))
     end
-end
-
--- ===========================================================================
--- Status
--- ===========================================================================
-
---- Current queue state snapshot.
-function Queue:GetStatus()
-    return {
-        active    = self.Active,
-        mode      = self.Mode,
-        sent      = self.Sent,
-        total     = self.Total,
-        queued    = #self.Entries,
-        pending   = #self.BatchPending,
-        waiting   = self.NeedsContinue,
-        chatType  = self.ChatType,
-    }
 end

@@ -9,7 +9,7 @@
     We then defer back to Blizzard's own editbox under lockdown.
 ]]
 
-local YapperName, YapperTable  = ...
+local _, YapperTable           = ...
 
 local EditBox                  = {}
 YapperTable.EditBox            = EditBox

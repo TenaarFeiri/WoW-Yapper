@@ -16,11 +16,6 @@ local SENDER_PRESETS = {
     white   = "FFFFFFFF",
 }
 
-function Utils:SenderTag(preset)
-    local color = SENDER_PRESETS[preset] or SENDER_PRESETS.white
-    return ("|c%s%s:|r "):format(color, YapperName)
-end
-
 function Utils:Print(...)
     local args = { ... }
 
