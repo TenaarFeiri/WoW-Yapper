@@ -120,7 +120,7 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
 function EditBox:OpenBlizzardChat()
     UserBypassingYapper = true
     local eb = self.OrigEditBox or _G.ChatFrame1EditBox
-    BypassEditBox = eb
+    BypassEditBox = eb and eb.GetName and eb:GetName() or nil
 
     -- Ensure any overlay state is handed off and saved first.
     if self.Overlay and self.Overlay:IsShown() then
@@ -1500,10 +1500,14 @@ function EditBox:Hide()
 
     -- Suppress one immediate Blizzard Show for the same editbox to avoid
     -- hide/show contention on outside-click dismissals.
+    -- Store the frame name (string) rather than the frame reference to avoid
+    -- producing a tainted secure pointer that causes "secret boolean" errors
+    -- when compared inside hooksecurefunc callbacks.
     if prevOrig then
-        self._suppressNextShowFor = prevOrig
+        local prevOrigName = prevOrig.GetName and prevOrig:GetName() or nil
+        self._suppressNextShowFor = prevOrigName
         C_Timer.After(0, function()
-            if self._suppressNextShowFor == prevOrig then
+            if self._suppressNextShowFor == prevOrigName then
                 self._suppressNextShowFor = nil
             end
         end)
@@ -2103,23 +2107,24 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     end)
 
     hooksecurefunc(blizzEditBox, "Show", function(eb)
-        if self._suppressNextShowFor == eb then
+        local ebName = eb:GetName()
+        if self._suppressNextShowFor == ebName then
             self._suppressNextShowFor = nil
             return
         end
 
         if UserBypassingYapper then
             if not BypassEditBox then
-                BypassEditBox = eb
+                BypassEditBox = ebName
             end
-            if BypassEditBox == eb then
+            if BypassEditBox == ebName then
                 UserBypassingYapper = false
                 return
             end
         end
 
         -- While bypass session is active for this editbox, never overlay it.
-        if BypassEditBox and BypassEditBox == eb then
+        if BypassEditBox and BypassEditBox == ebName then
             return
         end
         
@@ -2245,7 +2250,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- immediately re-open Yapper when Blizzard re-shows the editbox.
     hooksecurefunc(blizzEditBox, "Hide", function(eb)
         -- Bypass session ends when Blizzard's editbox closes.
-        if BypassEditBox == eb then
+        local ebName = eb:GetName()
+        if BypassEditBox == ebName then
             BypassEditBox = nil
             UserBypassingYapper = false
         end
@@ -2264,7 +2270,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- clear bypass if focus leaves the bypassed editbox without a Hide.
     if blizzEditBox and blizzEditBox.HookScript then
         blizzEditBox:HookScript("OnEditFocusLost", function(eb)
-            if BypassEditBox == eb then
+            if BypassEditBox == eb:GetName() then
                 BypassEditBox = nil
                 UserBypassingYapper = false
             end
@@ -2321,17 +2327,11 @@ function EditBox:HookAllChatFrames()
                 self._pendingOpenChatText = text
             end
         end)
-        -- Prevent any chat opening when the UI is hidden at all.
-        do
-            local origOpen = ChatFrameUtil.OpenChat
-            ChatFrameUtil.OpenChat = function(text, chatFrame, desiredCursorPosition)
-                if not UIParent:IsShown() and not C_HouseEditor.IsHouseEditorActive() then
-                    return
-                end
-                return origOpen(text, chatFrame, desiredCursorPosition)
-            end
-            ChatFrame_OpenChat = ChatFrameUtil.OpenChat
-        end
+        -- NOTE: Do NOT replace ChatFrameUtil.OpenChat with a tainted wrapper.
+        -- Doing so taints the arguments passed to Blizzard's secure code,
+        -- causing strlenutf8 / UpdateHeader failures post-combat.
+        -- The UIParent guard is already applied in EditBox:Show() and the
+        -- UIParent OnHide hook in SetupOverlayScripts.
         self._openChatHooked = true
     end
 
