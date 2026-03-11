@@ -1301,7 +1301,7 @@ function EditBox:Show(origEditBox)
     local blizzType                  = cache.chatType or (origEditBox and origEditBox:GetAttribute("chatType"))
     local blizzTell                  = cache.tellTarget or (origEditBox and origEditBox:GetAttribute("tellTarget"))
     local blizzChan                  = cache.channelTarget or (origEditBox and origEditBox:GetAttribute("channelTarget"))
-    local blizzLang                  = cache.language or (origEditBox and origEditBox:GetAttribute("language"))
+    local blizzLang                  = cache.language or (origEditBox and origEditBox.languageID) or (origEditBox and origEditBox:GetAttribute("language"))
     local blizzText                  = origEditBox and origEditBox.GetText and origEditBox:GetText()
 
     -- One-shot BN guard expiry: if we open normally a couple times without
@@ -1336,14 +1336,14 @@ function EditBox:Show(origEditBox)
         self.Target   = blizzTell or blizzChan or nil
     elseif (self.LastUsed and self.LastUsed.chatType) and not self._lastSavedDraftIsLockdown then
         self.ChatType = self.LastUsed.chatType
-        self.Language = self.LastUsed.language or blizzLang or nil
+        self.Language = blizzLang or self.LastUsed.language or nil
         self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
     else
         self.ChatType = (self.LastUsed and self.LastUsed.chatType)
             or blizzType
             or "SAY"
-        self.Language = (self.LastUsed and self.LastUsed.language)
-            or blizzLang
+        self.Language = blizzLang
+            or (self.LastUsed and self.LastUsed.language)
             or nil
         self.Target   = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
@@ -1970,7 +1970,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 elseif ct == "CHANNEL" then
                     target = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
                 end
-                local lang = c.language or (eb.GetAttribute and eb:GetAttribute("language"))
+                local lang = c.language or eb.languageID or (eb.GetAttribute and eb:GetAttribute("language"))
 
                 if not self._lastSavedDraftIsLockdown then
                     self.LastUsed.chatType = ct
@@ -2106,6 +2106,17 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
     end)
 
+    -- Mirror language changes made via the chat menu button (SetGameLanguage
+    -- stores on .languageID)
+    if blizzEditBox.SetGameLanguage then
+        hooksecurefunc(blizzEditBox, "SetGameLanguage", function(eb, language, languageId)
+            if self.OrigEditBox == eb then
+                self.Language = languageId or language or nil
+                self.LastUsed.language = self.Language
+            end
+        end)
+    end
+
     hooksecurefunc(blizzEditBox, "Show", function(eb)
         local ebName = eb:GetName()
         if self._suppressNextShowFor == ebName then
@@ -2211,7 +2222,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             elseif ct == "CHANNEL" then
                 lastTarget = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
             end
-            local lastLang         = c.language or (eb.GetAttribute and eb:GetAttribute("language"))
+            local lastLang         = c.language or eb.languageID or (eb.GetAttribute and eb:GetAttribute("language"))
             self.LastUsed.chatType = ct
             self.LastUsed.target   = lastTarget
             self.LastUsed.language = lastLang
