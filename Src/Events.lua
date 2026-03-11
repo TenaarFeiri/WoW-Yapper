@@ -14,7 +14,7 @@ YapperTable.Events = Events
 
 --- Register a handler for a Blizzard event on a named frame.
 function Events:Register(frameName, event, fn, handlerId)
-    local frame = YapperTable.Frames.Container[frameName]
+    local frame = YapperTable.EventFrames.Container[frameName]
     if not frame then
         YapperTable.Error:Throw("EVENT_REGISTER_MISSING_FRAME", event, frameName)
         return
@@ -39,7 +39,7 @@ end
 
 --- Unregister all handlers for an event on a frame.
 function Events:Unregister(frameName, event)
-    local frame = YapperTable.Frames.Container[frameName]
+    local frame = YapperTable.EventFrames.Container[frameName]
     if not frame then return end
     if not Events[event] then return end
     frame:UnregisterEvent(event)
@@ -50,7 +50,7 @@ end
 function Events:UnregisterAll()
     for event, data in pairs(Events) do
         if type(data) == "table" and data.Handlers then
-            for _, frame in pairs(YapperTable.Frames.Container) do
+            for _, frame in pairs(YapperTable.EventFrames.Container) do
                 if frame.IsEventRegistered and frame:IsEventRegistered(event) then
                     frame:UnregisterEvent(event)
                 end

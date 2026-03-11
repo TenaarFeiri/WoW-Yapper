@@ -15,7 +15,7 @@ if not YapperTable.Error then
 end
 if not YapperTable.Config  then YapperTable.Error:Throw("MISSING_CONFIG")  end
 if not YapperTable.Events  then YapperTable.Error:Throw("MISSING_EVENTS")  end
-if not YapperTable.Frames  then YapperTable.Error:Throw("MISSING_FRAMES")  end
+if not YapperTable.Frame  then YapperTable.Error:Throw("MISSING_FRAMES")  end
 
 -- ---------------------------------------------------------------------------
 -- Boot sequence
@@ -23,7 +23,7 @@ if not YapperTable.Frames  then YapperTable.Error:Throw("MISSING_FRAMES")  end
 
 -- 1. Expose YapperTable as Yapper globally and create the hidden event frame.
 Yapper = YapperTable
-YapperTable.Frames:Init()
+YapperTable.EventFrames:Init()
 
 -- Slash command entry point for quickly opening/toggling settings.
 SLASH_YAPPER1 = "/yapper"
@@ -151,7 +151,7 @@ function YapperTable:OverrideYapper(disable)
         YapperTable.Frames:HideParent()
         YapperTable.Utils:Print("|cFFFF4444Disabled.|r Control returned to Blizzard.")
     else
-        YapperTable.Frames:Init()
+        YapperTable.Frames:Init() -- edit this
         if YapperTable.EditBox then
             YapperTable.EditBox:HookAllChatFrames()
         end
