@@ -1,0 +1,6 @@
+# Ignore legacy folder containing old source
+Legacy/
+
+# Add other common ignores below if needed
+# *.luac
+# *.log

@@ -17,6 +17,8 @@ PatchTable.AddonName = AddonPatchTarget
 --- Patches Gopher to be compatible with Yapper.
 --- @return boolean True if the patch was successful, false otherwise.
 function PatchTable:Patch() -- Patch the Gopher addon.
+    -- linter stfu, it's fine
+    ---@diagnostic disable-next-line: undefined-field
     if not _G.LibGopher or not _G.LibGopher.Internal then
         -- Gopher isn't loaded, so we just return false.
         return false
@@ -50,10 +52,10 @@ function PatchTable:Patch() -- Patch the Gopher addon.
         if YapperTable and YapperTable.Error and type(YapperTable.Error.PrintError) == "function" then
             YapperTable.Error:PrintError("UNKNOWN", "GopherPatch", tostring(info))
         end
-        return ok, info
+        return ok
     end
 
-    return ok, info
+    return ok
 end
 
 -- Register the patch immediately. CompatLib will call Patch() when needed.
