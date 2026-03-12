@@ -1,3 +1,6 @@
+-- 1.1.4
+  - Fixed issue where whispers initiated from UI (unit frames, friend lists, etc.) got stuck in sticky mode.
+
 -- 1.1.3
   - Fixed a bug where character language wasn't being set correctly.
   - Started work on a frame refactor to optimise how frames are created and managed.
