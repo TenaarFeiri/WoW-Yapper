@@ -73,6 +73,7 @@ function Utils:MakeFullscreenAware(frame)
     if FCF_SetFullScreenFrame then
         hooksecurefunc("FCF_SetFullScreenFrame", update)
     end
+---@diagnostic disable-next-line: undefined-global
     if FCF_ClearFullScreenFrame then
         hooksecurefunc("FCF_ClearFullScreenFrame", update)
     end

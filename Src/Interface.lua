@@ -1518,6 +1518,7 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
             GameTooltip:AddLine(titleText, 1, 1, 1, true)
             GameTooltip:AddLine(tooltipText, nil, nil, nil, true)
         else
+            ---@diagnostic disable-next-line: param-type-mismatch
             GameTooltip:SetText(tooltipText, nil, nil, nil, nil, true)
         end
         GameTooltip:Show()
@@ -1533,6 +1534,7 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
             local regions = {}
             for _, region in pairs({ GameTooltip:GetRegions() }) do
                 if region:IsObjectType("FontString") then
+                    ---@diagnostic disable-next-line: undefined-field
                     local fontFile, fontSize, fontFlags = region:GetFont()
                     if fontFile and fontSize then
                         regions[#regions + 1] = { fs = region, file = fontFile, size = fontSize, flags = fontFlags or "" }
@@ -1896,6 +1898,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     masterHelp:SetText("?")
     masterHelp:SetScript("OnEnter", function(selfFrame)
         GameTooltip:SetOwner(selfFrame, "ANCHOR_RIGHT")
+---@diagnostic disable-next-line: missing-parameter
         GameTooltip:SetText("Master Channel")
         GameTooltip:AddLine("Choose one channel as the colour source.", 0.9, 0.9, 0.9)
         GameTooltip:AddLine("Channels with Override checked", 0.9, 0.9, 0.9)
@@ -2632,6 +2635,7 @@ function Interface:CreateLauncher()
                 func = Yapper_FromCompartment,
                 funcOnEnter = function(menuItem)
                     GameTooltip:SetOwner(menuItem, "ANCHOR_BOTTOMLEFT", -15, 20)
+---@diagnostic disable-next-line: missing-parameter
                     GameTooltip:SetText(YapperName)
                     GameTooltip:AddLine(" ")
                     for _, line in ipairs(tooltipLines) do

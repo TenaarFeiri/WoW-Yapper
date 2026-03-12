@@ -27,6 +27,7 @@ Src/Events.lua
 
 # Editbox must load here or this won't work.
 Src/EditBox.lua
+Src/EditBoxCompat.lua
 
 # These files must load in this order:
 # Bridges/ — compatibility bridges for third-party addons.
