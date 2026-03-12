@@ -272,10 +272,9 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
                     end
                 end
 
-                -- Copy colour tint.
-                pcall(function()
-                    tex:SetVertexColor(region:GetVertexColor())
-                end)
+                -- Always use white (SAY) vertex colour so the proxy skin
+                -- isn't tinted by whatever chat type was active at snapshot.
+                tex:SetVertexColor(1, 1, 1, 1)
 
                 -- Copy alpha.
                 pcall(function()
@@ -1293,15 +1292,17 @@ function EditBox:Show(origEditBox)
     --
     -- Priority:
     --   1. SetAttribute cache (chatType, tellTarget, channelTarget)
-    --   2. GetAttribute fallback (in case anything was set before we hooked)
-    --   3. LastUsed sticky
-    --   4. "SAY"
+    --      Only the cache is used — raw GetAttribute on the Blizzard box
+    --      returns stale values from previous opens (e.g. a right-click
+    --      whisper target that persists across show/hide cycles).
+    --   2. LastUsed sticky
+    --   3. "SAY"
 
     local cache                      = self._attrCache[origEditBox] or {}
-    local blizzType                  = cache.chatType or (origEditBox and origEditBox:GetAttribute("chatType"))
-    local blizzTell                  = cache.tellTarget or (origEditBox and origEditBox:GetAttribute("tellTarget"))
-    local blizzChan                  = cache.channelTarget or (origEditBox and origEditBox:GetAttribute("channelTarget"))
-    local blizzLang                  = cache.language or (origEditBox and origEditBox.languageID) or (origEditBox and origEditBox:GetAttribute("language"))
+    local blizzType                  = cache.chatType
+    local blizzTell                  = cache.tellTarget
+    local blizzChan                  = cache.channelTarget
+    local blizzLang                  = cache.language or (origEditBox and origEditBox.languageID)
     local blizzText                  = origEditBox and origEditBox.GetText and origEditBox:GetText()
 
     -- One-shot BN guard expiry: if we open normally a couple times without
