@@ -1,3 +1,6 @@
+-- 1.1.4a
+    - Attempted to fix an issue causing text to get stuck in the Blizzard editbox, which resulted in unintended prefilling behaviour when Yapper takes over.
+
 -- 1.1.4
   - Fixed issue where whispers initiated from UI (unit frames, friend lists, etc.) got stuck in sticky mode.
 

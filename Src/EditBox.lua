@@ -1466,7 +1466,14 @@ function EditBox:Show(origEditBox)
     end
 
     -- Carry over any text Blizzard pre-populated (chat links, etc.).
-    if not draftText and blizzText and blizzText ~= "" then
+    -- We also store any raw text passed through ChatFrameUtil.OpenChat in case
+    -- Blizzard doesn't set it on the editbox immediately.
+    local pending = self._pendingOpenChatText
+    self._pendingOpenChatText = nil
+
+    if not draftText and pending and pending ~= "" then
+        draftText = pending
+    elseif not draftText and blizzText and blizzText ~= "" then
         draftText = blizzText
     end
 
@@ -1477,6 +1484,11 @@ function EditBox:Show(origEditBox)
     self:RefreshLabel()
     overlay:Show()
     self.OverlayEdit:SetFocus()
+
+    -- Clear Blizzard's backing editbox to avoid stale carryover on next open.
+    if origEditBox and origEditBox.SetText then
+        origEditBox:SetText("")
+    end
 
     if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
         YapperTable.TypingTrackerBridge:OnOverlayFocusGained(self.ChatType)
@@ -1540,7 +1552,7 @@ function EditBox:HandoffToBlizzard()
 
     self._lockdownHandedOff = true
     YapperTable.Utils:Print("info",
-        "Chat in lockdown — your message has been saved. Press Enter after lockdown ends to continue.")
+        "Chat in lockdown — your post has been saved. Press Enter after lockdown ends to continue.")
 
     -- Cancel the polling ticker if one is running.
     if self._lockdownTicker then

@@ -4,6 +4,37 @@
 
 local YapperName, YapperTable = ...
 
+local function GetBypassBindingHint()
+    local key1, key2 = nil, nil
+    if GetBindingKey then
+        -- Primary lookup: binding name as defined in Bindings.xml.
+        key1, key2 = GetBindingKey("Bypass Yapper")
+        if not key1 then
+            -- Fallback in case client indexes by command text.
+            key1, key2 = GetBindingKey("Yapper.EditBox:OpenBlizzardChat()")
+        end
+    end
+
+    local function PrettyKey(key)
+        if not key then return nil end
+        if GetBindingText then
+            local text = GetBindingText(key, "KEY_")
+            if text and text ~= "" then
+                return text
+            end
+        end
+        return key
+    end
+
+    if key1 and key2 then
+        return "'Bypass Yapper' keybind (currently " .. PrettyKey(key1) .. " / " .. PrettyKey(key2) .. ")"
+    end
+    if key1 then
+        return "'Bypass Yapper' keybind (currently " .. PrettyKey(key1) .. ")"
+    end
+    return "'Bypass Yapper' keybind (currently unbound; default Shift+Enter)"
+end
+
 -- ---------------------------------------------------------------------------
 -- Sanity checks — abort early if anything critical failed to load.
 -- ---------------------------------------------------------------------------
@@ -112,7 +143,7 @@ local function OnPlayerEnteringWorld()
         YapperTable.History:HookOverlayEditBox()
     end
 
-    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Use /yapper to open settings.")
+    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Use /yapper for settings. Use the " .. GetBypassBindingHint() .. " to drop down to Blizzard's text box if you run into issues like blocked actions (often caused by things like /target and /gquit).")
 
     -- First-run appearance choice (once per schema bump, or every reload in DEBUG).
     if YapperTable.Interface and YapperTable.Interface.ShouldShowWelcomeChoice then
