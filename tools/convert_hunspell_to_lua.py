@@ -22,6 +22,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--aff", help="Path to Hunspell .aff file (optional)")
     parser.add_argument("--locale", required=True, help="Locale key (e.g., enGB)")
     parser.add_argument("--out", required=True, help="Output Lua file path")
+    parser.add_argument("--source", default="", help="Source URL for the dictionary repo")
+    parser.add_argument("--package", default="", help="Dictionary package name")
+    parser.add_argument("--license", default="", help="License identifier")
     return parser.parse_args()
 
 
@@ -249,12 +252,23 @@ def expand_word(word: str,
     return list(out)
 
 
-def write_lua(out_path: Path, locale: str, words: list[str]) -> None:
+def write_lua(out_path: Path,
+              locale: str,
+              words: list[str],
+              source: str = "",
+              package: str = "",
+              license_name: str = "") -> None:
     unique = sorted(set(words))
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", encoding="utf-8") as handle:
         handle.write("-- Generated from Hunspell .dic\n")
+        if source:
+            handle.write("-- Source: %s\n" % source)
+        if package:
+            handle.write("-- Package: %s\n" % package)
+        if license_name:
+            handle.write("-- License: %s\n" % license_name)
         handle.write("-- Locale: %s\n\n" % locale)
         handle.write("local _, YapperTable = ...\n")
         handle.write("if not YapperTable or not YapperTable.Spellcheck then return end\n\n")
@@ -283,7 +297,14 @@ def main() -> None:
     aff_path = Path(args.aff) if args.aff else None
     flag_type, flag_aliases, prefixes, suffixes = parse_aff(aff_path) if aff_path else ("short", None, {}, {})
     words = read_words(dic_path, flag_type, flag_aliases, prefixes, suffixes)
-    write_lua(out_path, args.locale, words)
+    write_lua(
+        out_path,
+        args.locale,
+        words,
+        source=args.source,
+        package=args.package,
+        license_name=args.license,
+    )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,9 @@
+## Interface: 120001
+## Title: Yapper Dictionary - esES
+## Notes: Spellcheck dictionary for Spanish (esES).
+## Version: 1.1.4a
+## Author: Sara Schulze Overby
+## LoadOnDemand: 1
+## RequiredDeps: Yapper
+
+Dicts/esES.lua

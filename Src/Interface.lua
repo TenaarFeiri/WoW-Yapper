@@ -29,6 +29,21 @@ local CHANNEL_OVERRIDE_OPTIONS = {
     { key = "RAID_WARNING",  label = "Raid Warning" },
 }
 
+local CREDITS_DICTIONARIES_BUNDLED = {
+    { locale = "enUS", label = "English (US)", package = "dictionary-en", license = "MIT AND BSD" },
+    { locale = "enGB", label = "English (UK)", package = "dictionary-en-GB", license = "MIT AND BSD" },
+}
+
+local CREDITS_DICTIONARIES_OPTIONAL = {
+    { locale = "frFR", label = "French", package = "dictionary-fr", license = "MPL-2.0" },
+    { locale = "deDE", label = "German", package = "dictionary-de", license = "GPL-2.0 OR GPL-3.0" },
+    { locale = "esES", label = "Spanish", package = "dictionary-es", license = "GPL-3.0 OR LGPL-3.0 OR MPL-1.1" },
+    { locale = "esMX", label = "Spanish (Mexico)", package = "dictionary-es-MX", license = "GPL-3.0 OR LGPL-3.0 OR MPL-1.1" },
+    { locale = "itIT", label = "Italian", package = "dictionary-it", license = "GPL-3.0" },
+    { locale = "ptBR", label = "Portuguese (Brazil)", package = "dictionary-pt", license = "LGPL-3.0 OR MPL-2.0" },
+    { locale = "ruRU", label = "Russian", package = "dictionary-ru", license = "BSD-3-Clause" },
+}
+
 -- Friendly dropdown values for font outline modes.
 local FONT_OUTLINE_OPTIONS = {
     { value = "",             label = "Default (None)" },
@@ -196,6 +211,13 @@ local CATEGORIES = {
         icon  = nil,
         paths = {},
         custom = { "queueDiagnostics" },
+    },
+    {
+        id    = "credits",
+        label = "Credits",
+        icon  = nil,
+        paths = {},
+        custom = { "credits" },
     },
 }
 
@@ -2222,6 +2244,74 @@ function Interface:CreateQueueDiagnostics(parent, cursor)
     cursor:Pad(10)
 end
 
+function Interface:CreateCreditsPage(parent, cursor)
+    self:CreateLabel(
+        parent,
+        "Credits",
+        LAYOUT.WINDOW_PADDING,
+        cursor:Y(),
+        500,
+        "Things used by Yapper and their licenses.",
+        "GameFontNormal"
+    )
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
+
+    self:CreateLabel(
+        parent,
+        "Spellcheck Dictionaries",
+        LAYOUT.WINDOW_PADDING,
+        cursor:Y(),
+        500,
+        "Spellcheck wordlists are derived from Hunspell dictionaries.",
+        "GameFontNormal"
+    )
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
+
+    local function addLine(text)
+        local fs = self:AcquireWidget("CreditsLine", parent, "GameFontHighlightSmall", "FontString")
+        fs:SetFontObject("GameFontHighlightSmall")
+        fs:SetTextColor(0.9, 0.9, 0.9, 1)
+        fs:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, cursor:Y())
+        fs:SetWidth(520)
+        fs:SetJustifyH("LEFT")
+        fs:SetWordWrap(true)
+        fs:SetText(text)
+        self:AddControl(fs)
+        cursor:Advance(self:ScaledRow(18))
+    end
+
+    addLine("Source: https://github.com/wooorm/dictionaries")
+    addLine("Each dictionary retains its original license. See dictionaries/<code>/license in the source repo.")
+    cursor:Pad(6)
+
+    addLine("Bundled dictionaries:")
+    for _, entry in ipairs(CREDITS_DICTIONARIES_BUNDLED) do
+        addLine(string.format(
+            "%s (%s) - %s - %s",
+            entry.locale,
+            entry.label,
+            entry.package,
+            entry.license
+        ))
+    end
+
+    cursor:Pad(6)
+    addLine("Optional dictionary addons:")
+    addLine("Install the locale addon to enable it in Yapper settings.")
+    addLine("Addon naming: Yapper_Dict_<locale> (example: Yapper_Dict_frFR).")
+    for _, entry in ipairs(CREDITS_DICTIONARIES_OPTIONAL) do
+        addLine(string.format(
+            "%s (%s) - %s - %s",
+            entry.locale,
+            entry.label,
+            entry.package,
+            entry.license
+        ))
+    end
+
+    cursor:Pad(10)
+end
+
 function Interface:CreateTextInput(parent, label, path, cursor)
     local y = cursor:Y()
     self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
@@ -2486,8 +2576,11 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
         local locales = {}
-        if YapperTable and YapperTable.Spellcheck and YapperTable.Spellcheck.GetAvailableLocales then
-            locales = YapperTable.Spellcheck:GetAvailableLocales()
+        local spell = YapperTable and YapperTable.Spellcheck
+        if spell and spell.GetKnownLocales then
+            locales = spell:GetKnownLocales()
+        elseif spell and spell.GetAvailableLocales then
+            locales = spell:GetAvailableLocales()
         end
         if #locales == 0 then
             locales = { current }
@@ -2495,9 +2588,30 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
 
         for _, locale in ipairs(locales) do
             local info = UIDropDownMenu_CreateInfo()
-            info.text = locale
+            local available = spell and spell.IsLocaleAvailable and spell:IsLocaleAvailable(locale)
+            local canLoad = spell and spell.CanLoadLocale and spell:CanLoadLocale(locale)
+            local labelText = locale
+
+            if not available then
+                if canLoad then
+                    labelText = locale .. " (load addon)"
+                else
+                    labelText = locale .. " (addon missing)"
+                end
+            end
+
+            info.text = labelText
             info.checked = (locale == current)
+            info.disabled = (not available and not canLoad)
             info.func = function()
+                if spell and spell.EnsureLocale then
+                    if not spell:EnsureLocale(locale) then
+                        if spell.Notify then
+                            spell:Notify("Yapper: install the " .. (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
+                        end
+                        return
+                    end
+                end
                 current = locale
                 Interface:SetLocalPath(path, locale)
                 UIDropDownMenu_SetText(frame, locale)
@@ -2762,6 +2876,11 @@ function Interface:BuildConfigUI()
     -- Queue diagnostics.
     if customSet["queueDiagnostics"] then
         self:CreateQueueDiagnostics(frame.ContentFrame, cursor)
+    end
+
+    -- Credits.
+    if customSet["credits"] then
+        self:CreateCreditsPage(frame.ContentFrame, cursor)
     end
 
     -- Message Bridges.

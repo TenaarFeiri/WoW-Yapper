@@ -1,4 +1,7 @@
 -- Generated from Hunspell .dic
+-- Source: https://github.com/wooorm/dictionaries
+-- Package: dictionary-en-GB
+-- License: MIT AND BSD
 -- Locale: enGB
 
 local _, YapperTable = ...

@@ -11,6 +11,26 @@ local Spellcheck = {}
 YapperTable.Spellcheck = Spellcheck
 
 Spellcheck.Dictionaries = {}
+Spellcheck.KnownLocales = {
+    "enUS",
+    "enGB",
+    "frFR",
+    "deDE",
+    "esES",
+    "esMX",
+    "itIT",
+    "ptBR",
+    "ruRU",
+}
+Spellcheck.LocaleAddons = {
+    frFR = "Yapper_Dict_frFR",
+    deDE = "Yapper_Dict_deDE",
+    esES = "Yapper_Dict_esES",
+    esMX = "Yapper_Dict_esMX",
+    itIT = "Yapper_Dict_itIT",
+    ptBR = "Yapper_Dict_ptBR",
+    ruRU = "Yapper_Dict_ruRU",
+}
 Spellcheck.EditBox = nil
 Spellcheck.Overlay = nil
 Spellcheck.MeasureFS = nil
@@ -91,6 +111,59 @@ function Spellcheck:GetAvailableLocales()
     return out
 end
 
+function Spellcheck:GetKnownLocales()
+    local out = {}
+    for i = 1, #self.KnownLocales do
+        out[i] = self.KnownLocales[i]
+    end
+    return out
+end
+
+function Spellcheck:IsLocaleAvailable(locale)
+    return self.Dictionaries[locale] ~= nil
+end
+
+function Spellcheck:GetLocaleAddon(locale)
+    return self.LocaleAddons[locale]
+end
+
+function Spellcheck:CanLoadLocale(locale)
+    local addon = self:GetLocaleAddon(locale)
+    if not addon then
+        return self:IsLocaleAvailable(locale)
+    end
+    if IsAddOnLoaded and IsAddOnLoaded(addon) then
+        return true
+    end
+    if GetAddOnInfo then
+        local name = GetAddOnInfo(addon)
+        return name ~= nil
+    end
+    return false
+end
+
+function Spellcheck:Notify(msg)
+    if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        DEFAULT_CHAT_FRAME:AddMessage(msg)
+    end
+end
+
+function Spellcheck:EnsureLocale(locale)
+    if self:IsLocaleAvailable(locale) then
+        return true
+    end
+
+    local addon = self:GetLocaleAddon(locale)
+    if addon and LoadAddOn then
+        local loaded = LoadAddOn(addon)
+        if loaded == false then
+            return false
+        end
+    end
+
+    return self:IsLocaleAvailable(locale)
+end
+
 function Spellcheck:GetConfig()
     return (YapperTable.Config and YapperTable.Config.Spellcheck) or {}
 end
@@ -112,7 +185,11 @@ function Spellcheck:GetLocale()
 end
 
 function Spellcheck:GetDictionary()
-    return self.Dictionaries[self:GetLocale()]
+    local locale = self:GetLocale()
+    if not self.Dictionaries[locale] then
+        self:EnsureLocale(locale)
+    end
+    return self.Dictionaries[locale]
 end
 
 function Spellcheck:GetMaxSuggestions()

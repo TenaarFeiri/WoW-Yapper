@@ -1,0 +1,9 @@
+## Interface: 120001
+## Title: Yapper Dictionary - itIT
+## Notes: Spellcheck dictionary for Italian (itIT).
+## Version: 1.1.4a
+## Author: Sara Schulze Overby
+## LoadOnDemand: 1
+## RequiredDeps: Yapper
+
+Dicts/itIT.lua

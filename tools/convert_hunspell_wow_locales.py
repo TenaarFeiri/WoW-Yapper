@@ -26,22 +26,60 @@ def main() -> None:
     src_root = Path(args.src)
     out_root = Path(args.out)
 
+    source_url = "https://github.com/wooorm/dictionaries"
+
     mapping = {
-        "enUS": "en",
-        "enGB": "en-GB",
-        "frFR": "fr",
-        "deDE": "de",
-        "esES": "es",
-        "esMX": "es-MX",
-        "itIT": "it",
-        "ptBR": "pt",
-        "ruRU": "ru",
+        "enUS": {
+            "folder": "en",
+            "package": "dictionary-en",
+            "license": "MIT AND BSD",
+        },
+        "enGB": {
+            "folder": "en-GB",
+            "package": "dictionary-en-GB",
+            "license": "MIT AND BSD",
+        },
+        "frFR": {
+            "folder": "fr",
+            "package": "dictionary-fr",
+            "license": "MPL-2.0",
+        },
+        "deDE": {
+            "folder": "de",
+            "package": "dictionary-de",
+            "license": "GPL-2.0 OR GPL-3.0",
+        },
+        "esES": {
+            "folder": "es",
+            "package": "dictionary-es",
+            "license": "GPL-3.0 OR LGPL-3.0 OR MPL-1.1",
+        },
+        "esMX": {
+            "folder": "es-MX",
+            "package": "dictionary-es-MX",
+            "license": "GPL-3.0 OR LGPL-3.0 OR MPL-1.1",
+        },
+        "itIT": {
+            "folder": "it",
+            "package": "dictionary-it",
+            "license": "GPL-3.0",
+        },
+        "ptBR": {
+            "folder": "pt",
+            "package": "dictionary-pt",
+            "license": "LGPL-3.0 OR MPL-2.0",
+        },
+        "ruRU": {
+            "folder": "ru",
+            "package": "dictionary-ru",
+            "license": "BSD-3-Clause",
+        },
     }
 
     converter = Path(__file__).resolve().parent / "convert_hunspell_to_lua.py"
 
-    for locale, folder in mapping.items():
-        src_dir = src_root / folder
+    for locale, meta in mapping.items():
+        src_dir = src_root / meta["folder"]
         dic_path = src_dir / "index.dic"
         aff_path = src_dir / "index.aff"
         if not dic_path.exists():
@@ -59,6 +97,12 @@ def main() -> None:
             locale,
             "--out",
             str(out_path),
+            "--source",
+            source_url,
+            "--package",
+            meta["package"],
+            "--license",
+            meta["license"],
         ]
         cmd = [c for c in cmd if c]
         subprocess.check_call(cmd)

@@ -1,0 +1,9 @@
+## Interface: 120001
+## Title: Yapper Dictionary - esMX
+## Notes: Spellcheck dictionary for Spanish (Mexico) (esMX).
+## Version: 1.1.4a
+## Author: Sara Schulze Overby
+## LoadOnDemand: 1
+## RequiredDeps: Yapper
+
+Dicts/esMX.lua
