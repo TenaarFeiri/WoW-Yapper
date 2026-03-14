@@ -737,6 +737,10 @@ function EditBox:CreateOverlay()
     -- ── Wire up scripts ──────────────────────────────────────────────
     self:SetupOverlayScripts()
 
+    if YapperTable.Spellcheck and type(YapperTable.Spellcheck.Bind) == "function" then
+        YapperTable.Spellcheck:Bind(edit, frame)
+    end
+
     -- Hook into SendChatMessage so we can capture and propagate chatType, language and target
     -- to Yapper for synchronisity.
     if not self._cChatInfoSendHooked then
@@ -785,6 +789,10 @@ function EditBox:SetupOverlayScripts()
     -- ── OnTextChanged: slash-command channel switches ──────────────────
     edit:SetScript("OnTextChanged", function(box, isUserInput)
         if updatingText then return end
+
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
+            YapperTable.Spellcheck:OnTextChanged(box, isUserInput)
+        end
         if not isUserInput then return end
 
         local text = box:GetText() or ""
@@ -1070,7 +1078,24 @@ function EditBox:SetupOverlayScripts()
         self:Hide()
     end)
 
+    edit:SetScript("OnCursorChanged", function(box)
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnCursorChanged) == "function" then
+            YapperTable.Spellcheck:OnCursorChanged(box)
+        end
+    end)
+
     edit:HookScript("OnKeyDown", function(box, key)
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
+            if YapperTable.Spellcheck:HandleKeyDown(key) then
+                if box.SetPropagateKeyboardInput then
+                    box:SetPropagateKeyboardInput(false)
+                end
+                return
+            end
+        end
+        if box.SetPropagateKeyboardInput then
+            box:SetPropagateKeyboardInput(true)
+        end
         if key == "TAB" then
             self:CycleChat(IsShiftKeyDown() and -1 or 1)
         elseif key == "UP" then
@@ -1083,6 +1108,10 @@ function EditBox:SetupOverlayScripts()
     frame:SetScript("OnHide", function()
         self.HistoryIndex = nil
         self.HistoryCache = nil
+
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnOverlayHide) == "function" then
+            YapperTable.Spellcheck:OnOverlayHide()
+        end
 
         if not self._closedClean and YapperTable.History then
             local eb = self.OverlayEdit

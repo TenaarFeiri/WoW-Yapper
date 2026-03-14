@@ -24,6 +24,16 @@ Src/Utils.lua
 Src/Error.lua
 Src/Frames.lua
 Src/Events.lua
+Src/Spellcheck.lua
+Src/Spellcheck/Dicts/enUS.lua
+Src/Spellcheck/Dicts/enGB.lua
+Src/Spellcheck/Dicts/frFR.lua
+Src/Spellcheck/Dicts/deDE.lua
+Src/Spellcheck/Dicts/esES.lua
+Src/Spellcheck/Dicts/esMX.lua
+Src/Spellcheck/Dicts/itIT.lua
+Src/Spellcheck/Dicts/ptBR.lua
+Src/Spellcheck/Dicts/ruRU.lua
 
 # Editbox must load here or this won't work.
 Src/EditBox.lua

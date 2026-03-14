@@ -170,6 +170,19 @@ function YapperTable:GetRegisteredThemes() return Theme:GetRegisteredNames() end
 
 -- Register a sane default so the system is immediately usable.
 -- Derive defaults from existing EditBox/Interface config values.
+local function GetChatTypeColor(chatType, fallback)
+    local info = ChatTypeInfo and chatType and ChatTypeInfo[chatType]
+    if not info then
+        return fallback
+    end
+    return {
+        r = (type(info.r) == "number") and info.r or fallback.r,
+        g = (type(info.g) == "number") and info.g or fallback.g,
+        b = (type(info.b) == "number") and info.b or fallback.b,
+        a = fallback.a or 1,
+    }
+end
+
 local defaultTheme = {
     name = "Yapper Default",
     description = "Matches current Yapper overlay defaults (flat fill, label bar, default font).",
@@ -187,8 +200,8 @@ local defaultTheme = {
         PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
         WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
         BN_WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
-        CHANNEL = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
-        CLUB = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
+        CHANNEL = GetChatTypeColor("CHANNEL", { r = 1.00, g = 0.75, b = 0.75, a = 1 }),
+        CLUB = GetChatTypeColor("COMMUNITIES_CHANNEL", { r = 0.25, g = 0.78, b = 0.94, a = 1 }),
         INSTANCE_CHAT = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
         RAID = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
         RAID_WARNING = { r = 1.00, g = 0.28, b = 0.03, a = 1 },

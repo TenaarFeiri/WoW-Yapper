@@ -45,6 +45,13 @@ local SETTING_TOOLTIPS = {
     ["SECTION.EditBox"] = "Customises your editbox appearance and behaviour.",
     ["SECTION.FrameSettings"] = "Controls window and scrolling behaviour.",
     ["FrameSettings.EnableMinimapButton"] = "Show or hide the minimap launcher button.",
+    ["FrameSettings.MinimapButtonOffset"] =
+    "Extra pixels away from the minimap center for the fallback minimap button.",
+    ["Spellcheck.Enabled"] = "Underline and suggest replacements for misspelled words.",
+    ["Spellcheck.Locale"] = "Select the dictionary locale to use for spellchecking.",
+    ["Spellcheck.UnderlineStyle"] = "Choose between straight underline or highlight style.",
+    ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
+    ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
     ["Chat.MAX_HISTORY_LINES"] = "How many previous messages are kept in local history.",
@@ -86,6 +93,12 @@ local FRIENDLY_LABELS = {
     ["SECTION.EditBox"] = "Chat Input Appearance",
     ["SECTION.FrameSettings"] = "Window & Scrolling",
     ["FrameSettings.EnableMinimapButton"] = "Show minimap button",
+    ["FrameSettings.MinimapButtonOffset"] = "Minimap button offset",
+    ["Spellcheck.Enabled"] = "Enable spellcheck",
+    ["Spellcheck.Locale"] = "Spellcheck locale",
+    ["Spellcheck.UnderlineStyle"] = "Underline style",
+    ["Spellcheck.MinWordLength"] = "Minimum word length",
+    ["Spellcheck.MaxSuggestions"] = "Max suggestions",
     ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
 
@@ -120,6 +133,11 @@ local CATEGORIES = {
         paths = {
             -- Minimap button
             "FrameSettings.EnableMinimapButton",
+            "FrameSettings.MinimapButtonOffset",
+            -- Spellcheck
+            "Spellcheck.Enabled",
+            "Spellcheck.Locale",
+            "Spellcheck.UnderlineStyle",
             -- Sticky channel behaviour
             "EditBox.StickyChannel",
             "EditBox.StickyGroupChannel",
@@ -165,6 +183,9 @@ local CATEGORIES = {
             "EditBox.FontFace",
             "EditBox.MinHeight",
             "EditBox.BlizzardSkinProxyPad",
+            -- Spellcheck advanced
+            "Spellcheck.MinWordLength",
+            "Spellcheck.MaxSuggestions",
         },
         -- Bridges are appended by custom logic.
         custom = { "bridges" },
@@ -564,6 +585,12 @@ function Interface:SetLocalPath(path, value)
         Interface.MouseWheelStepRate = normalizedValue
     elseif JoinPath(path) == "FrameSettings.EnableMinimapButton" then
         Interface:ApplyMinimapButtonVisibility()
+    elseif JoinPath(path) == "FrameSettings.MinimapButtonOffset" then
+        Interface:PositionMinimapButton()
+    elseif JoinPath(path):match("^Spellcheck%.") then
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnConfigChanged) == "function" then
+            YapperTable.Spellcheck:OnConfigChanged()
+        end
     elseif JoinPath(path) == "System.EnableGopherBridge" then
         if YapperTable.GopherBridge and YapperTable.GopherBridge.UpdateState then
             YapperTable.GopherBridge:UpdateState(normalizedValue)
@@ -616,9 +643,45 @@ function Interface:GetMinimapButtonSettings()
         _G.YapperDB = {}
     end
     if type(_G.YapperDB.minimapbutton) ~= "table" then
-        _G.YapperDB.minimapbutton = { hide = false }
+        _G.YapperDB.minimapbutton = { hide = false, angle = 220 }
+    end
+    if _G.YapperDB.minimapbutton.angle == nil then
+        _G.YapperDB.minimapbutton.angle = 220
     end
     return _G.YapperDB.minimapbutton
+end
+
+function Interface:GetMinimapButtonOffset()
+    return tonumber(self:GetConfigPath({ "FrameSettings", "MinimapButtonOffset" })) or 0
+end
+
+function Interface:PositionMinimapButton()
+    if not self.MinimapButton or not _G.Minimap then return end
+    local minimapCfg = self:GetMinimapButtonSettings()
+    local angle = tonumber(minimapCfg.angle) or 220
+    local radius = ((_G.Minimap:GetWidth() or 140) / 2) + 10 + self:GetMinimapButtonOffset()
+    local rad = math.rad(angle)
+    local x = math.cos(rad) * radius
+    local y = math.sin(rad) * radius
+    self.MinimapButton:ClearAllPoints()
+    self.MinimapButton:SetPoint("CENTER", _G.Minimap, "CENTER", x, y)
+end
+
+function Interface:UpdateMinimapButtonAngleFromCursor()
+    if not _G.Minimap then return end
+    local mx, my = _G.Minimap:GetCenter()
+    if not mx or not my then return end
+    local cx, cy = GetCursorPosition()
+    local scale = _G.Minimap:GetEffectiveScale()
+    cx = cx / scale
+    cy = cy / scale
+    local dx = cx - mx
+    local dy = cy - my
+    local angleRad = (math.atan2 and math.atan2(dy, dx)) or math.atan(dy, dx)
+    local angle = math.deg(angleRad)
+    local minimapCfg = self:GetMinimapButtonSettings()
+    minimapCfg.angle = angle
+    self:PositionMinimapButton()
 end
 
 function Interface:ApplyMinimapButtonVisibility()
@@ -631,6 +694,13 @@ function Interface:ApplyMinimapButtonVisibility()
             self.DBIcon:Show(YapperName)
         else
             self.DBIcon:Hide(YapperName)
+        end
+    end
+
+    if self.MinimapButton then
+        self.MinimapButton:SetShown(enabled)
+        if enabled then
+            self:PositionMinimapButton()
         end
     end
 end
@@ -761,6 +831,10 @@ function Interface:BuildRenderSchema()
                         kind = "fontsize"
                     elseif JoinPath(nextPath) == "EditBox.FontFlags" then
                         kind = "fontflags"
+                    elseif JoinPath(nextPath) == "Spellcheck.Locale" then
+                        kind = "spellcheck_locale"
+                    elseif JoinPath(nextPath) == "Spellcheck.UnderlineStyle" then
+                        kind = "spellcheck_underline"
                     end
                     schema[#schema + 1] = {
                         kind = kind,
@@ -2396,6 +2470,93 @@ function Interface:CreateFontOutlineDropdown(parent, label, path, cursor)
     return dd
 end
 
+function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
+
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
+    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
+    UIDropDownMenu_SetWidth(dd, 180)
+
+    local current = self:GetConfigPath(path)
+    if not current or current == "" then
+        current = (GetLocale and GetLocale()) or "enUS"
+    end
+    UIDropDownMenu_SetText(dd, tostring(current))
+
+    UIDropDownMenu_Initialize(dd, function(frame, level)
+        local locales = {}
+        if YapperTable and YapperTable.Spellcheck and YapperTable.Spellcheck.GetAvailableLocales then
+            locales = YapperTable.Spellcheck:GetAvailableLocales()
+        end
+        if #locales == 0 then
+            locales = { current }
+        end
+
+        for _, locale in ipairs(locales) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = locale
+            info.checked = (locale == current)
+            info.func = function()
+                current = locale
+                Interface:SetLocalPath(path, locale)
+                UIDropDownMenu_SetText(frame, locale)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    self:AddControl(dd)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
+    return dd
+end
+
+function Interface:CreateSpellcheckUnderlineDropdown(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
+
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
+    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
+    UIDropDownMenu_SetWidth(dd, 180)
+
+    local current = self:GetConfigPath(path)
+    if current ~= "highlight" then
+        current = "line"
+    end
+
+    local function labelFor(value)
+        if value == "highlight" then
+            return "Highlight"
+        end
+        return "Underline"
+    end
+
+    UIDropDownMenu_SetText(dd, labelFor(current))
+
+    UIDropDownMenu_Initialize(dd, function(frame, level)
+        local options = {
+            { value = "line", label = "Underline" },
+            { value = "highlight", label = "Highlight" },
+        }
+
+        for _, option in ipairs(options) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = option.label
+            info.checked = (option.value == current)
+            info.func = function()
+                current = option.value
+                Interface:SetLocalPath(path, option.value)
+                UIDropDownMenu_SetText(frame, option.label)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    self:AddControl(dd)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
+    return dd
+end
+
 function Interface:CreateThemeDropdown(parent, label, path, cursor)
     local y = cursor:Y()
     self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
@@ -2541,6 +2702,20 @@ function Interface:BuildConfigUI()
                     )
                 elseif item.kind == "fontflags" then
                     self:CreateFontOutlineDropdown(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                elseif item.kind == "spellcheck_locale" then
+                    self:CreateSpellcheckLocaleDropdown(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                elseif item.kind == "spellcheck_underline" then
+                    self:CreateSpellcheckUnderlineDropdown(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
@@ -2793,6 +2968,56 @@ function Interface:CreateLauncher()
             self.LauncherCreated = true
             return
         end
+    end
+
+    -- Manual minimap button fallback when LibStub/DBIcon are unavailable.
+    if _G.Minimap then
+        if not self.MinimapButton then
+            local btn = CreateFrame("Button", "YapperMinimapButton", _G.Minimap)
+            btn:SetSize(32, 32)
+            btn:SetFrameStrata("MEDIUM")
+            btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+            btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            btn:RegisterForDrag("LeftButton")
+
+            local icon = btn:CreateTexture(nil, "ARTWORK")
+            icon:SetTexture("6624474")
+            icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+            icon:SetAllPoints(btn)
+
+            local border = btn:CreateTexture(nil, "OVERLAY")
+            border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+            border:SetAllPoints(btn)
+
+            btn:SetScript("OnClick", function(_, button)
+                Interface:HandleLauncherClick(button)
+            end)
+            btn:SetScript("OnDragStart", function(selfFrame)
+                selfFrame:SetScript("OnUpdate", function()
+                    Interface:UpdateMinimapButtonAngleFromCursor()
+                end)
+            end)
+            btn:SetScript("OnDragStop", function(selfFrame)
+                selfFrame:SetScript("OnUpdate", nil)
+            end)
+            btn:SetScript("OnEnter", function(selfFrame)
+                GameTooltip:SetOwner(selfFrame, "ANCHOR_TOPLEFT")
+                GameTooltip:SetText(YapperName)
+                GameTooltip:AddLine(" ")
+                for _, line in ipairs(tooltipLines) do
+                    GameTooltip:AddLine(line, 0.6, 0.6, 0.6)
+                end
+                GameTooltip:Show()
+            end)
+            btn:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+
+            self.MinimapButton = btn
+            self:PositionMinimapButton()
+        end
+
+        self:ApplyMinimapButtonVisibility()
     end
 
     self.LauncherCreated = true

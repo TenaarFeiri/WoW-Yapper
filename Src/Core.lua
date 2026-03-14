@@ -56,6 +56,7 @@ local DEFAULTS = {
         ["SettingsViewMode"] = "basic",
         ["UIFontOffset"] = 0,
         ["EnableMinimapButton"] = true,
+        ["MinimapButtonOffset"] = 0,
         ["MainWindowPosition"] = {
             point = "CENTER",
             relativePoint = "CENTER",
@@ -130,7 +131,7 @@ local DEFAULTS = {
             WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
             BN_WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
             CHANNEL = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
-            CLUB = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
+            CLUB = { r = 0.25, g = 0.78, b = 0.94, a = 1 },
             INSTANCE_CHAT = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
             RAID = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
             RAID_WARNING = { r = 1.00, g = 0.28, b = 0.03, a = 1 },
@@ -151,7 +152,39 @@ local DEFAULTS = {
         StickyChannel         = true,
         StickyGroupChannel    = true,
     },
+
+    Spellcheck = {
+        Enabled        = false,
+        Locale         = "enUS",
+        MaxSuggestions = 4,
+        MinWordLength  = 2,
+        UnderlineStyle = "line",
+    },
 }
+
+local function CopyChatTypeColor(chatType, fallback)
+    local info = ChatTypeInfo and chatType and ChatTypeInfo[chatType]
+    if not info then
+        return fallback
+    end
+    return {
+        r = (type(info.r) == "number") and info.r or fallback.r,
+        g = (type(info.g) == "number") and info.g or fallback.g,
+        b = (type(info.b) == "number") and info.b or fallback.b,
+        a = fallback.a or 1,
+    }
+end
+
+local function SeedChannelDefaults()
+    local colors = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors
+    if not colors then
+        return
+    end
+    colors.CHANNEL = CopyChatTypeColor("CHANNEL", colors.CHANNEL)
+    colors.CLUB = CopyChatTypeColor("COMMUNITIES_CHANNEL", colors.CLUB)
+end
+
+SeedChannelDefaults()
 
 local HISTORY_DEFAULTS = {
     VERSION = DEFAULTS.System.VERSION,
