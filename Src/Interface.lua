@@ -21,6 +21,9 @@ local CHANNEL_OVERRIDE_OPTIONS = {
     { key = "YELL",          label = "Yell" },
     { key = "PARTY",         label = "Party" },
     { key = "WHISPER",       label = "Whisper" },
+    { key = "BN_WHISPER",    label = "BNet Whisper" },
+    { key = "CHANNEL",       label = "Channel" },
+    { key = "CLUB",          label = "Community" },
     { key = "INSTANCE_CHAT", label = "Instance" },
     { key = "RAID",          label = "Raid" },
     { key = "RAID_WARNING",  label = "Raid Warning" },
@@ -44,10 +47,6 @@ local SETTING_TOOLTIPS = {
     ["FrameSettings.EnableMinimapButton"] = "Show or hide the minimap launcher button.",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
-    ["Chat.MIN_POST_INTERVAL"] = "Minimum delay between sends.",
-    ["Chat.POST_TIMEOUT"] = "How long to wait before a send attempt is considered stalled.",
-    ["Chat.BATCH_SIZE"] = "How many chunks are sent per batch.",
-    ["Chat.BATCH_THROTTLE"] = "Delay between chunk batches.",
     ["Chat.MAX_HISTORY_LINES"] = "How many previous messages are kept in local history.",
     ["EditBox.InputBg"] = "Background colour of the input area.",
     ["EditBox.LabelBg"] = "Background colour of the channel label area.",
@@ -92,10 +91,6 @@ local FRIENDLY_LABELS = {
 
     ["Chat.USE_DELINEATORS"] = "Add split marker",
     ["Chat.DELINEATOR"] = "Split marker text",
-    ["Chat.MIN_POST_INTERVAL"] = "Minimum send delay",
-    ["Chat.POST_TIMEOUT"] = "Send timeout",
-    ["Chat.BATCH_SIZE"] = "Messages per batch",
-    ["Chat.BATCH_THROTTLE"] = "Batch delay",
     ["Chat.MAX_HISTORY_LINES"] = "Saved message history",
 
     ["EditBox.InputBg"] = "Input background colour",
@@ -165,10 +160,6 @@ local CATEGORIES = {
             "System.VERBOSE",
             "System.RUN_ALL_PATCHES",
             -- Chat mechanics
-            "Chat.MIN_POST_INTERVAL",
-            "Chat.POST_TIMEOUT",
-            "Chat.BATCH_SIZE",
-            "Chat.BATCH_THROTTLE",
             "Chat.MAX_HISTORY_LINES",
             -- EditBox advanced
             "EditBox.FontFace",
@@ -177,6 +168,13 @@ local CATEGORIES = {
         },
         -- Bridges are appended by custom logic.
         custom = { "bridges" },
+    },
+    {
+        id    = "diagnostics",
+        label = "Diagnostics",
+        icon  = nil,
+        paths = {},
+        custom = { "queueDiagnostics" },
     },
 }
 
@@ -1462,7 +1460,8 @@ function Interface:ReleaseWidget(widget)
     if widget.SetScript then
         local scripts = {
             "OnClick", "OnEnter", "OnLeave", "OnValueChanged",
-            "OnEditFocusLost", "OnEnterPressed", "OnChar", "OnTextChanged"
+            "OnEditFocusLost", "OnEnterPressed", "OnChar", "OnTextChanged",
+            "OnUpdate"
         }
         for _, scriptName in ipairs(scripts) do
             if widget:HasScript(scriptName) then
@@ -2045,6 +2044,110 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     cursor:Pad(10)
 end
 
+function Interface:CreateQueueDiagnostics(parent, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(
+        parent,
+        "Queue Diagnostics",
+        LAYOUT.WINDOW_PADDING,
+        y,
+        400,
+        "Live state for the event-driven send pipeline.",
+        "GameFontNormal"
+    )
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
+
+    local frame = self:AcquireWidget("QueueDiagnosticsFrame", parent, nil, "Frame")
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, cursor:Y())
+    frame:SetSize(520, 10)
+    self:AddControl(frame)
+
+    local refreshBtn = self:AcquireWidget("QueueDiagnosticsRefresh", parent, "UIPanelButtonTemplate", "Button")
+    refreshBtn:SetSize(78, 20)
+    refreshBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 360, cursor:Y() - 2)
+    refreshBtn:SetText("Refresh")
+    self:AddControl(refreshBtn)
+
+    local rows = {
+        { label = "Active", key = "active" },
+        { label = "Policy", key = "policyClass" },
+        { label = "Chat Type", key = "chatType" },
+        { label = "Expected Ack", key = "expectedAckEvent" },
+        { label = "Pending Chunks", key = "pending" },
+        { label = "In Flight", key = "inFlight" },
+        { label = "Needs Continue", key = "needsContinue" },
+        { label = "Strict Ack Match", key = "strictAck" },
+    }
+
+    local rowHeight = self:ScaledRow(22)
+    local rowY = 0
+
+    for _, row in ipairs(rows) do
+        local labelFs = self:AcquireWidget("QueueDiagLabel", frame, "GameFontHighlightSmall", "FontString")
+        labelFs:SetFontObject("GameFontHighlightSmall")
+        labelFs:SetTextColor(0.85, 0.85, 0.85, 1)
+        labelFs:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -rowY)
+        labelFs:SetText(row.label .. ":")
+        self:AddControl(labelFs)
+
+        local valueFs = self:AcquireWidget("QueueDiagValue", frame, "GameFontHighlightSmall", "FontString")
+        valueFs:SetFontObject("GameFontHighlightSmall")
+        valueFs:SetTextColor(1, 1, 1, 1)
+        valueFs:SetPoint("TOPLEFT", frame, "TOPLEFT", 200, -rowY)
+        valueFs:SetText("-")
+        self:AddControl(valueFs)
+
+        row._value = valueFs
+        rowY = rowY + rowHeight
+    end
+
+    frame._yDiagRows = rows
+    frame._yNextUpdate = 0
+
+    local function formatValue(value)
+        if value == nil then return "-" end
+        if type(value) == "boolean" then
+            return value and "Yes" or "No"
+        end
+        return tostring(value)
+    end
+
+    local function RefreshQueueDiagnostics(selfFrame)
+        local q = YapperTable.Queue
+        local snapshot = q and q.GetActivePolicySnapshot and q:GetActivePolicySnapshot() or {}
+
+        for _, row in ipairs(selfFrame._yDiagRows) do
+            local value = nil
+            if row.key == "needsContinue" then
+                value = q and q.NeedsContinue or false
+            elseif row.key == "strictAck" then
+                value = q and q.StrictAckMatching or false
+            else
+                value = snapshot[row.key]
+            end
+            row._value:SetText(formatValue(value))
+        end
+    end
+
+    refreshBtn:SetScript("OnClick", function()
+        RefreshQueueDiagnostics(frame)
+    end)
+
+    frame:SetScript("OnUpdate", function(selfFrame, elapsed)
+        if Interface.IsVisible ~= true or Interface._activeCategory ~= "diagnostics" then
+            return
+        end
+
+        selfFrame._yNextUpdate = (selfFrame._yNextUpdate or 0) - elapsed
+        if selfFrame._yNextUpdate > 0 then return end
+        selfFrame._yNextUpdate = 0.2
+        RefreshQueueDiagnostics(selfFrame)
+    end)
+
+    cursor:Advance(rowY)
+    cursor:Pad(10)
+end
+
 function Interface:CreateTextInput(parent, label, path, cursor)
     local y = cursor:Y()
     self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
@@ -2479,6 +2582,11 @@ function Interface:BuildConfigUI()
         if type(self:GetDefaultPath({ "EditBox", "ChannelColorOverrides" })) == "table" then
             self:CreateChannelOverrideControls(frame.ContentFrame, cursor)
         end
+    end
+
+    -- Queue diagnostics.
+    if customSet["queueDiagnostics"] then
+        self:CreateQueueDiagnostics(frame.ContentFrame, cursor)
     end
 
     -- Message Bridges.

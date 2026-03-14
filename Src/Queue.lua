@@ -1,10 +1,10 @@
 --[[
     Queue.lua
-    Three-mode delivery queue.
+    Event-ack delivery queue.
 
-    BATCH   (SAY, YELL, CHANNEL) — need a hardware event per batch.
-    CONFIRM (EMOTE) — auto-chains via CHAT_MSG_EMOTE confirmations.
-    BURST   (PARTY, RAID, GUILD, etc.) — fire-and-forget with tiny delays.
+    All sends advance only after an expected chat event (or a policy-driven
+    timeout when no reliable event exists). Policies decide when to prompt
+    for hardware input and when to auto-continue until throttled.
 ]]
 
 local YapperName, YapperTable = ...
@@ -12,46 +12,141 @@ local YapperName, YapperTable = ...
 local Queue = {}
 YapperTable.Queue = Queue
 
-local MODE_BATCH   = "BATCH"
-local MODE_CONFIRM = "CONFIRM"
-local MODE_BURST   = "BURST"
-
--- Which mode each chat type uses (default = BURST).
-local SEND_MODES = {
-    SAY     = MODE_BATCH,
-    YELL    = MODE_BATCH,
-    CHANNEL = MODE_BATCH,
-    EMOTE   = MODE_CONFIRM,
+local POLICY_CLASS = {
+    OPEN_WORLD_LOCAL = "OPEN_WORLD_LOCAL",
+    INSTANCE_LOCAL   = "INSTANCE_LOCAL",
+    EMOTE            = "EMOTE",
+    WHISPER          = "WHISPER",
+    BN_WHISPER       = "BN_WHISPER",
+    GLOBAL_CHANNEL   = "GLOBAL_CHANNEL",
+    COMMUNITY_CLUB   = "COMMUNITY_CLUB",
+    GROUP            = "GROUP",
 }
 
--- Confirmation events (BATCH + CONFIRM only).
-local CONFIRM_EVENTS = {
-    SAY     = "CHAT_MSG_SAY",
-    YELL    = "CHAT_MSG_YELL",
-    EMOTE   = "CHAT_MSG_EMOTE",
-    -- CHANNEL: no reliable echo; we use the stall timer instead.
+local GROUP_CHAT_TYPES = {
+    PARTY = true,
+    PARTY_LEADER = true,
+    RAID = true,
+    RAID_LEADER = true,
+    RAID_WARNING = true,
+    INSTANCE_CHAT = true,
+    INSTANCE_CHAT_LEADER = true,
+    GUILD = true,
+    OFFICER = true,
 }
 
-local BURST_DELAY = 0.05
+local SEND_POLICIES = {
+    [POLICY_CLASS.OPEN_WORLD_LOCAL] = {
+        promptEveryChunk = true,
+        autoUntilThrottle = false,
+        requiresHardwareEvent = true,
+        ackEvent = {
+            SAY = "CHAT_MSG_SAY",
+            YELL = "CHAT_MSG_YELL",
+        },
+    },
+    [POLICY_CLASS.INSTANCE_LOCAL] = {
+        promptEveryChunk = false,
+        autoUntilThrottle = true,
+        requiresHardwareEvent = false,
+        ackEvent = {
+            SAY = "CHAT_MSG_SAY",
+            YELL = "CHAT_MSG_YELL",
+        },
+    },
+    [POLICY_CLASS.EMOTE] = {
+        promptEveryChunk = false,
+        autoUntilThrottle = true,
+        requiresHardwareEvent = false,
+        ackEvent = "CHAT_MSG_EMOTE",
+    },
+    [POLICY_CLASS.WHISPER] = {
+        promptEveryChunk = false,
+        autoUntilThrottle = true,
+        requiresHardwareEvent = false,
+        ackEvent = "CHAT_MSG_WHISPER_INFORM",
+    },
+    [POLICY_CLASS.BN_WHISPER] = {
+        promptEveryChunk = false,
+        autoUntilThrottle = true,
+        requiresHardwareEvent = false,
+        ackEvent = "CHAT_MSG_BN_WHISPER_INFORM",
+    },
+    [POLICY_CLASS.GLOBAL_CHANNEL] = {
+        promptEveryChunk = true,
+        autoUntilThrottle = false,
+        requiresHardwareEvent = false,
+        ackEvent = "CHAT_MSG_CHANNEL",
+    },
+    [POLICY_CLASS.COMMUNITY_CLUB] = {
+        promptEveryChunk = true,
+        autoUntilThrottle = false,
+        requiresHardwareEvent = false,
+        ackEvent = "CHAT_MSG_COMMUNITIES_CHANNEL",
+    },
+    [POLICY_CLASS.GROUP] = {
+        promptEveryChunk = false,
+        autoUntilThrottle = true,
+        requiresHardwareEvent = false,
+        ackEvent = {
+            PARTY = "CHAT_MSG_PARTY",
+            PARTY_LEADER = "CHAT_MSG_PARTY_LEADER",
+            RAID = "CHAT_MSG_RAID",
+            RAID_LEADER = "CHAT_MSG_RAID_LEADER",
+            RAID_WARNING = "CHAT_MSG_RAID_WARNING",
+            INSTANCE_CHAT = "CHAT_MSG_INSTANCE_CHAT",
+            INSTANCE_CHAT_LEADER = "CHAT_MSG_INSTANCE_CHAT_LEADER",
+            GUILD = "CHAT_MSG_GUILD",
+            OFFICER = "CHAT_MSG_OFFICER",
+        },
+    },
+}
+
+local ALL_CONFIRM_EVENTS = {
+    -- Local chat echoes
+    CHAT_MSG_SAY = true,
+    CHAT_MSG_YELL = true,
+    CHAT_MSG_EMOTE = true,
+
+    -- Outgoing whispers
+    CHAT_MSG_WHISPER_INFORM = true,
+    CHAT_MSG_BN_WHISPER_INFORM = true,
+
+    -- Public channels (numbered) and community/club
+    CHAT_MSG_CHANNEL = true,
+    CHAT_MSG_COMMUNITIES_CHANNEL = true,
+
+    -- Group and instance chat
+    CHAT_MSG_PARTY = true,
+    CHAT_MSG_PARTY_LEADER = true,
+    CHAT_MSG_RAID = true,
+    CHAT_MSG_RAID_LEADER = true,
+    CHAT_MSG_RAID_WARNING = true,
+    CHAT_MSG_INSTANCE_CHAT = true,
+    CHAT_MSG_INSTANCE_CHAT_LEADER = true,
+
+    -- Guild chat
+    CHAT_MSG_GUILD = true,
+    CHAT_MSG_OFFICER = true,
+}
 
 -- State.
 Queue.Entries       = {}
 Queue.Active        = false
-Queue.ChatType      = nil
 Queue.PlayerGUID    = nil
 
-Queue.Mode          = nil
 
-Queue.BatchPending  = {}
-Queue.BatchSize     = 3
-
-Queue.Current       = nil
-
-Queue.BurstTimer    = nil
 
 Queue.NeedsContinue = false
 Queue.StallTimer    = nil
 Queue.StallTimeout  = 1.5
+
+Queue.PendingEntry          = nil
+Queue.PendingAckEntry       = nil
+Queue.PendingAckText        = nil
+Queue.PendingAckEvent       = nil
+Queue.PendingAckPolicyClass = nil
+Queue.StrictAckMatching     = true
 
 Queue._lastEscTime  = 0
 local DOUBLE_ESC_WINDOW = 0.4
@@ -64,11 +159,10 @@ Queue.ContinueFrame = nil
 
 function Queue:Init()
     local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-    self.BatchSize    = cfg.BATCH_SIZE    or 3
     self.StallTimeout = cfg.STALL_TIMEOUT or 1.5
     self.PlayerGUID   = UnitGUID("player")
 
-    for chatType, event in pairs(CONFIRM_EVENTS) do
+    for event in pairs(ALL_CONFIRM_EVENTS) do
         YapperTable.Events:Register("PARENT_FRAME", event, function(...)
             self:OnChatEvent(event, ...)
         end, "Queue_" .. event)
@@ -85,13 +179,10 @@ end
 function Queue:Reset()
     self.Entries       = {}
     self.Active        = false
-    self.ChatType      = nil
-    self.Mode          = nil
-    self.BatchPending  = {}
-    self.Current       = nil
+    self.PendingEntry  = nil
+    self:ClearPendingAck()
     self.NeedsContinue = false
     self._lastEscTime  = 0
-    self:CancelBurstTimer()
     self:CancelStallTimer()
     self:HideContinuePrompt()
     self:DisableEscapeCancel()
@@ -101,8 +192,127 @@ end
 -- Mode detection
 -- ===========================================================================
 
-function Queue:GetMode(chatType)
-    return SEND_MODES[chatType] or MODE_BURST
+function Queue:IsOpenWorld()
+    if not IsInInstance then
+        return true
+    end
+    local inInstance = IsInInstance()
+    return not inInstance
+end
+
+function Queue:IsCommunityChannelEntry(entry)
+    if not entry or entry.type ~= "CHANNEL" then
+        return false
+    end
+
+    local Router = YapperTable.Router
+    if not Router or not Router.DetectCommunityChannel then
+        return false
+    end
+
+    local isClub = Router:DetectCommunityChannel(entry.target)
+    return isClub == true
+end
+
+function Queue:ClassifyEntry(entry)
+    local chatType = entry and entry.type or "SAY"
+
+    if chatType == "EMOTE" then
+        return POLICY_CLASS.EMOTE
+    end
+
+    if chatType == "SAY" or chatType == "YELL" then
+        if self:IsOpenWorld() then
+            return POLICY_CLASS.OPEN_WORLD_LOCAL
+        end
+        return POLICY_CLASS.INSTANCE_LOCAL
+    end
+
+    if chatType == "WHISPER" then
+        return POLICY_CLASS.WHISPER
+    end
+
+    if chatType == "BN_WHISPER" or chatType == "BNET" then
+        return POLICY_CLASS.BN_WHISPER
+    end
+
+    if chatType == "CHANNEL" then
+        if self:IsCommunityChannelEntry(entry) then
+            return POLICY_CLASS.COMMUNITY_CLUB
+        end
+        return POLICY_CLASS.GLOBAL_CHANNEL
+    end
+
+    if chatType == "CLUB" then
+        return POLICY_CLASS.COMMUNITY_CLUB
+    end
+
+    if GROUP_CHAT_TYPES[chatType] then
+        return POLICY_CLASS.GROUP
+    end
+
+    if YapperTable.Error and YapperTable.Error.PrintError then
+        YapperTable.Error:PrintError("BAD_CHAT_TYPE", tostring(chatType))
+    end
+    return nil
+end
+
+function Queue:GetPolicy(entry)
+    local policyClass = self:ClassifyEntry(entry)
+    if not policyClass then
+        return nil, nil
+    end
+    local policy = SEND_POLICIES[policyClass]
+    if not policy then
+        if YapperTable.Error and YapperTable.Error.PrintError then
+            YapperTable.Error:PrintError("UNKNOWN", "Queue: missing policy for class", tostring(policyClass))
+        end
+        return nil, nil
+    end
+    return policy, policyClass
+end
+
+function Queue:GetConfirmEventForEntry(entry)
+    local policy = self:GetPolicy(entry)
+    local ack = policy and policy.ackEvent or nil
+    if type(ack) == "function" then
+        return ack(entry)
+    end
+    if type(ack) == "table" then
+        return ack[entry and entry.type or nil]
+    end
+    if type(ack) == "string" then
+        return ack
+    end
+    return nil
+end
+
+function Queue:TrackPendingAck(entry)
+    local _, policyClass = self:GetPolicy(entry)
+    self.PendingAckEntry = entry
+    self.PendingAckText = entry and entry.text or nil
+    self.PendingAckEvent = self:GetConfirmEventForEntry(entry)
+    self.PendingAckPolicyClass = policyClass
+end
+
+function Queue:GetActivePolicySnapshot()
+    local head = self.PendingEntry or self.Entries[1]
+    local policy, policyClass = self:GetPolicy(head)
+    return {
+        active = self.Active == true,
+        chatType = head and head.type or nil,
+        policyClass = policyClass,
+        expectedAckEvent = policy and policy.ackEvent or nil,
+        pending = #self.Entries,
+        inFlight = (self.PendingEntry and 1 or 0),
+    }
+end
+
+function Queue:ClearPendingAck()
+    self.PendingAckEntry = nil
+    self.PendingAckText = nil
+    self.PendingAckEvent = nil
+    self.PendingAckPolicyClass = nil
 end
 
 -- ===========================================================================
@@ -120,171 +330,98 @@ function Queue:Enqueue(chunks, chatType, language, target)
     end
 end
 
---- Start sending.  BATCH mode must be called from a hardware event.
-function Queue:Flush()
+--- Start sending.  Requires hardware input only when policy mandates it.
+function Queue:Flush(inHardwareEvent)
     if #self.Entries == 0 then return end
     if self.Active then return end
 
     self.Active   = true
-    self.ChatType = self.Entries[1].type
-    self.Mode     = self:GetMode(self.ChatType)
+    local policy = self:GetPolicy(self.Entries[1])
+    if not policy then
+        self:Reset()
+        return
+    end
 
     self:EnableEscapeCancel()
 
-    if self.Mode == MODE_BATCH then
-        self:BatchSend()
-    elseif self.Mode == MODE_CONFIRM then
-        self:ConfirmSend()
-    else
-        self:BurstSend()
-    end
+    self:SendNext(inHardwareEvent == true)
 end
 
 -- ===========================================================================
--- BATCH mode (SAY, YELL, CHANNEL)
+-- Per-entry send pipeline (event-ack driven)
 -- ===========================================================================
 
---- Fire up to BatchSize chunks synchronously (must be in hardware-event context).
-function Queue:BatchSend()
-    local count = math.min(self.BatchSize, #self.Entries)
-    self.BatchPending = {}
-
-    for i = 1, count do
-        local entry = table.remove(self.Entries, 1)
-        self.BatchPending[#self.BatchPending + 1] = entry
-        self:RawSend(entry)
-    end
-
-    -- CHANNEL has no confirmation event; treat as delivered after a delay.
-    if not CONFIRM_EVENTS[self.ChatType] then
-        C_Timer.After(self.StallTimeout, function()
-            if self.Active and self.Mode == MODE_BATCH
-               and #self.BatchPending > 0 then
-                -- Assume they went through.
-                self.BatchPending = {}
-                if #self.Entries > 0 then
-                    self:ShowContinuePrompt()
-                else
-                    self:Complete()
-                end
-            end
-        end)
-    else
-        self:ResetStallTimer()
-    end
+function Queue:RequiresHardwareEvent(entry)
+    local policy = self:GetPolicy(entry)
+    return policy and policy.requiresHardwareEvent == true
 end
 
---- Called when a BATCH confirmation arrives.
-function Queue:OnBatchConfirm()
-    if #self.BatchPending == 0 then return end
-
-    -- Confirmations arrive in the order we sent them.
-    table.remove(self.BatchPending, 1)
-
-    if #self.BatchPending > 0 then
-        self:ResetStallTimer()
+function Queue:SendNext(inHardwareEvent)
+    if self.PendingEntry then return end
+    if #self.Entries == 0 then
+        self:Complete()
         return
     end
 
-    -- Entire batch confirmed.
-    self:CancelStallTimer()
-    self:HideContinuePrompt()
+    local entry = self.Entries[1]
+    local policy = self:GetPolicy(entry)
+    if not policy then
+        self:Reset()
+        return
+    end
 
-    if #self.Entries == 0 then
-        self:Complete()
-    else
-        -- More chunks remain — need another hardware event.
+    if policy and policy.promptEveryChunk and not inHardwareEvent then
         self:ShowContinuePrompt()
-    end
-end
-
---- Batch confirmation stalled — return unconfirmed chunks to the front.
-function Queue:OnBatchStall()
-    for i = #self.BatchPending, 1, -1 do
-        table.insert(self.Entries, 1, self.BatchPending[i])
-    end
-    self.BatchPending = {}
-
-    self:ShowContinuePrompt()
-end
-
-function Queue:OnBatchResume()
-    self:HideContinuePrompt()
-    self:BatchSend()
-end
-
--- ===========================================================================
--- CONFIRM mode (EMOTE)
--- ===========================================================================
-
-function Queue:ConfirmSend()
-    if #self.Entries == 0 then
-        self:Complete()
         return
     end
 
-    local entry = table.remove(self.Entries, 1)
-    self.Current = entry
+    if self:RequiresHardwareEvent(entry) and not inHardwareEvent then
+        self:ShowContinuePrompt()
+        return
+    end
+
+    entry = table.remove(self.Entries, 1)
+    self:BeginEntry(entry)
+end
+
+function Queue:BeginEntry(entry)
+    self.PendingEntry = entry
+    self:TrackPendingAck(entry)
     self:RawSend(entry)
-    self:ResetStallTimer()
-end
 
-function Queue:OnConfirmConfirm()
-    self.Current = nil
-    self:CancelStallTimer()
-    self:HideContinuePrompt()
-
-    -- Auto-chain next chunk (EMOTE doesn't need hardware events).
-    self:ConfirmSend()
-end
-
---- Emote confirmation stalled (throttled).
-function Queue:OnConfirmStall()
-    self:ShowContinuePrompt()
-end
-
-function Queue:OnConfirmResume()
-    self:HideContinuePrompt()
-
-    if self.Current then
-        -- Re-send the stalled chunk.
-        self:RawSend(self.Current)
+    local expectedEvent = self.PendingAckEvent
+    if expectedEvent then
         self:ResetStallTimer()
     else
-        self:ConfirmSend()
+        local policy = self:GetPolicy(entry)
+        if not policy then
+            self:Reset()
+            return
+        end
+        if policy and policy.autoUntilThrottle then
+            C_Timer.After(self.StallTimeout, function()
+                if self.Active and self.PendingEntry == entry then
+                    self:AssumeAck()
+                end
+            end)
+        else
+            self:ShowContinuePrompt()
+        end
     end
 end
 
--- ===========================================================================
--- BURST mode — PARTY, RAID, GUILD, OFFICER, INSTANCE_CHAT, etc.
--- ===========================================================================
-
---- Fire all remaining chunks with tiny inter-chunk delays.
---- No confirmation, no stall detection.
-function Queue:BurstSend()
-    if #self.Entries == 0 then
-        self:Complete()
-        return
-    end
-
-    local entry = table.remove(self.Entries, 1)
-    self:RawSend(entry)
-
-    if #self.Entries > 0 then
-        self.BurstTimer = C_Timer.NewTimer(BURST_DELAY, function()
-            self.BurstTimer = nil
-            self:BurstSend()
-        end)
-    else
-        self:Complete()
-    end
+function Queue:HandleAck()
+    self.PendingEntry = nil
+    self:ClearPendingAck()
+    self:CancelStallTimer()
+    self:HideContinuePrompt()
+    self:SendNext(false)
 end
 
-function Queue:CancelBurstTimer()
-    if self.BurstTimer then
-        self.BurstTimer:Cancel()
-        self.BurstTimer = nil
-    end
+function Queue:AssumeAck()
+    self.PendingEntry = nil
+    self:ClearPendingAck()
+    self:SendNext(false)
 end
 
 -- ===========================================================================
@@ -302,17 +439,14 @@ function Queue:RawSend(entry)
     end
 
     if not ok then
-        -- Treat a declined/failed send as a stall depending on mode to avoid
-        -- tight retry loops that trigger Blizzard "not in party" messages.
-        if self.Mode == MODE_BATCH then
-            self:OnBatchStall()
-        elseif self.Mode == MODE_CONFIRM then
-            self:OnConfirmStall()
-        else
-            -- For BURST, stop the burst and finish to avoid spamming.
-            self:CancelBurstTimer()
-            self:Complete()
+        -- Treat a declined/failed send as a stall. Re-queue the entry and
+        -- prompt rather than tight-loop retrying.
+        if self.PendingEntry then
+            table.insert(self.Entries, 1, self.PendingEntry)
+            self.PendingEntry = nil
+            self:ClearPendingAck()
         end
+        self:ShowContinuePrompt()
     end
 end
 
@@ -326,30 +460,24 @@ end
 
 function Queue:OnChatEvent(event, ...)
     if not self.Active then return end
+    if YapperTable.Utils and YapperTable.Utils.IsChatLockdown
+        and YapperTable.Utils:IsChatLockdown() then
+        return
+    end
 
     -- arg12 = sender GUID.
     local guid = select(12, ...)
     if guid ~= self.PlayerGUID then return end
 
-    -- ── BATCH mode ───────────────────────────────────────────────────
-    if self.Mode == MODE_BATCH then
-        if #self.BatchPending == 0 then return end
-        local expected = CONFIRM_EVENTS[self.BatchPending[1].type]
-        if event ~= expected then return end
-        self:OnBatchConfirm()
+    local msgText = select(1, ...)
+    if self.StrictAckMatching and self.PendingAckText
+        and msgText ~= self.PendingAckText then
         return
     end
 
-    -- ── CONFIRM mode ─────────────────────────────────────────────────
-    if self.Mode == MODE_CONFIRM then
-        if not self.Current then return end
-        local expected = CONFIRM_EVENTS[self.Current.type]
-        if event ~= expected then return end
-        self:OnConfirmConfirm()
-        return
-    end
-
-    -- BURST mode ignores chat events.
+    if not self.PendingEntry then return end
+    if event ~= self.PendingAckEvent then return end
+    self:HandleAck()
 end
 
 -- ===========================================================================
@@ -361,11 +489,7 @@ function Queue:OnOpenChat(...)
     if not self.NeedsContinue then return end
     self.NeedsContinue = false
 
-    if self.Mode == MODE_BATCH then
-        self:OnBatchResume()
-    elseif self.Mode == MODE_CONFIRM then
-        self:OnConfirmResume()
-    end
+    self:SendNext(true)
 end
 
 --- Returns true if the queue is consuming input (suppresses overlay).
@@ -399,11 +523,12 @@ end
 function Queue:OnStallTimeout()
     if not self.Active then return end
 
-    if self.Mode == MODE_BATCH then
-        self:OnBatchStall()
-    elseif self.Mode == MODE_CONFIRM then
-        self:OnConfirmStall()
-    end
+    if not self.PendingEntry then return end
+    local entry = self.PendingEntry
+    table.insert(self.Entries, 1, entry)
+    self.PendingEntry = nil
+    self:ClearPendingAck()
+    self:ShowContinuePrompt()
 end
 
 -- ===========================================================================
@@ -487,8 +612,7 @@ function Queue:ShowContinuePrompt()
     end
 
     -- Total remaining = queued + in-flight (batch pending or current).
-    local remaining = #self.Entries + #self.BatchPending
-                      + (self.Current and 1 or 0)
+    local remaining = #self.Entries + (self.PendingEntry and 1 or 0)
 
     -- Apply the user's EditBox font config so the prompt matches the overlay.
     local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
@@ -557,8 +681,7 @@ function Queue:DisableEscapeCancel()
 end
 
 function Queue:Cancel()
-    local discarded = #self.Entries + #self.BatchPending
-                      + (self.Current and 1 or 0)
+    local discarded = #self.Entries + (self.PendingEntry and 1 or 0)
     self:Reset()
 
     if discarded > 0 then

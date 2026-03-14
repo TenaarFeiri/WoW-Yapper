@@ -19,25 +19,16 @@ local SPLITTABLE = {
     EMOTE         = true,
     YELL          = true,
     PARTY         = true,
+    PARTY_LEADER  = true,
     RAID          = true,
+    RAID_LEADER   = true,
     RAID_WARNING  = true,
     INSTANCE_CHAT = true,
+    INSTANCE_CHAT_LEADER = true,
     GUILD         = true,
     OFFICER       = true,
+    CLUB          = true,
 }
-
--- Types that get truncated, not split.
-local TRUNCATE_ONLY = {
-    WHISPER    = true,
-    BN_WHISPER = true,
-    CHANNEL    = true,
-}
-Chat.TRUNCATE_ONLY = TRUNCATE_ONLY
-
---- Return true if a given chatType should be truncated instead of split.
-function Chat:IsTruncateOnly(chatType)
-    return TRUNCATE_ONLY[chatType] == true
-end
 
 -- ---------------------------------------------------------------------------
 -- Init
@@ -118,6 +109,11 @@ function Chat:OnSend(text, chatType, language, target)
     local cfg    = YapperTable.Config and YapperTable.Config.Chat or {}
     local limit  = cfg.CHARACTER_LIMIT or 255
 
+    if not SPLITTABLE[chatType] then
+        YapperTable.Error:PrintError("BAD_CHAT_TYPE", tostring(chatType))
+        return
+    end
+
     -- Don't interleave with an active Yapper queue (not relevant when
     -- GopherBridge is active — Gopher manages its own queue).
     local bridge = YapperTable.GopherBridge
@@ -132,26 +128,9 @@ function Chat:OnSend(text, chatType, language, target)
         YapperTable.History:AddChatHistory(text, chatType, target)
     end
 
-    -- truncate non-splittables
-    if self:IsTruncateOnly(chatType) then
-        if #text > limit then
-            text = text:sub(1, limit)
-        end
-        self:DirectSend(text, chatType, language, target)
-        return
-    end
-
     -- Short — send directly.
     if #text <= limit then
         self:DirectSend(text, chatType, language, target)
-        return
-    end
-
-    -- Unsupported type — truncate with warning.
-    if not SPLITTABLE[chatType] then
-        YapperTable.Error:PrintError("BAD_STRING",
-            "Unsupported chat type for splitting: " .. tostring(chatType))
-        self:DirectSend(text:sub(1, limit), chatType, language, target)
         return
     end
 
@@ -208,7 +187,7 @@ function Chat:OnSend(text, chatType, language, target)
     end
 
     Q:Enqueue(chunks, chatType, language, target)
-    Q:Flush()
+    Q:Flush(true)
 end
 
 --- Send a single message through Router (or raw fallback).

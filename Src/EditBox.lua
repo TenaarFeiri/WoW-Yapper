@@ -109,10 +109,13 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
     PARTY = "PARTY",
     PARTY_LEADER = "PARTY",
     WHISPER = "WHISPER",
+    BN_WHISPER = "BN_WHISPER",
     INSTANCE_CHAT = "INSTANCE_CHAT",
     RAID = "RAID",
     RAID_LEADER = "RAID",
     RAID_WARNING = "RAID_WARNING",
+    CHANNEL = "CHANNEL",
+    CLUB = "CLUB",
 }
 ------------------------------------------------
 --- Bypass Yapper and go straight to Blizzard's editbox.
@@ -130,15 +133,15 @@ function EditBox:OpenBlizzardChat()
     -- Defer the actual opening to the next frame so our Show-hook
     -- observes `UserBypassingYapper` and lets Blizzard's editbox win.
     C_Timer.After(0, function()
-        -- Try direct show + focus if available.
-        if eb and eb.Show then
-            if eb.Show then eb:Show() end
-            if eb.SetFocus then eb:SetFocus() end
+        -- Prefer using Blizzard's ChatFrame_OpenChat so Blizzard/ChatFrameUtil
+        -- callbacks (focus gained, etc.) run and other addons (e.g. Chattery)
+        -- can observe the editbox properly.
+        if ChatFrame_OpenChat then
+            pcall(ChatFrame_OpenChat, "", eb)
+            if eb and eb.SetFocus then eb:SetFocus() end
         else
-            -- Fallback to ChatFrame_OpenChat which instructs Blizzard to open chat.
-            if ChatFrame_OpenChat then
-                pcall(ChatFrame_OpenChat, "", eb)
-            end
+            if eb and eb.Show then eb:Show() end
+            if eb and eb.SetFocus then eb:SetFocus() end
         end
     end)
 end
@@ -517,7 +520,7 @@ end
 -- Build the label string and colour for a given chat mode.
 local function BuildLabelText(chatType, target, channelName)
     local label
-    if chatType == "WHISPER" and target then
+    if (chatType == "WHISPER" or chatType == "BN_WHISPER") and target then
         label = "To " .. target .. ":"
     elseif chatType == "EMOTE" then
         -- Show the player's character name for emotes.
@@ -786,24 +789,6 @@ function EditBox:SetupOverlayScripts()
 
         local text = box:GetText() or ""
 
-        -- enforce limit for whispers/BN whispers immediately as user types or when
-        -- chat type was changed earlier.  This avoids situations where the edit
-        -- box contains more characters than allowed and the Blizzard input
-        -- handler stops responding (see bug report).
-        local ct = self.ChatType
-        local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
-        if (truncateOnly and truncateOnly[ct]) or (ct == "WHISPER" or ct == "BN_WHISPER") then
-            local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-            local limit = cfg.CHARACTER_LIMIT or 255
-            if #text > limit then
-                updatingText = true
-                box:SetText(text:sub(1, limit))
-                updatingText = false
-                box:SetCursorPosition(limit)
-                text = box:GetText() or ""
-            end
-        end
-
         if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil
@@ -822,21 +807,6 @@ function EditBox:SetupOverlayScripts()
                 updatingText     = true
                 box:SetText(rest or "")
                 updatingText = false
-                -- trim the remainder now that we've switched to a spam‑restricted type
-                do
-                    local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
-                    if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
-                        local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-                        local limit = cfg.CHARACTER_LIMIT or 255
-                        local cur = box:GetText() or ""
-                        if #cur > limit then
-                            updatingText = true
-                            box:SetText(cur:sub(1, limit))
-                            updatingText = false
-                            box:SetCursorPosition(limit)
-                        end
-                    end
-                end
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest or ""))
             end
@@ -884,21 +854,6 @@ function EditBox:SetupOverlayScripts()
                 updatingText  = true
                 box:SetText(remainder or "")
                 updatingText = false
-                -- trim the remainder when the active chat type is one we cannot split
-                do
-                    local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
-                    if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
-                        local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-                        local limit = cfg.CHARACTER_LIMIT or 255
-                        local cur = box:GetText() or ""
-                        if #cur > limit then
-                            updatingText = true
-                            box:SetText(cur:sub(1, limit))
-                            updatingText = false
-                            box:SetCursorPosition(limit)
-                        end
-                    end
-                end
                 self:RefreshLabel()
                 box:SetCursorPosition(#(remainder or ""))
             end
@@ -917,21 +872,6 @@ function EditBox:SetupOverlayScripts()
                 updatingText  = true
                 box:SetText(rest2 or "")
                 updatingText = false
-                -- also trim here in case remainder was too long
-                do
-                    local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
-                    if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
-                        local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-                        local limit = cfg.CHARACTER_LIMIT or 255
-                        local cur = box:GetText() or ""
-                        if #cur > limit then
-                            updatingText = true
-                            box:SetText(cur:sub(1, limit))
-                            updatingText = false
-                            box:SetCursorPosition(limit)
-                        end
-                    end
-                end
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest2 or ""))
             end
@@ -1321,8 +1261,9 @@ function EditBox:Show(origEditBox)
 
     self._attrCache[origEditBox] = {}
 
-    -- Did Blizzard open with a specific target?  (BN_WHISPER excluded.)
-    local blizzHasTarget = (blizzType == "WHISPER" and blizzTell and blizzTell ~= "")
+    -- Did Blizzard open with a specific target?
+    local blizzHasTarget = ((blizzType == "WHISPER" or blizzType == "BN_WHISPER")
+            and blizzTell and blizzTell ~= "")
         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
     -- Priority for picking the channel on open:
@@ -1660,20 +1601,6 @@ end
 -- ---------------------------------------------------------------------------
 
 function EditBox:RefreshLabel()
--- trim any existing contents when in a restricted chat type
-    if self.OverlayEdit then
-        local truncateOnly = YapperTable.Chat and YapperTable.Chat.TRUNCATE_ONLY
-        if (truncateOnly and truncateOnly[self.ChatType]) or (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") then
-            local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-            local limit = cfg.CHARACTER_LIMIT or 255
-            local txt = self.OverlayEdit:GetText() or ""
-            if #txt > limit then
-                self.OverlayEdit:SetText(txt:sub(1, limit))
-                self.OverlayEdit:SetCursorPosition(limit)
-            end
-        end
-    end
-
     local label, r, g, b = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
     local cfg = YapperTable.Config.EditBox or {}
     local resolvedR, resolvedG, resolvedB = r, g, b
@@ -1686,6 +1613,13 @@ function EditBox:RefreshLabel()
     end
 
     local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
+    if self.ChatType == "CHANNEL" and self.Target and YapperTable.Router
+        and YapperTable.Router.DetectCommunityChannel then
+        local isClub = YapperTable.Router:DetectCommunityChannel(self.Target)
+        if isClub == true then
+            currentKey = "CLUB"
+        end
+    end
     local masterKey = cfg.ChannelColorMaster
     local overrides = cfg.ChannelColorOverrides
     local channelColors = cfg.ChannelTextColors
@@ -2067,27 +2001,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             local tt = c.tellTarget
             local ch = c.channelTarget
 
-            -- BNet arrived late — hand back to Blizzard.
-            if ct == "BN_WHISPER" then
-                if self._ignoreNextBnetLiveUpdateFor == eb then
-                    self._ignoreNextBnetLiveUpdateFor = nil
-                    self._ignoreNextBnetLiveUpdateOpenCount = 0
-                    return
-                end
-                if self._preferStickyAfterBnet
-                    and self.ChatType
-                    and self.ChatType ~= "BN_WHISPER" then
-                    self._preferStickyAfterBnet = false
-                    return
-                end
-                self:Hide()
-                if eb and eb.Show then
-                    eb:Show()
-                end
-                return
-            end
-
-            if ct == "WHISPER" and tt and tt ~= "" then
+            if (ct == "WHISPER" or ct == "BN_WHISPER") and tt and tt ~= "" then
                 self.ChatType = ct
                 self.Target   = tt
                 self:RefreshLabel()
@@ -2193,44 +2107,15 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
-        -- BNet whispers — let Blizzard handle natively.  Save the
-        -- editbox ref so SetAttribute can reclaim it on type-switch.
-        local c = self._attrCache[eb] or {}
-        local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
-        if ct == "BN_WHISPER" then
-            if self._preferStickyAfterBnet
-                and self.LastUsed
-                and self.LastUsed.chatType
-                and self.LastUsed.chatType ~= "BN_WHISPER" then
-                self._preferStickyAfterBnet = false
-                self._ignoreNextBnetLiveUpdateFor = eb
-                self._ignoreNextBnetLiveUpdateOpenCount = 0
-
-                C_Timer.After(0, function()
-                    if eb and eb.Hide and eb:IsShown() then
-                        eb:Hide()
-                    end
-                end)
-
-                -- Respect WIM ownership before forcing an overlay show.
-                if not IsWIMFocusActive() then
-                    self:Show(eb)
-                end
-                return
-            end
-            self._bnetEditBox = eb
-            return
-        end
-
         -- Seed LastUsed from Blizzard's editbox so the lockdown fallback
         -- opens on the correct channel. Only seeds when LastUsed is empty —
         -- once the user has made an explicit choice (send or Tab-cycle) we
         -- never overwrite it from here.
         local c = self._attrCache[eb] or {}
         local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
-        if ct and ct ~= "BN_WHISPER" and not self.LastUsed.chatType then
+        if ct and not self.LastUsed.chatType then
             local lastTarget = nil
-            if ct == "WHISPER" then
+            if ct == "WHISPER" or ct == "BN_WHISPER" then
                 lastTarget = c.tellTarget or (eb.GetAttribute and eb:GetAttribute("tellTarget"))
             elseif ct == "CHANNEL" then
                 lastTarget = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))

@@ -82,18 +82,6 @@ local DEFAULTS = {
         -- Always synced to DELINEATOR.
         PREFIX            = ">>",
 
-        -- Minimum time between posts.
-        MIN_POST_INTERVAL = 1.0,
-
-        -- How long to wait before sending the next post.
-        POST_TIMEOUT      = 2,
-
-        -- How many posts to send at once.
-        BATCH_SIZE        = 3,
-
-        -- How long to wait between batches.
-        BATCH_THROTTLE    = 2.0,
-
         -- How long to wait before giving up.
         STALL_TIMEOUT     = 1.0,
     },
@@ -127,6 +115,9 @@ local DEFAULTS = {
             YELL = false,
             PARTY = false,
             WHISPER = false,
+            BN_WHISPER = false,
+            CHANNEL = false,
+            CLUB = false,
             INSTANCE_CHAT = false,
             RAID = false,
             RAID_WARNING = false,
@@ -137,6 +128,9 @@ local DEFAULTS = {
             YELL = { r = 1.00, g = 0.25, b = 0.25, a = 1 },
             PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
             WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
+            BN_WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
+            CHANNEL = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
+            CLUB = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
             INSTANCE_CHAT = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
             RAID = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
             RAID_WARNING = { r = 1.00, g = 0.28, b = 0.03, a = 1 },

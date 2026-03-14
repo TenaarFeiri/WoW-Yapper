@@ -35,7 +35,7 @@ local CODE = {
     YAPPER_MISSING_COMPATLIB       = "CompatLib not found; compatibility patches disabled.",
 
     -- Chat
-    -- nada
+    BAD_CHAT_TYPE                  = "Unsupported chat type: %s",
 
     -- Generic
     UNKNOWN                        = "Unknown error. String: %s || Detail: %s",
