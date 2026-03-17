@@ -151,6 +151,10 @@ local DEFAULTS = {
         -- is off, unless StickyGroupChannel is also disabled.
         StickyChannel         = true,
         StickyGroupChannel    = true,
+
+        -- When true, ESC will store the current text as a recoverable draft.
+        -- When false, ESC adds to text history but does not save drafts.
+        RecoverOnEscape       = false,
     },
 
     Spellcheck = {

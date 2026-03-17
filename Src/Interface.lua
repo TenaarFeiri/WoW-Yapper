@@ -81,6 +81,8 @@ local SETTING_TOOLTIPS = {
     "When enabled, the overlay remembers the last channel you used and reopens with it selected.",
     ["EditBox.StickyGroupChannel"] =
     "When 'Remember last channel' is off, group channels (Party, Instance, Raid, Raid Warning) still remain sticky. Uncheck to disable that too.",
+    ["EditBox.RecoverOnEscape"] =
+    "When enabled, ESC keeps your text as a draft. When disabled, ESC saves to history but discards drafts.",
     ["EditBox.MinHeight"] =
     "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
     ["EditBox.UseBlizzardSkinProxy"] =
@@ -129,6 +131,7 @@ local FRIENDLY_LABELS = {
     ["EditBox.AutoFitLabel"] = "Auto-fit long labels",
     ["EditBox.StickyChannel"] = "Remember last channel",
     ["EditBox.StickyGroupChannel"] = "Keep group channels sticky",
+    ["EditBox.RecoverOnEscape"] = "Recover text after ESC",
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
     ["EditBox.BlizzardSkinProxyPad"] = "Skin proxy padding",
@@ -156,6 +159,7 @@ local CATEGORIES = {
             -- Sticky channel behaviour
             "EditBox.StickyChannel",
             "EditBox.StickyGroupChannel",
+            "EditBox.RecoverOnEscape",
             -- Label fitting
             "EditBox.AutoFitLabel",
             -- Blizzard skin proxy

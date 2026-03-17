@@ -117,6 +117,49 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
     CHANNEL = "CHANNEL",
     CLUB = "CLUB",
 }
+
+local function IsWhisperSlashPrefill(text)
+    if type(text) ~= "string" then return false end
+    local trimmed = text:match("^%s*(.-)%s*$") or ""
+    if trimmed == "" then return false end
+    local cmd = trimmed:match("^/([%w_]+)%s+")
+    if not cmd then return false end
+    cmd = strlower(cmd)
+    return cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" or cmd == "cw"
+end
+
+local function ParseWhisperSlash(text)
+    if type(text) ~= "string" then return nil end
+    local cmd, rest = text:match("^%s*/([%w_]+)%s+(.*)")
+    if not cmd then return nil end
+    cmd = strlower(cmd)
+    if cmd ~= "w" and cmd ~= "whisper" and cmd ~= "tell" and cmd ~= "t" and cmd ~= "cw" then
+        return nil
+    end
+    local target, remainder = (rest or ""):match("^(%S+)%s*(.*)")
+    if not target or target == "" then return nil end
+    return target, remainder or ""
+end
+
+local function GetLastTellTargetInfo()
+    local lastTell = nil
+    if ChatEdit_GetLastTellTarget then
+        lastTell = ChatEdit_GetLastTellTarget()
+    end
+    if not lastTell or lastTell == "" then
+        return nil, nil
+    end
+
+    local lastType = nil
+    if ChatEdit_GetLastTellTargetType then
+        lastType = ChatEdit_GetLastTellTargetType()
+    end
+    if lastType ~= "BN_WHISPER" then
+        lastType = "WHISPER"
+    end
+
+    return lastType, lastTell
+end
 ------------------------------------------------
 --- Bypass Yapper and go straight to Blizzard's editbox.
 ------------------------------------------------
@@ -853,7 +896,7 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" then
+        if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" or cmd == "cw" then
             local target, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
             if target then
                 self.ChatType = "WHISPER"
@@ -869,12 +912,9 @@ function EditBox:SetupOverlayScripts()
         end
 
         if cmd == "r" or cmd == "reply" then
-            local lastTell
-            if ChatEdit_GetLastTellTarget then
-                lastTell = ChatEdit_GetLastTellTarget()
-            end
+            local lastType, lastTell = GetLastTellTargetInfo()
             if lastTell and lastTell ~= "" then
-                self.ChatType = "WHISPER"
+                self.ChatType = lastType
                 self.Target   = lastTell
                 self.Language = nil
                 updatingText  = true
@@ -927,7 +967,7 @@ function EditBox:SetupOverlayScripts()
                 enterCmd = strlower(enterCmd)
 
                 if enterCmd == "w" or enterCmd == "whisper"
-                    or enterCmd == "tell" or enterCmd == "t" then
+                    or enterCmd == "tell" or enterCmd == "t" or enterCmd == "cw" then
                     local target = strmatch(enterRest or "", "^(%S+)")
                     if target then
                         self.ChatType = "WHISPER"
@@ -948,12 +988,9 @@ function EditBox:SetupOverlayScripts()
                 end
 
                 if enterCmd == "r" or enterCmd == "reply" then
-                    local lastTell
-                    if ChatEdit_GetLastTellTarget then
-                        lastTell = ChatEdit_GetLastTellTarget()
-                    end
+                    local lastType, lastTell = GetLastTellTargetInfo()
                     if lastTell and lastTell ~= "" then
-                        self.ChatType = "WHISPER"
+                        self.ChatType = lastType
                         self.Target   = lastTell
                         self.Language = nil
                         updatingText  = true
@@ -1064,15 +1101,26 @@ function EditBox:SetupOverlayScripts()
 
     edit:SetScript("OnEscapePressed", function(box)
         local text = box:GetText() or ""
+        local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
+        local recoverOnEscape = (cfg.RecoverOnEscape == true)
         if text == "" then
             self._closedClean = true
             if YapperTable.History then
                 YapperTable.History:ClearDraft()
             end
         else
-            -- User bailed with text in the box
-            -- Draft is saved in OnHide below.
-            self._closedClean = false
+            if recoverOnEscape then
+                -- User bailed with text in the box
+                -- Draft is saved in OnHide below.
+                self._closedClean = false
+            else
+                -- Save to history, but do not keep a draft.
+                if YapperTable.History then
+                    YapperTable.History:AddChatHistory(text, self.ChatType, self.Target)
+                    YapperTable.History:MarkDirty(false)
+                end
+                self._closedClean = true
+            end
         end
         box:SetText("")
         self:Hide()
@@ -1442,9 +1490,27 @@ function EditBox:Show(origEditBox)
     self._pendingOpenChatText = nil
 
     if not draftText and pending and pending ~= "" then
-        draftText = pending
+        if not (blizzHasTarget and IsWhisperSlashPrefill(pending)) then
+            local preTarget, preRemainder = ParseWhisperSlash(pending)
+            if preTarget and not blizzHasTarget then
+                self.ChatType = "WHISPER"
+                self.Target = preTarget
+                draftText = preRemainder
+            else
+                draftText = pending
+            end
+        end
     elseif not draftText and blizzText and blizzText ~= "" then
-        draftText = blizzText
+        if not (blizzHasTarget and IsWhisperSlashPrefill(blizzText)) then
+            local preTarget, preRemainder = ParseWhisperSlash(blizzText)
+            if preTarget and not blizzHasTarget then
+                self.ChatType = "WHISPER"
+                self.Target = preTarget
+                draftText = preRemainder
+            else
+                draftText = blizzText
+            end
+        end
     end
 
     self.OverlayEdit:SetText(draftText or "")
