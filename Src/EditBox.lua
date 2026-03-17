@@ -125,7 +125,8 @@ local function IsWhisperSlashPrefill(text)
     local cmd = trimmed:match("^/([%w_]+)%s+")
     if not cmd then return false end
     cmd = strlower(cmd)
-    return cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" or cmd == "cw"
+    return cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t"
+        or cmd == "cw" or cmd == "send" or cmd == "charwhisper"
 end
 
 local function ParseWhisperSlash(text)
@@ -133,7 +134,8 @@ local function ParseWhisperSlash(text)
     local cmd, rest = text:match("^%s*/([%w_]+)%s+(.*)")
     if not cmd then return nil end
     cmd = strlower(cmd)
-    if cmd ~= "w" and cmd ~= "whisper" and cmd ~= "tell" and cmd ~= "t" and cmd ~= "cw" then
+    if cmd ~= "w" and cmd ~= "whisper" and cmd ~= "tell" and cmd ~= "t"
+        and cmd ~= "cw" and cmd ~= "send" and cmd ~= "charwhisper" then
         return nil
     end
     local target, remainder = (rest or ""):match("^(%S+)%s*(.*)")
@@ -155,7 +157,18 @@ local function GetLastTellTargetInfo()
         lastType = ChatEdit_GetLastTellTargetType()
     end
     if lastType ~= "BN_WHISPER" then
-        lastType = "WHISPER"
+        -- If the last tell is actually a BNet friend, switch to BN_WHISPER.
+        if YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetTarget then
+            local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTell)
+            if bnetAccountID or presenceID then
+                lastType = "BN_WHISPER"
+                lastTell = bnetAccountID or presenceID
+            else
+                lastType = "WHISPER"
+            end
+        else
+            lastType = "WHISPER"
+        end
     end
 
     return lastType, lastTell
@@ -563,7 +576,13 @@ end
 -- Build the label string and colour for a given chat mode.
 local function BuildLabelText(chatType, target, channelName)
     local label
-    if (chatType == "WHISPER" or chatType == "BN_WHISPER") and target then
+    if chatType == "BN_WHISPER" and target then
+        local display = target
+        if YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetDisplay then
+            display = YapperTable.Router:ResolveBnetDisplay(target) or target
+        end
+        label = "To " .. display .. ":"
+    elseif chatType == "WHISPER" and target then
         label = "To " .. target .. ":"
     elseif chatType == "EMOTE" then
         -- Show the player's character name for emotes.
@@ -896,7 +915,8 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t" or cmd == "cw" then
+        if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t"
+            or cmd == "cw" or cmd == "send" or cmd == "charwhisper" then
             local target, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
             if target then
                 self.ChatType = "WHISPER"
@@ -967,7 +987,8 @@ function EditBox:SetupOverlayScripts()
                 enterCmd = strlower(enterCmd)
 
                 if enterCmd == "w" or enterCmd == "whisper"
-                    or enterCmd == "tell" or enterCmd == "t" or enterCmd == "cw" then
+                    or enterCmd == "tell" or enterCmd == "t"
+                    or enterCmd == "cw" or enterCmd == "send" or enterCmd == "charwhisper" then
                     local target = strmatch(enterRest or "", "^(%S+)")
                     if target then
                         self.ChatType = "WHISPER"
