@@ -66,6 +66,7 @@ local SETTING_TOOLTIPS = {
     ["Spellcheck.Locale"] = "Select the dictionary locale to use for spellchecking.",
     ["Spellcheck.UnderlineStyle"] = "Choose between straight underline or highlight style.",
     ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
+    ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
@@ -116,6 +117,7 @@ local FRIENDLY_LABELS = {
     ["Spellcheck.UnderlineStyle"] = "Underline style",
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
+    ["Spellcheck.MaxCandidates"] = "Max word candidates checked",
     ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
 
@@ -156,6 +158,9 @@ local CATEGORIES = {
             "Spellcheck.Enabled",
             "Spellcheck.Locale",
             "Spellcheck.UnderlineStyle",
+            "Spellcheck.MaxCandidates",
+            "Spellcheck.ReshuffleAttempts",
+            "Spellcheck.MaxWrongLetters",
             -- Sticky channel behaviour
             "EditBox.StickyChannel",
             "EditBox.StickyGroupChannel",
@@ -207,7 +212,7 @@ local CATEGORIES = {
             "Spellcheck.MaxSuggestions",
         },
         -- Bridges are appended by custom logic.
-        custom = { "bridges" },
+        custom = { "bridges", "spellcheckUserDict" },
     },
     {
         id    = "diagnostics",
@@ -2611,7 +2616,11 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
                 if spell and spell.EnsureLocale then
                     if not spell:EnsureLocale(locale) then
                         if spell.Notify then
-                            spell:Notify("Yapper: install the " .. (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
+                            if spell.HasLocaleAddon and spell:HasLocaleAddon(locale) then
+                                spell:Notify("Yapper: failed to load " .. (spell:GetLocaleAddon(locale) or "") .. " for " .. locale .. ".")
+                            else
+                                spell:Notify("Yapper: install the " .. (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
+                            end
                         end
                         return
                     end
@@ -2673,6 +2682,162 @@ function Interface:CreateSpellcheckUnderlineDropdown(parent, label, path, cursor
     self:AddControl(dd)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
     return dd
+end
+
+function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
+    local spell = YapperTable and YapperTable.Spellcheck
+    if not spell then return end
+
+    cursor:Pad(10)
+    self:CreateLabel(
+        parent,
+        "Spellcheck User Dictionary",
+        LAYOUT.WINDOW_PADDING,
+        cursor:Y(),
+        520,
+        "Edit added and ignored words per dictionary locale.",
+        "GameFontNormal"
+    )
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
+
+    local y = cursor:Y()
+    self:CreateLabel(parent, "Dictionary to edit", LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH)
+
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
+    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
+    UIDropDownMenu_SetWidth(dd, 180)
+
+    local current = self._spellcheckUserDictLocale
+    if not current or current == "" then
+        current = (spell.GetLocale and spell:GetLocale()) or (GetLocale and GetLocale()) or "enUS"
+    end
+    self._spellcheckUserDictLocale = current
+    UIDropDownMenu_SetText(dd, tostring(current))
+
+    local function TextToList(text)
+        local out = {}
+        for line in (text or ""):gmatch("[^\r\n]+") do
+            local word = TrimString(line)
+            if word ~= "" then
+                out[#out + 1] = word
+            end
+        end
+        return out
+    end
+
+    local function ListToText(list)
+        if not list or #list == 0 then return "" end
+        return table.concat(list, "\n")
+    end
+
+    local function RefreshEditors()
+        local locale = self._spellcheckUserDictLocale
+        local dict = spell.GetUserDict and spell:GetUserDict(locale) or nil
+        local added = dict and dict.AddedWords or {}
+        local ignored = dict and dict.IgnoredWords or {}
+        if self._spellcheckUserDictAddedEdit then
+            self._spellcheckUserDictAddedEdit:SetText(ListToText(added))
+        end
+        if self._spellcheckUserDictIgnoredEdit then
+            self._spellcheckUserDictIgnoredEdit:SetText(ListToText(ignored))
+        end
+    end
+
+    UIDropDownMenu_Initialize(dd, function(frame, level)
+        local locales = {}
+        if spell.GetKnownLocales then
+            locales = spell:GetKnownLocales()
+        elseif spell.GetAvailableLocales then
+            locales = spell:GetAvailableLocales()
+        end
+        if #locales == 0 then
+            locales = { current }
+        end
+
+        for _, locale in ipairs(locales) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = tostring(locale)
+            info.checked = (locale == current)
+            info.func = function()
+                current = locale
+                self._spellcheckUserDictLocale = locale
+                UIDropDownMenu_SetText(frame, locale)
+                RefreshEditors()
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    self:AddControl(dd)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
+
+    local function CreateMultiLineBox(labelText)
+        local labelY = cursor:Y()
+        self:CreateLabel(parent, labelText, LAYOUT.LABEL_X, labelY - 2, LAYOUT.LABEL_WIDTH)
+
+        local sf = self:AcquireWidget("SpellcheckUserDictScroll", parent, "InputScrollFrameTemplate", "ScrollFrame")
+        sf:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.CONTROL_X, labelY)
+        sf:SetSize(300, 110)
+        sf:SetClipsChildren(true)
+        local edit = sf.EditBox
+        if edit then
+            edit:SetAutoFocus(false)
+            edit:SetMultiLine(true)
+            edit:SetMaxLetters(0)
+            edit:SetFontObject(GameFontHighlightSmall)
+            edit:SetWidth(sf:GetWidth() - 20)
+            edit:SetScript("OnEscapePressed", function(selfFrame)
+                selfFrame:ClearFocus()
+            end)
+        end
+
+        self:AddControl(sf)
+        if edit then
+            edit.widgetType = "SpellcheckUserDictEdit"
+            self:AddControl(edit)
+        end
+        cursor:Advance(120)
+        return edit
+    end
+
+    local addedEdit = CreateMultiLineBox("Added words (one per line)")
+    self._spellcheckUserDictAddedEdit = addedEdit
+    local ignoredEdit = CreateMultiLineBox("Ignored words (one per line)")
+    self._spellcheckUserDictIgnoredEdit = ignoredEdit
+
+    local function commit(editBox, kind)
+        local locale = self._spellcheckUserDictLocale
+        local dict = spell.GetUserDict and spell:GetUserDict(locale) or nil
+        if not dict then return end
+        local list = TextToList(editBox and editBox:GetText() or "")
+        if kind == "added" then
+            dict.AddedWords = list
+        else
+            dict.IgnoredWords = list
+        end
+        if spell.TouchUserDict then
+            spell:TouchUserDict(dict)
+        end
+        if spell.ApplyUserAddedWords then
+            spell:ApplyUserAddedWords(locale)
+        end
+        if spell.ScheduleRefresh then
+            spell:ScheduleRefresh()
+        end
+    end
+
+    if addedEdit then
+        addedEdit:SetScript("OnEditFocusLost", function(selfFrame)
+            commit(selfFrame, "added")
+        end)
+    end
+    if ignoredEdit then
+        ignoredEdit:SetScript("OnEditFocusLost", function(selfFrame)
+            commit(selfFrame, "ignored")
+        end)
+    end
+
+    RefreshEditors()
 end
 
 function Interface:CreateThemeDropdown(parent, label, path, cursor)
@@ -2926,6 +3091,11 @@ function Interface:BuildConfigUI()
             { "System", "EnableTypingTrackerBridge" },
             cursor
         )
+    end
+
+    -- Spellcheck user dictionary editor.
+    if customSet["spellcheckUserDict"] then
+        self:CreateSpellcheckUserDictEditor(frame.ContentFrame, cursor)
     end
 
     -- Finish layout and size the content child so the scroll range is correct.

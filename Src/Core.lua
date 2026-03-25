@@ -161,8 +161,12 @@ local DEFAULTS = {
         Enabled        = false,
         Locale         = "enUS",
         MaxSuggestions = 4,
+        MaxCandidates  = 800,
+        ReshuffleAttempts = 3,
+        MaxWrongLetters = 4,
         MinWordLength  = 2,
         UnderlineStyle = "line",
+        Dict           = {},
     },
 }
 

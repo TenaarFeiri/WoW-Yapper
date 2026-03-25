@@ -109,10 +109,8 @@ function Chat:OnSend(text, chatType, language, target)
     local cfg    = YapperTable.Config and YapperTable.Config.Chat or {}
     local limit  = cfg.CHARACTER_LIMIT or 255
 
-    if not SPLITTABLE[chatType] then
-        YapperTable.Error:PrintError("BAD_CHAT_TYPE", tostring(chatType))
-        return
-    end
+    -- Non-splittable types (e.g. WHISPER/BN_WHISPER) are allowed; for long
+    -- whispers we truncate to the character limit rather than queueing.
 
     -- Don't interleave with an active Yapper queue (not relevant when
     -- GopherBridge is active — Gopher manages its own queue).
@@ -131,6 +129,18 @@ function Chat:OnSend(text, chatType, language, target)
     -- Short — send directly.
     if #text <= limit then
         self:DirectSend(text, chatType, language, target)
+        return
+    end
+
+    -- If message is long but the chat type is not splittable, handle
+    -- according to type: whispers are truncated, unknown types are an error.
+    if not SPLITTABLE[chatType] then
+        if chatType == "WHISPER" or chatType == "BN_WHISPER" then
+            -- Truncate whisper to limit and send.
+            self:DirectSend(text:sub(1, limit), chatType, language, target)
+            return
+        end
+        YapperTable.Error:PrintError("BAD_CHAT_TYPE", tostring(chatType))
         return
     end
 

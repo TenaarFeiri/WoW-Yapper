@@ -40,6 +40,68 @@ EditBox.PreShowCheck           = nil
 EditBox._attrCache             = {}
 EditBox._lockdownTicker        = nil
 EditBox._lockdownHandedOff     = false
+-- Reply queue for recent whisper targets (most-recent at index 1)
+EditBox.ReplyQueue             = {}
+local REPLY_QUEUE_MAX          = 20
+
+-- Reply-queue helpers
+-- Reply-queue helpers
+
+function EditBox:AddReplyTarget(name, kind)
+    if not name or name == "" then return end
+    -- Is it a secret? Then don't add it.
+    if YapperTable and YapperTable.Utils and type(YapperTable.Utils.IsSecret) == "function" then
+        if YapperTable.Utils:IsSecret(name) then return end
+    end
+    kind = kind or "WHISPER"
+    -- Normalize short kinds
+    if kind == "BN" then kind = "BN_WHISPER" end
+
+    -- Remove existing matching entry (same name & kind) to avoid duplicates
+    for i = #self.ReplyQueue, 1, -1 do
+        local e = self.ReplyQueue[i]
+        if e and e.name == name and e.kind == kind then
+            table.remove(self.ReplyQueue, i)
+            break
+        end
+    end
+
+    -- Insert at front
+    table.insert(self.ReplyQueue, 1, { name = name, kind = kind })
+
+    -- Trim tail
+    while #self.ReplyQueue > REPLY_QUEUE_MAX do
+        table.remove(self.ReplyQueue)
+    end
+end
+
+function EditBox:RemoveReplyTarget(name, kind)
+    if not name or name == "" then return end
+    for i = #self.ReplyQueue, 1, -1 do
+        local e = self.ReplyQueue[i]
+        if e and e.name == name and (not kind or e.kind == kind) then
+            table.remove(self.ReplyQueue, i)
+        end
+    end
+end
+
+-- Get next reply target given current name and direction.
+-- Behaviour: if current equals queue front, advance by direction (wrap).
+-- Otherwise select front. Returns name, kind or nil.
+function EditBox:NextReplyTarget(currentName, direction)
+    if not self.ReplyQueue or #self.ReplyQueue == 0 then return nil end
+    direction = direction or 1
+    local q = self.ReplyQueue
+    if currentName and q[1] and q[1].name == currentName then
+        -- advance from front
+        local idx = 1 + (direction or 1)
+        if idx < 1 then idx = #q end
+        if idx > #q then idx = 1 end
+        return q[idx].name, q[idx].kind
+    end
+    -- Default: pick most recent
+    return q[1].name, q[1].kind
+end
 
 -- Slash command → chatType.
 local SLASH_MAP                = {
@@ -855,6 +917,29 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
             YapperTable.Spellcheck:OnTextChanged(box, isUserInput)
         end
+        -- If a suggestion was just applied via numeric hotkey, the engine may
+        -- also inject the numeric character into the editbox. Remove it here
+        -- before further processing.
+        if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
+            local sc = YapperTable.Spellcheck
+            local textNow = box:GetText() or ""
+            if sc._expectedText and sc._suppressChar and textNow == (sc._expectedText .. sc._suppressChar) then
+                updatingText = true
+                box:SetText(sc._expectedText)
+                if sc._expectedCursor then box:SetCursorPosition(sc._expectedCursor) end
+                updatingText = false
+                sc._suppressNextChar = nil
+                sc._suppressChar = nil
+                sc._expectedText = nil
+                sc._expectedCursor = nil
+                return
+            else
+                sc._suppressNextChar = nil
+                sc._suppressChar = nil
+                sc._expectedText = nil
+                sc._expectedCursor = nil
+            end
+        end
         if not isUserInput then return end
 
         local text = box:GetText() or ""
@@ -1097,12 +1182,34 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
+        -- If a suggestion is open or was just applied, accept the
+        -- suggestion instead of sending. Spellcheck may apply the
+        -- suggestion in OnKeyDown, which hides the frame immediately;
+        -- we therefore also check the transient _justAppliedSuggestion
+        -- flag as a final safety guard.
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function" then
+            local sc = YapperTable.Spellcheck
+            if sc:IsSuggestionOpen() or sc._justAppliedSuggestion then
+                local idx = sc.ActiveIndex or 1
+                if type(sc.ApplySuggestion) == "function" then
+                    sc:ApplySuggestion(idx)
+                end
+                sc._justAppliedSuggestion = nil
+                return
+            end
+        end
+
         if self.OnSend then
             self.OnSend(trimmed, self.ChatType or "SAY", self.Language, self.Target)
         else
             if C_ChatInfo and C_ChatInfo.SendChatMessage then
                 C_ChatInfo.SendChatMessage(trimmed, self.ChatType or "SAY", self.Language, self.Target)
             end
+        end
+
+        -- Track outgoing whispers as reply targets too (move to front).
+        if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and self.Target and self.Target ~= "" then
+            self:AddReplyTarget(self.Target, self.ChatType)
         end
 
         if self.OrigEditBox then
@@ -1121,6 +1228,14 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:SetScript("OnEscapePressed", function(box)
+        -- If spell suggestions are open, close them only and keep the
+        -- overlay active. This prevents ESC from accidentally closing
+        -- the whole overlay when the user expected to dismiss hints.
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function"
+            and YapperTable.Spellcheck:IsSuggestionOpen() then
+            YapperTable.Spellcheck:HideSuggestions()
+            return
+        end
         local text = box:GetText() or ""
         local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
         local recoverOnEscape = (cfg.RecoverOnEscape == true)
@@ -1153,19 +1268,47 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    edit:HookScript("OnKeyDown", function(box, key)
-        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
-            if YapperTable.Spellcheck:HandleKeyDown(key) then
-                if box.SetPropagateKeyboardInput then
-                    box:SetPropagateKeyboardInput(false)
-                end
+    -- Intercept OnChar to remove numeric hotkey characters appended after
+    -- applying a suggestion. This ensures pressing '1'..'4' to select a
+    -- suggestion does not also insert the digit into the editbox.
+    edit:HookScript("OnChar", function(box, char)
+        if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
+            local sc = YapperTable.Spellcheck
+            if sc._suppressChar == char then
+                -- Immediately restore expected text/cursor and clear flags.
+                local expected = sc._expectedText or (box:GetText() or "")
+                local cursor = sc._expectedCursor
+                box:SetText(expected)
+                if cursor then box:SetCursorPosition(cursor) end
+                sc._suppressNextChar = nil
+                sc._suppressChar = nil
+                sc._expectedText = nil
+                sc._expectedCursor = nil
                 return
             end
         end
+    end)
+
+    edit:HookScript("OnKeyDown", function(box, key)
+        -- By default do not propagate keystrokes to the rest of the UI
+        -- (prevents actionbindings / movement while typing). Only allow
+        -- propagation when explicitly desired.
         if box.SetPropagateKeyboardInput then
-            box:SetPropagateKeyboardInput(true)
+            box:SetPropagateKeyboardInput(false)
+        end
+
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
+            if YapperTable.Spellcheck:HandleKeyDown(key) then
+                return
+            end
         end
         if key == "TAB" then
+            -- If ALT is held we should not cycle chat targets; spellcheck
+            -- already owns Alt+Tab behavior, so let it (or other handlers)
+            -- handle the key instead.
+            if IsAltKeyDown() then
+                return
+            end
             self:CycleChat(IsShiftKeyDown() and -1 or 1)
         elseif key == "UP" then
             self:NavigateHistory(-1)
@@ -1210,6 +1353,9 @@ function EditBox:SetupOverlayScripts()
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     frame:RegisterEvent("CHALLENGE_MODE_START")
     frame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+    -- Track incoming whispers so we can cycle reply targets.
+    frame:RegisterEvent("CHAT_MSG_WHISPER")
+    frame:RegisterEvent("CHAT_MSG_BN_WHISPER")
 
     -- Also we want to watch for when the user shows or hides their UI, to close our editbox.
     UIParent:HookScript("OnHide", function()
@@ -1224,7 +1370,7 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    frame:HookScript("OnEvent", function(_, event)
+    frame:HookScript("OnEvent", function(_, event, ...)
         if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
             -- Immediate check.
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
@@ -1284,6 +1430,16 @@ function EditBox:SetupOverlayScripts()
                         ticker:Cancel()
                     end
                 end)
+            end
+        elseif event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_BN_WHISPER" then
+            -- Incoming whisper: arg2 is sender name for both events.
+            local sender = select(2, ...)
+            if sender and sender ~= "" then
+                if event == "CHAT_MSG_BN_WHISPER" then
+                    self:AddReplyTarget(sender, "BN_WHISPER")
+                else
+                    self:AddReplyTarget(sender, "WHISPER")
+                end
             end
         end
     end)
@@ -1850,6 +2006,24 @@ end
 
 function EditBox:CycleChat(direction)
     local current = self.ChatType or "SAY"
+
+    -- If we're in whisper mode, cycle reply targets instead of channels.
+    if current == "WHISPER" or current == "BN_WHISPER" then
+        local curTarget = self.Target or ""
+        local name, kind = self:NextReplyTarget(curTarget, direction)
+        if name and name ~= "" then
+            self.ChatType = kind or "WHISPER"
+            self.Target   = name
+            -- ChannelName not used for whispers
+            self.ChannelName = nil
+            self:RefreshLabel()
+            if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
+                YapperTable.TypingTrackerBridge:OnChannelChanged(self.ChatType)
+            end
+        end
+        return
+    end
+
     local idx = 1
     for i, ct in ipairs(TAB_CYCLE) do
         if ct == current then

@@ -94,6 +94,28 @@ end
 -- Expose globally — other addons and compat patches may use this.
 _G.YAPPER_UTILS = Utils
 
+-- Return true if the supplied value is secret (obfuscated) and should be
+-- treated with caution. Prefer the built-in WoW API when available.
+function Utils:IsSecret(value)
+    if not value or value == "" then return true end
+    if type(issecretvalue) == "function" then
+        local ok, res = pcall(issecretvalue, value)
+        if ok and res == true then
+            if type(canaccessvalue) == "function" then
+                local ok2, access = pcall(canaccessvalue, value)
+                if ok2 and access == true then
+                    return false
+                end
+            end
+            return true
+        end
+    end
+    -- Fallback heuristic: battle.net obfuscated tokens include "|K".
+    if type(value) == "string" and value:find("|K") then return true end
+    if type(value) == "string" and value:match("^%s*$") then return true end
+    return false
+end
+
 -- ---------------------------------------------------------------------------
 -- String helpers
 -- ---------------------------------------------------------------------------
