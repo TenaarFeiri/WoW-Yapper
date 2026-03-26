@@ -1045,6 +1045,9 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:SetScript("OnEnterPressed", function(box)
+        if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
+            return
+        end
         local text = box:GetText() or ""
         local trimmed = strmatch(text, "^%s*(.-)%s*$") or ""
 
@@ -1873,9 +1876,35 @@ end
 -- ---------------------------------------------------------------------------
 
 function EditBox:RefreshLabel()
-    local label, r, g, b = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
     local cfg = YapperTable.Config.EditBox or {}
+
+    -- Detect BN targets: Blizzard may present a plain WHISPER chatType
+    -- even when the target is a BNet friend (presence/account ID). When
+    -- that is the case prefer BN_WHISPER for label and colour selection
+    -- so the overlay uses the Battle.net defaults/config by default.
+    local effectiveType = self.ChatType
+    local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
+    if currentKey == "WHISPER" and self.Target and YapperTable.Router
+        and type(YapperTable.Router.ResolveBnetTarget) == "function" then
+        local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(self.Target)
+        if presenceID or bnetAccountID then
+            effectiveType = "BN_WHISPER"
+            currentKey = "BN_WHISPER"
+        end
+    end
+
+    local label, r, g, b = BuildLabelText(effectiveType, self.Target, self.ChannelName)
     local resolvedR, resolvedG, resolvedB = r, g, b
+
+    -- Prefer user-defined channel text colours for the effective type
+    -- (e.g. BN_WHISPER) so user-configured colours always take precedence.
+    local channelColors = cfg.ChannelTextColors
+    if channelColors and effectiveType and type(channelColors[effectiveType]) == "table" then
+        local ucol = channelColors[effectiveType]
+        if type(ucol.r) == "number" and type(ucol.g) == "number" and type(ucol.b) == "number" then
+            resolvedR, resolvedG, resolvedB = ucol.r, ucol.g, ucol.b
+        end
+    end
 
     -- If a theme provides channel text colours and the config doesn't override,
     -- prefer the theme values so themes can style channel labels consistently.
@@ -1884,8 +1913,10 @@ function EditBox:RefreshLabel()
         theme = YapperTable.Theme:GetTheme()
     end
 
-    local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
-    if self.ChatType == "CHANNEL" and self.Target and YapperTable.Router
+    if currentKey == nil then
+        currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
+    end
+    if (currentKey == "CHANNEL" or self.ChatType == "CHANNEL") and self.Target and YapperTable.Router
         and YapperTable.Router.DetectCommunityChannel then
         local isClub = YapperTable.Router:DetectCommunityChannel(self.Target)
         if isClub == true then
@@ -1945,7 +1976,7 @@ function EditBox:RefreshLabel()
     -- Use theme colour *only* when the user's per‑channel config still equals the defaults
     -- (i.e. they haven't overridden that channel).  Otherwise stick with the configured value.
     if theme and type(theme.channelTextColors) == "table" and currentKey then
-        local tcol = theme.channelTextColors[self.ChatType] or theme.channelTextColors[currentKey]
+        local tcol = theme.channelTextColors[effectiveType] or theme.channelTextColors[currentKey]
         if tcol and type(tcol.r) == "number" and type(tcol.g) == "number" and type(tcol.b) == "number" then
             -- Only use theme colour when user's config colour matches defaults.
             local defaults = YapperTable.Core and YapperTable.Core.GetDefaults
@@ -1959,6 +1990,45 @@ function EditBox:RefreshLabel()
                 and math.abs((userColor.g or 0) - (defColors.g or 0)) < 0.01
                 and math.abs((userColor.b or 0) - (defColors.b or 0)) < 0.01 then
                 resolvedR, resolvedG, resolvedB = tcol.r, tcol.g, tcol.b
+            end
+        end
+    end
+
+    -- Debugging aid: log effective type, target, and chosen colours when DEBUG enabled.
+    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        local whisperCol = (channelColors and channelColors.WHISPER) or nil
+        local bnetCol = (channelColors and channelColors.BN_WHISPER) or nil
+        local masterKey = cfg.ChannelColorMaster or ""
+        local overrideFlag = (cfg.ChannelColorOverrides and cfg.ChannelColorOverrides[currentKey]) or false
+        local msg = string.format("RefreshLabel: eff=%s ct=%s tgt=%s -> resolved=(%.2f,%.2f,%.2f) master=%s override=%s whisper=(%s) bn=(%s)",
+            tostring(effectiveType), tostring(self.ChatType), tostring(self.Target or ""),
+            tonumber(resolvedR) or 0, tonumber(resolvedG) or 0, tonumber(resolvedB) or 0,
+            tostring(masterKey), tostring(overrideFlag),
+            (whisperCol and string.format("%.2f,%.2f,%.2f", whisperCol.r, whisperCol.g, whisperCol.b) or "nil"),
+            (bnetCol and string.format("%.2f,%.2f,%.2f", bnetCol.r, bnetCol.g, bnetCol.b) or "nil"))
+        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+            YapperTable.Utils:DebugPrint(msg)
+        elseif YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+            YapperTable.Utils:VerbosePrint(msg)
+        else
+            print(msg)
+        end
+    end
+
+    -- Safety fallback: if this is a BN_WHISPER and the resolved colour
+    -- currently matches the standard WHISPER magenta (or was pulled from
+    -- ChatTypeInfo), prefer the BN default so BNet whispers show teal by
+    -- default. This guards against stale SavedVariables or Blizzard fallbacks.
+    if effectiveType == "BN_WHISPER" then
+        local function approxEqual(a, b)
+            return math.abs((a or 0) - (b or 0)) < 0.02
+        end
+        -- standard whisper magenta heuristic
+        if approxEqual(resolvedR, 1.0) and approxEqual(resolvedG, 0.5) and approxEqual(resolvedB, 1.0) then
+            local defaults = YapperTable.Core and YapperTable.Core.GetDefaults and YapperTable.Core:GetDefaults()
+            local defBN = defaults and defaults.EditBox and defaults.EditBox.ChannelTextColors and defaults.EditBox.ChannelTextColors.BN_WHISPER
+            if defBN and type(defBN.r) == "number" then
+                resolvedR, resolvedG, resolvedB = defBN.r, defBN.g, defBN.b
             end
         end
     end

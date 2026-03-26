@@ -199,7 +199,7 @@ local defaultTheme = {
         YELL = { r = 1.00, g = 0.25, b = 0.25, a = 1 },
         PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
         WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
-        BN_WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
+        BN_WHISPER = { r = 0.25, g = 0.78, b = 0.94, a = 1 },
         CHANNEL = GetChatTypeColor("CHANNEL", { r = 1.00, g = 0.75, b = 0.75, a = 1 }),
         CLUB = GetChatTypeColor("COMMUNITIES_CHANNEL", { r = 0.25, g = 0.78, b = 0.94, a = 1 }),
         INSTANCE_CHAT = { r = 1.00, g = 0.50, b = 0.00, a = 1 },

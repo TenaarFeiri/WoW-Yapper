@@ -13,7 +13,7 @@ YapperTable.Core = {}
 local DEFAULTS = {
     System = {
         -- Schema version for SavedVariables migration; bump only when data structure changes.
-        VERSION                   = 1.1,
+        VERSION                   = 1.2,
 
         -- VERBOSE and DEBUG are largely for debugging.
         -- VERBOSE is for general debugging messages, or just declaring certain actions.
@@ -129,7 +129,7 @@ local DEFAULTS = {
             YELL = { r = 1.00, g = 0.25, b = 0.25, a = 1 },
             PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
             WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
-            BN_WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
+            BN_WHISPER = { r = 0.25, g = 0.78, b = 0.94, a = 1 },
             CHANNEL = { r = 1.00, g = 0.75, b = 0.75, a = 1 },
             CLUB = { r = 0.25, g = 0.78, b = 0.94, a = 1 },
             INSTANCE_CHAT = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
@@ -164,6 +164,11 @@ local DEFAULTS = {
         MaxCandidates  = 800,
         ReshuffleAttempts = 3,
         MaxWrongLetters = 4,
+        -- N-gram index (bigram) settings
+        UseNgramIndex  = true,
+        NgramN         = 2,
+        NgramMaxPosting = 200,
+        NgramTopCandidates = 300,
         MinWordLength  = 2,
         UnderlineStyle = "line",
         Dict           = {},
@@ -342,6 +347,27 @@ function YapperTable.Core:InitSavedVars()
         SyncParity(_G.YapperDB, DEFAULTS)
     end
 
+    -- Migration: older saved DBs may carry an incorrect WHISPER/BN_WHISPER
+    -- colour from prior versions. Force-correct BN_WHISPER to the new
+    -- default when the saved DB version predates this change.
+    if dbVersion and dbVersion < 1.2 then
+        local teal = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors and DEFAULTS.EditBox.ChannelTextColors.BN_WHISPER
+        if type(teal) == "table" then
+            if type(_G.YapperDB.EditBox) ~= "table" then _G.YapperDB.EditBox = {} end
+            if type(_G.YapperDB.EditBox.ChannelTextColors) ~= "table" then _G.YapperDB.EditBox.ChannelTextColors = {} end
+            _G.YapperDB.EditBox.ChannelTextColors.BN_WHISPER = {
+                r = teal.r, g = teal.g, b = teal.b, a = (teal.a ~= nil and teal.a or 1),
+            }
+            if type(_G.YapperDB.EditBox.ChannelColorOverrides) ~= "table" then _G.YapperDB.EditBox.ChannelColorOverrides = {} end
+            _G.YapperDB.EditBox.ChannelColorOverrides.BN_WHISPER = false
+            if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
+                pcall(function()
+                    YapperTable.Utils:Print("Migrated BN_WHISPER colour to defaults for older SavedVariables.")
+                end)
+            end
+        end
+    end
+
     if type(_G.YapperDB.System) ~= "table" then
         _G.YapperDB.System = {}
     end
@@ -387,6 +413,11 @@ function YapperTable.Core:InitSavedVars()
 
     _G.YapperLocalHistory.VERSION = currentVersion
 end
+
+-- Remove duplicate entries from common SavedVariables lists (user-invoked maintenance).
+-- NOTE: The RemoveSavedDuplicates maintenance routine was intentionally removed.
+-- If maintenance functionality is desired in future, reintroduce here with
+-- careful validation and user confirmation flows.
 
 -- ---------------------------------------------------------------------------
 -- API

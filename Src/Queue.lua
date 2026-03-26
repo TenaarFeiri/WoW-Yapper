@@ -465,10 +465,10 @@ function Queue:OnChatEvent(event, ...)
         return
     end
 
-    -- arg12 = sender GUID.
-    local guid = select(12, ...)
-    if guid ~= self.PlayerGUID then return end
-
+    -- First match the echoed text and expected event. Some chat events
+    -- (notably whispers) may not provide a sender GUID in the usual arg
+    -- position, so treat GUID as optional: only reject if present and
+    -- it doesn't match the player GUID.
     local msgText = select(1, ...)
     if self.StrictAckMatching and self.PendingAckText
         and msgText ~= self.PendingAckText then
@@ -477,6 +477,11 @@ function Queue:OnChatEvent(event, ...)
 
     if not self.PendingEntry then return end
     if event ~= self.PendingAckEvent then return end
+
+    -- arg12 = sender GUID when available.
+    local guid = select(12, ...)
+    if guid and guid ~= self.PlayerGUID then return end
+
     self:HandleAck()
 end
 

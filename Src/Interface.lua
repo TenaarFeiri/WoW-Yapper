@@ -63,7 +63,7 @@ local SETTING_TOOLTIPS = {
     ["FrameSettings.MinimapButtonOffset"] =
     "Extra pixels away from the minimap center for the fallback minimap button.",
     ["Spellcheck.Enabled"] = "Underline and suggest replacements for misspelled words.",
-    ["Spellcheck.Locale"] = "Select the dictionary locale to use for spellchecking.",
+    ["Spellcheck.Locale"] = "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
     ["Spellcheck.UnderlineStyle"] = "Choose between straight underline or highlight style.",
     ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
@@ -2092,10 +2092,83 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         end)
 
         local resetBtn = self:CreateResetButton(parent, 208, y + 1, function()
-            local def = self:GetDefaultPath({ "EditBox", "ChannelTextColors", option.key })
-            if IsColorTable(def) then
-                setChannelColor(option.key, CopyColor(def))
-                refreshRows()
+            local key = option.key
+
+            -- Restore the active theme's default value into local config so
+            -- "Def" reflects the theme currently in use. This makes the
+            -- reset behaviour predictable regardless of which theme is
+            -- active (including the proxy/'Yapper Default' skin).
+            local root = self:GetLocalConfigRoot()
+            if type(root.EditBox) ~= "table" then root.EditBox = {} end
+            if type(root.EditBox.ChannelTextColors) ~= "table" then root.EditBox.ChannelTextColors = {} end
+
+            -- Prefer the active theme's channel colour if available, else
+            -- fall back to the global defaults from Core.
+            local applied = nil
+            if YapperTable and YapperTable.Theme and type(YapperTable.Theme.GetTheme) == "function" then
+                local th = YapperTable.Theme:GetTheme()
+                if th and type(th.channelTextColors) == "table" and type(th.channelTextColors[key]) == "table" then
+                    applied = CopyColor(th.channelTextColors[key])
+                end
+            end
+            if not applied then
+                local d = self:GetDefaultPath({ "EditBox", "ChannelTextColors", key })
+                if type(d) == "table" then applied = CopyColor(d) end
+            end
+            if type(applied) == "table" then
+                -- Use SetLocalPath to ensure proper normalization and hooks.
+                self:SetLocalPath({ "EditBox", "ChannelTextColors", key }, applied)
+            else
+                -- Remove explicit local value so config falls back to global.
+                local troot = self:GetLocalConfigRoot()
+                if type(troot.EditBox) == "table" and type(troot.EditBox.ChannelTextColors) == "table" then
+                    troot.EditBox.ChannelTextColors[option.key] = nil
+                    _G.YapperLocalConf = troot
+                end
+            end
+            -- Ensure we don't mark this as a user theme override so future
+            -- theme changes can still apply when appropriate.
+            local clearRoot = self:GetLocalConfigRoot()
+            if type(clearRoot._themeOverrides) == "table" then
+                clearRoot._themeOverrides[key] = nil
+            end
+            _G.YapperLocalConf = clearRoot
+            -- Debug: raw stored value in local config for verification.
+            local rawStored = (type(clearRoot.EditBox) == "table" and type(clearRoot.EditBox.ChannelTextColors) == "table") and clearRoot.EditBox.ChannelTextColors[key] or nil
+
+            -- If the Blizzard ColorPickerFrame is present, update its cached
+            -- colour so the next OpenColorPicker shows the correct default
+            -- immediately rather than an older cached value.
+            if ColorPickerFrame then
+                local appliedColor = rawStored or self:GetDefaultPath({ "EditBox", "ChannelTextColors", key })
+                if type(appliedColor) == "table" then
+                    -- Try direct API first.
+                    if ColorPickerFrame.SetColorRGB then
+                        pcall(function() ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1, appliedColor.b or 1) end)
+                    end
+                    -- Modern frame content path.
+                    if ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker and ColorPickerFrame.Content.ColorPicker.SetColorRGB then
+                        pcall(function() ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1, appliedColor.b or 1) end)
+                    end
+                    -- Update previousValues so the 'previous' swatch matches.
+                    pcall(function() ColorPickerFrame.previousValues = { r = appliedColor.r or 1, g = appliedColor.g or 1, b = appliedColor.b or 1, a = appliedColor.a ~= nil and appliedColor.a or 1 } end)
+                end
+            end
+
+            if type(root.EditBox.ChannelColorOverrides) ~= "table" then
+                root.EditBox.ChannelColorOverrides = {}
+            end
+            -- Uncheck override for this key so Master doesn't force it.
+            root.EditBox.ChannelColorOverrides[option.key] = false
+            if type(root._themeOverrides) == "table" then
+                root._themeOverrides[option.key] = nil
+            end
+            _G.YapperLocalConf = root
+
+            -- Force UI refresh and reapply to live overlay.
+            refreshRows()
+            if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
+                pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
             end
         end)
         resetBtn:SetSize(50, 20)
@@ -2577,24 +2650,26 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
     dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
     UIDropDownMenu_SetWidth(dd, 180)
 
+    local spell = YapperTable and YapperTable.Spellcheck
     local current = self:GetConfigPath(path)
+    local wasUnset = false
     if not current or current == "" then
-        current = (GetLocale and GetLocale()) or "enUS"
+        wasUnset = true
+        if spell and spell.GetLocale then
+            current = spell:GetLocale()
+        else
+            current = (GetLocale and GetLocale()) or "enUS"
+        end
+    end
+    -- If this is the first run (user hasn't chosen a locale), persist the chosen default.
+    if wasUnset then
+        self:SetLocalPath(path, current)
     end
     UIDropDownMenu_SetText(dd, tostring(current))
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
-        local locales = {}
+        local locales = { "enUS", "enGB" }
         local spell = YapperTable and YapperTable.Spellcheck
-        if spell and spell.GetKnownLocales then
-            locales = spell:GetKnownLocales()
-        elseif spell and spell.GetAvailableLocales then
-            locales = spell:GetAvailableLocales()
-        end
-        if #locales == 0 then
-            locales = { current }
-        end
-
         for _, locale in ipairs(locales) do
             local info = UIDropDownMenu_CreateInfo()
             local available = spell and spell.IsLocaleAvailable and spell:IsLocaleAvailable(locale)
@@ -3097,6 +3172,52 @@ function Interface:BuildConfigUI()
     if customSet["spellcheckUserDict"] then
         self:CreateSpellcheckUserDictEditor(frame.ContentFrame, cursor)
     end
+
+    if activeCat.id == "advanced" then
+        -- Reset all Yapper data to defaults (wipes SavedVariables and reloads UI).
+        cursor:Pad(10)
+        self:CreateLabel(
+            frame.ContentFrame,
+            "Reset Yapper",
+            LAYOUT.WINDOW_PADDING,
+            cursor:Y(),
+            520,
+            "Reset all Yapper settings and wipe saved data (this will reload the UI).",
+            "GameFontNormal"
+        )
+        cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
+
+        -- Ensure a confirmation dialog definition exists.
+        if not StaticPopupDialogs or not StaticPopupDialogs["YAPPER_RESET_CONFIRM"] then
+            StaticPopupDialogs = StaticPopupDialogs or {}
+            StaticPopupDialogs["YAPPER_RESET_CONFIRM"] = {
+                text = "Reset all Yapper settings to defaults and wipe saved data? This will reload the UI.",
+                button1 = "Yes",
+                button2 = "No",
+                OnAccept = function()
+                    _G.YapperDB = nil
+                    _G.YapperLocalConf = nil
+                    _G.YapperLocalHistory = nil
+                    ReloadUI()
+                end,
+                timeout = 0,
+                whileDead = true,
+                hideOnEscape = true,
+            }
+        end
+
+        local resetBtn = self:AcquireWidget("ActionButton", frame.ContentFrame, "UIPanelButtonTemplate", "Button")
+        resetBtn:SetSize(160, 24)
+        resetBtn:SetPoint("TOPLEFT", frame.ContentFrame, "TOPLEFT", LAYOUT.WINDOW_PADDING, cursor:Y() - 28)
+        resetBtn:SetText("Reset to Defaults")
+        resetBtn:SetScript("OnClick", function()
+            StaticPopup_Show("YAPPER_RESET_CONFIRM")
+        end)
+        self:AddControl(resetBtn)
+        cursor:Advance(36)
+    end
+
+    cursor:Advance(0)
 
     -- Finish layout and size the content child so the scroll range is correct.
     cursor:Pad(20)
