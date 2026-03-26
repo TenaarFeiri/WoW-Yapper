@@ -10,27 +10,32 @@ local _, YapperTable = ...
 local Spellcheck = {}
 YapperTable.Spellcheck = Spellcheck
 
+-- Localize Lua globals for performance (avoids table lookups in hot loops)
+local math_abs = math.abs
+local math_min = math.min
+local math_max = math.max
+local math_huge = math.huge
+local table_insert = table.insert
+local table_sort = table.sort
+local table_remove = table.remove
+local table_concat = table.concat
+local string_sub = string.sub
+local string_byte = string.byte
+local string_lower = string.lower
+local string_gsub = string.gsub
+local type = type
+local ipairs = ipairs
+local pairs = pairs
+local tostring = tostring
+local tonumber = tonumber
+local select = select
+
 Spellcheck.Dictionaries = {}
 Spellcheck.KnownLocales = {
     "enUS",
     "enGB",
-    "frFR",
-    "deDE",
-    "esES",
-    "esMX",
-    "itIT",
-    "ptBR",
-    "ruRU",
 }
-Spellcheck.LocaleAddons = {
-    frFR = "Yapper_Dict_frFR",
-    deDE = "Yapper_Dict_deDE",
-    esES = "Yapper_Dict_esES",
-    esMX = "Yapper_Dict_esMX",
-    itIT = "Yapper_Dict_itIT",
-    ptBR = "Yapper_Dict_ptBR",
-    ruRU = "Yapper_Dict_ruRU",
-}
+Spellcheck.LocaleAddons = {}
 Spellcheck.EditBox = nil
 Spellcheck.Overlay = nil
 Spellcheck.MeasureFS = nil
@@ -47,6 +52,10 @@ Spellcheck._debounceTimer = nil
 Spellcheck.UserDictCache = {}
 Spellcheck._pendingLocaleLoads = {}
 Spellcheck._debugLoadedLocales = {}
+-- Reusable buffers for EditDistance to avoid per-call allocations
+Spellcheck._ed_prev = {}
+Spellcheck._ed_cur = {}
+Spellcheck._ed_prev_prev = {}
 
 local MAX_SUGGESTION_ROWS = 6
 local SCORE_WEIGHTS = {
@@ -65,7 +74,7 @@ end
 
 local function NormalizeWord(word)
     if type(word) ~= "string" then return "" end
-    return (word:gsub("%u", string.lower))
+    return (string_gsub(word, "%u", string_lower))
 end
 
 local function SuggestionKey(entry)
@@ -111,24 +120,65 @@ function Spellcheck:RegisterDictionary(locale, data)
     for _, word in ipairs(words) do
         if type(word) == "string" and word ~= "" then
             local w = NormalizeWord(word)
-            if not set[w] then
-                set[w] = true
-                outWords[#outWords + 1] = word
-                local key = w:sub(1, 1)
-                if key ~= "" then
-                    index[key] = index[key] or {}
-                    index[key][#index[key] + 1] = w
+            if w ~= "" then
+                local first = w:sub(1,1)
+                local okStart = true
+                if first == "" then
+                    okStart = false
+                else
+                    local b = first:byte(1)
+                    okStart = (type(b) == "number" and IsWordStartByte(b))
+                end
+                if okStart and not set[w] then
+                    set[w] = true
+                    outWords[#outWords + 1] = word
+                    local key = w:sub(1, 1)
+                    if key ~= "" then
+                        index[key] = index[key] or {}
+                        index[key][#index[key] + 1] = w
+                    end
                 end
             end
         end
     end
 
-    self.Dictionaries[locale] = {
-        locale = locale,
-        words = outWords,
-        set = set,
-        index = index,
-    }
+    -- Maintain an n-gram inverted index (numeric IDs referencing words)
+    local ngramIndex = existing and existing.ngramIndex or {}
+    local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or 2
+    local ngramMaxPosting = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramMaxPosting) or 200
+
+    -- When adding new words, assign incremental numeric IDs into words array
+    for i = (#outWords - #words) + 1, #outWords do end
+
+    -- Build n-gram postings for only the newly added words
+    for id = 1, #outWords do
+        local w = NormalizeWord(outWords[id])
+        if w and w ~= "" then
+            -- generate n-grams
+            if #w >= ngramN then
+                for i = 1, (#w - ngramN + 1) do
+                    local g = w:sub(i, i + ngramN - 1)
+                    ngramIndex[g] = ngramIndex[g] or {}
+                    local posting = ngramIndex[g]
+                    -- cap postings to avoid runaway memory usage
+                    if #posting < ngramMaxPosting then
+                        posting[#posting + 1] = id
+                    end
+                end
+            end
+        end
+    end
+
+        self.Dictionaries[locale] = {
+            locale = locale,
+            words = outWords,
+            set = set,
+            index = index,
+            ngramIndex = ngramIndex,
+            _metaCache = {},        -- word -> { meta = {len,bag,bigrams}, lastUsed = <counter> }
+            _metaUsageTimer = 0,
+            _metaCacheSize = 0,
+        }
 
     if YapperTable and YapperTable.Config
         and YapperTable.Config.System
@@ -176,40 +226,32 @@ function Spellcheck:GetAvailableLocales()
     return out
 end
 
-function Spellcheck:GetKnownLocales()
-    local out = {}
-    local seen = {}
-    for i = 1, #self.KnownLocales do
-        local locale = self.KnownLocales[i]
-        out[#out + 1] = locale
-        seen[locale] = true
-    end
-    for locale in pairs(self.LocaleAddons) do
-        if not seen[locale] then
-            out[#out + 1] = locale
-            seen[locale] = true
-        end
-    end
-    table.sort(out)
-    return out
-end
-
-function Spellcheck:IsLocaleAvailable(locale)
-    return self.Dictionaries[locale] ~= nil
-end
-
 function Spellcheck:GetLocaleAddon(locale)
-    return self.LocaleAddons[locale]
+    if type(locale) ~= "string" then return nil end
+    return (self.LocaleAddons and self.LocaleAddons[locale]) or nil
 end
 
 function Spellcheck:HasLocaleAddon(locale)
     local addon = self:GetLocaleAddon(locale)
     if not addon then return false end
-    if C_AddOns and C_AddOns.GetAddOnInfo then
-        return C_AddOns.GetAddOnInfo(addon) ~= nil
-    end
+    if IsAddOnLoaded and IsAddOnLoaded(addon) then return true end
     if GetAddOnInfo then
-        return GetAddOnInfo(addon) ~= nil
+        local name = GetAddOnInfo(addon)
+        return name ~= nil
+    end
+    return false
+end
+
+function Spellcheck:IsLocaleAvailable(locale)
+    if type(locale) ~= "string" or locale == "" then return false end
+    if self.Dictionaries and self.Dictionaries[locale] then return true end
+    -- If the locale is known and we don't require an external addon, consider it available.
+    for _, l in ipairs(self.KnownLocales or {}) do
+        if l == locale then
+            if not (self.LocaleAddons and self.LocaleAddons[locale]) then
+                return true
+            end
+        end
     end
     return false
 end
@@ -312,10 +354,22 @@ function Spellcheck:GetLocale()
         end
         return fallback
     end
-    if GetLocale then
-        return GetLocale()
+    -- Prefer a region-based default (region 3 -> enGB) before using client locale.
+    local region = GetCurrentRegion and GetCurrentRegion() or nil
+    if region == 3 then
+        return "enGB"
     end
-    return "enUS"
+
+    if GetLocale then
+        local client = GetLocale()
+        if client == "enGB" then
+            if self:EnsureLocale("enGB") then return "enGB" end
+        elseif client == "enUS" then
+            if self:EnsureLocale("enUS") then return "enUS" end
+        end
+    end
+
+    return self:GetFallbackLocale()
 end
 
 function Spellcheck:GetFallbackLocale()
@@ -334,11 +388,112 @@ function Spellcheck:GetDictionary()
     return self.Dictionaries[locale]
 end
 
+function Spellcheck:GetMeta(dict, word)
+    if type(dict) ~= "table" or type(word) ~= "string" or word == "" then return nil end
+    dict._metaCache = dict._metaCache or {}
+    dict._metaUsageTimer = dict._metaUsageTimer or 0
+    dict._metaCacheSize = dict._metaCacheSize or 0
+    local cache = dict._metaCache
+
+    -- update usage counter
+    dict._metaUsageTimer = dict._metaUsageTimer + 1
+    local entry = cache[word]
+    if entry then
+        entry.lastUsed = dict._metaUsageTimer
+        return entry.meta
+    end
+
+    -- build metadata (letter frequencies and bigrams)
+    -- Use byte keys for the bag to avoid per-character string allocation
+    local bag = {}
+    for i = 1, #word do
+        local ch = string_byte(word, i)
+        bag[ch] = (bag[ch] or 0) + 1
+    end
+    local bigrams = {}
+    if #word >= 2 then
+        for i = 1, (#word - 1) do
+            local g = string_sub(word, i, i+1)
+            bigrams[g] = (bigrams[g] or 0) + 1
+        end
+    end
+    local meta = { len = #word, bag = bag, bigrams = bigrams }
+
+    cache[word] = { meta = meta, lastUsed = dict._metaUsageTimer }
+    dict._metaCacheSize = (dict._metaCacheSize or 0) + 1
+
+    local cfg = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck) or {}
+    local cap = tonumber(cfg.MetaCacheMax) or 20000
+    if dict._metaCacheSize > cap then
+        local purge = math_min(2000, cap)
+        self:EvictOldestMeta(dict, purge)
+    end
+
+    return meta
+end
+
+function Spellcheck:EvictOldestMeta(dict, count)
+    if type(dict) ~= "table" or type(dict._metaCache) ~= "table" then return end
+    local keys = {}
+    for w, entry in pairs(dict._metaCache) do
+        keys[#keys + 1] = { word = w, lastUsed = (entry and entry.lastUsed) or 0 }
+    end
+    if #keys == 0 then return end
+    table_sort(keys, function(a, b) return a.lastUsed < b.lastUsed end)
+    local removed = 0
+    for i = 1, math_min(count, #keys) do
+        local w = keys[i].word
+        if dict._metaCache[w] then
+            dict._metaCache[w] = nil
+            removed = removed + 1
+        end
+    end
+    dict._metaCacheSize = math_max(0, (dict._metaCacheSize or 0) - removed)
+end
+
 function Spellcheck:GetUserDictStore()
     if type(_G.YapperDB) ~= "table" then return nil end
     if type(_G.YapperDB.Spellcheck) ~= "table" then _G.YapperDB.Spellcheck = {} end
     if type(_G.YapperDB.Spellcheck.Dict) ~= "table" then _G.YapperDB.Spellcheck.Dict = {} end
     return _G.YapperDB.Spellcheck.Dict
+end
+
+-- Persist/restore a single cached dictionary (active locale) to SavedVariables
+function Spellcheck:GetCachedDictStore()
+    if type(_G.YapperDB) ~= "table" then return nil end
+    if type(_G.YapperDB.Spellcheck) ~= "table" then _G.YapperDB.Spellcheck = {} end
+    if type(_G.YapperDB.Spellcheck.Cache) ~= "table" then _G.YapperDB.Spellcheck.Cache = {} end
+    return _G.YapperDB.Spellcheck.Cache
+end
+
+function Spellcheck:LoadCachedDictionary(locale)
+    if type(locale) ~= "string" or locale == "" then return nil end
+    local store = self:GetCachedDictStore()
+    if not store or type(store[locale]) ~= "table" then return nil end
+    -- Use cached structure directly (words, set, index, ngramIndex)
+    self.Dictionaries[locale] = store[locale]
+    return self.Dictionaries[locale]
+end
+
+function Spellcheck:SaveActiveDictionaryToDB(locale)
+    if type(locale) ~= "string" or locale == "" then return end
+    local dict = self.Dictionaries[locale]
+    if type(dict) ~= "table" then return end
+    local store = self:GetCachedDictStore()
+    if not store then return end
+    -- Only write once if cache missing or size changed to avoid repeated SavedVariable churn
+    local existing = store[locale]
+    if existing and type(existing.words) == "table" and #existing.words == #dict.words then
+        return
+    end
+    local dump = {
+        locale = dict.locale,
+        words = dict.words,
+        set = dict.set,
+        index = dict.index,
+        ngramIndex = dict.ngramIndex,
+    }
+    store[locale] = dump
 end
 
 function Spellcheck:GetUserDict(locale)
@@ -471,8 +626,11 @@ function Spellcheck:Bind(editBox, overlay)
     -- Support right-click on the editbox to open/cycle suggestions.
     if editBox and editBox.HookScript then
         editBox:HookScript("OnMouseUp", function(box, button)
-            if button == "RightButton" and self:IsSuggestionEligible() then
-                self:OpenOrCycleSuggestions()
+            if button == "RightButton" then
+                self:UpdateActiveWord()
+                if self:IsSuggestionEligible() then
+                    self:OpenOrCycleSuggestions()
+                end
             end
         end)
     end
@@ -561,6 +719,16 @@ end
 function Spellcheck:EnsureSuggestionFrame()
     if self.SuggestionFrame or not self.Overlay then return end
 
+    local catcher = CreateFrame("Button", nil, UIParent)
+    catcher:SetFrameStrata("TOOLTIP")
+    catcher:SetAllPoints(UIParent)
+    catcher:RegisterForClicks("AnyUp", "AnyDown")
+    catcher:SetScript("OnClick", function()
+        self:HideSuggestions()
+    end)
+    catcher:Hide()
+    self.SuggestionClickCatcher = catcher
+
     local frame = CreateFrame("Frame", nil, self.Overlay, "BackdropTemplate")
     frame:SetFrameStrata("TOOLTIP")
     frame:EnableMouse(true)
@@ -628,12 +796,19 @@ end
 
 function Spellcheck:EnsureHintFrame()
     if self.HintFrame or not self.Overlay then return end
-    local frame = CreateFrame("Frame", nil, self.Overlay)
-    frame:SetSize(220, 14)
+    local frame = CreateFrame("Frame", nil, self.Overlay, "BackdropTemplate")
+    frame:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 10,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    frame:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+    frame:SetBackdropBorderColor(0.9, 0.75, 0.2, 1)
     frame:Hide()
 
     local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetPoint("LEFT", frame, "LEFT", 0, 0)
+    fs:SetPoint("LEFT", frame, "LEFT", 6, 0)
     fs:SetTextColor(0.8, 0.8, 0.8, 1)
     fs:SetText("Shift+Tab: spell suggestions")
 
@@ -712,6 +887,12 @@ end
 
 function Spellcheck:ShowHint()
     if not self.HintFrame or not self.EditBox then return end
+    
+    local fontSize = self:ApplyOverlayFont(self.HintFrame._fs, 22)
+    local hintHeight = math_max(20, fontSize + 8)
+    local hintWidth = self.HintFrame._fs:GetStringWidth() + 12
+    self.HintFrame:SetSize(hintWidth, hintHeight)
+
     -- Avoid re-showing (and retriggering fade) if already visible.
     if self.HintFrame:IsShown() then return end
     self.HintFrame:ClearAllPoints()
@@ -891,9 +1072,23 @@ function Spellcheck:ShowSuggestions()
     -- Anchor above the editbox so the suggestions appear on top of the overlay.
     self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x, 4)
 
+    local fontSize = 10
+    local editBox = self.EditBox
+    if editBox and editBox.GetFont then
+        local _, sz = editBox:GetFont()
+        if sz then fontSize = sz end
+    end
+    local rowHeight = math_max(18, fontSize + 4)
+
     local maxWidth = 160
     for i = 1, #self.SuggestionRows do
         local row = self.SuggestionRows[i]
+        self:ApplyOverlayFont(row._fs)
+        
+        row:ClearAllPoints()
+        row:SetSize(maxWidth, rowHeight)
+        row:SetPoint("TOPLEFT", self.SuggestionFrame, "TOPLEFT", 6, -6 - ((i - 1) * rowHeight))
+        
         local entry = self.ActiveSuggestions[i]
         if entry then
             row._fs:SetText(self:FormatSuggestionLabel(entry, i))
@@ -905,9 +1100,16 @@ function Spellcheck:ShowSuggestions()
         end
     end
 
-    local visibleCount = math.min(#self.ActiveSuggestions, #self.SuggestionRows)
-    self.SuggestionFrame:SetSize(maxWidth + 10, (visibleCount * 18) + 12)
+    for i = 1, #self.SuggestionRows do
+        self.SuggestionRows[i]:SetWidth(maxWidth)
+    end
+
+    local visibleCount = math_min(#self.ActiveSuggestions, #self.SuggestionRows)
+    self.SuggestionFrame:SetSize(maxWidth + 10, (visibleCount * rowHeight) + 12)
     self:RefreshSuggestionSelection()
+    if self.SuggestionClickCatcher then
+        self.SuggestionClickCatcher:Show()
+    end
     self.SuggestionFrame:Show()
     self._lastShownSuggestions = self.ActiveSuggestions
 end
@@ -915,6 +1117,9 @@ end
 function Spellcheck:HideSuggestions()
     if self.SuggestionFrame then
         self.SuggestionFrame:Hide()
+    end
+    if self.SuggestionClickCatcher then
+        self.SuggestionClickCatcher:Hide()
     end
     self.ActiveSuggestions = nil
     self.ActiveIndex = 1
@@ -925,6 +1130,15 @@ function Spellcheck:ApplySuggestion(index)
     if not self.ActiveSuggestions or not self.ActiveRange then return end
     local entry = self.ActiveSuggestions[index]
     if not entry then return end
+
+    -- Mark that a suggestion was just applied so higher-level Enter
+    -- handlers can swallow the following Enter (applied via keyboard).
+    self._justAppliedSuggestion = true
+    if C_Timer and C_Timer.NewTimer then
+        C_Timer.NewTimer(0.05, function()
+            self._justAppliedSuggestion = nil
+        end)
+    end
 
     if type(entry) == "table" and entry.kind == "add" then
         local locale = self:GetLocale()
@@ -971,14 +1185,6 @@ function Spellcheck:ApplySuggestion(index)
     self._suppressChar = tostring(index)
     self._expectedText = newText
     self._expectedCursor = cursorPos
-    -- Mark that a suggestion was just applied so higher-level Enter
-    -- handlers can swallow the following Enter (applied via keyboard).
-    self._justAppliedSuggestion = true
-    if C_Timer and C_Timer.NewTimer then
-        C_Timer.NewTimer(0.05, function()
-            self._justAppliedSuggestion = nil
-        end)
-    end
     self:HideSuggestions()
     self._textChangedFlag = true
     self:ScheduleRefresh()
@@ -997,13 +1203,30 @@ function Spellcheck:GetCaretXOffset()
     return leftInset + width
 end
 
+function Spellcheck:ApplyOverlayFont(fontString, maxSize)
+    local editBox = self.EditBox
+    if not editBox or not editBox.GetFont then return 10 end
+    local face, size, flags = editBox:GetFont()
+    if face and size then
+        if maxSize and size > maxSize then size = maxSize end
+        local curFace, curSize, curFlags = fontString:GetFont()
+        if curFace ~= face or curSize ~= size or curFlags ~= flags then
+            fontString:SetFont(face, size, flags or "")
+        end
+    end
+    return size or 10
+end
+
 function Spellcheck:MeasureText(text)
     if not self.MeasureFS then return 0 end
     local editBox = self.EditBox
     if editBox and editBox.GetFont then
         local face, size, flags = editBox:GetFont()
         if face and size then
-            self.MeasureFS:SetFont(face, size, flags or "")
+            local curFace, curSize, curFlags = self.MeasureFS:GetFont()
+            if curFace ~= face or curSize ~= size or curFlags ~= flags then
+                self.MeasureFS:SetFont(face, size, flags or "")
+            end
         end
     end
     self.MeasureFS:SetText(text or "")
@@ -1081,7 +1304,7 @@ function Spellcheck:DrawUnderline(startPos, endPos, text)
 end
 
 function Spellcheck:AcquireUnderline()
-    local tex = table.remove(self.UnderlinePool)
+    local tex = table_remove(self.UnderlinePool)
     if tex then
         return tex
     end
@@ -1102,8 +1325,7 @@ function Spellcheck:CollectMisspellings(text, dict)
     local out = {}
     local minLen = self:GetMinWordLength()
     local ignoreRanges = self:GetIgnoredRanges(text)
-    local _, ignoredSet = self:GetUserSets(self:GetLocale())
-    local addedSet = select(1, self:GetUserSets(self:GetLocale()))
+    local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
 
     local idx = 1
     while idx <= #text do
@@ -1324,82 +1546,176 @@ function Spellcheck:GetSuggestions(word)
         return sc.result or {}
     end
     local first = lower:sub(1, 1)
-    local candidates = dict.index[first] or {}
+    -- Build a stable candidate list copy so we can append user-added words
+    local base = {}
+    local srcCandidates = dict.index[first]
+    if srcCandidates then
+        for _, v in ipairs(srcCandidates) do base[#base+1] = v end
+    end
+
+    -- Assemble user-added words (normalized) explicitly to bypass array caps
+    local addedCandidates = {}
+    local userDict = self:GetUserDict(locale)
+    if userDict and type(userDict.AddedWords) == "table" then
+        for _, uw in ipairs(userDict.AddedWords) do
+            if type(uw) == "string" and uw ~= "" then
+                local norm = NormalizeWord(uw)
+                if norm ~= "" then
+                    addedCandidates[#addedCandidates+1] = norm
+                end
+            end
+        end
+    end
+
+    local candidates = base
+    -- N-gram (bigram) preselection: compute ranked candidate list
+    local ngramCandidates = nil
+    local useNgram = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.UseNgramIndex) or false
+    local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or 2
+    local ngramTop = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramTopCandidates) or 300
+    if useNgram and dict.ngramIndex and #lower >= ngramN then
+        local hits = {}
+        for i = 1, (#lower - ngramN + 1) do
+            local g = lower:sub(i, i + ngramN - 1)
+            local posting = dict.ngramIndex[g]
+            if posting then
+                for _, id in ipairs(posting) do
+                    hits[id] = (hits[id] or 0) + 1
+                end
+            end
+        end
+        local tmp = {}
+        for id, cnt in pairs(hits) do tmp[#tmp + 1] = { id = id, cnt = cnt } end
+        table_sort(tmp, function(a, b)
+            if a.cnt == b.cnt then return a.id < b.id end
+            return a.cnt > b.cnt
+        end)
+        ngramCandidates = {}
+        for i = 1, math_min(#tmp, ngramTop) do
+            local id = tmp[i].id
+            if dict.words and dict.words[id] then
+                ngramCandidates[#ngramCandidates + 1] = dict.words[id]
+            end
+        end
+        if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+            self:Notify("Spellcheck:GetSuggestions ngramCandidates=" .. tostring(#ngramCandidates) .. " for word='" .. tostring(lower) .. "'")
+        end
+    end
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify("Spellcheck:GetSuggestions word='" .. tostring(word) .. "' lower='" .. tostring(lower) .. "' locale='" .. tostring(locale) .. "' candidates=" .. tostring(#candidates))
     end
-    local _, ignoredSet = self:GetUserSets(self:GetLocale())
+    local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
     local out = {}
 
     local maxDist = (#lower <= 4) and 2 or 3
     local maxLenDiff = maxDist + 1
 
     local function CommonPrefixLen(a, b)
-        local len = math.min(#a, #b)
-        local count = 0
+        local len = math_min(#a, #b)
         for i = 1, len do
-            if a:sub(i, i) ~= b:sub(i, i) then break end
-            count = count + 1
+            if string_byte(a, i) ~= string_byte(b, i) then return i - 1 end
         end
-        return count
+        return len
     end
 
-    local function LetterBagScore(a, b)
-        -- Estimate how close two words are as anagrams by comparing
-        -- letter frequencies. Lower is better.
-        local bag = {}
-        for i = 1, #a do
-            local ch = a:sub(i, i)
+    -- Build input word metadata into reusable scratch tables to avoid allocations.
+    -- Uses byte keys for the bag to match GetMeta's byte-keyed bags.
+    local function buildInputMeta(lower)
+        local bag = self._scratchBag
+        if not bag then
+            bag = {}
+            self._scratchBag = bag
+        end
+        for k in pairs(bag) do bag[k] = nil end
+        for i = 1, #lower do
+            local ch = string_byte(lower, i)
             bag[ch] = (bag[ch] or 0) + 1
         end
-        for i = 1, #b do
-            local ch = b:sub(i, i)
-            if bag[ch] then
-                bag[ch] = bag[ch] - 1
-            else
-                bag[ch] = -1
+        local bigrams = self._scratchBigrams
+        if not bigrams then
+            bigrams = {}
+            self._scratchBigrams = bigrams
+        end
+        for k in pairs(bigrams) do bigrams[k] = nil end
+        if #lower >= 2 then
+            for i = 1, (#lower - 1) do
+                local g = string_sub(lower, i, i+1)
+                bigrams[g] = (bigrams[g] or 0) + 1
             end
         end
+        return bag, bigrams
+    end
+
+    local inputBag, inputBigrams = buildInputMeta(lower)
+
+    local function LetterBagScore(candidate)
+        -- Lazily fetch/build per-word metadata. Lower is better.
+        local meta = self:GetMeta(dict, candidate)
+        if not meta or not meta.bag then return 999 end
         local score = 0
-        for _, v in pairs(bag) do
-            if v ~= 0 then
-                score = score + math.abs(v)
-            end
+        -- sum absolute differences between candidate bag and input bag
+        for ch, cnt in pairs(meta.bag) do
+            local inCnt = inputBag[ch] or 0
+            local d = cnt - inCnt
+            if d ~= 0 then score = score + math_abs(d) end
+        end
+        -- also count letters present in input but not in candidate
+        for ch, cnt in pairs(inputBag) do
+            if not meta.bag[ch] then score = score + math_abs(cnt) end
         end
         return score
     end
 
-    local function BigramOverlap(a, b)
-        -- Count shared bigrams (2-char sequences). Higher is better.
-        if #a < 2 or #b < 2 then return 0 end
-        local sa = {}
-        for i = 1, #a - 1 do
-            local g = a:sub(i, i+1)
-            sa[g] = (sa[g] or 0) + 1
-        end
+    local function BigramOverlap(candidate)
+        -- Use lazily-built candidate bigrams and input bigram counts.
+        local meta = self:GetMeta(dict, candidate)
+        if not meta or not meta.bigrams then return 0 end
         local count = 0
-        for i = 1, #b - 1 do
-            local g = b:sub(i, i+1)
-            if sa[g] and sa[g] > 0 then
-                count = count + 1
-                sa[g] = sa[g] - 1
+        for g, cnt in pairs(meta.bigrams) do
+            local inCnt = inputBigrams[g] or 0
+            if inCnt > 0 then
+                count = count + math_min(cnt, inCnt)
             end
         end
         return count
     end
 
+    -- Hoist config values that don't change between candidates
+    local maxWrong = self:GetMaxWrongLetters() or 4
+    local lowerLen = #lower
+
+    -- Pre-compute apostrophe-stripped version of lower once
+    local lHasApostrophe = lower:find("'", 1, true)
+    local lFlat = lHasApostrophe and string_gsub(lower, "'", "") or lower
+
+    -- LocaleVariantBonus: declared once outside tryAdd to avoid closure re-creation
+    local isVariantLocale = (locale == "enGB" or locale == "enUS")
+    local function LocaleVariantBonus(input, cand)
+        if not isVariantLocale then return 0 end
+
+        local function check(p1, p2)
+            return string_gsub(input, p1, p2) == cand or string_gsub(cand, p1, p2) == input
+        end
+
+        if check("or", "our") then return 5.0 end
+        if check("ize", "ise") then return 4.0 end
+        if check("er", "re") then return 4.0 end
+        if check("og", "ogue") then return 3.0 end
+        if check("l", "ll") then return 3.0 end
+        return 0
+    end
+
     local function tryAdd(candidate, dist)
         local candidateLen = #candidate
-        local lenDiff = math.abs(candidateLen - #lower)
+        local lenDiff = math_abs(candidateLen - lowerLen)
         local prefix = CommonPrefixLen(lower, candidate)
-        local bagScore = LetterBagScore(lower, candidate)
-        local bigramScore = BigramOverlap(lower, candidate)
-        local maxWrong = self:GetMaxWrongLetters() or 4
+        local bagScore = LetterBagScore(candidate)
+        local bigramScore = BigramOverlap(candidate)
 
         local longerPenalty = 0
-        if candidateLen > #lower then
-            local over = (candidateLen - #lower)
-            local factor = 1 + ((bagScore / math.max(1, maxWrong)) * 0.5)
+        if candidateLen > lowerLen then
+            local over = (candidateLen - lowerLen)
+            local factor = 1 + ((bagScore / math_max(1, maxWrong)) * 0.5)
             longerPenalty = over * SCORE_WEIGHTS.longerPenalty * factor
         end
 
@@ -1410,12 +1726,39 @@ function Spellcheck:GetSuggestions(word)
             + (bagScore * SCORE_WEIGHTS.letterBag)
             - (bigramScore * SCORE_WEIGHTS.bigram)
 
+        -- Treat missing/extra apostrophes as negligible typing errors safely
+        local cHasApostrophe = candidate:find("'", 1, true)
+        if cHasApostrophe or lHasApostrophe then
+            local cFlat = cHasApostrophe and string_gsub(candidate, "'", "") or candidate
+            if cFlat == lFlat then
+                score = score - 1.5
+            else
+                local flatDist = self:EditDistance(lFlat, cFlat, maxDist)
+                if flatDist and flatDist < dist then
+                    score = score - ((dist - flatDist) * 0.8)
+                end
+            end
+        end
+
+        -- Apply locale variant bonus
+        local variantBonus = LocaleVariantBonus(lower, candidate)
+        if variantBonus > 0 then
+            score = score - variantBonus
+        end
+
         -- Prefer exact-length candidates when their letter-bag distance is within allowed wrong letters.
-        if candidateLen == #lower then
+        if candidateLen == lowerLen then
             if bagScore <= maxWrong then
                 score = score - (SCORE_WEIGHTS.lenDiff * 1.5)
             else
                 score = score + ((bagScore - maxWrong) * 0.5)
+            end
+        elseif lenDiff == 1 and dist == 1 then
+            -- Regional variants often differ by exactly 1 character (e.g. color/colour, traveler/traveller)
+            if isVariantLocale then
+                if bagScore <= (maxWrong + 1) then
+                    score = score - (SCORE_WEIGHTS.lenDiff * 1.0)
+                end
             end
         end
         out[#out + 1] = { word = candidate, dist = dist, score = score, bag = bagScore }
@@ -1426,11 +1769,12 @@ function Spellcheck:GetSuggestions(word)
     -- Also allow a larger effective cap for short inputs while keeping a
     -- conservative cap for long inputs.
     local dynamicCap = maxCandidates
-    if #lower <= 4 then
-        dynamicCap = math.min(maxCandidates * 4, 5000)
+    if lowerLen <= 4 then
+        dynamicCap = math_min(maxCandidates * 4, 5000)
     end
 
     local checks = 0
+    local seenCandidates = {}
     local function tryCandidates(list)
         for _, candidate in ipairs(list) do
             if #out >= 60 then return true end
@@ -1443,10 +1787,13 @@ function Spellcheck:GetSuggestions(word)
                 if ignoredSet and ignoredSet[candidate] then
                     -- skip ignored
                 else
-                    local lenDiff = math.abs(#candidate - #lower)
-                    if lenDiff <= maxLenDiff then
-                        local dist = self:EditDistance(lower, candidate, maxDist)
-                        if dist and dist <= maxDist then
+                    local lenDiff = math_abs(#candidate - lowerLen)
+                    local isUserWord = addedSet and addedSet[candidate]
+                    local isLongPrefix = isUserWord and (#candidate > lowerLen) and (string_sub(candidate, 1, lowerLen) == lower)
+                    
+                    if lenDiff <= maxLenDiff or isLongPrefix then
+                        local dist = isLongPrefix and lenDiff or self:EditDistance(lower, candidate, maxDist)
+                        if dist and (dist <= maxDist or isLongPrefix) then
                             tryAdd(candidate, dist)
                         end
                     end
@@ -1456,31 +1803,80 @@ function Spellcheck:GetSuggestions(word)
         return false
     end
 
+    -- Direct regional variant injection: bypass ranking cutoffs by explicitly injecting expected variants.
+    local function InjectVariantFast(variantSub, candSub)
+        local varWord = string_gsub(lower, variantSub, candSub)
+        if varWord ~= lower and dict.set[varWord] and not seenCandidates[varWord] then
+            seenCandidates[varWord] = true
+            local dist = self:EditDistance(lower, varWord, maxDist)
+            if dist and dist <= maxDist then
+                tryAdd(varWord, dist)
+            end
+        end
+    end
+
+    if locale == "enGB" or locale == "enUS" then
+        InjectVariantFast("or", "our")
+        InjectVariantFast("our", "or")
+        InjectVariantFast("ize", "ise")
+        InjectVariantFast("ise", "ize")
+        InjectVariantFast("er", "re")
+        InjectVariantFast("re", "er")
+        InjectVariantFast("og", "ogue")
+        InjectVariantFast("ogue", "og")
+        InjectVariantFast("l", "ll")
+        InjectVariantFast("ll", "l")
+    end
+
     -- Bucket candidates: exact 2-char prefix, 1-char prefix, others.
     local pref2 = {}
     local pref1 = {}
     local other = {}
-    local p2 = lower:sub(1,2) or ""
-    local p1 = lower:sub(1,1) or ""
+    local p2 = string_sub(lower, 1, 2) or ""
+    local p1 = string_sub(lower, 1, 1) or ""
     for _, c in ipairs(candidates) do
-        if c:sub(1,2) == p2 and p2 ~= "" then
+        if string_sub(c, 1, 2) == p2 and p2 ~= "" then
             pref2[#pref2+1] = c
-        elseif c:sub(1,1) == p1 then
+        elseif string_sub(c, 1, 1) == p1 then
             pref1[#pref1+1] = c
         else
             other[#other+1] = c
         end
     end
 
+    local function sortByProximity(a, b)
+        local diffA = math_abs(#a - lowerLen)
+        local diffB = math_abs(#b - lowerLen)
+        if diffA == diffB then
+            return a < b
+        end
+        return diffA < diffB
+    end
+    table_sort(pref2, sortByProximity)
+    table_sort(pref1, sortByProximity)
+
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify(string.format("Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d", #pref2, #pref1, #other, dynamicCap, maxDist, maxLenDiff))
     end
 
-    local seenCandidates = {}
     local aborted = false
-    aborted = tryCandidates(pref2)
-    if aborted then
-        if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+
+    -- Unconditionally parse custom words before array caps can trigger
+    if addedCandidates and #addedCandidates > 0 then
+        aborted = tryCandidates(addedCandidates)
+    end
+
+    -- If n-gram candidates were produced, try them first (pre-ranked by overlap).
+    if not aborted and ngramCandidates and #ngramCandidates > 0 then
+        aborted = tryCandidates(ngramCandidates)
+        if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+            self:Notify("Spellcheck:GetSuggestions aborted after ngramCandidates; checks=" .. tostring(checks) .. " out=" .. tostring(#out))
+        end
+    end
+
+    if not aborted then
+        aborted = tryCandidates(pref2)
+        if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
             self:Notify("Spellcheck:GetSuggestions aborted after pref2; checks=" .. tostring(checks) .. " out=" .. tostring(#out))
         end
     end
@@ -1505,14 +1901,14 @@ function Spellcheck:GetSuggestions(word)
         if attempts > 0 then
             local function reverseString(s)
                 local t = {}
-                for i = #s, 1, -1 do t[#t+1] = s:sub(i,i) end
-                return table.concat(t)
+                for i = #s, 1, -1 do t[#t+1] = string_sub(s, i, i) end
+                return table_concat(t)
             end
             local function sortedString(s)
                 local t = {}
-                for i = 1, #s do t[#t+1] = s:sub(i,i) end
-                table.sort(t)
-                return table.concat(t)
+                for i = 1, #s do t[#t+1] = string_sub(s, i, i) end
+                table_sort(t)
+                return table_concat(t)
             end
 
             local variants = {}
@@ -1521,7 +1917,7 @@ function Spellcheck:GetSuggestions(word)
             local function addVariantIfAcceptable(v)
                 if not v or v == lower then return end
                 if vseen[v] or #variants >= attempts then return end
-                local bagScore = LetterBagScore(lower, v)
+                local bagScore = LetterBagScore(v)
                 -- Use a conservative threshold (allow up to maxWrong*2 bag distance)
                 if bagScore and bagScore <= (maxWrong * 2) then
                     vseen[v] = true
@@ -1534,24 +1930,24 @@ function Spellcheck:GetSuggestions(word)
             for i = 1, (#lower - 1) do
                 if #variants >= attempts then break end
                 local chars = {}
-                for k = 1, #lower do chars[k] = lower:sub(k,k) end
+                for k = 1, #lower do chars[k] = string_sub(lower, k, k) end
                 chars[i], chars[i+1] = chars[i+1], chars[i]
-                addVariantIfAcceptable(table.concat(chars))
+                addVariantIfAcceptable(table_concat(chars))
             end
 
             -- 2) single deletions
             for i = 1, #lower do
                 if #variants >= attempts then break end
                 local chars = {}
-                for k = 1, #lower do if k ~= i then chars[#chars+1] = lower:sub(k,k) end end
-                addVariantIfAcceptable(table.concat(chars))
+                for k = 1, #lower do if k ~= i then chars[#chars+1] = string_sub(lower, k, k) end end
+                addVariantIfAcceptable(table_concat(chars))
             end
 
             -- 3) single replacements using likely letters (dict.first-letters + original letters)
             local alph = {}
             for k in pairs(dict.index) do alph[#alph+1] = k end
             -- include letters from the input as likely replacements
-            for i = 1, #lower do alph[#alph+1] = lower:sub(i,i) end
+            for i = 1, #lower do alph[#alph+1] = string_sub(lower, i, i) end
             -- dedupe alph
             local alphSeen = {}
             local alphaList = {}
@@ -1563,9 +1959,9 @@ function Spellcheck:GetSuggestions(word)
                 for _, ch in ipairs(alphaList) do
                     if #variants >= attempts then break end
                     local chars = {}
-                    for k = 1, #lower do chars[k] = lower:sub(k,k) end
+                    for k = 1, #lower do chars[k] = string_sub(lower, k, k) end
                     chars[i] = ch
-                    addVariantIfAcceptable(table.concat(chars))
+                    addVariantIfAcceptable(table_concat(chars))
                 end
             end
 
@@ -1575,7 +1971,7 @@ function Spellcheck:GetSuggestions(word)
 
             for _, var in ipairs(variants) do
                 if checks > dynamicCap then break end
-                local firstV = var:sub(1,1) or ""
+                local firstV = string_sub(var, 1, 1) or ""
                 local candlist = dict.index[firstV] or {}
                 if #candlist > 0 then
                     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
@@ -1588,7 +1984,7 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    table.sort(out, function(a, b)
+    table_sort(out, function(a, b)
         if a.score == b.score then
             if a.dist == b.dist then
                 return a.word < b.word
@@ -1599,7 +1995,7 @@ function Spellcheck:GetSuggestions(word)
     end)
 
     local final = {}
-    for i = 1, math.min(maxCount, #out) do
+    for i = 1, math_min(maxCount, #out) do
         final[i] = { kind = "word", value = out[i].word }
     end
 
@@ -1630,39 +2026,63 @@ function Spellcheck:EditDistance(a, b, maxDist)
     if a == b then return 0 end
     local lenA = #a
     local lenB = #b
-    if math.abs(lenA - lenB) > maxDist then return nil end
+    if math_abs(lenA - lenB) > (maxDist or 0) then return nil end
 
-    local prevPrev = {}
-    local prev = {}
+    -- Convert to byte arrays once to avoid string.sub in the inner loop
+    local aBytes = self._ed_aBytes
+    if not aBytes then aBytes = {}; self._ed_aBytes = aBytes end
+    local bBytes = self._ed_bBytes
+    if not bBytes then bBytes = {}; self._ed_bBytes = bBytes end
+    for i = 1, lenA do aBytes[i] = string_byte(a, i) end
+    for j = 1, lenB do bBytes[j] = string_byte(b, j) end
+
+    local prev = self._ed_prev
+    local cur = self._ed_cur
+    local prevPrev = self._ed_prev_prev
+
+    -- init prev row
     for j = 0, lenB do prev[j] = j end
 
     for i = 1, lenA do
-        local cur = { [0] = i }
-        local minRow = cur[0]
-        local ai = a:sub(i, i)
+        cur[0] = i
+        local ai = aBytes[i]
+        local minRow = i
 
-        for j = 1, lenB do
-            local bj = b:sub(j, j)
-            local cost = (ai == bj) and 0 or 1
-            local val = math.min(
-                prev[j] + 1,
-                cur[j - 1] + 1,
-                prev[j - 1] + cost
-            )
+        local jstart = 1
+        local jend = lenB
+        if maxDist then
+            jstart = math_max(1, i - maxDist)
+            jend = math_min(lenB, i + maxDist)
+        end
+
+        if jstart > 1 then cur[jstart - 1] = math_huge end
+
+        for j = jstart, jend do
+            local cost = (ai == bBytes[j]) and 0 or 1
+            local left = (cur[j - 1] or math_huge) + 1
+            local above = (prev[j] or math_huge) + 1
+            local diag = (prev[j - 1] or math_huge) + cost
+            local val = left
+            if above < val then val = above end
+            if diag < val then val = diag end
+            -- transposition check
             if i > 1 and j > 1 then
-                local aiPrev = a:sub(i - 1, i - 1)
-                local bjPrev = b:sub(j - 1, j - 1)
-                if ai == bjPrev and aiPrev == bj then
-                    val = math.min(val, (prevPrev[j - 2] or 0) + 1)
+                if ai == bBytes[j - 1] and aBytes[i - 1] == bBytes[j] then
+                    local prevPrevVal = prevPrev[j - 2] or math_huge
+                    if prevPrevVal + 1 < val then val = prevPrevVal + 1 end
                 end
             end
             cur[j] = val
             if val < minRow then minRow = val end
         end
 
-        if minRow > maxDist then return nil end
-        prevPrev = prev
-        prev = cur
+        if minRow > (maxDist or 0) then return nil end
+
+        -- O(1) swap of buffers
+        self._ed_prev_prev, self._ed_prev, self._ed_cur = self._ed_prev, self._ed_cur, self._ed_prev_prev
+        prevPrev = self._ed_prev_prev
+        prev = self._ed_prev
+        cur = self._ed_cur
     end
 
     return prev[lenB]
