@@ -1,3 +1,16 @@
+-- 1.2.0
+  - *Massive feature update:* Integrated a real-time spellchecker into the edit box!
+    - Includes English (US) and English (UK) dictionaries by default.
+    - Extensive customization options added to Settings (underlines, minimum word length, suggestion counts, etc.).
+  - *Major backend overhaul:* The entire chat routing and queueing pipeline has been refactored to an event-based system.
+    - Resolves multi-link chunking breaking and failing silently.
+    - Fixes persistent stalls when posting to community channels (C_Club).
+    - Removed manual batching and throttle settings as the new pipeline handles this automatically and reliably.
+  - Fixes critical chunking issues with WoW 12.0's undocumented item quality colour codes (e.g., `|cnIQ3:`), ensuring item links always remain atomic across multi-part messages.
+  - Added new Editbox background theme colours specific to BNet Whispers, Channels, and Communities to match Blizzard defaults.
+  - Added a new 'Recover on Escape' setting - allowing you to choose whether pressing Escape saves your text as a draft or discards it.
+  - Various performance optimizations and persistence bug fixes.
+
 -- 1.1.4a
     - Attempted to fix an issue causing text to get stuck in the Blizzard editbox, which resulted in unintended prefilling behaviour when Yapper takes over.
 

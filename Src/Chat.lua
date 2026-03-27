@@ -30,6 +30,7 @@ local SPLITTABLE = {
     GUILD         = true,
     OFFICER       = true,
     CLUB          = true,
+    CHANNEL       = true,
 }
 
 -- ---------------------------------------------------------------------------
@@ -156,19 +157,10 @@ function Chat:OnSend(text, chatType, language, target)
 
     local chunks = Chunking:Split(text, limit)
 
+
+
     -- Relax link-splitting restriction.
     -- Chunking:Split is link-aware and keeps hyperlinks atomic, so splitting is safe.
-
-    -- Safety check: WoW rejects messages with more than 2 hyperlinks per chunk.
-    -- If this happens, the queue hangs. We must abort here.
-    for i, chunk in ipairs(chunks) do
-        local _, count = chunk:gsub("|H", "|H")
-        if count > 2 then
-            YapperTable.Utils:Print(
-                "|cFFFF4444Only 2 links allowed per message.|r")
-            return
-        end
-    end
 
     -- Edge case: single chunk after split.
     if #chunks <= 1 then

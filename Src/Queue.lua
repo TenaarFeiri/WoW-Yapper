@@ -83,6 +83,7 @@ local SEND_POLICIES = {
         autoUntilThrottle = false,
         requiresHardwareEvent = false,
         ackEvent = "CHAT_MSG_COMMUNITIES_CHANNEL",
+        stallMultiplier = 3,   -- community servers are slow
     },
     [POLICY_CLASS.GROUP] = {
         promptEveryChunk = false,
@@ -146,7 +147,7 @@ Queue.PendingAckEntry       = nil
 Queue.PendingAckText        = nil
 Queue.PendingAckEvent       = nil
 Queue.PendingAckPolicyClass = nil
-Queue.StrictAckMatching     = true
+Queue.StrictAckMatching     = false
 
 Queue._lastEscTime  = 0
 local DOUBLE_ESC_WINDOW = 0.4
@@ -391,7 +392,7 @@ function Queue:BeginEntry(entry)
 
     local expectedEvent = self.PendingAckEvent
     if expectedEvent then
-        self:ResetStallTimer()
+        self:ResetStallTimer(entry)
     else
         local policy = self:GetPolicy(entry)
         if not policy then
@@ -429,6 +430,7 @@ end
 -- ===========================================================================
 
 function Queue:RawSend(entry)
+
     local Router = YapperTable.Router
     local ok = true
     if Router then
@@ -437,6 +439,7 @@ function Queue:RawSend(entry)
         C_ChatInfo.SendChatMessage(entry.text, entry.type, entry.lang, entry.target)
         ok = true
     end
+
 
     if not ok then
         -- Treat a declined/failed send as a stall. Re-queue the entry and
@@ -465,6 +468,7 @@ function Queue:OnChatEvent(event, ...)
         return
     end
 
+
     -- First match the echoed text and expected event. Some chat events
     -- (notably whispers) may not provide a sender GUID in the usual arg
     -- position, so treat GUID as optional: only reject if present and
@@ -472,6 +476,11 @@ function Queue:OnChatEvent(event, ...)
     local msgText = select(1, ...)
     if self.StrictAckMatching and self.PendingAckText
         and msgText ~= self.PendingAckText then
+        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+            YapperTable.Utils:DebugPrint("  REJECTED: StrictAckMatching",
+                "#sent=" .. #(self.PendingAckText or ""),
+                "#echo=" .. #(msgText or ""))
+        end
         return
     end
 
@@ -480,7 +489,13 @@ function Queue:OnChatEvent(event, ...)
 
     -- arg12 = sender GUID when available.
     local guid = select(12, ...)
-    if guid and guid ~= self.PlayerGUID then return end
+    if guid and guid ~= self.PlayerGUID then
+        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+            YapperTable.Utils:DebugPrint("  REJECTED: GUID mismatch",
+                tostring(guid), "vs", tostring(self.PlayerGUID))
+        end
+        return
+    end
 
     self:HandleAck()
 end
@@ -502,6 +517,13 @@ function Queue:TryContinue()
     if self.NeedsContinue then
         return true
     end
+    -- Also suppress while a chunk is in-flight awaiting ACK.
+    -- Without this there's a race window between OnOpenChat dispatching
+    -- the next chunk (NeedsContinue=false) and the stall timer firing
+    -- 1.5s later, during which the overlay can sneak open.
+    if self.Active and self.PendingEntry then
+        return true
+    end
     return false
 end
 
@@ -509,11 +531,20 @@ end
 -- Stall timer
 -- ===========================================================================
 
-function Queue:ResetStallTimer()
+function Queue:ResetStallTimer(entry)
     self:CancelStallTimer()
     if not self.Active then return end
 
-    self.StallTimer = C_Timer.NewTimer(self.StallTimeout, function()
+    -- Community channels have higher latency; use policy multiplier.
+    local timeout = self.StallTimeout
+    if entry then
+        local policy = self:GetPolicy(entry)
+        if policy and policy.stallMultiplier then
+            timeout = timeout * policy.stallMultiplier
+        end
+    end
+
+    self.StallTimer = C_Timer.NewTimer(timeout, function()
         self:OnStallTimeout()
     end)
 end

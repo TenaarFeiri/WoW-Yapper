@@ -29,9 +29,17 @@ local function Tokenise(text)
             local nxt = text:sub(pos + 1, pos + 1)
 
             if nxt == "c" then
-                -- Colour open: |cAARRGGBB  (10 bytes)
-                tokens[#tokens + 1] = text:sub(pos, pos + 9)
-                pos = pos + 10
+                -- Colour open.  Consume |c plus everything up to the
+                -- next pipe — standard |cAARRGGBB (10 bytes) and the
+                -- shorter non-hex variants WoW 12.0 produces both work.
+                local nextPipe = text:find("|", pos + 2, true)
+                if nextPipe then
+                    tokens[#tokens + 1] = text:sub(pos, nextPipe - 1)
+                    pos = nextPipe
+                else
+                    tokens[#tokens + 1] = text:sub(pos)
+                    pos = len + 1
+                end
 
             elseif nxt == "r" then
                 -- Colour reset: |r  (2 bytes)
@@ -333,7 +341,7 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
 
     for i = 1, #tokens do
         local token = tokens[i]
-        local isColour = (token:sub(1, 2) == "|c" and #token == 10)
+        local isColour = (token:sub(1, 2) == "|c" and #token >= 4 and token ~= "|c")
         local isReset  = (token == "|r")
         local isEscape = (#token > 1 and token:sub(1, 1) == "|")
                          or token:sub(1, 1) == "{"
@@ -349,6 +357,36 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
 
         -- ── Escape sequence that doesn't fit — keep it atomic ────────
         elseif isEscape then
+            -- Prevent orphaned link parts across chunks.  WoW silently
+            -- drops a message whose hyperlink structure is incomplete.
+            -- Case A: |c is the last part (its |H didn't fit).
+            -- Case B: |c + |H are the last two parts (the closing |r
+            --         didn't fit).  Pull back the whole group.
+            local movedParts = {}
+            if #parts > 0 then
+                local last = parts[#parts]
+                if last and last:sub(1, 2) == "|c" and #last >= 4 then
+                    -- Case A: orphaned colour code.
+                    movedParts[1] = last
+                    parts[#parts] = nil
+                    size = size - #last
+                    colour = nil
+                elseif last and #last > 2 and last:sub(1, 2) == "|H" then
+                    -- The |H token is incomplete without its |r.
+                    -- Check if the part before it is a |c colour code.
+                    local prev = #parts > 1 and parts[#parts - 1] or nil
+                    if prev and prev:sub(1, 2) == "|c" and #prev >= 4 then
+                        -- Case B: pull back both |c and |H.
+                        movedParts[1] = prev   -- |c
+                        movedParts[2] = last   -- |H
+                        parts[#parts] = nil     -- remove |H
+                        parts[#parts] = nil     -- remove |c
+                        size = size - #prev - #last
+                        colour = nil
+                    end
+                end
+            end
+
             -- Close current chunk.
             local nextOpen = InjectContClose(parts, tokens, i)
             if colour then parts[#parts + 1] = "|r" end
@@ -358,6 +396,16 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
             -- Open new chunk.
             size = StartNewChunk(parts, size, prefix, colour)
             if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
+
+            -- Re-inject the pulled-back parts, then the current token.
+            for _, mp in ipairs(movedParts) do
+                parts[#parts + 1] = mp
+                size = size + #mp
+            end
+            if #movedParts > 0 and movedParts[1]:sub(1, 2) == "|c" then
+                colour = movedParts[1]
+            end
+
             parts[#parts + 1] = token
             size = size + #token
 
@@ -425,6 +473,7 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
         -- Track colour state.
         if isColour then colour = token end
         if isReset  then colour = nil   end
+
     end
 
     -- Flush the final chunk (no delineator on the last one).
