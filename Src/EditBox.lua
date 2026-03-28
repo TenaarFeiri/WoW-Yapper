@@ -1032,7 +1032,13 @@ function EditBox:SetupOverlayScripts()
         end
 
         if SLASH_MAP[cmd] then
-            self.ChatType = SLASH_MAP[cmd]
+            local ct = SLASH_MAP[cmd]
+            if (ct == "PARTY" or ct == "PARTY_LEADER") and (not IsInGroup(LE_PARTY_CATEGORY_HOME)) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+                ct = "INSTANCE_CHAT"
+            elseif (ct == "RAID" or ct == "RAID_LEADER") and (not IsInRaid(LE_PARTY_CATEGORY_HOME)) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+                ct = "INSTANCE_CHAT"
+            end
+            self.ChatType = ct
             self.Target   = nil
             self.Language = nil
             updatingText  = true
@@ -1143,7 +1149,13 @@ function EditBox:SetupOverlayScripts()
                 end
 
                 if SLASH_MAP[enterCmd] then
-                    self.ChatType = SLASH_MAP[enterCmd]
+                    local ct = SLASH_MAP[enterCmd]
+                    if (ct == "PARTY" or ct == "PARTY_LEADER") and (not IsInGroup(LE_PARTY_CATEGORY_HOME)) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+                        ct = "INSTANCE_CHAT"
+                    elseif (ct == "RAID" or ct == "RAID_LEADER") and (not IsInRaid(LE_PARTY_CATEGORY_HOME)) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+                        ct = "INSTANCE_CHAT"
+                    end
+                    self.ChatType = ct
                     self.Target   = nil
                     self.Language = nil
                     updatingText  = true
@@ -1547,6 +1559,23 @@ function EditBox:Show(origEditBox)
         self.Target   = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
             or nil
+    end
+
+    -- Smartly switch from Party/Raid to Instance if the Home group is missing.
+    if (self.ChatType == "PARTY" or self.ChatType == "PARTY_LEADER")
+       and (not IsInGroup(LE_PARTY_CATEGORY_HOME)) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        self.ChatType = "INSTANCE_CHAT"
+        self.Target   = nil
+    elseif (self.ChatType == "RAID" or self.ChatType == "RAID_LEADER")
+       and (not IsInRaid(LE_PARTY_CATEGORY_HOME)) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+        self.ChatType = "INSTANCE_CHAT"
+        self.Target   = nil
+    end
+
+    -- Validate channel availability (e.g. you left the party/raid/instance).
+    if not self:IsChatTypeAvailable(self.ChatType) then
+        self.ChatType = "SAY"
+        self.Target   = nil
     end
 
     -- Validate channel (might have been removed since last session).
@@ -2127,9 +2156,12 @@ function EditBox:IsChatTypeAvailable(chatType)
         return true
     end
     if chatType == "PARTY" or chatType == "PARTY_LEADER" then
-        return IsInGroup()
+        return IsInGroup(LE_PARTY_CATEGORY_HOME)
     end
-    if chatType == "RAID" or chatType == "RAID_LEADER" or chatType == "RAID_WARNING" then
+    if chatType == "RAID" or chatType == "RAID_LEADER" then
+        return IsInRaid(LE_PARTY_CATEGORY_HOME)
+    end
+    if chatType == "RAID_WARNING" then
         return IsInRaid()
     end
     if chatType == "INSTANCE_CHAT" then

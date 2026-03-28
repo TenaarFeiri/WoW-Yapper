@@ -8,6 +8,16 @@
 
 local YapperName, YapperTable = ...
 
+-- Localising some methods to avoid table lookups.
+-- bc wow is single-threaded, this helps save on CPU time.
+local s_byte   = string.byte
+local s_sub    = string.sub
+local s_find   = string.find
+local s_match  = string.match
+local t_concat = table.concat
+local tostring = tostring
+local ipairs   = ipairs
+
 local Chunking = {}
 YapperTable.Chunking = Chunking
 
@@ -22,96 +32,96 @@ local function Tokenise(text)
     local len = #text
 
     while pos <= len do
-        local ch = text:sub(pos, pos)
+        local b1 = s_byte(text, pos)
 
-        -- ── WoW escape: starts with | ────────────────────────────────
-        if ch == "|" then
-            local nxt = text:sub(pos + 1, pos + 1)
+        -- ── WoW escape: starts with | (124) ──────────────────────────
+        if b1 == 124 then
+            local b2 = s_byte(text, pos + 1)
 
-            if nxt == "c" then
+            if b2 == 99 then -- "c"
                 -- Colour open.  Consume |c plus everything up to the
                 -- next pipe — standard |cAARRGGBB (10 bytes) and the
                 -- shorter non-hex variants WoW 12.0 produces both work.
-                local nextPipe = text:find("|", pos + 2, true)
+                local nextPipe = s_find(text, "|", pos + 2, true)
                 if nextPipe then
-                    tokens[#tokens + 1] = text:sub(pos, nextPipe - 1)
+                    tokens[#tokens + 1] = s_sub(text, pos, nextPipe - 1)
                     pos = nextPipe
                 else
-                    tokens[#tokens + 1] = text:sub(pos)
+                    tokens[#tokens + 1] = s_sub(text, pos)
                     pos = len + 1
                 end
 
-            elseif nxt == "r" then
+            elseif b2 == 114 then -- "r"
                 -- Colour reset: |r  (2 bytes)
-                tokens[#tokens + 1] = text:sub(pos, pos + 1)
+                tokens[#tokens + 1] = s_sub(text, pos, pos + 1)
                 pos = pos + 2
 
-            elseif nxt == "H" then
+            elseif b2 == 72 then -- "H"
                 -- Hyperlink: |H<type>:<data>|h[display text]|h
-                local metaEnd = text:find("|h", pos + 2, true)
+                local metaEnd = s_find(text, "|h", pos + 2, true)
                 if metaEnd then
-                    local displayEnd = text:find("|h", metaEnd + 2, true)
+                    local displayEnd = s_find(text, "|h", metaEnd + 2, true)
                     if displayEnd then
-                        tokens[#tokens + 1] = text:sub(pos, displayEnd + 1)
+                        tokens[#tokens + 1] = s_sub(text, pos, displayEnd + 1)
                         pos = displayEnd + 2
                     else
                         -- Malformed — take up to first |h.
-                        tokens[#tokens + 1] = text:sub(pos, metaEnd + 1)
+                        tokens[#tokens + 1] = s_sub(text, pos, metaEnd + 1)
                         pos = metaEnd + 2
                     end
                 else
                     -- No |h at all — emit the pipe as plain text.
-                    tokens[#tokens + 1] = ch
+                    tokens[#tokens + 1] = s_sub(text, pos, pos)
                     pos = pos + 1
                 end
 
-            elseif nxt == "T" or nxt == "t" then
+            elseif b2 == 84 or b2 == 116 then -- "T" or "t"
                 -- Texture: |T<path>|t
-                local closePos = text:find("|t", pos + 2, true)
+                local closePos = s_find(text, "|t", pos + 2, true)
                 if closePos then
-                    tokens[#tokens + 1] = text:sub(pos, closePos + 1)
+                    tokens[#tokens + 1] = s_sub(text, pos, closePos + 1)
                     pos = closePos + 2
                 else
-                    tokens[#tokens + 1] = text:sub(pos, pos + 1)
+                    tokens[#tokens + 1] = s_sub(text, pos, pos + 1)
                     pos = pos + 2
                 end
 
-            elseif nxt == "A" then
+            elseif b2 == 65 then -- "A"
                 -- Atlas marker: |A<name>|a
-                local closePos = text:find("|a", pos + 2, true)
+                local closePos = s_find(text, "|a", pos + 2, true)
                 if closePos then
-                    tokens[#tokens + 1] = text:sub(pos, closePos + 1)
+                    tokens[#tokens + 1] = s_sub(text, pos, closePos + 1)
                     pos = closePos + 2
                 else
-                    tokens[#tokens + 1] = text:sub(pos, pos + 1)
+                    tokens[#tokens + 1] = s_sub(text, pos, pos + 1)
                     pos = pos + 2
                 end
 
             else
                 -- Unknown escape — emit just the pipe.
-                tokens[#tokens + 1] = ch
+                tokens[#tokens + 1] = s_sub(text, pos, pos)
                 pos = pos + 1
             end
 
-        -- ── Atlas shorthand: {atlas} ─────────────────────────────────
-        elseif ch == "{" then
-            local closePos = text:find("}", pos + 1, true)
+        -- ── Atlas shorthand: {atlas} (123) ───────────────────────────
+        elseif b1 == 123 then
+            local closePos = s_find(text, "}", pos + 1, true)
             if closePos then
-                tokens[#tokens + 1] = text:sub(pos, closePos)
+                tokens[#tokens + 1] = s_sub(text, pos, closePos)
                 pos = closePos + 1
             else
-                tokens[#tokens + 1] = ch
+                tokens[#tokens + 1] = s_sub(text, pos, pos)
                 pos = pos + 1
             end
 
         -- ── Plain text: consume up to the next special character ─────
         else
-            local nextSpecial = text:find("[|{]", pos + 1)
+            local nextSpecial = s_find(text, "[|{]", pos + 1)
             if nextSpecial then
-                tokens[#tokens + 1] = text:sub(pos, nextSpecial - 1)
+                tokens[#tokens + 1] = s_sub(text, pos, nextSpecial - 1)
                 pos = nextSpecial
             else
-                tokens[#tokens + 1] = text:sub(pos)
+                tokens[#tokens + 1] = s_sub(text, pos)
                 pos = len + 1
             end
         end
@@ -172,7 +182,7 @@ local function FindUnclosedPair(text)
             local count = 0
             local pos   = 1
             while true do
-                local s = text:find(pair.open, pos, true)
+                local s = s_find(text, pair.open, pos, true)
                 if not s then break end
                 count = count + 1
                 pos   = s + #pair.open
@@ -185,13 +195,13 @@ local function FindUnclosedPair(text)
             local lastOpen = nil
             local pos      = 1
             while true do
-                local s = text:find(pair.open, pos, true)
+                local s = s_find(text, pair.open, pos, true)
                 if not s then break end
                 lastOpen = s
                 pos      = s + #pair.open
             end
             if lastOpen then
-                local closePos = text:find(pair.close, lastOpen + #pair.open, true)
+                local closePos = s_find(text, pair.close, lastOpen + #pair.open, true)
                 if not closePos then
                     return pair
                 end
@@ -206,7 +216,7 @@ end
 --- check without re-running the full heuristics.
 local function CloseExistsAhead(tokens, fromIndex, close)
     for i = fromIndex, #tokens do
-        if tokens[i]:find(close, 1, true) then
+        if s_find(tokens[i], close, 1, true) then
             return true
         end
     end
@@ -219,7 +229,7 @@ end
 --- tokens — i.e. the user *does* intend to close it eventually.  If there
 --- is no closer anywhere ahead, assume mistake or intentional open.
 local function InjectContClose(parts, tokens, fromIndex)
-    local pair = FindUnclosedPair(table.concat(parts))
+    local pair = FindUnclosedPair(t_concat(parts))
     if pair then
         if CloseExistsAhead(tokens, fromIndex, pair.close) then
             parts[#parts + 1] = pair.close
@@ -236,7 +246,7 @@ end
 -- Search backwards for a space to split on.
 local function FindSplitSpace(s)
     for i = #s, 1, -1 do
-        if s:byte(i) == 32 then return i end
+        if s_byte(s, i) == 32 then return i end
     end
     return nil
 end
@@ -246,7 +256,7 @@ local function SafeUTF8Cut(s, maxBytes)
     if maxBytes >= #s then return #s end
     local pos = maxBytes
     while pos > 0 do
-        local b = s:byte(pos)
+        local b = s_byte(s, pos)
         -- ASCII or UTF-8 leading byte — safe to cut here.
         if b < 128 or b >= 192 then
             -- Leading byte of multi-byte char: cut before it.
@@ -267,7 +277,7 @@ end
 -- Flush accumulated parts into chunks and return fresh accumulators.
 local function FlushChunk(chunks, parts)
     if #parts > 0 then
-        chunks[#chunks + 1] = table.concat(parts)
+        chunks[#chunks + 1] = t_concat(parts)
     end
     return {}, 0
 end
@@ -292,7 +302,7 @@ end
 -- Normalize marker helper (defined early so Split can call it).
 local function NormalizeMarker(raw)
     local marker = tostring(raw or "")
-    marker = marker:match("^%s*(.-)%s*$") or ""
+    marker = s_match(marker, "^%s*(.-)%s*$") or ""
     return marker
 end
 
@@ -324,7 +334,7 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
     end
 
     -- Trim.
-    text = text:match("^%s*(.-)%s*$") or ""
+    text = s_match(text, "^%s*(.-)%s*$") or ""
 
     -- Fast path: already fits.
     if #text <= limit then
@@ -341,10 +351,10 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
 
     for i = 1, #tokens do
         local token = tokens[i]
-        local isColour = (token:sub(1, 2) == "|c" and #token >= 4 and token ~= "|c")
-        local isReset  = (token == "|r")
-        local isEscape = (#token > 1 and token:sub(1, 1) == "|")
-                         or token:sub(1, 1) == "{"
+        local b1, b2 = s_byte(token, 1, 2)
+        local isColour = (b1 == 124 and b2 == 99 and #token >= 4)
+        local isReset  = (b1 == 124 and b2 == 114 and #token == 2)
+        local isEscape = (b1 == 124 and #token > 1) or b1 == 123
 
         -- How many bytes the delineator/colour-close would cost at EOL.
         local suffixCost = #delineator + (colour and 2 or 0)
@@ -365,17 +375,23 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
             local movedParts = {}
             if #parts > 0 then
                 local last = parts[#parts]
-                if last and last:sub(1, 2) == "|c" and #last >= 4 then
+                local lb1, lb2
+                if last then lb1, lb2 = s_byte(last, 1, 2) end
+                
+                if last and lb1 == 124 and lb2 == 99 and #last >= 4 then
                     -- Case A: orphaned colour code.
                     movedParts[1] = last
                     parts[#parts] = nil
                     size = size - #last
                     colour = nil
-                elseif last and #last > 2 and last:sub(1, 2) == "|H" then
+                elseif last and #last > 2 and lb1 == 124 and lb2 == 72 then
                     -- The |H token is incomplete without its |r.
                     -- Check if the part before it is a |c colour code.
                     local prev = #parts > 1 and parts[#parts - 1] or nil
-                    if prev and prev:sub(1, 2) == "|c" and #prev >= 4 then
+                    local pb1, pb2
+                    if prev then pb1, pb2 = s_byte(prev, 1, 2) end
+                    
+                    if prev and pb1 == 124 and pb2 == 99 and #prev >= 4 then
                         -- Case B: pull back both |c and |H.
                         movedParts[1] = prev   -- |c
                         movedParts[2] = last   -- |H
@@ -402,8 +418,11 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
                 parts[#parts + 1] = mp
                 size = size + #mp
             end
-            if #movedParts > 0 and movedParts[1]:sub(1, 2) == "|c" then
-                colour = movedParts[1]
+            if #movedParts > 0 then
+                local mpb1, mpb2 = s_byte(movedParts[1], 1, 2)
+                if mpb1 == 124 and mpb2 == 99 then
+                    colour = movedParts[1]
+                end
             end
 
             parts[#parts + 1] = token
@@ -441,21 +460,21 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
                     -- Recalculate and loop.
                 else
                     -- Try to split on a word boundary.
-                    local bite  = remaining:sub(1, space)
+                    local bite  = s_sub(remaining, 1, space)
                     local split = FindSplitSpace(bite)
 
                     if split and split > 0 then
                         -- Split on the space (discard the space itself).
-                        parts[#parts + 1] = remaining:sub(1, split - 1)
+                        parts[#parts + 1] = s_sub(remaining, 1, split - 1)
                         size = size + (split - 1)
-                        remaining = remaining:sub(split + 1)
+                        remaining = s_sub(remaining, split + 1)
                     else
                         -- No space found — force-cut (UTF-8 safe).
                         local cut = SafeUTF8Cut(remaining, space)
                         if cut <= 0 then cut = 1 end
-                        parts[#parts + 1] = remaining:sub(1, cut)
+                        parts[#parts + 1] = s_sub(remaining, 1, cut)
                         size = size + cut
-                        remaining = remaining:sub(cut + 1)
+                        remaining = s_sub(remaining, cut + 1)
                     end
 
                     -- Close chunk. fromIndex=i so CloseExistsAhead sees both
@@ -478,7 +497,7 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
 
     -- Flush the final chunk (no delineator on the last one).
     if #parts > 0 then
-        chunks[#chunks + 1] = table.concat(parts)
+        chunks[#chunks + 1] = t_concat(parts)
     end
 
     return chunks
@@ -487,12 +506,6 @@ end
 -- ---------------------------------------------------------------------------
 -- Delineator API
 -- ---------------------------------------------------------------------------
-
-local function NormalizeMarker(raw)
-    local marker = tostring(raw or "")
-    marker = marker:match("^%s*(.-)%s*$") or ""
-    return marker
-end
 
 --- Returns the delineation markers currently in use.
 function Chunking:GetDelineators()
