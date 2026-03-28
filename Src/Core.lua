@@ -171,6 +171,7 @@ local DEFAULTS = {
         NgramTopCandidates = 300,
         MinWordLength  = 2,
         UnderlineStyle = "line",
+        KeyboardLayout = "QWERTY",
         Dict           = {},
     },
 }
