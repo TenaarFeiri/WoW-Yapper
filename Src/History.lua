@@ -14,7 +14,7 @@ YapperTable.History           = History
 local UNDO_HISTORY_SIZE       = 20 -- Max undo snapshots per editbox
 local CHAT_HISTORY_SIZE       = 50 -- Max persistent sent messages
 local SNAPSHOT_THRESHOLD      = 20 -- Min character delta for auto-snapshot
-local DRAFT_SLOTS             = 5 -- Ring buffer size for crash-safe drafts
+
 local CURRENT_VERSION         = tonumber((YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.VERSION)) or
 1.0
 
@@ -43,8 +43,7 @@ local HISTORY_DEFAULTS = {
     VERSION = CURRENT_VERSION,
     chatHistory = {},     -- Flat array of sent strings, newest last.
     draft = {
-        ring     = {},    -- Ring buffer: up to DRAFT_SLOTS text snapshots.
-        pos      = 0,     -- Next write index (1-based, wraps).
+        text     = nil,   -- The raw draft text
         chatType = nil,   -- Chat type when draft was taken.
         target   = nil,   -- Whisper target / channel when draft was taken.
         dirty    = false, -- True if editbox was NOT closed via Enter/send.
@@ -84,8 +83,14 @@ function History:InitDB()
     if type(d) ~= "table" then
         _G.YapperLocalHistory.draft = DeepCopy(HISTORY_DEFAULTS.draft)
     else
-        if d.ring == nil then d.ring = {} end
-        if d.pos == nil then d.pos = 0 end
+        -- Migrate from old ring buffer to direct string storage
+        if d.ring ~= nil then
+            if type(d.pos) == "number" and d.pos > 0 and d.ring[d.pos] then
+                d.text = d.ring[d.pos]
+            end
+            d.ring = nil
+            d.pos = nil
+        end
     end
 
     _G.YapperLocalHistory.VERSION = tonumber(_G.YapperLocalHistory.VERSION) or CURRENT_VERSION
@@ -151,68 +156,47 @@ end
 -- Draft auto-save (crash-safe)
 -- ---------------------------------------------------------------------------
 
---- Save current editbox text into the draft ring buffer.
-function History:SaveDraft(editbox)
-    if not _G.YapperLocalHistory then return end
-    if not editbox then return end
-
-    local raw = editbox.GetText and editbox:GetText() or ""
-    local text = raw:match("^%s*(.-)%s*$") or ""
-    if text == "" then return end -- don't waste a slot on empty/whitespace-only
-
-    local d = _G.YapperLocalHistory.draft
-    -- Advance ring position (wraps at DRAFT_SLOTS).
-    d.pos = (d.pos % DRAFT_SLOTS) + 1
-    d.ring[d.pos] = text
-
-    -- Save channel context so recovery re-opens in the right mode.
-    local eb = YapperTable.EditBox
-    if eb then
-        d.chatType = eb.ChatType
-        d.target   = eb.Target
+function History:GetDraftStore()
+    if not _G.YapperLocalHistory then
+        _G.YapperLocalHistory = {}
     end
-
-    d.dirty = true -- Assume dirty until proven clean.
+    if not _G.YapperLocalHistory.draft then
+        _G.YapperLocalHistory.draft = DeepCopy(HISTORY_DEFAULTS.draft)
+    end
+    return _G.YapperLocalHistory.draft
 end
 
---- Retrieve the most recent draft text, or nil.
-function History:GetDraft()
-    if not _G.YapperLocalHistory then return nil end
-    local d = _G.YapperLocalHistory.draft
-    if not d or not d.dirty then return nil end
-    if not d.ring or d.pos == 0 then return nil end
+function History:SaveDraft(editBox)
+    if not editBox then return end
+    local text = editBox:GetText() or ""
+    local draft = self:GetDraftStore()
 
-    -- Walk backwards through the ring for the most recent non-empty entry.
-    local count = math.min(#d.ring, DRAFT_SLOTS)
-    for i = 0, count - 1 do
-        local idx = ((d.pos - 1 - i) % DRAFT_SLOTS) + 1
-        local text = d.ring[idx]
-        if text and type(text) == "string" then
-            local trimmed = text:match("^%s*(.-)%s*$") or ""
-            if trimmed ~= "" then
-                return text, d.chatType, d.target
-            end
-        end
+    draft.text = text
+    draft.chatType = YapperTable.EditBox and YapperTable.EditBox.ChatType
+    draft.target = YapperTable.EditBox and YapperTable.EditBox.Target
+    draft.dirty = true
+end
+
+function History:GetDraft()
+    local draft = self:GetDraftStore()
+    if not draft.dirty or not draft.text or draft.text == "" then
+        return nil, nil, nil
     end
-    return nil
+    return draft.text, draft.chatType, draft.target
 end
 
 --- Mark the draft as clean (send) or dirty (everything else).
 function History:MarkDirty(dirty)
-    if not _G.YapperLocalHistory or not _G.YapperLocalHistory.draft then return end
-    _G.YapperLocalHistory.draft.dirty = dirty
+    local draft = self:GetDraftStore()
+    draft.dirty = dirty
 end
 
---- Clear the draft ring entirely (after successful send).
 function History:ClearDraft()
-    if not _G.YapperLocalHistory then return end
-    _G.YapperLocalHistory.draft = {
-        ring     = {},
-        pos      = 0,
-        chatType = nil,
-        target   = nil,
-        dirty    = false,
-    }
+    local draft = self:GetDraftStore()
+    draft.text = nil
+    draft.chatType = nil
+    draft.target = nil
+    draft.dirty = false
 end
 
 -- ---------------------------------------------------------------------------
@@ -360,31 +344,37 @@ function History:HookOverlayEditBox()
         local text = box:GetText() or ""
         local last = LastText[name] or ""
 
-        local function IsWhitespaceByte(b)
-            return b == 32 or b == 9 or b == 10 or b == 13
+        local function IsWordBoundaryByte(b)
+            -- Whitespace (Space, Tab, Enter) or Punctuation (. , ! ? : ;)
+            return b == 32 or b == 9 or b == 10 or b == 13 
+                or b == 46 or b == 44 or b == 33 or b == 63 or b == 58 or b == 59
         end
 
-        local textLast           = (#text > 0) and text:byte(#text) or nil
-        local lastLast           = (#last > 0) and last:byte(#last) or nil
-        local insertedWhitespace = (#text > #last) and IsWhitespaceByte(textLast)
-        local removedWhitespace  = (#text < #last) and IsWhitespaceByte(lastLast)
+        local textLast            = (#text > 0) and text:byte(#text) or nil
+        local lastLast            = (#last > 0) and last:byte(#last) or nil
+        local insertedBoundary    = (#text > #last) and IsWordBoundaryByte(textLast)
+        local removedBoundary     = (#text < #last) and IsWordBoundaryByte(lastLast)
 
-        -- Undo snapshot on whitespace insert/remove using PRE-change text,
+        -- Undo snapshot on word boundaries using PRE-change text,
         -- otherwise snapshot on large deltas.
-        if insertedWhitespace or removedWhitespace then
+        if insertedBoundary or removedBoundary then
             self:AddSnapshot(box, true, last, #last)
+            self:SaveDraft(box)
         elseif math.abs(#text - #last) >= SNAPSHOT_THRESHOLD then
             self:AddSnapshot(box, false)
         end
 
         LastText[name] = text
 
-        -- Draft save on whitespace (Space, Tab, Enter — natural pause points).
+        -- Debounced "Pause" trigger: snapshot and save draft after 0.5s of inactivity.
+        if box._yapperPauseTimer then box._yapperPauseTimer:Cancel() end
         if #text > 0 then
-            local lastChar = text:byte(#text)
-            if lastChar == 32 or lastChar == 9 or lastChar == 10 or lastChar == 13 then
-                self:SaveDraft(box)
-            end
+            box._yapperPauseTimer = C_Timer.NewTimer(0.5, function()
+                if box:GetText() == text then -- verify still matches
+                    self:AddSnapshot(box, true)
+                    self:SaveDraft(box)
+                end
+            end)
         end
     end)
 
