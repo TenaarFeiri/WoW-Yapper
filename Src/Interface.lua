@@ -64,6 +64,7 @@ local SETTING_TOOLTIPS = {
     "Extra pixels away from the minimap center for the fallback minimap button.",
     ["Spellcheck.Enabled"] = "Underline and suggest replacements for misspelled words.",
     ["Spellcheck.Locale"] = "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
+    ["Spellcheck.KeyboardLayout"] = "Specify your physical keyboard layout (QWERTY, QWERTZ, or AZERTY) to improve suggestion accuracy by accounting for physical key proximity.",
     ["Spellcheck.UnderlineStyle"] = "Choose between straight underline or highlight style.",
     ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
@@ -114,6 +115,7 @@ local FRIENDLY_LABELS = {
     ["FrameSettings.MinimapButtonOffset"] = "Minimap button offset",
     ["Spellcheck.Enabled"] = "Enable spellcheck",
     ["Spellcheck.Locale"] = "Spellcheck locale",
+    ["Spellcheck.KeyboardLayout"] = "Keyboard layout",
     ["Spellcheck.UnderlineStyle"] = "Underline style",
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
@@ -157,6 +159,7 @@ local CATEGORIES = {
             -- Spellcheck
             "Spellcheck.Enabled",
             "Spellcheck.Locale",
+            "Spellcheck.KeyboardLayout",
             "Spellcheck.UnderlineStyle",
             "Spellcheck.MaxCandidates",
             "Spellcheck.ReshuffleAttempts",
@@ -864,6 +867,8 @@ function Interface:BuildRenderSchema()
                         kind = "fontflags"
                     elseif JoinPath(nextPath) == "Spellcheck.Locale" then
                         kind = "spellcheck_locale"
+                    elseif JoinPath(nextPath) == "Spellcheck.KeyboardLayout" then
+                        kind = "spellcheck_keyboard_layout"
                     elseif JoinPath(nextPath) == "Spellcheck.UnderlineStyle" then
                         kind = "spellcheck_underline"
                     end
@@ -2713,6 +2718,37 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
     return dd
 end
 
+function Interface:CreateSpellcheckKeyboardLayoutDropdown(parent, label, path, cursor)
+    local y = cursor:Y()
+    self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
+
+    local dd = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
+    dd:SetPoint("TOPLEFT", parent, "TOPLEFT", 165, y - 4)
+    UIDropDownMenu_SetWidth(dd, 180)
+
+    local current = self:GetConfigPath(path) or "QWERTY"
+    UIDropDownMenu_SetText(dd, current)
+
+    UIDropDownMenu_Initialize(dd, function(frame, level)
+        local layouts = { "QWERTY", "QWERTZ", "AZERTY" }
+        for _, layout in ipairs(layouts) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = layout
+            info.checked = (layout == current)
+            info.func = function()
+                current = layout
+                Interface:SetLocalPath(path, layout)
+                UIDropDownMenu_SetText(frame, layout)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+
+    self:AddControl(dd)
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
+    return dd
+end
+
 function Interface:CreateSpellcheckUnderlineDropdown(parent, label, path, cursor)
     local y = cursor:Y()
     self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
@@ -3067,6 +3103,13 @@ function Interface:BuildConfigUI()
                     )
                 elseif item.kind == "spellcheck_locale" then
                     self:CreateSpellcheckLocaleDropdown(
+                        frame.ContentFrame,
+                        self:GetFriendlyLabel(item),
+                        item.path,
+                        cursor
+                    )
+                elseif item.kind == "spellcheck_keyboard_layout" then
+                    self:CreateSpellcheckKeyboardLayoutDropdown(
                         frame.ContentFrame,
                         self:GetFriendlyLabel(item),
                         item.path,
