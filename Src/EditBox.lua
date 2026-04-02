@@ -1038,7 +1038,26 @@ function EditBox:SetupOverlayScripts()
             local ct = SLASH_MAP[cmd]
             
             -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
-            ct = self:GetResolvedChatType(ct)
+            if ct == "INSTANCE_CHAT" then
+                -- Target Instance Chat: Fallback to Raid or Party if not in Instance Category.
+                if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+                    if IsInRaid(LE_PARTY_CATEGORY_HOME) then
+                        ct = "RAID"
+                    elseif IsInGroup(LE_PARTY_CATEGORY_HOME) then
+                        ct = "PARTY"
+                    end
+                end
+            elseif ct == "PARTY" or ct == "PARTY_LEADER" then
+                -- Target Party: Fallback to Instance if not in Home Party.
+                if not IsInGroup(LE_PARTY_CATEGORY_HOME) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+                    ct = "INSTANCE_CHAT"
+                end
+            elseif ct == "RAID" or ct == "RAID_LEADER" then
+                -- Target Raid: Fallback to Instance if not in Home Raid.
+                if not IsInRaid(LE_PARTY_CATEGORY_HOME) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+                    ct = "INSTANCE_CHAT"
+                end
+            end
 
             self.ChatType = ct
             self.Target   = nil
@@ -1154,7 +1173,23 @@ function EditBox:SetupOverlayScripts()
                     local ct = SLASH_MAP[enterCmd]
                     
                     -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
-                    ct = self:GetResolvedChatType(ct)
+                    if ct == "INSTANCE_CHAT" then
+                        if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+                            if IsInRaid(LE_PARTY_CATEGORY_HOME) then
+                                ct = "RAID"
+                            elseif IsInGroup(LE_PARTY_CATEGORY_HOME) then
+                                ct = "PARTY"
+                            end
+                        end
+                    elseif ct == "PARTY" or ct == "PARTY_LEADER" then
+                        if not IsInGroup(LE_PARTY_CATEGORY_HOME) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+                            ct = "INSTANCE_CHAT"
+                        end
+                    elseif ct == "RAID" or ct == "RAID_LEADER" then
+                        if not IsInRaid(LE_PARTY_CATEGORY_HOME) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+                            ct = "INSTANCE_CHAT"
+                        end
+                    end
 
                     self.ChatType = ct
                     self.Target   = nil
