@@ -52,6 +52,7 @@ Spellcheck._debounceTimer = nil
 Spellcheck.UserDictCache = {}
 Spellcheck._pendingLocaleLoads = {}
 Spellcheck._debugLoadedLocales = {}
+Spellcheck.DictionaryBuilders = {}
 -- Reusable buffers for EditDistance to avoid per-call allocations
 Spellcheck._ed_prev = {}
 Spellcheck._ed_cur = {}
@@ -177,8 +178,38 @@ end
 -- Configurable for devs; higher = faster loading but more per-frame cost.
 local DICT_CHUNK_SIZE = 2000
 
+function Spellcheck:LoadDictionary(locale)
+    -- Don't start a new load if it's already in memory OR currently loading.
+    if self.Dictionaries and self.Dictionaries[locale] then return end
+    if self._asyncLoaders and self._asyncLoaders[locale] then return end
+
+    if self.DictionaryBuilders and self.DictionaryBuilders[locale] then
+        local builder = self.DictionaryBuilders[locale]
+        
+        -- Use pcall to prevent bad dicts from destroying spellcheck permanently
+        local success, data = pcall(builder)
+        if success and data then
+            self:RegisterDictionary(locale, data)
+        else
+            if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+                self:Notify("Spellcheck failed to load dictionary for " .. tostring(locale))
+            end
+        end
+    end
+end
+
 function Spellcheck:RegisterDictionary(locale, data)
-    if type(locale) ~= "string" or locale == "" or type(data) ~= "table" then
+    if type(locale) ~= "string" or locale == "" then
+        return
+    end
+
+    if type(data) == "function" then
+        self.DictionaryBuilders = self.DictionaryBuilders or {}
+        self.DictionaryBuilders[locale] = data
+        return
+    end
+
+    if type(data) ~= "table" then
         return
     end
 
@@ -309,20 +340,12 @@ function Spellcheck:RegisterDictionary(locale, data)
 end
 
 function Spellcheck:_OnDictRegistrationComplete(locale)
-    if YapperTable and YapperTable.Config
-        and YapperTable.Config.System
-        and YapperTable.Config.System.DEBUG
-        and not self._debugLoadedLocales[locale] then
-        self._debugLoadedLocales[locale] = true
-        if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-            DEFAULT_CHAT_FRAME:AddMessage("Yapper: dictionary registered for " .. tostring(locale))
-        end
-    end
+    local dict = self.Dictionaries[locale]
+    local count = dict and dict.words and #dict.words or 0
 
-    -- Notify user that loading is done (only if spellcheck enabled)
-    if self:IsEnabled() then
-        local dict = self.Dictionaries[locale]
-        local count = dict and dict.words and #dict.words or 0
+    if YapperTable.Utils and YapperTable.Utils.Print then
+        YapperTable.Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(count)))
+    else
         self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(count) .. " words).")
     end
 
@@ -405,6 +428,7 @@ function Spellcheck:Notify(msg)
 end
 
 function Spellcheck:EnsureLocale(locale)
+    self:LoadDictionary(locale)
     if self:IsLocaleAvailable(locale) then
         return true
     end
@@ -476,7 +500,7 @@ end
 function Spellcheck:GetLocale()
     local cfg = self:GetConfig()
     if type(cfg.Locale) == "string" and cfg.Locale ~= "" then
-        if self:EnsureLocale(cfg.Locale) then
+        if not self:IsEnabled() or self:EnsureLocale(cfg.Locale) then
             return cfg.Locale
         end
         local fallback = self:GetFallbackLocale()
@@ -494,9 +518,9 @@ function Spellcheck:GetLocale()
     if GetLocale then
         local client = GetLocale()
         if client == "enGB" then
-            if self:EnsureLocale("enGB") then return "enGB" end
+            if not self:IsEnabled() or self:EnsureLocale("enGB") then return "enGB" end
         elseif client == "enUS" then
-            if self:EnsureLocale("enUS") then return "enUS" end
+            if not self:IsEnabled() or self:EnsureLocale("enUS") then return "enUS" end
         end
     end
 
@@ -512,8 +536,10 @@ function Spellcheck:GetFallbackLocale()
 end
 
 function Spellcheck:GetDictionary()
+    if not self:IsEnabled() then return nil end
     local locale = self:GetLocale()
     if not self.Dictionaries[locale] then
+        self:LoadDictionary(locale)
         self:EnsureLocale(locale)
     end
     return self.Dictionaries[locale]
@@ -796,8 +822,47 @@ function Spellcheck:Bind(editBox, overlay)
     end
 end
 
-function Spellcheck:OnConfigChanged()
+function Spellcheck:PurgeOtherDictionaries(keepLocale)
+    if self.Dictionaries then
+        for locale, dict in pairs(self.Dictionaries) do
+            if locale ~= keepLocale then
+                -- Scrub internal tables first to reduce capacity before nil-ing
+                dict.words = {"."}
+                dict.set = {}
+                dict.index = {}
+                dict.ngramIndex = {}
+
+                self.Dictionaries[locale] = nil
+                self._debugLoadedLocales[locale] = nil
+            end
+        end
+    end
+    if self._asyncLoaders then
+        for locale, loader in pairs(self._asyncLoaders) do
+            if locale ~= keepLocale then
+                loader.cancelled = true
+                self._asyncLoaders[locale] = nil
+            end
+        end
+    end
+end
+
+function Spellcheck:ApplyState(enabled, locale)
+    if enabled == nil then enabled = self:IsEnabled() end
+    if locale == nil then locale = self:GetLocale() end
+
+    if enabled then
+        self:PurgeOtherDictionaries(locale)
+        if not self:EnsureLocale(locale) then
+            return false
+        end
+    end
     self:ScheduleRefresh()
+    return true
+end
+
+function Spellcheck:OnConfigChanged()
+    self:ApplyState()
 end
 
 function Spellcheck:OnTextChanged(editBox, isUserInput)

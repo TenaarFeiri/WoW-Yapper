@@ -169,8 +169,13 @@ end
 function History:SaveDraft(editBox)
     if not editBox then return end
     local text = editBox:GetText() or ""
-    local draft = self:GetDraftStore()
+    
+    -- Bail if empty or just whitespace. We don't want a "zombie" spacebar 
+    -- click to overwrite a previously saved multi-sentence draft.
+    local trimmed = text:match("^%s*(.-)%s*$") or ""
+    if trimmed == "" then return end
 
+    local draft = self:GetDraftStore()
     draft.text = text
     draft.chatType = YapperTable.EditBox and YapperTable.EditBox.ChatType
     draft.target = YapperTable.EditBox and YapperTable.EditBox.Target
@@ -191,12 +196,31 @@ function History:MarkDirty(dirty)
     draft.dirty = dirty
 end
 
-function History:ClearDraft()
+function History:ClearDraft(editBox)
     local draft = self:GetDraftStore()
     draft.text = nil
     draft.chatType = nil
     draft.target = nil
     draft.dirty = false
+
+    -- Cleanup any pending snapshot timers if the box is provided.
+    if editBox then
+        self:CancelPauseTimer(editBox)
+        
+        -- Reset the "LastText" comparison so the next message's first 
+        -- character isn't compared against the end of the previous message.
+        local name = editBox.GetName and editBox:GetName()
+        if name then LastText[name] = "" end
+    end
+end
+
+--- Cancel the debounced pause-timer for a given editbox.
+function History:CancelPauseTimer(editBox)
+    if not editBox then return end
+    if editBox._yapperPauseTimer then
+        editBox._yapperPauseTimer:Cancel()
+        editBox._yapperPauseTimer = nil
+    end
 end
 
 -- ---------------------------------------------------------------------------

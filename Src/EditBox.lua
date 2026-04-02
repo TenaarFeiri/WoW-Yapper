@@ -828,6 +828,9 @@ function EditBox:CreateOverlay()
 
     -- ── Input EditBox (right portion) ────────────────────────────────
     local edit = CreateFrame("EditBox", "YapperOverlayEditBox", frame)
+    if edit.SetPropagateKeyboardInput then
+        edit:SetPropagateKeyboardInput(false)
+    end
     edit:SetFontObject(ChatFontNormal)
     edit:SetAutoFocus(true)
     edit:SetMultiLine(false)
@@ -1033,11 +1036,10 @@ function EditBox:SetupOverlayScripts()
 
         if SLASH_MAP[cmd] then
             local ct = SLASH_MAP[cmd]
-            if (ct == "PARTY" or ct == "PARTY_LEADER") and (not IsInGroup(LE_PARTY_CATEGORY_HOME)) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-                ct = "INSTANCE_CHAT"
-            elseif (ct == "RAID" or ct == "RAID_LEADER") and (not IsInRaid(LE_PARTY_CATEGORY_HOME)) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
-                ct = "INSTANCE_CHAT"
-            end
+            
+            -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
+            ct = self:GetResolvedChatType(ct)
+
             self.ChatType = ct
             self.Target   = nil
             self.Language = nil
@@ -1065,7 +1067,7 @@ function EditBox:SetupOverlayScripts()
             end
             self._closedClean = true
             if YapperTable.History then
-                YapperTable.History:ClearDraft()
+                YapperTable.History:ClearDraft(box)
             end
             self:PersistLastUsed()
             self:Hide()
@@ -1150,11 +1152,10 @@ function EditBox:SetupOverlayScripts()
 
                 if SLASH_MAP[enterCmd] then
                     local ct = SLASH_MAP[enterCmd]
-                    if (ct == "PARTY" or ct == "PARTY_LEADER") and (not IsInGroup(LE_PARTY_CATEGORY_HOME)) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-                        ct = "INSTANCE_CHAT"
-                    elseif (ct == "RAID" or ct == "RAID_LEADER") and (not IsInRaid(LE_PARTY_CATEGORY_HOME)) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
-                        ct = "INSTANCE_CHAT"
-                    end
+                    
+                    -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
+                    ct = self:GetResolvedChatType(ct)
+
                     self.ChatType = ct
                     self.Target   = nil
                     self.Language = nil
@@ -1173,7 +1174,7 @@ function EditBox:SetupOverlayScripts()
             if strbyte(trimmed, 1) == 47 then -- '/'
                 self._closedClean = true
                 if YapperTable.History then
-                    YapperTable.History:ClearDraft()
+                    YapperTable.History:ClearDraft(box)
                     -- Add regular slash commands to history (no channel context).
                     YapperTable.History:AddChatHistory(trimmed, nil, nil)
                 end
@@ -1233,7 +1234,7 @@ function EditBox:SetupOverlayScripts()
 
         self._closedClean = true
         if YapperTable.History then
-            YapperTable.History:ClearDraft()
+            YapperTable.History:ClearDraft(box)
         end
         self:PersistLastUsed()
         if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
@@ -1257,7 +1258,7 @@ function EditBox:SetupOverlayScripts()
         if text == "" then
             self._closedClean = true
             if YapperTable.History then
-                YapperTable.History:ClearDraft()
+                YapperTable.History:ClearDraft(box)
             end
         else
             if recoverOnEscape then
@@ -1305,13 +1306,6 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:HookScript("OnKeyDown", function(box, key)
-        -- By default do not propagate keystrokes to the rest of the UI
-        -- (prevents actionbindings / movement while typing). Only allow
-        -- propagation when explicitly desired.
-        if box.SetPropagateKeyboardInput then
-            box:SetPropagateKeyboardInput(false)
-        end
-
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
             if YapperTable.Spellcheck:HandleKeyDown(key) then
                 return
@@ -1562,13 +1556,9 @@ function EditBox:Show(origEditBox)
     end
 
     -- Smartly switch from Party/Raid to Instance if the Home group is missing.
-    if (self.ChatType == "PARTY" or self.ChatType == "PARTY_LEADER")
-       and (not IsInGroup(LE_PARTY_CATEGORY_HOME)) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-        self.ChatType = "INSTANCE_CHAT"
-        self.Target   = nil
-    elseif (self.ChatType == "RAID" or self.ChatType == "RAID_LEADER")
-       and (not IsInRaid(LE_PARTY_CATEGORY_HOME)) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
-        self.ChatType = "INSTANCE_CHAT"
+    local resolvedCT = self:GetResolvedChatType(self.ChatType)
+    if resolvedCT ~= self.ChatType then
+        self.ChatType = resolvedCT
         self.Target   = nil
     end
 
@@ -2173,6 +2163,27 @@ function EditBox:IsChatTypeAvailable(chatType)
     return true
 end
 
+function EditBox:GetResolvedChatType(ct)
+    if ct == "INSTANCE_CHAT" then
+        if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+            if IsInRaid(LE_PARTY_CATEGORY_HOME) then
+                return "RAID"
+            elseif IsInGroup(LE_PARTY_CATEGORY_HOME) then
+                return "PARTY"
+            end
+        end
+    elseif ct == "PARTY" or ct == "PARTY_LEADER" then
+        if not IsInGroup(LE_PARTY_CATEGORY_HOME) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+            return "INSTANCE_CHAT"
+        end
+    elseif ct == "RAID" or ct == "RAID_LEADER" then
+        if not IsInRaid(LE_PARTY_CATEGORY_HOME) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+            return "INSTANCE_CHAT"
+        end
+    end
+    return ct
+end
+
 -- ---------------------------------------------------------------------------
 -- History navigation
 -- ---------------------------------------------------------------------------
@@ -2259,6 +2270,25 @@ function EditBox:ForwardSlashCommand(text)
     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
         self:HandoffToBlizzard()
         return
+    end
+
+    local chosenCT = self:GetResolvedChatType(self.ChatType)
+    local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
+    self.OrigEditBox:SetAttribute("chatType", overrideCT)
+    if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
+        self.OrigEditBox:SetAttribute("tellTarget", self.Target)
+        self.OrigEditBox:SetAttribute("channelTarget", nil)
+    elseif overrideCT == "CHANNEL" then
+        self.OrigEditBox:SetAttribute("channelTarget", self.Target)
+        self.OrigEditBox:SetAttribute("tellTarget", nil)
+    else
+        self.OrigEditBox:SetAttribute("tellTarget", nil)
+        self.OrigEditBox:SetAttribute("channelTarget", nil)
+    end
+    if self.Language then
+        self.OrigEditBox:SetAttribute("language", self.Language)
+    else
+        self.OrigEditBox:SetAttribute("language", nil)
     end
 
     self.OrigEditBox:SetText(text)
@@ -2473,6 +2503,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             if not self._lockdownShowHandled then
                 self._lockdownShowHandled = true
                 local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
+                chosenCT = self:GetResolvedChatType(chosenCT)
                 eb:SetAttribute("chatType", chosenCT)
                 if chosenCT == "WHISPER" then
                     eb:SetAttribute("tellTarget", self.Target)
@@ -2590,33 +2621,6 @@ function EditBox:HookAllChatFrames()
 
     if YapperTable.Utils then
         YapperTable.Utils:VerbosePrint("EditBox overlays hooked for " .. (NUM_CHAT_WINDOWS or 10) .. " chat frames.")
-    end
-
-    -- Shift-click link insertion (items, quests, spells, etc.).
-    -- By overriding the "Active Window" detection, Blizzard's native logic
-    -- correctly identifies the Yapper overlay as the destination for links.
-    if not self._insertLinkHooked then
-        self._insertLinkHooked = true
-
-        if _G.ChatEdit_GetActiveWindow then
-            local origActive = _G.ChatEdit_GetActiveWindow
-            _G["ChatEdit_GetActiveWindow"] = function(...)
-                if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit and self.OverlayEdit:HasFocus() then
-                    return self.OverlayEdit
-                end
-                return origActive(...)
-            end
-        end
-
-        if _G.ChatFrameUtil and _G.ChatFrameUtil.GetActiveWindow then
-            local origUtilActive = _G.ChatFrameUtil.GetActiveWindow
-            _G.ChatFrameUtil["GetActiveWindow"] = function(...)
-                if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit and self.OverlayEdit:HasFocus() then
-                    return self.OverlayEdit
-                end
-                return origUtilActive(...)
-            end
-        end
     end
 
     -- Capture the raw OpenChat argument so we can preserve leading slashes

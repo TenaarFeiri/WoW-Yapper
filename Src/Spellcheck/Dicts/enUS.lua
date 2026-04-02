@@ -7,8 +7,9 @@
 local _, YapperTable = ...
 if not YapperTable or not YapperTable.Spellcheck then return end
 
-YapperTable.Spellcheck:RegisterDictionary("enUS", {
-    words = {
+YapperTable.Spellcheck:RegisterDictionary("enUS", function()
+    return {
+        words = {
         "0th", "1st", "1th", "2nd", "2th", "3rd",
         "3th", "4th", "5th", "6th", "7th", "8th",
         "9th", "A", "A's", "AA", "AA's", "AAA",
@@ -22861,5 +22862,6 @@ YapperTable.Spellcheck:RegisterDictionary("enUS", {
         "zwingli", "zwingli's", "zworykin", "zworykin's", "zydeco", "zydeco's",
         "zygote", "zygote's", "zygotes", "zygotic", "zymurgy", "zymurgy's",
         "zyrtec", "zyrtec's", "zyuganov", "zyuganov's", "zzz",
-    },
-})
+    }
+}
+end)

@@ -2693,8 +2693,8 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
             info.checked = (locale == current)
             info.disabled = (not available and not canLoad)
             info.func = function()
-                if spell and spell.EnsureLocale then
-                    if not spell:EnsureLocale(locale) then
+                if spell and spell.ApplyState then
+                    if not spell:ApplyState(spell:IsEnabled(), locale) then
                         if spell.Notify then
                             if spell.HasLocaleAddon and spell:HasLocaleAddon(locale) then
                                 spell:Notify("Yapper: failed to load " .. (spell:GetLocaleAddon(locale) or "") .. " for " .. locale .. ".")

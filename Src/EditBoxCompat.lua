@@ -59,46 +59,43 @@ end
 
 local _suppressOverlayReturn = false
 
-local originalHookAllChatFrames = EditBox.HookAllChatFrames
-function EditBox:HookAllChatFrames(...)
-    originalHookAllChatFrames(self, ...)
 
-    -- Re-wrap the GetActiveWindow hooks that HookAllChatFrames just
-    -- installed, adding suppression support.
-    local yapperGetActive = _G.ChatEdit_GetActiveWindow
-    if yapperGetActive then
-        _G.ChatEdit_GetActiveWindow = function(...)
-            if _suppressOverlayReturn then return nil end
-            return yapperGetActive(...)
-        end
-    end
+-- Hook InsertLink: when the overlay is active and focused, we insert the text
+-- directly into our box and return 'true' to signal Blizzard that the link
+-- has been handled. This prevents Blizzard's native fallback logic from 
+-- triggering (e.g., accidental item-stack splitting or quest-tracker toggling).
 
-    local yapperUtilGetActive = _G.ChatFrameUtil and _G.ChatFrameUtil.GetActiveWindow
-    if yapperUtilGetActive then
-        _G.ChatFrameUtil.GetActiveWindow = function(...)
-            if _suppressOverlayReturn then return nil end
-            return yapperUtilGetActive(...)
-        end
+local origInsertLink = ChatFrameUtil.InsertLink
+local function overlayInsertLink(link)
+    if EditBox.Overlay and EditBox.Overlay:IsShown()
+        and EditBox.OverlayEdit and EditBox.OverlayEdit:HasFocus() then
+        EditBox.OverlayEdit:Insert(link)
+        return true -- Signals Blizzard that the link was handled
     end
-
-    -- Hook InsertLink: when the overlay is active, insert directly and
-    -- suppress GetActiveWindow for the rest of the frame so telemetry
-    -- cannot reach a protected call.
-    local origInsertLink = ChatFrameUtil.InsertLink
-    local function overlayInsertLink(link)
-        if self.Overlay and self.Overlay:IsShown()
-            and self.OverlayEdit and self.OverlayEdit:HasFocus() then
-            self.OverlayEdit:Insert(link)
-            _suppressOverlayReturn = true
-            C_Timer.After(0, function() _suppressOverlayReturn = false end)
-            return true
-        end
-        return origInsertLink(link)
-    end
-
-    ChatFrameUtil.InsertLink = overlayInsertLink
-    -- Keep the deprecated global alias in sync.
-    if _G.ChatEdit_InsertLink then
-        _G.ChatEdit_InsertLink = overlayInsertLink
-    end
+    -- Fall back to original Blizzard logic if Yapper isn't active
+    return origInsertLink(link)
 end
+
+ChatFrameUtil.InsertLink = overlayInsertLink
+-- Keep the deprecated global alias in sync.
+if _G.ChatEdit_InsertLink then
+    _G.ChatEdit_InsertLink = overlayInsertLink
+end
+
+--[[ 
+    -- Secure Hook Implementation (Taint-Free but causes Split-Stack bugs):
+    local function OnLinkInserted(link)
+        if EditBox.Overlay and EditBox.Overlay:IsShown()
+            and EditBox.OverlayEdit and EditBox.OverlayEdit:HasFocus() then
+            EditBox.OverlayEdit:Insert(link)
+        end
+    end
+
+    if ChatFrameUtil and ChatFrameUtil.InsertLink then
+        hooksecurefunc(ChatFrameUtil, "InsertLink", OnLinkInserted)
+    end
+
+    if _G.ChatEdit_InsertLink then
+        hooksecurefunc("ChatEdit_InsertLink", OnLinkInserted)
+    end
+]]
