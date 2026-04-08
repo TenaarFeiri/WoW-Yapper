@@ -1313,9 +1313,9 @@ function EditBox:SetupOverlayScripts()
         self:Hide()
     end)
 
-    edit:SetScript("OnCursorChanged", function(box)
+    edit:SetScript("OnCursorChanged", function(box, x, y, w, h)
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnCursorChanged) == "function" then
-            YapperTable.Spellcheck:OnCursorChanged(box)
+            YapperTable.Spellcheck:OnCursorChanged(box, x, y, w, h)
         end
     end)
 
@@ -2308,17 +2308,40 @@ function EditBox:ForwardSlashCommand(text)
     end
 
     local chosenCT = self:GetResolvedChatType(self.ChatType)
+    local eb = self.OrigEditBox
     local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
-    self.OrigEditBox:SetAttribute("chatType", overrideCT)
+    
+    local currentTell = eb:GetAttribute("tellTarget")
+    local diffTell = true
+    pcall(function() diffTell = (currentTell ~= self.Target) end)
+    
+    local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
+
+    eb:SetAttribute("chatType", overrideCT)
     if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
-        self.OrigEditBox:SetAttribute("tellTarget", self.Target)
-        self.OrigEditBox:SetAttribute("channelTarget", nil)
+        if diffTell then
+            if YapperTable.Utils and YapperTable.Utils:IsSecret(self.Target) then
+                -- Bypass SetAttribute taint by letting Blizzard cleanly parse the target.
+                eb:SetAttribute("chatType", "SAY")
+                eb:SetAttribute("tellTarget", nil)
+                eb:SetAttribute("channelTarget", nil)
+                self._ignoreSetText = true
+                eb:SetText("/r " .. text)
+                self._ignoreSetText = false
+                ChatEdit_SendText(eb)
+                return
+            end
+            eb:SetAttribute("tellTarget", self.Target)
+        end
+        eb:SetAttribute("channelTarget", nil)
     elseif overrideCT == "CHANNEL" then
-        self.OrigEditBox:SetAttribute("channelTarget", self.Target)
-        self.OrigEditBox:SetAttribute("tellTarget", nil)
+        eb:SetAttribute("tellTarget", nil)
+        if diffChannel then
+            eb:SetAttribute("channelTarget", self.Target)
+        end
     else
-        self.OrigEditBox:SetAttribute("tellTarget", nil)
-        self.OrigEditBox:SetAttribute("channelTarget", nil)
+        eb:SetAttribute("tellTarget", nil)
+        eb:SetAttribute("channelTarget", nil)
     end
     if self.Language then
         self.OrigEditBox:SetAttribute("language", self.Language)
@@ -2326,8 +2349,10 @@ function EditBox:ForwardSlashCommand(text)
         self.OrigEditBox:SetAttribute("language", nil)
     end
 
-    self.OrigEditBox:SetText(text)
-    ChatEdit_SendText(self.OrigEditBox)
+    self._ignoreSetText = true
+    eb:SetText(text)
+    self._ignoreSetText = false
+    ChatEdit_SendText(eb)
 
     -- Clean up in case ChatEdit_SendText didn't close it.
     if self.OrigEditBox:IsShown() then
@@ -2462,18 +2487,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 self.ChatType = ct
                 self.Target   = tt
                 self:RefreshLabel()
-                -- Clear stale draft (user can't have typed in one frame).
-                if self.OverlayEdit then
-                    self.OverlayEdit:SetText("")
-                end
             elseif ct == "CHANNEL" and ch and ch ~= "" then
                 self.ChatType    = "CHANNEL"
                 self.Target      = ch
                 self.ChannelName = ResolveChannelName(tonumber(ch))
                 self:RefreshLabel()
-                if self.OverlayEdit then
-                    self.OverlayEdit:SetText("")
-                end
             end
         end
     end)
@@ -2481,11 +2499,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- mirror Blizzard's SetText while we're overlaid so slash / prefill works
     hooksecurefunc(blizzEditBox, "SetText", function(eb, text)
         if self.OrigEditBox == eb and self.Overlay and self.Overlay:IsShown()
-            and self.OverlayEdit then
+            and self.OverlayEdit and not self._ignoreSetText then
             local cur = self.OverlayEdit:GetText() or ""
             if text and text ~= "" and text ~= cur then
-                self.OverlayEdit:SetText(text)
-                self.OverlayEdit:SetCursorPosition(#text)
+                self.OverlayEdit:Insert(text)
             end
         end
     end)
@@ -2524,6 +2541,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
         
         if self.Overlay and self.Overlay:IsShown() then
+            C_Timer.After(0, function()
+                if eb and eb.Hide and eb:IsShown() then eb:Hide() end
+            end)
             return
         end
 
@@ -2539,13 +2559,33 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 self._lockdownShowHandled = true
                 local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
                 chosenCT = self:GetResolvedChatType(chosenCT)
+                
+                local currentTell = eb:GetAttribute("tellTarget")
+                local diffTell = true
+                pcall(function() diffTell = (currentTell ~= self.Target) end)
+                
+                local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
+
                 eb:SetAttribute("chatType", chosenCT)
-                if chosenCT == "WHISPER" then
-                    eb:SetAttribute("tellTarget", self.Target)
+                if chosenCT == "WHISPER" or chosenCT == "BN_WHISPER" then
+                    if diffTell then
+                        if YapperTable.Utils and YapperTable.Utils:IsSecret(self.Target) then
+                            eb:SetAttribute("chatType", "SAY")
+                            eb:SetAttribute("tellTarget", nil)
+                            eb:SetAttribute("channelTarget", nil)
+                            self._ignoreSetText = true
+                            eb:SetText("/r " .. (self.OverlayEdit:GetText() or ""))
+                            self._ignoreSetText = false
+                            return
+                        end
+                        eb:SetAttribute("tellTarget", self.Target)
+                    end
                     eb:SetAttribute("channelTarget", nil)
                 elseif chosenCT == "CHANNEL" then
-                    eb:SetAttribute("channelTarget", self.Target)
                     eb:SetAttribute("tellTarget", nil)
+                    if diffChannel then
+                        eb:SetAttribute("channelTarget", self.Target)
+                    end
                 else
                     eb:SetAttribute("tellTarget", nil)
                     eb:SetAttribute("channelTarget", nil)

@@ -875,24 +875,29 @@ function Spellcheck:OnTextChanged(editBox, isUserInput)
     self:ScheduleRefresh()
 end
 
-function Spellcheck:OnCursorChanged(editBox)
+function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
     if editBox ~= self.EditBox then return end
     if self._suppressCursorUpdate and self:IsSuggestionOpen() then
         return
     end
+
+    -- Capture the visual cursor X that Blizzard gives us.
+    -- We use this to derive the editbox's internal horizontal scroll.
+    if type(x) == "number" then
+        self._lastCursorVisX = x
+    end
+
     self:UpdateActiveWord()
     self:UpdateHint()
 
-    -- If the cursor is approaching the edge of the scan window,
-    -- trigger an underline refresh so the window re-centers.
-    if self._scanWindowStart and self._scanWindowEnd then
-        local cursor = editBox:GetCursorPosition() or 0
-        if cursor - self._scanWindowStart < SCAN_RECENTER_MARGIN
-           or self._scanWindowEnd - cursor < SCAN_RECENTER_MARGIN then
-            -- Force the underline cache to miss so UpdateUnderlines re-runs
-            self._lastUnderlinesText = nil
+    -- Defer underline refresh to the next frame so we don't interfere
+    -- with the EditBox's native cursor rendering during this callback.
+    if not self._cursorRefreshPending then
+        self._cursorRefreshPending = true
+        C_Timer.After(0, function()
+            self._cursorRefreshPending = nil
             self:UpdateUnderlines()
-        end
+        end)
     end
 end
 
@@ -1377,6 +1382,8 @@ function Spellcheck:ApplySuggestion(index)
         end
         self:HideSuggestions()
         self._textChangedFlag = true
+        -- Invalidate underline cache — user sets changed, not the text.
+        self._lastUnderlinesText = nil
         self:ScheduleRefresh()
         return
     elseif type(entry) == "table" and entry.kind == "ignore" then
@@ -1388,6 +1395,8 @@ function Spellcheck:ApplySuggestion(index)
         end
         self:HideSuggestions()
         self._textChangedFlag = true
+        -- Invalidate underline cache — user sets changed, not the text.
+        self._lastUnderlinesText = nil
         self:ScheduleRefresh()
         return
     end
@@ -1467,6 +1476,24 @@ function Spellcheck:MeasureText(text)
     return self.MeasureFS:GetStringWidth() or 0
 end
 
+-- Derive the horizontal scroll offset of a single-line EditBox.
+-- WoW doesn't expose GetHorizontalScroll() for EditBoxes; we use the
+-- visual cursor X that Blizzard passes to OnCursorChanged instead.
+function Spellcheck:GetScrollOffset()
+    if not self.EditBox or not self._lastCursorVisX then return 0 end
+    local cursor = self.EditBox:GetCursorPosition() or 0
+    if cursor == 0 then return 0 end
+    local text = self.EditBox:GetText() or ""
+    local prefix = text:sub(1, cursor)
+    local absoluteX = self:MeasureText(prefix)
+    local leftInset = 0
+    if self.EditBox.GetTextInsets then
+        leftInset = select(1, self.EditBox:GetTextInsets()) or 0
+    end
+    local offset = (leftInset + absoluteX) - self._lastCursorVisX
+    return offset > 0 and offset or 0
+end
+
 -- Maximum number of characters to scan around the cursor for misspellings.
 -- Configurable for devs; larger values scan more text but cost more CPU per rebuild.
 local SCAN_RADIUS = 1000
@@ -1478,11 +1505,6 @@ local SCAN_RECENTER_MARGIN = 200
 function Spellcheck:UpdateUnderlines()
     if not self.EditBox then return end
 
-    -- Avoid repeated expensive work if the edit text and active
-    -- dictionary haven't changed since the last underline pass. This
-    -- prevents frequent Measure/GetStringWidth calls and large
-    -- dictionary scans when nothing relevant has changed (e.g. an
-    -- unrelated tooltip opened, or many dictionaries loaded).
     local dict = self:GetDictionary()
     if not dict then return end
 
@@ -1490,6 +1512,7 @@ function Spellcheck:UpdateUnderlines()
     if text == "" then
         self._lastUnderlinesText = nil
         self._lastUnderlinesDict = nil
+        self._lastScrollOffset = nil
         self._scanWindowStart = nil
         self._scanWindowEnd = nil
         self:ClearUnderlines()
@@ -1498,47 +1521,75 @@ function Spellcheck:UpdateUnderlines()
 
     local textLen = #text
     local cursor = self.EditBox:GetCursorPosition() or textLen
+    local scrollOffset = self:GetScrollOffset()
 
-    -- For short texts, scan everything (no window overhead)
+    -- For short texts, scan everything (no window overhead).
+    -- The dictionary scan is cached on text+dict identity.
+    -- Scroll changes only need a redraw, not a rescan.
     if textLen <= SCAN_RADIUS * 2 then
-        if self._lastUnderlinesText == text and self._lastUnderlinesDict == dict then
+        local textSame = (self._lastUnderlinesText == text and self._lastUnderlinesDict == dict)
+        local scrollSame = (self._lastScrollOffset == scrollOffset)
+        if textSame and scrollSame then
             return
         end
+
+        -- If only the scroll changed, reuse the cached misspelling list.
+        if textSame and self._lastMisspellings then
+            self._lastScrollOffset = scrollOffset
+            self:ClearUnderlines()
+            for _, item in ipairs(self._lastMisspellings) do
+                self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
+            end
+            return
+        end
+
         self._lastUnderlinesText = text
         self._lastUnderlinesDict = dict
+        self._lastScrollOffset = scrollOffset
         self._scanWindowStart = nil
         self._scanWindowEnd = nil
         self:ClearUnderlines()
 
         local words = self:CollectMisspellings(text, dict)
+        self._lastMisspellings = words
         for _, item in ipairs(words) do
-            self:DrawUnderline(item.startPos, item.endPos, text)
+            self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
         end
         return
     end
 
-    -- Determine whether we need to re-center the scan window.
-    -- Re-center if: (a) no window yet, (b) text changed, (c) cursor
-    -- is nearing a window edge within the recenter margin.
-    local needRecenter = false
+    -- Large text: use a scan window centered on the cursor.
+    local needRescan = false
     if not self._scanWindowStart or not self._scanWindowEnd then
-        needRecenter = true
+        needRescan = true
     elseif self._lastUnderlinesText ~= text or self._lastUnderlinesDict ~= dict then
-        needRecenter = true
+        needRescan = true
     else
-        -- Check if cursor is approaching the window boundary
         if cursor - self._scanWindowStart < SCAN_RECENTER_MARGIN
            or self._scanWindowEnd - cursor < SCAN_RECENTER_MARGIN then
-            needRecenter = true
+            needRescan = true
         end
     end
 
-    if not needRecenter then
+    local scrollSame = (self._lastScrollOffset == scrollOffset)
+
+    if not needRescan and scrollSame then
+        return
+    end
+
+    -- Scroll-only change with cached misspellings: just redraw.
+    if not needRescan and self._lastMisspellings then
+        self._lastScrollOffset = scrollOffset
+        self:ClearUnderlines()
+        for _, item in ipairs(self._lastMisspellings) do
+            self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
+        end
         return
     end
 
     self._lastUnderlinesText = text
     self._lastUnderlinesDict = dict
+    self._lastScrollOffset = scrollOffset
 
     -- Build the window centered on the cursor, clamped to text bounds
     local rawStart = math_max(1, cursor - SCAN_RADIUS)
@@ -1567,30 +1618,67 @@ function Spellcheck:UpdateUnderlines()
 
     self:ClearUnderlines()
 
-    -- Extract the window substring and collect misspellings within it
     local windowText = string_sub(text, rawStart, rawEnd)
     local words = self:CollectMisspellings(windowText, dict)
 
-    -- Offset positions back to original text coordinates for underline rendering
+    -- Convert window-local positions to full-text positions and cache.
+    local fullPosWords = {}
     for _, item in ipairs(words) do
-        local origStart = item.startPos + rawStart - 1
-        local origEnd = item.endPos + rawStart - 1
-        self:DrawUnderline(origStart, origEnd, text)
+        fullPosWords[#fullPosWords + 1] = {
+            startPos = item.startPos + rawStart - 1,
+            endPos = item.endPos + rawStart - 1,
+        }
+    end
+    self._lastMisspellings = fullPosWords
+
+    for _, item in ipairs(fullPosWords) do
+        self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
     end
 end
 
-function Spellcheck:DrawUnderline(startPos, endPos, text)
+function Spellcheck:DrawUnderline(startPos, endPos, text, scrollOffset)
     if not self.EditBox or not self.Overlay then return end
 
     local leftInset = 0
+    local rightInset = 0
     if self.EditBox.GetTextInsets then
-        leftInset = select(1, self.EditBox:GetTextInsets()) or 0
+        leftInset, rightInset = self.EditBox:GetTextInsets()
+        leftInset = leftInset or 0
+        rightInset = rightInset or 0
     end
 
     local prefix = text:sub(1, startPos - 1)
     local word = text:sub(startPos, endPos)
-    local x = leftInset + self:MeasureText(prefix)
+    local x = leftInset + self:MeasureText(prefix) - (scrollOffset or 0)
     local w = self:MeasureText(word)
+
+    -- Clamp to the visible text area so underlines don't escape the EditBox.
+    local visibleWidth = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
+
+    -- Entirely off-screen -> skip.
+    if (x + w) <= 0 or x >= visibleWidth then return end
+
+    -- Partially off the left edge -> trim.
+    if x < 0 then
+        w = w + x
+        x = 0
+    end
+    -- Partially off the right edge -> trim.
+    if (x + w) > visibleWidth then
+        w = visibleWidth - x
+    end
+    if w <= 0 then return end
+
+    -- Compute the EditBox's offset within the Overlay so we can anchor
+    -- textures to the Overlay instead of the EditBox. This avoids a
+    -- layout dependency that resets the EditBox's cursor blink timer.
+    local ebLeft = self.EditBox:GetLeft() or 0
+    local ovLeft = self.Overlay:GetLeft() or 0
+    local ebBottom = self.EditBox:GetBottom() or 0
+    local ovTop = self.Overlay:GetTop() or 0
+    local ebTop = self.EditBox:GetTop() or 0
+    local offsetX = (ebLeft - ovLeft) + x
+    local offsetTopY = -(ovTop - ebTop)  -- negative because Y grows downward in SetPoint
 
     local tex = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
@@ -1602,12 +1690,14 @@ function Spellcheck:DrawUnderline(startPos, endPos, text)
         tex:SetColorTexture(1, 0.18, 0.18, 0.36)
         tex:SetSize(w, height)
         tex:ClearAllPoints()
-        tex:SetPoint("TOPLEFT", self.EditBox, "TOPLEFT", x, -3)
+        tex:SetPoint("TOPLEFT", self.Overlay, "TOPLEFT", offsetX, offsetTopY - 3)
     else
+        local ovBottom = self.Overlay:GetBottom() or 0
+        local offsetBottomY = ebBottom - ovBottom
         tex:SetColorTexture(1, 0.2, 0.2, 0.9)
         tex:SetSize(w, 2)
         tex:ClearAllPoints()
-        tex:SetPoint("BOTTOMLEFT", self.EditBox, "BOTTOMLEFT", x, 2)
+        tex:SetPoint("BOTTOMLEFT", self.Overlay, "BOTTOMLEFT", offsetX, offsetBottomY + 2)
     end
 
     tex:Show()
