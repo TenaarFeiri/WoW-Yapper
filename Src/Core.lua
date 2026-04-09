@@ -78,10 +78,10 @@ local DEFAULTS = {
         -- The delineator used to split posts.
         -- Posting system normalises this by prepending/appending a whitespace to the delineator
         -- at the end and beginning of a split post. You can always assume this to be the case.
-        DELINEATOR        = ">>",
+        DELINEATOR        = "»",
 
         -- Always synced to DELINEATOR.
-        PREFIX            = ">>",
+        PREFIX            = "»",
 
         -- How long to wait before giving up.
         STALL_TIMEOUT     = 1.0,
@@ -158,21 +158,21 @@ local DEFAULTS = {
     },
 
     Spellcheck = {
-        Enabled        = false,
-        Locale         = "enUS",
-        MaxSuggestions = 4,
-        MaxCandidates  = 800,
-        ReshuffleAttempts = 3,
-        MaxWrongLetters = 4,
+        Enabled            = false,
+        Locale             = "enGB",
+        MaxSuggestions     = 4,
+        MaxCandidates      = 800,
+        ReshuffleAttempts  = 3,
+        MaxWrongLetters    = 4,
         -- N-gram index (bigram) settings
-        UseNgramIndex  = true,
-        NgramN         = 2,
-        NgramMaxPosting = 200,
+        UseNgramIndex      = true,
+        NgramN             = 2,
+        NgramMaxPosting    = 200,
         NgramTopCandidates = 300,
-        MinWordLength  = 2,
-        UnderlineStyle = "line",
-        KeyboardLayout = "QWERTY",
-        Dict           = {},
+        MinWordLength      = 2,
+        UnderlineStyle     = "line",
+        KeyboardLayout     = "QWERTY",
+        Dict               = {},
     },
 }
 
@@ -352,7 +352,8 @@ function YapperTable.Core:InitSavedVars()
     -- colour from prior versions. Force-correct BN_WHISPER to the new
     -- default when the saved DB version predates this change.
     if dbVersion and dbVersion < 1.2 then
-        local teal = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors and DEFAULTS.EditBox.ChannelTextColors.BN_WHISPER
+        local teal = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors and
+            DEFAULTS.EditBox.ChannelTextColors.BN_WHISPER
         if type(teal) == "table" then
             if type(_G.YapperDB.EditBox) ~= "table" then _G.YapperDB.EditBox = {} end
             if type(_G.YapperDB.EditBox.ChannelTextColors) ~= "table" then _G.YapperDB.EditBox.ChannelTextColors = {} end
