@@ -37,11 +37,15 @@ local function InstallCompatMethods(box)
     end
     box._yapperCompatInstalled = true
 
-    function box:GetChatType()      return GetCompatAttribute(self, "chatType") end
+    function box:GetChatType() return GetCompatAttribute(self, "chatType") end
+
     function box:GetChannelTarget() return GetCompatAttribute(self, "channelTarget") end
-    function box:GetTellTarget()    return GetCompatAttribute(self, "tellTarget") end
-    function box:GetLanguage()      return GetCompatAttribute(self, "language") end
-    function box:GetAttribute(key)  return GetCompatAttribute(self, key) end
+
+    function box:GetTellTarget() return GetCompatAttribute(self, "tellTarget") end
+
+    function box:GetLanguage() return GetCompatAttribute(self, "language") end
+
+    function box:GetAttribute(key) return GetCompatAttribute(self, key) end
 end
 
 -- Install on overlay at creation time.
@@ -62,7 +66,7 @@ local _suppressOverlayReturn = false
 
 -- Hook InsertLink: when the overlay is active and focused, we insert the text
 -- directly into our box and return 'true' to signal Blizzard that the link
--- has been handled. This prevents Blizzard's native fallback logic from 
+-- has been handled. This prevents Blizzard's native fallback logic from
 -- triggering (e.g., accidental item-stack splitting or quest-tracker toggling).
 
 local origInsertLink = ChatFrameUtil.InsertLink
@@ -81,21 +85,3 @@ ChatFrameUtil.InsertLink = overlayInsertLink
 if _G.ChatEdit_InsertLink then
     _G.ChatEdit_InsertLink = overlayInsertLink
 end
-
---[[ 
-    -- Secure Hook Implementation (Taint-Free but causes Split-Stack bugs):
-    local function OnLinkInserted(link)
-        if EditBox.Overlay and EditBox.Overlay:IsShown()
-            and EditBox.OverlayEdit and EditBox.OverlayEdit:HasFocus() then
-            EditBox.OverlayEdit:Insert(link)
-        end
-    end
-
-    if ChatFrameUtil and ChatFrameUtil.InsertLink then
-        hooksecurefunc(ChatFrameUtil, "InsertLink", OnLinkInserted)
-    end
-
-    if _G.ChatEdit_InsertLink then
-        hooksecurefunc("ChatEdit_InsertLink", OnLinkInserted)
-    end
-]]
