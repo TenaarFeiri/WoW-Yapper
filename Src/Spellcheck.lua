@@ -1986,10 +1986,25 @@ function Spellcheck:GetSuggestions(word)
             end
         end
         local tmp = {}
-        for id, cnt in pairs(hits) do tmp[#tmp + 1] = { id = id, cnt = cnt } end
+        local lowerLen = #lower
+        for id, cnt in pairs(hits) do
+            local w = dict.words[id]
+            if w then
+                local wLen = #w
+                local lenDiff = math_abs(wLen - lowerLen)
+                -- Pseudo Jaccard/Dice coefficient weighting
+                local score = (2 * cnt) / (lowerLen + wLen) - (lenDiff * 0.1)
+                
+                if string_byte(w, 1) == string_byte(lower, 1) then
+                    score = score + 0.1
+                end
+                
+                tmp[#tmp + 1] = { id = id, score = score }
+            end
+        end
         table_sort(tmp, function(a, b)
-            if a.cnt == b.cnt then return a.id < b.id end
-            return a.cnt > b.cnt
+            if a.score == b.score then return a.id < b.id end
+            return a.score > b.score
         end)
         ngramCandidates = {}
         for i = 1, math_min(#tmp, ngramTop) do
@@ -2395,14 +2410,16 @@ function Spellcheck:GetSuggestions(word)
 
             for _, var in ipairs(variants) do
                 if checks > dynamicCap then break end
-                local firstV = string_sub(var, 1, 1) or ""
-                local candlist = dict.index[firstV] or {}
-                if #candlist > 0 then
+                if dict.set[var] and not seenCandidates[var] then
                     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-                        self:Notify("Spellcheck:GetSuggestions variant='" .. tostring(var) .. "' candidates=" .. tostring(#candlist))
+                        self:Notify("Spellcheck:GetSuggestions variant hit='" .. tostring(var) .. "'")
                     end
-                    local abortVar = tryCandidates(candlist)
-                    if abortVar then break end
+                    seenCandidates[var] = true
+                    checks = checks + 1
+                    local dist = self:EditDistance(lower, var, maxDist)
+                    if dist and dist <= maxDist then
+                        tryAdd(var, dist)
+                    end
                 end
             end
         end
