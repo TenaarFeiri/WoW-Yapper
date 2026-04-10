@@ -6,7 +6,7 @@
     - Resolves multi-link chunking breaking and failing silently.
     - Fixes persistent stalls when posting to community channels (C_Club).
     - Removed manual batching and throttle settings as the new pipeline handles this automatically and reliably.
-  - Fixes critical chunking issues with WoW 12.0's undocumented item quality colour codes (e.g., `|cnIQ3:`), ensuring item links always remain atomic across multi-part messages.
+  - Fixes critical chunking issues with WoW 12.0's item quality colour codes, which were causing problems with item linkage.
   - Added new Editbox background theme colours specific to BNet Whispers, Channels, and Communities to match Blizzard defaults.
   - Added a new 'Recover on Escape' setting - allowing you to choose whether pressing Escape saves your text as a draft or discards it. (This was backported to 1.1.4)
   - Various performance optimizations and persistence bug fixes.
