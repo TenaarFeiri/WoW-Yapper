@@ -1,3 +1,6 @@
+-- 1.2.3a
+  - Fixed an issue with the fallback minimap button being misshapen.
+
 -- 1.2.3
   - *Massive feature update:* Integrated a real-time spellchecker into the edit box!
     - Includes English (US) and English (UK) dictionaries by default.

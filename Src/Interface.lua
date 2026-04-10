@@ -3431,20 +3431,27 @@ function Interface:CreateLauncher()
     if _G.Minimap then
         if not self.MinimapButton then
             local btn = CreateFrame("Button", "YapperMinimapButton", _G.Minimap)
-            btn:SetSize(32, 32)
+            btn:SetSize(31, 31)
             btn:SetFrameStrata("MEDIUM")
             btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
             btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             btn:RegisterForDrag("LeftButton")
 
+            local background = btn:CreateTexture(nil, "BACKGROUND")
+            background:SetSize(20, 20)
+            background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+            background:SetPoint("TOPLEFT", btn, "TOPLEFT", 7, -5)
+
             local icon = btn:CreateTexture(nil, "ARTWORK")
+            icon:SetSize(20, 20)
             icon:SetTexture("6624474")
             icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
-            icon:SetAllPoints(btn)
+            icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 7, -5)
 
             local border = btn:CreateTexture(nil, "OVERLAY")
+            border:SetSize(53, 53)
             border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-            border:SetAllPoints(btn)
+            border:SetPoint("TOPLEFT", btn, "TOPLEFT")
 
             btn:SetScript("OnClick", function(_, button)
                 Interface:HandleLauncherClick(button)
