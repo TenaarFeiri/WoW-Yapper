@@ -89,6 +89,12 @@ local DEFAULTS = {
 
     -- EditBox appearance defaults
     EditBox = {
+        -- Visuals
+        RoundedCorners        = false,
+        Shadow                = false,
+        ShadowColor           = { r = 0, g = 0, b = 0, a = 0.5 },
+        ShadowSize            = 4,
+
         -- Input area background
         InputBg               = {
             r = 0.05, g = 0.05, b = 0.05, a = 1.0,
@@ -171,6 +177,8 @@ local DEFAULTS = {
         NgramTopCandidates = 300,
         MinWordLength      = 2,
         UnderlineStyle     = "line",
+        UnderlineColor     = { r = 1.0, g = 0.2, b = 0.2, a = 0.9 },
+        HighlightColor     = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
         KeyboardLayout     = "QWERTY",
         Dict               = {},
     },
