@@ -1514,15 +1514,6 @@ function EditBox:SetupOverlayScripts()
 
     frame:HookScript("OnEvent", function(_, event, ...)
         if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
-            -- Helper: perform the handoff, cleaning up any active timers.
-            local function doHandoff()
-                if self._lockdownIdleTimer then
-                    self._lockdownIdleTimer:Cancel()
-                    self._lockdownIdleTimer = nil
-                end
-                self:HandoffToBlizzard()
-            end
-
             -- Helper: begin the deferred handoff.
             local function beginDeferredHandoff()
                 local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""

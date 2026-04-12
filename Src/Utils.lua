@@ -20,8 +20,7 @@ function Utils:Print(...)
     local args = { ... }
 
     -- Optional preset as first arg: Utils:Print("info", "message...")
-    local prefix = YapperTable.Config.System.PREFIX and (YapperTable.Config.System.PREFIX .. ": ") or
-        (YapperName .. ": ")
+    local prefix = YapperName .. ": "
     if type(args[1]) == "string" and SENDER_PRESETS[args[1]] then
         local preset = table.remove(args, 1)
         prefix = ("|c%s%s:|r "):format(SENDER_PRESETS[preset], YapperName)
@@ -119,21 +118,3 @@ end
 -- ---------------------------------------------------------------------------
 -- String helpers
 -- ---------------------------------------------------------------------------
-
---- Strip leading and trailing whitespace.
-function Utils:Trim(s)
-    if type(s) ~= "string" then
-        YapperTable.Error:PrintError("BAD_ARG", "Trim", "string", type(s))
-        return ""
-    end
-    return s:match("^%s*(.-)%s*$")
-end
-
---- Return the byte position of the start of the last word in `s`.
-function Utils:FindLastWord(s)
-    if type(s) ~= "string" then
-        YapperTable.Error:PrintError("BAD_ARG", "FindLastWord", "string", type(s))
-        return nil
-    end
-    return s:find("[^%s]+$")
-end

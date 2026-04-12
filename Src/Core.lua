@@ -43,9 +43,6 @@ local DEFAULTS = {
         -- Tracks whether the welcome/appearance-choice popup has been shown.
         -- Set to the VERSION at which it was last displayed; 0 means never.
         _welcomeShown             = 0,
-
-        -- Possibly used for system messages where some customisation is necessary. Reset to nil after every use.
-        SYSTEM_PREFIX             = nil,
     },
 
     -- Obviously this holds settings for our interface frames.

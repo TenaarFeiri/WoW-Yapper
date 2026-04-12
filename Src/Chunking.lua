@@ -516,24 +516,3 @@ function Chunking:GetDelineators()
     end
     return " " .. marker, marker .. " "
 end
-
---- Update delineation markers.
-function Chunking:SetDelineators(newDelineator, newPrefix)
-    local cfg = YapperTable.Config and YapperTable.Config.Chat
-    if not cfg then return end
-    local source = (newDelineator ~= nil and newDelineator)
-                or (newPrefix ~= nil and newPrefix)
-                or cfg.DELINEATOR
-                or cfg.PREFIX
-    local marker = NormalizeMarker(source)
-
-    -- Prefix/suffix use the same marker, with whitespace added by us.
-    -- Marker is treated as an opaque UTF-8 byte string (no slicing performed).
-    if marker == "" then
-        cfg.DELINEATOR = ""
-        cfg.PREFIX     = ""
-    else
-        cfg.DELINEATOR = " " .. marker
-        cfg.PREFIX     = marker .. " "
-    end
-end
