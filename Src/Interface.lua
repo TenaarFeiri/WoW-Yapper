@@ -3590,6 +3590,11 @@ function Interface:Init()
 
     -- Create the launcher (Addon Compartment preferred, LDB fallback).
     Interface:CreateLauncher()
+
+    -- Check if we should show the welcome/theme choice popup.
+    if Interface:ShouldShowWelcomeChoice() then
+        Interface:CreateWelcomeChoiceFrame()
+    end
 end
 
 -- Create a launcher (Addon Compartment preferred, LDB fallback)
