@@ -14,6 +14,9 @@ local COLOR_KEYS = {
     LabelBg = true,
     TextColor = true,
     BorderColor = true,
+    ShadowColor = true,
+    UnderlineColor = true,
+    HighlightColor = true,
 }
 
 local CHANNEL_OVERRIDE_OPTIONS = {
@@ -30,18 +33,18 @@ local CHANNEL_OVERRIDE_OPTIONS = {
 }
 
 local CREDITS_DICTIONARIES_BUNDLED = {
-    { locale = "enUS", label = "English (US)", package = "dictionary-en", license = "MIT AND BSD" },
+    { locale = "enUS", label = "English (US)", package = "dictionary-en",    license = "MIT AND BSD" },
     { locale = "enGB", label = "English (UK)", package = "dictionary-en-GB", license = "MIT AND BSD" },
 }
 
 local CREDITS_DICTIONARIES_OPTIONAL = {
-    { locale = "frFR", label = "French", package = "dictionary-fr", license = "MPL-2.0" },
-    { locale = "deDE", label = "German", package = "dictionary-de", license = "GPL-2.0 OR GPL-3.0" },
-    { locale = "esES", label = "Spanish", package = "dictionary-es", license = "GPL-3.0 OR LGPL-3.0 OR MPL-1.1" },
-    { locale = "esMX", label = "Spanish (Mexico)", package = "dictionary-es-MX", license = "GPL-3.0 OR LGPL-3.0 OR MPL-1.1" },
-    { locale = "itIT", label = "Italian", package = "dictionary-it", license = "GPL-3.0" },
-    { locale = "ptBR", label = "Portuguese (Brazil)", package = "dictionary-pt", license = "LGPL-3.0 OR MPL-2.0" },
-    { locale = "ruRU", label = "Russian", package = "dictionary-ru", license = "BSD-3-Clause" },
+    { locale = "frFR", label = "French",              package = "dictionary-fr",    license = "MPL-2.0" },
+    { locale = "deDE", label = "German",              package = "dictionary-de",    license = "GPL-2.0 OR GPL-3.0" },
+    { locale = "esES", label = "Spanish",             package = "dictionary-es",    license = "GPL-3.0 OR LGPL-3.0 OR MPL-1.1" },
+    { locale = "esMX", label = "Spanish (Mexico)",    package = "dictionary-es-MX", license = "GPL-3.0 OR LGPL-3.0 OR MPL-1.1" },
+    { locale = "itIT", label = "Italian",             package = "dictionary-it",    license = "GPL-3.0" },
+    { locale = "ptBR", label = "Portuguese (Brazil)", package = "dictionary-pt",    license = "LGPL-3.0 OR MPL-2.0" },
+    { locale = "ruRU", label = "Russian",             package = "dictionary-ru",    license = "BSD-3-Clause" },
 }
 
 -- Friendly dropdown values for font outline modes.
@@ -63,20 +66,31 @@ local SETTING_TOOLTIPS = {
     ["FrameSettings.MinimapButtonOffset"] =
     "Extra pixels away from the minimap center for the fallback minimap button.",
     ["Spellcheck.Enabled"] = "Underline and suggest replacements for misspelled words.",
-    ["Spellcheck.Locale"] = "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
-    ["Spellcheck.KeyboardLayout"] = "Specify your physical keyboard layout (QWERTY, QWERTZ, or AZERTY) to improve suggestion accuracy by accounting for physical key proximity.",
+    ["Spellcheck.Locale"] =
+    "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
+    ["Spellcheck.KeyboardLayout"] =
+    "Specify your physical keyboard layout (QWERTY, QWERTZ, or AZERTY) to improve suggestion accuracy by accounting for physical key proximity.",
     ["Spellcheck.UnderlineStyle"] = "Choose between straight underline or highlight style.",
     ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
+    ["Spellcheck.UnderlineColor"] = "Change the colour of the standard spellcheck underline.",
+    ["Spellcheck.HighlightColor"] = "Change the colour of the spellcheck highlight style.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
     ["Chat.MAX_HISTORY_LINES"] = "How many previous messages are kept in local history.",
     ["EditBox.InputBg"] = "Background colour of the input area.",
-    ["EditBox.LabelBg"] = "Background colour of the channel label area.",
+    ["EditBox.LabelBg"] = "Background colour for the channel label area.",
+    ["EditBox.TextColor"] = "Colour for the typed text.",
+    ["EditBox.BorderColor"] = "Colour for the active channel border outline (when enabled).",
+    ["EditBox.FontSize"] = "Size of the font in the chat box.",
+    ["EditBox.FontFlags"] = "Visual outline or monochrome styling for the font.",
+    ["EditBox.RoundedCorners"] =
+    "Use a fully rounded backdrop for the chat overlay instead of simple flat textures. May potentially be flattened by other addons.",
+    ["EditBox.Shadow"] = "Render a soft drop-shadow behind the chat overlay.",
+    ["EditBox.ShadowSize"] = "Size/thickness of the drop-shadow rendering effect.",
+    ["EditBox.ShadowColor"] = "Colour and base opacity of the drop-shadow effect.",
     ["EditBox.FontFace"] = "Custom font file path. Leave empty to use default font.",
-    ["EditBox.FontFlags"] = "Choose whether text has an outline effect.",
-    ["EditBox.FontSize"] = "The editbox will automatically expand to fit your selected font size.",
     ["EditBox.AutoFitLabel"] =
     "If enabled, label text shrinks to fit. If disabled, long labels are truncated with ellipsis.",
     ["EditBox.StickyChannel"] =
@@ -117,6 +131,8 @@ local FRIENDLY_LABELS = {
     ["Spellcheck.Locale"] = "Spellcheck locale",
     ["Spellcheck.KeyboardLayout"] = "Keyboard layout",
     ["Spellcheck.UnderlineStyle"] = "Underline style",
+    ["Spellcheck.UnderlineColor"] = "Underline colour",
+    ["Spellcheck.HighlightColor"] = "Highlight colour",
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
     ["Spellcheck.MaxCandidates"] = "Max word candidates checked",
@@ -127,11 +143,17 @@ local FRIENDLY_LABELS = {
     ["Chat.DELINEATOR"] = "Split marker text",
     ["Chat.MAX_HISTORY_LINES"] = "Saved message history",
 
-    ["EditBox.InputBg"] = "Input background colour",
-    ["EditBox.LabelBg"] = "Label background colour",
-    ["EditBox.FontFace"] = "Font file path",
-    ["EditBox.FontFlags"] = "Font outline mode",
+    ["EditBox.InputBg"] = "Chat background",
+    ["EditBox.LabelBg"] = "Channel label background",
+    ["EditBox.TextColor"] = "Text colour",
+    ["EditBox.BorderColor"] = "Border colour",
     ["EditBox.FontSize"] = "Font size",
+    ["EditBox.FontFlags"] = "Font style",
+    ["EditBox.RoundedCorners"] = "Rounded corners",
+    ["EditBox.Shadow"] = "Enable drop shadow",
+    ["EditBox.ShadowSize"] = "Shadow thickness",
+    ["EditBox.ShadowColor"] = "Shadow colour",
+    ["EditBox.FontFace"] = "Font file path",
     ["EditBox.AutoFitLabel"] = "Auto-fit long labels",
     ["EditBox.StickyChannel"] = "Remember last channel",
     ["EditBox.StickyGroupChannel"] = "Keep group channels sticky",
@@ -151,7 +173,7 @@ local CATEGORIES = {
     {
         id    = "general",
         label = "General",
-        icon  = nil,  -- reserved for future icon support
+        icon  = nil, -- reserved for future icon support
         paths = {
             -- Minimap button
             "FrameSettings.EnableMinimapButton",
@@ -178,15 +200,22 @@ local CATEGORIES = {
         },
     },
     {
-        id    = "appearance",
-        label = "Appearance",
-        icon  = nil,
-        paths = {
+        id     = "appearance",
+        label  = "Appearance",
+        icon   = nil,
+        paths  = {
             -- Theme
             "System.ActiveTheme",
+            -- Visuals
+            "EditBox.RoundedCorners",
+            "EditBox.Shadow",
+            "EditBox.ShadowSize",
             -- Colours
             "EditBox.InputBg",
             "EditBox.LabelBg",
+            "EditBox.ShadowColor",
+            "Spellcheck.UnderlineColor",
+            "Spellcheck.HighlightColor",
             -- Font
             "EditBox.FontSize",
             "EditBox.FontFlags",
@@ -196,10 +225,10 @@ local CATEGORIES = {
         custom = { "channelOverrides", "borderColor" },
     },
     {
-        id    = "advanced",
-        label = "Advanced",
-        icon  = nil,
-        paths = {
+        id     = "advanced",
+        label  = "Advanced",
+        icon   = nil,
+        paths  = {
             -- System
             "System.DEBUG",
             "System.VERBOSE",
@@ -218,17 +247,17 @@ local CATEGORIES = {
         custom = { "bridges", "spellcheckUserDict" },
     },
     {
-        id    = "diagnostics",
-        label = "Diagnostics",
-        icon  = nil,
-        paths = {},
+        id     = "diagnostics",
+        label  = "Diagnostics",
+        icon   = nil,
+        paths  = {},
         custom = { "queueDiagnostics" },
     },
     {
-        id    = "credits",
-        label = "Credits",
-        icon  = nil,
-        paths = {},
+        id     = "credits",
+        label  = "Credits",
+        icon   = nil,
+        paths  = {},
         custom = { "credits" },
     },
 }
@@ -246,7 +275,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Layout constants
 -- ---------------------------------------------------------------------------
-local LAYOUT = {
+local LAYOUT             = {
     -- Main window
     WINDOW_WIDTH           = 740,
     WINDOW_HEIGHT          = 640,
@@ -294,14 +323,14 @@ local LAYOUT = {
 
 -- Even-increment offsets from the Blizzard base size (used by sidebar +/–).
 local UI_FONT_STEP       = 2
-local UI_FONT_MIN_OFFSET = -4   -- smallest allowed offset (8 pt at base 12)
-local UI_FONT_MAX_OFFSET = 8    -- largest  allowed offset (20 pt at base 12)
+local UI_FONT_MIN_OFFSET = -4 -- smallest allowed offset (8 pt at base 12)
+local UI_FONT_MAX_OFFSET = 8  -- largest  allowed offset (20 pt at base 12)
 
 -- ---------------------------------------------------------------------------
 -- LayoutCursor... replaces manual `y = y - N` tracking.
 -- ---------------------------------------------------------------------------
-local LayoutCursor = {}
-LayoutCursor.__index = LayoutCursor
+local LayoutCursor       = {}
+LayoutCursor.__index     = LayoutCursor
 
 ---@param startY number?
 ---@return table
@@ -555,7 +584,7 @@ function Interface:SetLocalPath(path, value)
 
     if type(normalizedValue) == "table"
         and #path >= 2
-        and path[1] == "EditBox"
+        and (path[1] == "EditBox" or path[1] == "Spellcheck")
         and COLOR_KEYS[path[2]] then
         normalizedValue = {
             r = Clamp01(normalizedValue.r, 1),
@@ -644,7 +673,7 @@ function Interface:SetLocalPath(path, value)
     if path[1] == "EditBox"
         and YapperTable.EditBox
         and YapperTable.EditBox.ApplyConfigToLiveOverlay then
-        YapperTable.EditBox:ApplyConfigToLiveOverlay()
+        YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
     end
 
     -- Apply active theme immediately when changed.
@@ -656,7 +685,7 @@ function Interface:SetLocalPath(path, value)
         end
         if YapperTable.EditBox and YapperTable.EditBox.ApplyConfigToLiveOverlay then
             pcall(function()
-                YapperTable.EditBox:ApplyConfigToLiveOverlay()
+                YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
             end)
         end
     end
@@ -739,12 +768,62 @@ function Interface:ApplyMinimapButtonVisibility()
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- Theme Override Helpers
+-- ---------------------------------------------------------------------------
+
+function Interface:IsPathDisabledByTheme(path)
+    -- Blizzard skin proxy acts as a high-priority visual override
+    if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
+        local full = JoinPath(path)
+        if full == "EditBox.RoundedCorners" or full == "EditBox.Shadow" or
+            full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor" then
+            return true
+        end
+    end
+
+    local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    if not activeTheme then return false end
+
+    local full = JoinPath(path)
+    if full == "EditBox.RoundedCorners" and activeTheme.allowRoundedCorners == false then
+        return true
+    end
+    if (full == "EditBox.Shadow" or full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor")
+        and activeTheme.allowDropShadow == false then
+        return true
+    end
+
+    return false
+end
+
 function Interface:GetFriendlyLabel(item)
     if not item then return "" end
+    local baseLabel = ""
     if item.kind == "section" then
-        return FRIENDLY_LABELS["SECTION." .. item.full] or item.key
+        baseLabel = FRIENDLY_LABELS["SECTION." .. item.full] or item.key
+    else
+        baseLabel = FRIENDLY_LABELS[item.full] or item.key
     end
-    return FRIENDLY_LABELS[item.full] or item.key
+
+    -- Blizzard skin proxy overrides
+    if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
+        if item.full == "EditBox.RoundedCorners" or item.full == "EditBox.Shadow" then
+            return baseLabel .. " |cFF888888(Disabled by Blizzard Skin)|r"
+        end
+    end
+
+    -- Theme-level overrides
+    local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    if activeTheme then
+        if item.full == "EditBox.RoundedCorners" and activeTheme.allowRoundedCorners == false then
+            return baseLabel .. " |cFF888888(Disabled by theme)|r"
+        elseif item.full == "EditBox.Shadow" and activeTheme.allowDropShadow == false then
+            return baseLabel .. " |cFF888888(Disabled by theme)|r"
+        end
+    end
+
+    return baseLabel
 end
 
 function Interface:SanitizeLocalConfig()
@@ -1094,16 +1173,16 @@ end
 function Interface:CreateWelcomeChoiceFrame()
     if self.WelcomeFrame then return end
 
-    local FRAME_W      = 960
-    local FRAME_H      = 540
-    local COL_W        = 440
-    local PREVIEW_H    = 320
-    local BTN_W        = 200
-    local BTN_H        = 36
-    local PAD           = 20
+    local FRAME_W   = 960
+    local FRAME_H   = 540
+    local COL_W     = 440
+    local PREVIEW_H = 320
+    local BTN_W     = 200
+    local BTN_H     = 36
+    local PAD       = 20
 
     -- Fullscreen darkener.
-    local dimmer = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    local dimmer    = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     dimmer:SetFrameStrata("FULLSCREEN_DIALOG")
     dimmer:SetAllPoints(UIParent)
     dimmer:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
@@ -1138,7 +1217,7 @@ function Interface:CreateWelcomeChoiceFrame()
     sub:SetText("You can change this at any time in settings. Pick whichever you prefer!")
     sub:SetTextColor(0.75, 0.75, 0.75, 1)
 
-    local contentTop = -72  -- below title+subtitle
+    local contentTop = -72 -- below title+subtitle
 
     -- Helper: build one column (button + preview area).
     local function BuildColumn(anchorX, labelText, descText, onClick)
@@ -1187,8 +1266,8 @@ function Interface:CreateWelcomeChoiceFrame()
     end
 
     -- Left column: Blizzard Skin Proxy.
-    local blizzBtn, blizzPreview = BuildColumn(
-        -(COL_W / 2 + PAD / 2),  -- left of centre
+    local blizzBtn, blizzPreview   = BuildColumn(
+        -(COL_W / 2 + PAD / 2), -- left of centre
         "Blizzard",
         "Imitates Blizzard's default appearance, but offers less customisation. May not be compatible with other re-skinning addons, in which case Yapper's own theme may serve your needs.",
         function()
@@ -1199,7 +1278,7 @@ function Interface:CreateWelcomeChoiceFrame()
 
     -- Right column: Yapper's Own.
     local yapperBtn, yapperPreview = BuildColumn(
-        (COL_W / 2 + PAD / 2),   -- right of centre
+        (COL_W / 2 + PAD / 2), -- right of centre
         "Yapper",
         "Fully customiseable with background colours, but utilitarian and unstylised.",
         function()
@@ -1209,12 +1288,12 @@ function Interface:CreateWelcomeChoiceFrame()
     )
 
     -- Store references for preview images if added later.
-    frame.BlizzPreview  = blizzPreview
-    frame.YapperPreview = yapperPreview
-    frame.Dimmer        = dimmer
+    frame.BlizzPreview             = blizzPreview
+    frame.YapperPreview            = yapperPreview
+    frame.Dimmer                   = dimmer
 
     -- Set preview screenshots.
-    local addonPath = "Interface\\AddOns\\Yapper\\Src\\Img\\"
+    local addonPath                = "Interface\\AddOns\\Yapper\\Src\\Img\\"
     blizzPreview.Texture:SetTexture(addonPath .. "BlizzTheme")
     blizzPreview.Texture:SetTexCoord(0, 1, 0, 1)
     yapperPreview.Texture:SetTexture(addonPath .. "YapperTheme")
@@ -1244,6 +1323,9 @@ function Interface:CreateMainWindow()
     )
     Interface.MainWindowFrame = frame
     frame:Hide()
+
+    -- Allow ESC to close the settings window.
+    tinsert(UISpecialFrames, YapperName .. "MainWindow")
 
     frame:SetSize(LAYOUT.WINDOW_WIDTH, LAYOUT.WINDOW_HEIGHT)
     frame:SetMovable(true)
@@ -1306,7 +1388,7 @@ function Interface:CreateMainWindow()
     minusBtn:SetPoint("RIGHT", sizeLabel, "LEFT", -4, 0)
     minusBtn:SetNormalFontObject(GameFontNormal)
     minusBtn:SetHighlightFontObject(GameFontHighlight)
-    minusBtn:SetText("\226\128\147")  -- en-dash as minus glyph
+    minusBtn:SetText("\226\128\147") -- en-dash as minus glyph
     local minusHl = minusBtn:CreateTexture(nil, "HIGHLIGHT")
     minusHl:SetAllPoints()
     minusHl:SetColorTexture(1, 1, 1, 0.08)
@@ -1346,7 +1428,7 @@ function Interface:CreateMainWindow()
 
     -- Build one button per category.
     frame.SidebarButtons = {}
-    local btnY = 32  -- start below font row + separator
+    local btnY = 32 -- start below font row + separator
     for _, cat in ipairs(CATEGORIES) do
         local btn = CreateFrame("Button", nil, sidebar)
         btn:SetSize(P.SIDEBAR_WIDTH - 8, P.SIDEBAR_BTN_HEIGHT)
@@ -1598,7 +1680,8 @@ function Interface:GetTooltip(key)
     local tip = SETTING_TOOLTIPS[key]
     if tip and (key == "EditBox.InputBg" or key == "EditBox.LabelBg") then
         if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
-            tip = tip .. "\n\n|cFFFFD100Note:|r Blizzard's skin is pre-coloured. For best results, disable the skin proxy and use Yapper's own appearance settings."
+            tip = tip ..
+            "\n\n|cFFFFD100Note:|r Blizzard's skin is pre-coloured. For best results, disable the skin proxy and use Yapper's own appearance settings."
         end
     end
     return tip
@@ -1637,7 +1720,7 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
         local offset = Interface:GetUIFontOffset()
         if offset ~= 0 then
             local screenW = GetScreenWidth() or 1920
-            local maxTipW = screenW * 0.45  -- allow up to 45% of screen
+            local maxTipW = screenW * 0.45 -- allow up to 45% of screen
 
             -- Snapshot base sizes BEFORE any modification.
             local regions = {}
@@ -1659,7 +1742,9 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
             local lo, hi = 0, offset
             for _ = 1, 8 do
                 local mid = math.floor((lo + hi) / 2 + 0.5)
-                if mid == 0 then lo = 0; break end
+                if mid == 0 then
+                    lo = 0; break
+                end
                 for _, r in ipairs(regions) do
                     r.fs:SetFont(r.file, r.size + mid, r.flags)
                 end
@@ -1713,6 +1798,8 @@ function Interface:CreateResetButton(parent, x, y, onClick)
     btn:SetSize(58, 22)
     btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     btn:SetText("Reset")
+    btn:SetEnabled(true)
+    btn:SetAlpha(1.0)
     btn:SetScript("OnClick", onClick)
     self:AddControl(btn)
     return btn
@@ -1751,8 +1838,8 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj)
     local effectiveTooltip = tooltipText
     if not effectiveTooltip or effectiveTooltip == "" then
         if isTruncated then
-            effectiveTooltip = text   -- tooltip body = full label
-            titleLine = nil           -- no separate title needed
+            effectiveTooltip = text -- tooltip body = full label
+            titleLine = nil         -- no separate title needed
         end
     end
 
@@ -1938,6 +2025,16 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
 
     local val = self:GetConfigPath(path)
     cb:SetChecked(val == true)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        cb:SetEnabled(false)
+        text:SetTextColor(0.5, 0.5, 0.5, 1) -- Grey out if disabled
+    else
+        cb:SetEnabled(true)
+        text:SetTextColor(1, 1, 1, 1)
+    end
+
     cb:SetScript("OnClick", function(selfFrame)
         Interface:SetLocalPath(path, selfFrame:GetChecked() == true)
     end)
@@ -2007,7 +2104,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     masterHelp:SetText("?")
     masterHelp:SetScript("OnEnter", function(selfFrame)
         GameTooltip:SetOwner(selfFrame, "ANCHOR_RIGHT")
----@diagnostic disable-next-line: missing-parameter
+        ---@diagnostic disable-next-line: missing-parameter
         GameTooltip:SetText("Master Channel")
         GameTooltip:AddLine("Choose one channel as the colour source.", 0.9, 0.9, 0.9)
         GameTooltip:AddLine("Channels with Override checked", 0.9, 0.9, 0.9)
@@ -2139,7 +2236,8 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             end
             _G.YapperLocalConf = clearRoot
             -- Debug: raw stored value in local config for verification.
-            local rawStored = (type(clearRoot.EditBox) == "table" and type(clearRoot.EditBox.ChannelTextColors) == "table") and clearRoot.EditBox.ChannelTextColors[key] or nil
+            local rawStored = (type(clearRoot.EditBox) == "table" and type(clearRoot.EditBox.ChannelTextColors) == "table") and
+            clearRoot.EditBox.ChannelTextColors[key] or nil
 
             -- If the Blizzard ColorPickerFrame is present, update its cached
             -- colour so the next OpenColorPicker shows the correct default
@@ -2149,14 +2247,17 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 if type(appliedColor) == "table" then
                     -- Try direct API first.
                     if ColorPickerFrame.SetColorRGB then
-                        pcall(function() ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1, appliedColor.b or 1) end)
+                        pcall(function() ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1,
+                                appliedColor.b or 1) end)
                     end
                     -- Modern frame content path.
                     if ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker and ColorPickerFrame.Content.ColorPicker.SetColorRGB then
-                        pcall(function() ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1, appliedColor.b or 1) end)
+                        pcall(function() ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1,
+                                appliedColor.g or 1, appliedColor.b or 1) end)
                     end
                     -- Update previousValues so the 'previous' swatch matches.
-                    pcall(function() ColorPickerFrame.previousValues = { r = appliedColor.r or 1, g = appliedColor.g or 1, b = appliedColor.b or 1, a = appliedColor.a ~= nil and appliedColor.a or 1 } end)
+                    pcall(function() ColorPickerFrame.previousValues = { r = appliedColor.r or 1, g = appliedColor.g or 1, b =
+                        appliedColor.b or 1, a = appliedColor.a ~= nil and appliedColor.a or 1 } end)
                 end
             end
 
@@ -2252,13 +2353,13 @@ function Interface:CreateQueueDiagnostics(parent, cursor)
     self:AddControl(refreshBtn)
 
     local rows = {
-        { label = "Active", key = "active" },
-        { label = "Policy", key = "policyClass" },
-        { label = "Chat Type", key = "chatType" },
-        { label = "Expected Ack", key = "expectedAckEvent" },
-        { label = "Pending Chunks", key = "pending" },
-        { label = "In Flight", key = "inFlight" },
-        { label = "Needs Continue", key = "needsContinue" },
+        { label = "Active",           key = "active" },
+        { label = "Policy",           key = "policyClass" },
+        { label = "Chat Type",        key = "chatType" },
+        { label = "Expected Ack",     key = "expectedAckEvent" },
+        { label = "Pending Chunks",   key = "pending" },
+        { label = "In Flight",        key = "inFlight" },
+        { label = "Needs Continue",   key = "needsContinue" },
         { label = "Strict Ack Match", key = "strictAck" },
     }
 
@@ -2458,9 +2559,33 @@ function Interface:CreateTextInput(parent, label, path, cursor)
         commit()
         selfFrame:ClearFocus()
     end)
+    edit:SetScript("OnEscapePressed", function(selfFrame)
+        selfFrame:ClearFocus()
+    end)
     edit:SetScript("OnEditFocusLost", function()
         commit()
     end)
+
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y, function()
+        local d = Interface:GetDefaultPath(path)
+        if d ~= nil then
+            Interface:SetLocalPath(path, d)
+            edit:SetText(tostring(d))
+        end
+    end)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        edit:SetEnabled(false)
+        edit:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+    else
+        edit:SetEnabled(true)
+        edit:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+    end
 
     self:AddControl(edit)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
@@ -2526,12 +2651,25 @@ function Interface:CreateColorPickerControl(parent, label, path, cursor)
         })
     end)
 
-    Interface:CreateResetButton(parent, LAYOUT.RESET_X, y, function()
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y, function()
         local defaultColor = Interface:GetDefaultPath(path)
         if IsColorTable(defaultColor) then
             applyStoredColor(CopyColor(defaultColor))
         end
     end)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        btn:SetEnabled(false)
+        btn:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+    else
+        btn:SetEnabled(true)
+        btn:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+    end
 
     refreshSwatch()
     self:AddControl(btn)
@@ -2559,9 +2697,15 @@ function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
     local low = sliderName and _G[sliderName .. "Low"] or nil
     local high = sliderName and _G[sliderName .. "High"] or nil
     local text = sliderName and _G[sliderName .. "Text"] or nil
-    if low then low:SetText(""); low:Hide() end
-    if high then high:SetText(""); high:Hide() end
-    if text then text:SetText(""); text:Hide() end
+    if low then
+        low:SetText(""); low:Hide()
+    end
+    if high then
+        high:SetText(""); high:Hide()
+    end
+    if text then
+        text:SetText(""); text:Hide()
+    end
 
     local valueFs = self:AcquireWidget("Label", parent, "GameFontHighlightSmall", "FontString")
     valueFs:SetPoint("LEFT", slider, "RIGHT", 6, 0)
@@ -2607,6 +2751,21 @@ function Interface:CreateFontSizeDropdown(parent, label, path, cursor)
     end)
     self:AttachTooltip(resetBtn, "Reset font size to default.")
 
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        slider:SetEnabled(false)
+        slider:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+        dd:SetAlpha(0.6)
+    else
+        slider:SetEnabled(true)
+        slider:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+        dd:SetAlpha(1.0)
+    end
+
     -- Ensure the initial value is persisted and all controls are in sync.
     slider:SetValue(current)
 
@@ -2641,6 +2800,24 @@ function Interface:CreateFontOutlineDropdown(parent, label, path, cursor)
             UIDropDownMenu_AddButton(info, level)
         end
     end)
+
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 4, function()
+        local d = Interface:GetDefaultPath(path)
+        current = NormalizeFontFlags(d)
+        Interface:SetLocalPath(path, d)
+        UIDropDownMenu_SetText(dd, GetFontFlagsLabel(current))
+    end)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        dd:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+    else
+        dd:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+    end
 
     self:AddControl(dd)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_FONT_OUTLINE))
@@ -2697,9 +2874,11 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
                     if not spell:ApplyState(spell:IsEnabled(), locale) then
                         if spell.Notify then
                             if spell.HasLocaleAddon and spell:HasLocaleAddon(locale) then
-                                spell:Notify("Yapper: failed to load " .. (spell:GetLocaleAddon(locale) or "") .. " for " .. locale .. ".")
+                                spell:Notify("Yapper: failed to load " ..
+                                (spell:GetLocaleAddon(locale) or "") .. " for " .. locale .. ".")
                             else
-                                spell:Notify("Yapper: install the " .. (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
+                                spell:Notify("Yapper: install the " ..
+                                (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
                             end
                         end
                         return
@@ -2712,6 +2891,24 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
             UIDropDownMenu_AddButton(info, level)
         end
     end)
+
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 4, function()
+        local d = Interface:GetDefaultPath(path)
+        current = d
+        Interface:SetLocalPath(path, d)
+        UIDropDownMenu_SetText(dd, d)
+    end)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        dd:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+    else
+        dd:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+    end
 
     self:AddControl(dd)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
@@ -2744,6 +2941,24 @@ function Interface:CreateSpellcheckKeyboardLayoutDropdown(parent, label, path, c
         end
     end)
 
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 4, function()
+        local d = Interface:GetDefaultPath(path)
+        current = d
+        Interface:SetLocalPath(path, d)
+        UIDropDownMenu_SetText(dd, d)
+    end)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        dd:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+    else
+        dd:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+    end
+
     self:AddControl(dd)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
     return dd
@@ -2773,7 +2988,7 @@ function Interface:CreateSpellcheckUnderlineDropdown(parent, label, path, cursor
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
         local options = {
-            { value = "line", label = "Underline" },
+            { value = "line",      label = "Underline" },
             { value = "highlight", label = "Highlight" },
         }
 
@@ -2789,6 +3004,24 @@ function Interface:CreateSpellcheckUnderlineDropdown(parent, label, path, cursor
             UIDropDownMenu_AddButton(info, level)
         end
     end)
+
+    local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y - 4, function()
+        local d = Interface:GetDefaultPath(path)
+        current = d
+        Interface:SetLocalPath(path, d)
+        UIDropDownMenu_SetText(dd, labelFor(d))
+    end)
+
+    local disabled = self:IsPathDisabledByTheme(path)
+    if disabled then
+        dd:SetAlpha(0.6)
+        resetBtn:SetEnabled(false)
+        resetBtn:SetAlpha(0.6)
+    else
+        dd:SetAlpha(1.0)
+        resetBtn:SetEnabled(true)
+        resetBtn:SetAlpha(1.0)
+    end
 
     self:AddControl(dd)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
@@ -2963,7 +3196,7 @@ function Interface:CreateThemeDropdown(parent, label, path, cursor)
     UIDropDownMenu_SetText(dd, tostring(current or "Default"))
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
-        local names = { }
+        local names = {}
         if YapperTable and YapperTable.GetRegisteredThemes then
             names = YapperTable:GetRegisteredThemes()
         elseif YapperTable and YapperTable.Theme and YapperTable.Theme.GetRegisteredNames then
@@ -3014,7 +3247,9 @@ function Interface:BuildConfigUI()
     local catId     = self._activeCategory or "general"
     local activeCat = nil
     for _, c in ipairs(CATEGORIES) do
-        if c.id == catId then activeCat = c; break end
+        if c.id == catId then
+            activeCat = c; break
+        end
     end
     if not activeCat then activeCat = CATEGORIES[1] end
 
@@ -3375,7 +3610,7 @@ function Interface:CreateLauncher()
                 func = Yapper_FromCompartment,
                 funcOnEnter = function(menuItem)
                     GameTooltip:SetOwner(menuItem, "ANCHOR_BOTTOMLEFT", -15, 20)
----@diagnostic disable-next-line: missing-parameter
+                    ---@diagnostic disable-next-line: missing-parameter
                     GameTooltip:SetText(YapperName)
                     GameTooltip:AddLine(" ")
                     for _, line in ipairs(tooltipLines) do
