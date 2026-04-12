@@ -38,7 +38,7 @@ local theme = {
         RAID          = { r = 1.00, g = 0.50, b = 0.00, a = 1 },
         RAID_WARNING  = { r = 1.00, g = 0.28, b = 0.03, a = 1 },
     },
-    font = { path = nil, size = 14, flags = "" },
+    font = { path = nil, flags = "" },
 }
 
 if YapperTable and YapperTable.RegisterTheme then
