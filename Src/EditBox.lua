@@ -9,40 +9,42 @@
     We then defer back to Blizzard's own editbox under lockdown.
 ]]
 
-local _, YapperTable           = ...
+local _, YapperTable      = ...
 
-local EditBox                  = {}
-YapperTable.EditBox            = EditBox
+local EditBox             = {}
+YapperTable.EditBox       = EditBox
 
 -- User bypass flag
-local UserBypassingYapper      = false
-local BypassEditBox            = nil
+local UserBypassingYapper = false
+local BypassEditBox       = nil
 
 
 
 -- Overlay widgets (created lazily).
-EditBox.Overlay                = nil
-EditBox.OverlayEdit            = nil
-EditBox.ChannelLabel           = nil
-EditBox.LabelBg                = nil
+EditBox.Overlay            = nil
+EditBox.OverlayEdit        = nil
+EditBox.ChannelLabel       = nil
+EditBox.LabelBg            = nil
 
 -- State.
-EditBox.HookedBoxes            = {}
-EditBox.OrigEditBox            = nil
-EditBox.ChatType               = nil
-EditBox.Language               = nil
-EditBox.Target                 = nil
-EditBox.ChannelName            = nil
-EditBox.LastUsed               = {}
-EditBox.HistoryIndex           = nil
-EditBox.HistoryCache           = nil
-EditBox.PreShowCheck           = nil
-EditBox._attrCache             = {}
-EditBox._lockdownTicker        = nil
-EditBox._lockdownHandedOff     = false
+EditBox.HookedBoxes        = {}
+EditBox.OrigEditBox        = nil
+EditBox.ChatType           = nil
+EditBox.Language           = nil
+EditBox.Target             = nil
+EditBox.ChannelName        = nil
+EditBox.LastUsed           = {}
+EditBox.HistoryIndex       = nil
+EditBox.HistoryCache       = nil
+EditBox.PreShowCheck       = nil
+EditBox._attrCache         = {}
+EditBox._lockdownTicker    = nil
+EditBox._lockdownHandedOff = false
+EditBox._lockdownIdleTimer = nil   -- Defers handoff until user stops typing
+EditBox._overlayUnfocused  = false -- True when overlay is visible but unfocused
 -- Reply queue for recent whisper targets (most-recent at index 1)
-EditBox.ReplyQueue             = {}
-local REPLY_QUEUE_MAX          = 20
+EditBox.ReplyQueue         = {}
+local REPLY_QUEUE_MAX      = 20
 
 -- Reply-queue helpers
 -- Reply-queue helpers
@@ -263,6 +265,7 @@ function EditBox:OpenBlizzardChat()
         end
     end)
 end
+
 ------------------------------------------------
 local function IsWIMFocusActive()
     ---@diagnostic disable-next-line: undefined-field
@@ -281,14 +284,35 @@ local function IsWIMFocusActive()
     return shown == true or visible == true or focused == true
 end
 
-local function SetFrameFillColor(frame, r, g, b, a)
+local function SetFrameFillColor(frame, r, g, b, a, rounded)
     if not frame then return end
-    if not frame._yapperSolidFill then
-        local tex = frame:CreateTexture(nil, "BACKGROUND")
-        tex:SetAllPoints(frame)
-        frame._yapperSolidFill = tex
+    if rounded then
+        if frame._yapperSolidFill then frame._yapperSolidFill:Hide() end
+        if not frame._yapperRoundedFill then
+            local rf = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+            rf:SetAllPoints(frame)
+            rf:SetFrameLevel(frame:GetFrameLevel())
+            rf:SetBackdrop({
+                bgFile = "Interface/ChatFrame/ChatFrameBackground",
+                edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+                edgeSize = 12,
+                insets = { left = 2, right = 2, top = 2, bottom = 2 }
+            })
+            frame._yapperRoundedFill = rf
+        end
+        frame._yapperRoundedFill:Show()
+        frame._yapperRoundedFill:SetBackdropColor(r or 0, g or 0, b or 0, a or 1)
+        frame._yapperRoundedFill:SetBackdropBorderColor(r or 0, g or 0, b or 0, a or 1)
+    else
+        if frame._yapperRoundedFill then frame._yapperRoundedFill:Hide() end
+        if not frame._yapperSolidFill then
+            local tex = frame:CreateTexture(nil, "BACKGROUND")
+            tex:SetAllPoints(frame)
+            frame._yapperSolidFill = tex
+        end
+        frame._yapperSolidFill:Show()
+        frame._yapperSolidFill:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
     end
-    frame._yapperSolidFill:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
 end
 
 --- Copy every texture from Blizzard’s editbox onto our overlay so it
@@ -325,14 +349,14 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     -- Source editbox changed (e.g. ChatFrame2) or first attach: rebuild.
     self:DetachBlizzardSkinProxy()
 
-    local overlay = self.Overlay
-    local clones  = {}
+    local overlay       = self.Overlay
+    local clones        = {}
 
     -- When our overlay is taller than Blizzard’s editbox we compute two
     -- scales.  One keeps anchor points aligned to the real ratio, the
     -- other grows texture heights with a margin so the skin’s corner caps
     -- aren’t squashed and text doesn’t spill past the inset.
-    local origH  = origEditBox:GetHeight() or 0
+    local origH         = origEditBox:GetHeight() or 0
     local vScaleAnchors = 1
     local vScaleSize    = 1
     if origH > 0 and overlayHeight and overlayHeight > 0 then
@@ -357,7 +381,7 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         for pi = 1, numPoints do
             local point, relTo, relPoint, xOfs, yOfs = region:GetPoint(pi)
             if relTo == origEditBox then
-                relTo = overlay   -- remap to our overlay
+                relTo = overlay -- remap to our overlay
             end
             -- Scale Y offsets by the real ratio so anchors track the
             -- actual frame size -- not the boosted texture size.
@@ -427,14 +451,14 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     end
 
     if #clones == 0 then
-        return  -- nothing to adopt
+        return -- nothing to adopt
     end
 
     self._skinProxyTextures = clones
-    self._skinProxySourceEB  = origEditBox
+    self._skinProxySourceEB = origEditBox
 
     -- Apply user's backdrop colour as a tint over the cloned textures.
-    local inputBg = cfg.InputBg or {}
+    local inputBg           = cfg.InputBg or {}
     self:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
 
     -- Suppress Yapper's own solid fill and border so the cloned skin shows.
@@ -468,11 +492,11 @@ function EditBox:TintSkinProxyTextures(r, g, b, a)
     a = a or defA
 
     local isDefault = (math.abs(r - defR) < 0.01)
-                  and (math.abs(g - defG) < 0.01)
-                  and (math.abs(b - defB) < 0.01)
-                  and (math.abs(a - defA) < 0.01)
+        and (math.abs(g - defG) < 0.01)
+        and (math.abs(b - defB) < 0.01)
+        and (math.abs(a - defA) < 0.01)
     if isDefault then
-        return  -- leave the original Blizzard tint as-is
+        return -- leave the original Blizzard tint as-is
     end
 
     for i = 1, #clones do
@@ -514,10 +538,27 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local edit    = editBox.OverlayEdit
     if not overlay or not labelBg or not edit then return end
 
-    local inputBg   = cfg.InputBg    or {}
-    local labelCfg  = cfg.LabelBg    or {}
-    local borderCfg = cfg.BorderColor or {}
-    local textCfg   = cfg.TextColor   or {}
+    local inputBg     = cfg.InputBg or {}
+    local labelCfg    = cfg.LabelBg or {}
+    local borderCfg   = cfg.BorderColor or {}
+    local textCfg     = cfg.TextColor or {}
+    local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    local rounded     = cfg.RoundedCorners == true
+    local shadow      = cfg.Shadow == true
+
+    if activeTheme then
+        if activeTheme.allowRoundedCorners == false then rounded = false end
+        if activeTheme.allowDropShadow == false then shadow = false end
+    end
+
+    -- Blizzard skin proxy overrides visual customizations
+    if cfg.UseBlizzardSkinProxy == true then
+        rounded = false
+        shadow = false
+    end
+
+    local shadCol     = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
+    local shadSz      = cfg.ShadowSize or 4
 
     -- When the Blizzard skin proxy is active, make the overlay background fully
     -- transparent so the cloned skin textures show through.
@@ -536,19 +577,20 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     end
 
     -- Input background fill + dynamic inset so it never bleeds outside the border.
-    SetFrameFillColor(overlay, fillR, fillG, fillB, fillA)
-    if overlay._yapperSolidFill then
+    SetFrameFillColor(overlay, fillR, fillG, fillB, fillA, rounded)
+    local activeFill = rounded and overlay._yapperRoundedFill or overlay._yapperSolidFill
+    if activeFill then
         if proxyActive then
             -- Keep hidden; cloned skin textures replace the solid fill.
-            overlay._yapperSolidFill:Hide()
+            activeFill:Hide()
         else
-            overlay._yapperSolidFill:Show()
-            overlay._yapperSolidFill:ClearAllPoints()
+            activeFill:Show()
+            activeFill:ClearAllPoints()
             if pad > 0 then
-                overlay._yapperSolidFill:SetPoint("TOPLEFT",     overlay, "TOPLEFT",      pad, -pad)
-                overlay._yapperSolidFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad,  pad)
+                activeFill:SetPoint("TOPLEFT", overlay, "TOPLEFT", pad, -pad)
+                activeFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
             else
-                overlay._yapperSolidFill:SetAllPoints(overlay)
+                activeFill:SetAllPoints(overlay)
             end
         end
     end
@@ -556,21 +598,24 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     -- Label background fill + position (inset matches fill when border active).
     -- Hidden when skin proxy is active so cloned skin textures show.
     if proxyActive then
-        SetFrameFillColor(labelBg, 0, 0, 0, 0)
+        SetFrameFillColor(labelBg, 0, 0, 0, 0, rounded)
         if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Hide() end
+        if labelBg._yapperRoundedFill then labelBg._yapperRoundedFill:Hide() end
     else
+        -- Force labelBg to use solid fill for better readability and reliable rendering.
         SetFrameFillColor(labelBg,
-            labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0)
-        if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Show() end
+            labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0, false)
+        local labFill = labelBg._yapperSolidFill
+        if labFill then labFill:Show() end
     end
     labelBg:ClearAllPoints()
-    local LEFT_MARGIN = 6  -- fixed inset from the overlay's left edge
-    labelBg:SetPoint("TOPLEFT",    overlay, "TOPLEFT",    pad + LEFT_MARGIN, -pad)
-    labelBg:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", pad + LEFT_MARGIN,  pad)
+    local LEFT_MARGIN = 6 -- fixed inset from the overlay's left edge
+    labelBg:SetPoint("TOPLEFT", overlay, "TOPLEFT", pad + LEFT_MARGIN, -pad)
+    labelBg:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", pad + LEFT_MARGIN, pad)
 
     -- EditBox anchors: left edge follows label; right edge inset to avoid border.
     edit:ClearAllPoints()
-    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    0,    0)
+    edit:SetPoint("TOPLEFT", labelBg, "TOPRIGHT", 0, 0)
     edit:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
 
     -- Text colour.
@@ -589,6 +634,36 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
             overlay.Border:Show()
         else
             overlay.Border:Hide()
+        end
+    end
+
+    -- Shadow Generation
+    if shadow then
+        if not overlay._yapperShadowLayer then
+            overlay._yapperShadowLayer = CreateFrame("Frame", nil, overlay)
+            -- Push it strictly behind the overlay background to prevent bleed-over
+            overlay._yapperShadowLayer:SetFrameLevel(math.max(0, overlay:GetFrameLevel() - 1))
+            overlay._yapperShadowLayer:SetAllPoints(overlay)
+            overlay._yapperShadows = {}
+            for i = 1, 3 do
+                local stex = overlay._yapperShadowLayer:CreateTexture(nil, "BACKGROUND")
+                table.insert(overlay._yapperShadows, stex)
+            end
+        end
+        overlay._yapperShadowLayer:Show()
+
+        for i, stex in ipairs(overlay._yapperShadows) do
+            local offset = (i / 3) * shadSz
+            stex:ClearAllPoints()
+            stex:SetPoint("TOPLEFT", overlay, "TOPLEFT", -offset, offset)
+            stex:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", offset + (pad / 2), -offset - (pad / 2))
+            local alphaBase = shadCol.a or 0.5
+            local falloff = { 0.5, 0.3, 0.15 }
+            stex:SetColorTexture(shadCol.r or 0, shadCol.g or 0, shadCol.b or 0, alphaBase * (falloff[i] or 0.1))
+        end
+    else
+        if overlay._yapperShadowLayer then
+            overlay._yapperShadowLayer:Hide()
         end
     end
 end
@@ -770,7 +845,7 @@ local function UpdateLabelBackgroundForText(self, text)
     -- allow the padding to shrink very small so the edit text is close
     -- to the box when there's very little label text
     local padding  = math.max(2, math.min(basePad, headroom))
-    local labelW = math.ceil(rawWidth + padding)
+    local labelW   = math.ceil(rawWidth + padding)
     -- cap by configuration and available space
     if labelW > maxAllowed then labelW = maxAllowed end
     if labelW > (ebWidth - 80) then labelW = ebWidth - 80 end
@@ -806,9 +881,9 @@ function EditBox:CreateOverlay()
         insets = { left = BORDER_PAD, right = BORDER_PAD, top = BORDER_PAD, bottom = BORDER_PAD },
     })
     borderFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
-    borderFrame:Hide()  -- hidden until ApplyConfigToLiveOverlay decides based on active theme
-    frame.Border     = borderFrame
-    frame.BorderPad  = BORDER_PAD  -- read by ApplyConfigToLiveOverlay for fill inset
+    borderFrame:Hide()           -- hidden until ApplyConfigToLiveOverlay decides based on active theme
+    frame.Border    = borderFrame
+    frame.BorderPad = BORDER_PAD -- read by ApplyConfigToLiveOverlay for fill inset
 
     -- Container background fill — always on the outer frame so ApplyConfigToLiveOverlay
     -- has a single predictable target.  Anchor is adjusted dynamically when the border
@@ -818,7 +893,7 @@ function EditBox:CreateOverlay()
     -- ── Label background (left portion) ──────────────────────────────
     local labelBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     -- Initial anchors at zero inset; RefreshOverlayVisuals repositions on first show.
-    labelBg:SetPoint("TOPLEFT",    frame, "TOPLEFT",    0, 0)
+    labelBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     labelBg:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
     labelBg:SetWidth(100) -- will be recalculated on show
 
@@ -832,7 +907,7 @@ function EditBox:CreateOverlay()
         edit:SetPropagateKeyboardInput(false)
     end
     edit:SetFontObject(ChatFontNormal)
-    edit:SetAutoFocus(true)
+    edit:SetAutoFocus(false)
     edit:SetMultiLine(false)
     edit:SetMaxLetters(0)
     edit:SetMaxBytes(0)
@@ -842,14 +917,14 @@ function EditBox:CreateOverlay()
     edit:SetTextInsets(1, 6, 0, 0)
 
     -- Initial anchors at zero inset; RefreshOverlayVisuals repositions on first show.
-    edit:SetPoint("TOPLEFT",     labelBg, "TOPRIGHT",    0, 0)
-    edit:SetPoint("BOTTOMRIGHT", frame,   "BOTTOMRIGHT", 0, 0)
+    edit:SetPoint("TOPLEFT", labelBg, "TOPRIGHT", 0, 0)
+    edit:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
 
     -- Store references.
-    self.Overlay      = frame
-    self.OverlayEdit  = edit
-    self.ChannelLabel = labelFs
-    self.LabelBg      = labelBg
+    self.Overlay       = frame
+    self.OverlayEdit   = edit
+    self.ChannelLabel  = labelFs
+    self.LabelBg       = labelBg
     -- Also attach to the frame so external theming APIs can find them via the frame object.
     frame.OverlayEdit  = edit
     frame.ChannelLabel = labelFs
@@ -1036,7 +1111,7 @@ function EditBox:SetupOverlayScripts()
 
         if SLASH_MAP[cmd] then
             local ct = SLASH_MAP[cmd]
-            
+
             -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
             if ct == "INSTANCE_CHAT" then
                 -- Target Instance Chat: Fallback to Raid or Party if not in Instance Category.
@@ -1171,7 +1246,7 @@ function EditBox:SetupOverlayScripts()
 
                 if SLASH_MAP[enterCmd] then
                     local ct = SLASH_MAP[enterCmd]
-                    
+
                     -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
                     if ct == "INSTANCE_CHAT" then
                         if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
@@ -1221,6 +1296,10 @@ function EditBox:SetupOverlayScripts()
 
         -- If chat is locked down (combat/m+ lockdown), save draft and handoff
         -- ALSO hand off to blizz if we are manually sidestepping.
+        -- note to self: if I am editing this, I am probably looking for
+        -- the lockdown check further down. This one handles the case where
+        -- we're already in lockdown, NOT when the lockdown initiates during
+        -- user input.
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             self:HandoffToBlizzard()
             return
@@ -1313,7 +1392,7 @@ function EditBox:SetupOverlayScripts()
         self:Hide()
     end)
 
-    edit:SetScript("OnCursorChanged", function(box, x, y, w, h)
+    edit:HookScript("OnCursorChanged", function(box, x, y, w, h)
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnCursorChanged) == "function" then
             YapperTable.Spellcheck:OnCursorChanged(box, x, y, w, h)
         end
@@ -1388,6 +1467,25 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
+    -- When focus leaves the overlay editbox (e.g. clicking the game world),
+    -- keep the overlay visible but let keypresses propagate through to the
+    -- game so the player can move with WASD, use abilities, etc.
+    edit:HookScript("OnEditFocusLost", function(box)
+        self._overlayUnfocused = true
+        if YapperTable.Spellcheck then
+            YapperTable.Spellcheck:UpdateHint()
+        end
+        -- SetPropagateKeyboardInput removal: SetAutoFocus(false) allows
+        -- native WASD fallback when focus is lost without triggering combat errors.
+    end)
+
+    edit:HookScript("OnEditFocusGained", function(box)
+        self._overlayUnfocused = false
+        if YapperTable.Spellcheck then
+            YapperTable.Spellcheck:UpdateHint()
+        end
+    end)
+
     -- Combat lockdown detection
     -- When InChatMessagingLockdown becomes true mid-typing, hand the
     -- overlay state back to Blizzard's secure editbox.
@@ -1416,9 +1514,47 @@ function EditBox:SetupOverlayScripts()
 
     frame:HookScript("OnEvent", function(_, event, ...)
         if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
-            -- Immediate check.
-            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+            -- Helper: perform the handoff, cleaning up any active timers.
+            local function doHandoff()
+                if self._lockdownIdleTimer then
+                    self._lockdownIdleTimer:Cancel()
+                    self._lockdownIdleTimer = nil
+                end
                 self:HandoffToBlizzard()
+            end
+
+            -- Helper: begin the deferred handoff.
+            local function beginDeferredHandoff()
+                local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+                if text == "" then
+                    if self._lockdownIdleTimer then
+                        self._lockdownIdleTimer:Cancel()
+                        self._lockdownIdleTimer = nil
+                    end
+                    self:HandoffToBlizzard()
+                    return
+                end
+
+                self:ResetLockdownIdleTimer()
+
+                -- Hook OnTextChanged to reset the idle timer while the user keeps typing.
+                if not self._lockdownTextHooked and self.OverlayEdit then
+                    self._lockdownTextHooked = true
+                    self.OverlayEdit:HookScript("OnTextChanged", function(box, isUserInput)
+                        if isUserInput and self._lockdownIdleTimer then
+                            self:ResetLockdownIdleTimer()
+                        end
+                    end)
+                end
+            end
+
+            -- Immediate check.
+            if (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) or YapperTable.Config.System.DEBUG then
+                if not self._lockdownEventRunning then
+                    self._lockdownEventRunning = true
+                    YapperTable.Utils:DebugPrint("Lockdown event triggered (DEBUG or real lockdown).")
+                    beginDeferredHandoff()
+                end
                 return
             end
             -- Not in lockdown yet — poll briefly.
@@ -1434,7 +1570,7 @@ function EditBox:SetupOverlayScripts()
                     return
                 end
                 if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
-                    self:HandoffToBlizzard()
+                    beginDeferredHandoff()
                     ticker:Cancel()
                     self._lockdownTicker = nil
                     return
@@ -1450,6 +1586,12 @@ function EditBox:SetupOverlayScripts()
                 self._lockdownTicker:Cancel()
                 self._lockdownTicker = nil
             end
+            if self._lockdownIdleTimer then
+                YapperTable.Utils:DebugPrint("Combat ended - canceling active handoff timer.")
+                self._lockdownIdleTimer:Cancel()
+                self._lockdownIdleTimer = nil
+            end
+            self._lockdownEventRunning = false
             -- If we saved a draft during lockdown, poll until lockdown
             -- is truly over (checks every 1s for up to 5s).
             if self._lockdownHandedOff then
@@ -1486,6 +1628,26 @@ function EditBox:SetupOverlayScripts()
                 end
             end
         end
+    end)
+end
+
+function EditBox:ResetLockdownIdleTimer()
+    if self._lockdownIdleTimer then
+        self._lockdownIdleTimer:Cancel()
+    end
+    YapperTable.Utils:DebugPrint("Lockdown handoff timer started/reset (1.5s idle wait)...")
+    self._lockdownIdleTimer = C_Timer.NewTimer(1.5, function()
+        -- Sanity check: if the overlay was closed normally (sent or escaped)
+        -- in the meantime, do not execute the handoff.
+        if not self.Overlay or not self.Overlay:IsShown() then
+            YapperTable.Utils:DebugPrint("Timer fired but overlay was hidden - bailing handoff.")
+            self._lockdownIdleTimer = nil
+            return
+        end
+
+        YapperTable.Utils:DebugPrint("Lockdown idle timer fired!")
+        self._lockdownIdleTimer = nil
+        self:HandoffToBlizzard()
     end)
 end
 
@@ -1767,6 +1929,7 @@ end
 
 function EditBox:Hide()
     local prevOrig = self.OrigEditBox
+    self._overlayUnfocused = false
 
     -- NOTE: DetachBlizzardSkinProxy() is intentionally NOT called here.
     -- Proxy textures are children of the overlay frame; they hide automatically
@@ -1780,6 +1943,16 @@ function EditBox:Hide()
     end
     self.OverlayEdit:ClearFocus()
     self.OrigEditBox = nil
+
+    -- Clean up any active lockdown timers to prevent "ghost" handoffs
+    -- if the user finished their post normally or escaped out.
+    if self._lockdownIdleTimer then
+        YapperTable.Utils:DebugPrint("Yapper hidden normally - canceling active handoff timer.")
+        self._lockdownIdleTimer:Cancel()
+        self._lockdownIdleTimer = nil
+    end
+    self._lockdownHandedOff = false
+    self._lockdownEventRunning = false
 
     -- Suppress one immediate Blizzard Show for the same editbox to avoid
     -- hide/show contention on outside-click dismissals.
@@ -1799,8 +1972,18 @@ end
 
 --- Save draft, close overlay, and notify during lockdown.
 function EditBox:HandoffToBlizzard()
-    if not self.Overlay or not self.Overlay:IsShown() then return end
+    if not self.Overlay or not self.Overlay:IsShown() then
+        YapperTable.Utils:DebugPrint("HandoffToBlizzard called but overlay hidden. Skipping.")
+        return
+    end
+    YapperTable.Utils:DebugPrint("Executing HandoffToBlizzard...")
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+
+    -- clean up lockdown idle timers if present
+    if self._lockdownIdleTimer then
+        self._lockdownIdleTimer:Cancel()
+        self._lockdownIdleTimer = nil
+    end
 
     -- Save as dirty draft for recovery on next open.
     if text ~= "" and YapperTable.History then
@@ -1848,7 +2031,17 @@ function EditBox:ApplyConfigToLiveOverlay(force)
         return
     end
 
-    local cfg = YapperTable.Config.EditBox or {}
+    local cfg          = YapperTable.Config.EditBox or {}
+    local activeTheme  = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    local borderActive = activeTheme and activeTheme.border == true
+
+    -- Apply theme baseline first (so user config can override it below)
+    if not self._skinProxyTextures
+        and YapperTable.Theme and type(YapperTable.Theme.ApplyToFrame) == "function"
+        and self.Overlay then
+        pcall(function() YapperTable.Theme:ApplyToFrame(self.Overlay) end)
+    end
+
 
     -- Font update (before visuals so height calc reflects new size)
     local cfgFace  = cfg.FontFace
@@ -1897,10 +2090,8 @@ function EditBox:ApplyConfigToLiveOverlay(force)
         self.Overlay:SetPoint("RIGHT", self.OrigEditBox, "RIGHT", 0, 0)
         self.Overlay:SetHeight(resolvedH)
 
-        -- Re-clone proxy textures at the new overlay height so left/right
-        -- caps scale okay-ish when font size changes.
-        if self._skinProxyTextures and self.OrigEditBox then
-            self:DetachBlizzardSkinProxy()
+        -- Synchronize skin proxy state with config on the fly.
+        if self.OrigEditBox then
             pcall(function()
                 self:AttachBlizzardSkinProxy(self.OrigEditBox, resolvedH)
             end)
@@ -1908,21 +2099,11 @@ function EditBox:ApplyConfigToLiveOverlay(force)
     end
 
     -- Single-pass visual refresh (fills, anchors, text colour, border)
-    local activeTheme  = YapperTable.Theme and YapperTable.Theme:GetTheme()
-    local borderActive = activeTheme and activeTheme.border == true
-    local pad          = (borderActive and self.Overlay.BorderPad) or 0
+    local pad = (borderActive and self.Overlay.BorderPad) or 0
     RefreshOverlayVisuals(self, cfg, borderActive, pad)
 
     self:RefreshLabel()
     localConf.System.SettingsHaveChanged = false
-
-    -- Invoke theme only for font/OnApply. Colours/borders come from config; skip if skin proxy active.
-    local proxyActiveOnApply = self._skinProxyTextures
-    if not proxyActiveOnApply
-        and YapperTable.Theme and type(YapperTable.Theme.ApplyToFrame) == "function"
-        and self.Overlay then
-        pcall(function() YapperTable.Theme:ApplyToFrame(self.Overlay) end)
-    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -2054,7 +2235,8 @@ function EditBox:RefreshLabel()
         local bnetCol = (channelColors and channelColors.BN_WHISPER) or nil
         local masterKey = cfg.ChannelColorMaster or ""
         local overrideFlag = (cfg.ChannelColorOverrides and cfg.ChannelColorOverrides[currentKey]) or false
-        local msg = string.format("RefreshLabel: eff=%s ct=%s tgt=%s -> resolved=(%.2f,%.2f,%.2f) master=%s override=%s whisper=(%s) bn=(%s)",
+        local msg = string.format(
+            "RefreshLabel: eff=%s ct=%s tgt=%s -> resolved=(%.2f,%.2f,%.2f) master=%s override=%s whisper=(%s) bn=(%s)",
             tostring(effectiveType), tostring(self.ChatType), tostring(self.Target or ""),
             tonumber(resolvedR) or 0, tonumber(resolvedG) or 0, tonumber(resolvedB) or 0,
             tostring(masterKey), tostring(overrideFlag),
@@ -2080,7 +2262,8 @@ function EditBox:RefreshLabel()
         -- standard whisper magenta heuristic
         if approxEqual(resolvedR, 1.0) and approxEqual(resolvedG, 0.5) and approxEqual(resolvedB, 1.0) then
             local defaults = YapperTable.Core and YapperTable.Core.GetDefaults and YapperTable.Core:GetDefaults()
-            local defBN = defaults and defaults.EditBox and defaults.EditBox.ChannelTextColors and defaults.EditBox.ChannelTextColors.BN_WHISPER
+            local defBN = defaults and defaults.EditBox and defaults.EditBox.ChannelTextColors and
+                defaults.EditBox.ChannelTextColors.BN_WHISPER
             if defBN and type(defBN.r) == "number" then
                 resolvedR, resolvedG, resolvedB = defBN.r, defBN.g, defBN.b
             end
@@ -2136,8 +2319,8 @@ function EditBox:CycleChat(direction)
         local curTarget = self.Target or ""
         local name, kind = self:NextReplyTarget(curTarget, direction)
         if name and name ~= "" then
-            self.ChatType = kind or "WHISPER"
-            self.Target   = name
+            self.ChatType    = kind or "WHISPER"
+            self.Target      = name
             -- ChannelName not used for whispers
             self.ChannelName = nil
             self:RefreshLabel()
@@ -2310,11 +2493,11 @@ function EditBox:ForwardSlashCommand(text)
     local chosenCT = self:GetResolvedChatType(self.ChatType)
     local eb = self.OrigEditBox
     local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
-    
+
     local currentTell = eb:GetAttribute("tellTarget")
     local diffTell = true
     pcall(function() diffTell = (currentTell ~= self.Target) end)
-    
+
     local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
 
     eb:SetAttribute("chatType", overrideCT)
@@ -2477,7 +2660,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             c._prevChatType = value
         end
 
-        -- ── Live update: attributes arrived after we already showed ────
+        -- Live update: attributes arrived after we already showed
         if self.OrigEditBox == eb and self.Overlay and self.Overlay:IsShown() then
             local ct = c.chatType
             local tt = c.tellTarget
@@ -2539,8 +2722,15 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         if BypassEditBox and BypassEditBox == ebName then
             return
         end
-        
+
         if self.Overlay and self.Overlay:IsShown() then
+            -- Overlay already visible — suppress Blizzard's editbox and
+            -- reclaim focus if the overlay was in unfocused (game-passthrough)
+            -- mode. The Enter keypress that triggered Blizzard's Show is
+            -- consumed here; it never reaches our OnEnterPressed.
+            if self._overlayUnfocused and self.OverlayEdit then
+                self.OverlayEdit:SetFocus()
+            end
             C_Timer.After(0, function()
                 if eb and eb.Hide and eb:IsShown() then eb:Hide() end
             end)
@@ -2554,16 +2744,20 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
 
         -- In lockdown Blizzard's untainted box can still send; leave it alone.
-        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+        -- In DEBUG mode, we only bypass Yapper if the handoff has actually occurred.
+        local isLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+        local isDebugBypass = YapperTable.Config.System.DEBUG and self._lockdownHandedOff
+
+        if isLockdown or isDebugBypass then
             if not self._lockdownShowHandled then
                 self._lockdownShowHandled = true
                 local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
                 chosenCT = self:GetResolvedChatType(chosenCT)
-                
+
                 local currentTell = eb:GetAttribute("tellTarget")
                 local diffTell = true
                 pcall(function() diffTell = (currentTell ~= self.Target) end)
-                
+
                 local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
 
                 eb:SetAttribute("chatType", chosenCT)
@@ -2714,9 +2908,7 @@ function EditBox:HookAllChatFrames()
         -- UIParent OnHide hook in SetupOverlayScripts.
         self._openChatHooked = true
     end
-
 end
-    
 
 -- ---------------------------------------------------------------------------
 -- Public callbacks
