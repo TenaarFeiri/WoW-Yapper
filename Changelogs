@@ -1,3 +1,29 @@
+-- 1.2.4
+  - *Overlay improvements:*
+    - **Unfocused Persistence:** The overlay can now stay open while allowing keyboard input to propagate back to the game (WASD, abilities) when unfocused.
+    - **Graceful Handoff:** Added a "wait-to-close" mechanism for combat lockdowns; Yapper now waits for you to stop typing (1.5s idle) before handing over to Blizzard's secure editbox.
+    - **Keystroke Handling:** Updated focus transitions to prevent "leaking" final keystrokes (like Enter or ESC) to the game world menu systems.
+    - **AutoFocus Fix:** Resolved an issue where the overlay would aggressively steal focus when attempting to click into the game world.
+  - *Interface & Settings:*
+    - **ESC Support:** The main Settings window can now be dismissed with the ESC key.
+    - **Focus Trapping:** Text inputs in the interface now trap Enter/ESC to defocus rather than closing the entire panel.
+    - **Theme Overrides:** Added `allowRoundedCorners` and `allowDropShadow` theme flags. 
+    - **Live Proxy Sync:** Toggling the "Blizzard skin proxy" now applies immediately to the live overlay.
+    - Visual settings are now dynamically disabled and labeled when restricted by a theme or the Blizzard skin proxy.
+  - *Bug Fixes:*
+    - Fixed a critical widget pool corruption bug involving `ResetButton` double-registration.
+    - Resolved an issue where dropdown menus would fail to update their state after a reset.
+  - *Advanced Visuals:* Added new theme customisation options for the chat overlay!
+    - Added **Rounded Corners** toggle (utilises Blizzard's native tooltip toolkit).
+    - Added a new, toggleable **Drop Shadow** visual to the overlay.
+    - Shadows are fully configurable: adjustable thickness, colour, and opacity.
+  - *Spellcheck Customisation:*
+    - Added new colour pickers for the spellchecker. You can now customise the colours for both the standard underline and the highlight style, individually.
+  - *Rendering Improvements:*
+    - Isolated spellcheck texture rendering and font measurement to prevent layout invalidation loops.
+  - *Internal Cleanup:*
+    - Switched `OnCursorChanged` handling to `HookScript` for better interoperability with other UI modifications.
+
 -- 1.2.3a
   - Fixed an issue with the fallback minimap button being misshapen.
 
