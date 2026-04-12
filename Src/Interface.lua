@@ -1280,7 +1280,7 @@ function Interface:CreateWelcomeChoiceFrame()
     local yapperBtn, yapperPreview = BuildColumn(
         (COL_W / 2 + PAD / 2), -- right of centre
         "Yapper",
-        "Fully customiseable with background colours, but utilitarian and unstylised.",
+        "Fully customiseable with background colours and opacity. Has several styling options.",
         function()
             Interface:SetLocalPath({ "EditBox", "UseBlizzardSkinProxy" }, false)
             closeWelcome()
@@ -1681,7 +1681,7 @@ function Interface:GetTooltip(key)
     if tip and (key == "EditBox.InputBg" or key == "EditBox.LabelBg") then
         if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
             tip = tip ..
-            "\n\n|cFFFFD100Note:|r Blizzard's skin is pre-coloured. For best results, disable the skin proxy and use Yapper's own appearance settings."
+                "\n\n|cFFFFD100Note:|r Blizzard's skin is pre-coloured. For best results, disable the skin proxy and use Yapper's own appearance settings."
         end
     end
     return tip
@@ -2237,7 +2237,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             _G.YapperLocalConf = clearRoot
             -- Debug: raw stored value in local config for verification.
             local rawStored = (type(clearRoot.EditBox) == "table" and type(clearRoot.EditBox.ChannelTextColors) == "table") and
-            clearRoot.EditBox.ChannelTextColors[key] or nil
+                clearRoot.EditBox.ChannelTextColors[key] or nil
 
             -- If the Blizzard ColorPickerFrame is present, update its cached
             -- colour so the next OpenColorPicker shows the correct default
@@ -2247,17 +2247,28 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 if type(appliedColor) == "table" then
                     -- Try direct API first.
                     if ColorPickerFrame.SetColorRGB then
-                        pcall(function() ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1,
-                                appliedColor.b or 1) end)
+                        pcall(function()
+                            ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1,
+                                appliedColor.b or 1)
+                        end)
                     end
                     -- Modern frame content path.
                     if ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker and ColorPickerFrame.Content.ColorPicker.SetColorRGB then
-                        pcall(function() ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1,
-                                appliedColor.g or 1, appliedColor.b or 1) end)
+                        pcall(function()
+                            ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1,
+                                appliedColor.g or 1, appliedColor.b or 1)
+                        end)
                     end
                     -- Update previousValues so the 'previous' swatch matches.
-                    pcall(function() ColorPickerFrame.previousValues = { r = appliedColor.r or 1, g = appliedColor.g or 1, b =
-                        appliedColor.b or 1, a = appliedColor.a ~= nil and appliedColor.a or 1 } end)
+                    pcall(function()
+                        ColorPickerFrame.previousValues = {
+                            r = appliedColor.r or 1,
+                            g = appliedColor.g or 1,
+                            b =
+                                appliedColor.b or 1,
+                            a = appliedColor.a ~= nil and appliedColor.a or 1
+                        }
+                    end)
                 end
             end
 
@@ -2875,10 +2886,10 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
                         if spell.Notify then
                             if spell.HasLocaleAddon and spell:HasLocaleAddon(locale) then
                                 spell:Notify("Yapper: failed to load " ..
-                                (spell:GetLocaleAddon(locale) or "") .. " for " .. locale .. ".")
+                                    (spell:GetLocaleAddon(locale) or "") .. " for " .. locale .. ".")
                             else
                                 spell:Notify("Yapper: install the " ..
-                                (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
+                                    (spell:GetLocaleAddon(locale) or "") .. " addon to use " .. locale .. ".")
                             end
                         end
                         return
