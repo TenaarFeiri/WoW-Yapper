@@ -4,3 +4,5 @@ Legacy/
 # Add other common ignores below if needed
 # *.luac
 # *.log
+# Local documentation
+Documentation/
