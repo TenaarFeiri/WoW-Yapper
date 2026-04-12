@@ -943,9 +943,14 @@ function Spellcheck:Rebuild()
 end
 
 function Spellcheck:EnsureMeasureFontString()
-    if self.MeasureFS or not self.Overlay then return end
-    local fs = self.Overlay:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-    fs:Hide()
+    if self.MeasureFS then return end
+    -- Detach the measurement FontString from the UI scene graph
+    -- Calling SetText on a child FontString dirties the parent's layout.
+    -- Parenting to nil and bounding it fully isolates it.
+    local hiddenFrame = CreateFrame("Frame")
+    hiddenFrame:SetSize(1, 1)
+    hiddenFrame:Hide()
+    local fs = hiddenFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
     self.MeasureFS = fs
 end
 
@@ -1174,6 +1179,7 @@ end
 function Spellcheck:IsSuggestionEligible()
     if not self:IsEnabled() then return false end
     if not self.ActiveWord then return false end
+    if self.EditBox and not self.EditBox:HasFocus() then return false end
     return true
 end
 
@@ -1528,7 +1534,8 @@ function Spellcheck:UpdateUnderlines()
     -- Scroll changes only need a redraw, not a rescan.
     if textLen <= SCAN_RADIUS * 2 then
         local textSame = (self._lastUnderlinesText == text and self._lastUnderlinesDict == dict)
-        local scrollSame = (self._lastScrollOffset == scrollOffset)
+        local diff = math_abs((self._lastScrollOffset or 0) - scrollOffset)
+        local scrollSame = (diff < 0.5)
         if textSame and scrollSame then
             return
         end
@@ -1571,7 +1578,8 @@ function Spellcheck:UpdateUnderlines()
         end
     end
 
-    local scrollSame = (self._lastScrollOffset == scrollOffset)
+    local diff = math_abs((self._lastScrollOffset or 0) - scrollOffset)
+    local scrollSame = (diff < 0.5)
 
     if not needRescan and scrollSame then
         return
@@ -1683,25 +1691,36 @@ function Spellcheck:DrawUnderline(startPos, endPos, text, scrollOffset)
     local tex = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
 
+    local cfg = self:GetConfig()
+
     if style == "highlight" then
         local height = (self.EditBox:GetHeight() or 20) - 6
-        -- Brighter highlight for better visibility (increased alpha
-        -- and slightly adjusted tint).
-        tex:SetColorTexture(1, 0.18, 0.18, 0.36)
+        local c = cfg.HighlightColor or { r = 1, g = 0.18, b = 0.18, a = 0.36 }
+        tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, height)
         tex:ClearAllPoints()
-        tex:SetPoint("TOPLEFT", self.Overlay, "TOPLEFT", offsetX, offsetTopY - 3)
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY - 3)
     else
-        local ovBottom = self.Overlay:GetBottom() or 0
+        local ovBottom = self.UnderlineLayer:GetBottom() or 0
         local offsetBottomY = ebBottom - ovBottom
-        tex:SetColorTexture(1, 0.2, 0.2, 0.9)
+        local c = cfg.UnderlineColor or { r = 1, g = 0.2, b = 0.2, a = 0.9 }
+        tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, 2)
         tex:ClearAllPoints()
-        tex:SetPoint("BOTTOMLEFT", self.Overlay, "BOTTOMLEFT", offsetX, offsetBottomY + 2)
+        tex:SetPoint("BOTTOMLEFT", self.UnderlineLayer, "BOTTOMLEFT", offsetX, offsetBottomY + 2)
     end
 
     tex:Show()
     self.Underlines[#self.Underlines + 1] = tex
+end
+
+function Spellcheck:EnsureUnderlineLayer()
+    if self.UnderlineLayer or not self.Overlay then return end
+    -- Create a dedicated layer for underlines to prevent texture anchoring
+    -- from dirtying the Overlay layout, which resets the EditBox blink timer.
+    local layer = CreateFrame("Frame", nil, self.Overlay)
+    layer:SetAllPoints(self.Overlay)
+    self.UnderlineLayer = layer
 end
 
 function Spellcheck:AcquireUnderline()
@@ -1709,7 +1728,8 @@ function Spellcheck:AcquireUnderline()
     if tex then
         return tex
     end
-    tex = self.Overlay:CreateTexture(nil, "OVERLAY")
+    self:EnsureUnderlineLayer()
+    tex = self.UnderlineLayer:CreateTexture(nil, "OVERLAY")
     return tex
 end
 
