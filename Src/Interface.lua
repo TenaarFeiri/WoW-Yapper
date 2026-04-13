@@ -76,6 +76,7 @@ local SETTING_TOOLTIPS = {
     ["Spellcheck.HighlightColor"] = "Change the colour of the spellcheck highlight style.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
+    ["Spellcheck.NgramKeyCapSize"] = "Maximum number of unique n-gram index keys built when loading the dictionary. Higher values improve suggestion recall for uncommon words but directly increase memory usage by roughly 1-2 MB per 10,000 extra keys. Set to 0 to remove the cap entirely (maximum accuracy, higher memory cost).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
     ["Chat.MAX_HISTORY_LINES"] = "How many previous messages are kept in local history.",
@@ -136,6 +137,7 @@ local FRIENDLY_LABELS = {
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
     ["Spellcheck.MaxCandidates"] = "Max word candidates checked",
+    ["Spellcheck.NgramKeyCapSize"] = "N-gram key cap (0 = uncapped)",
     ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
 
@@ -242,6 +244,7 @@ local CATEGORIES = {
             -- Spellcheck advanced
             "Spellcheck.MinWordLength",
             "Spellcheck.MaxSuggestions",
+            "Spellcheck.NgramKeyCapSize",
         },
         -- Bridges are appended by custom logic.
         custom = { "bridges", "spellcheckUserDict" },
@@ -950,14 +953,19 @@ function Interface:BuildRenderSchema()
                         kind = "spellcheck_keyboard_layout"
                     elseif JoinPath(nextPath) == "Spellcheck.UnderlineStyle" then
                         kind = "spellcheck_underline"
+                    elseif JoinPath(nextPath) == "Spellcheck.NgramKeyCapSize" then
+                        -- HIDDEN: No longer a user-facing setting but functionality remains
+                        kind = "hidden"
                     end
-                    schema[#schema + 1] = {
-                        kind = kind,
-                        key = key,
-                        path = nextPath,
-                        full = JoinPath(nextPath),
-                        valueType = type(value),
-                    }
+                    if kind ~= "hidden" then
+                        schema[#schema + 1] = {
+                            kind = kind,
+                            key = key,
+                            path = nextPath,
+                            full = JoinPath(nextPath),
+                            valueType = type(value),
+                        }
+                    end
                 end
             end
         end
@@ -2599,9 +2607,10 @@ function Interface:CreateTextInput(parent, label, path, cursor)
     end
 
     self:AddControl(edit)
+    self:AddControl(resetBtn)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
-    return edit
 end
+
 
 function Interface:CreateColorPickerControl(parent, label, path, cursor)
     local y = cursor:Y()
