@@ -172,6 +172,10 @@ local DEFAULTS = {
         NgramN             = 2,
         NgramMaxPosting    = 200,
         NgramTopCandidates = 300,
+        -- Cap on unique bigram keys built during dictionary indexing.
+        -- More keys = better suggestion recall but higher memory cost (~10MB+ extra).
+        -- Set to 0 for uncapped (maximum accuracy, no memory limit).
+        NgramKeyCapSize    = 0,
         MinWordLength      = 2,
         UnderlineStyle     = "line",
         UnderlineColor     = { r = 1.0, g = 0.2, b = 0.2, a = 0.9 },
