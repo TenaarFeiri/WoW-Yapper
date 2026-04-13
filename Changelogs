@@ -1,3 +1,20 @@
+-- 1.3.0
+  - *Spellcheck Engine & Memory:*
+    - **Memory Leaks:** Fixed numerous memory leaks introduced with the new spellchecking features. Dictionaries no longer duplicate when reloading (but may briefly show as using memory until the GC can collect the shrunk tables).
+    - **Fixed "Confused" Suggestions:** Fixed a bug where the spellchecker would sometimes get "confused" and point at the wrong words, resulting in bizarre or completely unrelated suggestions.
+    - **Suggestions no longer travel to Narnia:** Fixed a bug where the spelling suggestion menu would drift away from the cursor or disappear when typing long messages that scroll sideways.
+  - *Interface & UX:*
+    - **Settings UI Cleanup:** Fixed some alignment issues in the settings menu where buttons and input boxes were getting cut off or were partially invisible.
+
+-- 1.2.5
+  - *Major Spellcheck Overhaul:*
+    - **Better Word Recognition:** Fixed cases where obvious misspellings were being ignored or given poor suggestions.
+    - **Apostrophe Fix:** Fixed a bug where words with apostrophes weren't being recognized correctly.
+    - **Search Logic Fix:** Repaired a hidden bug that was making the engine work way harder than it needed to, resulting in much faster and more accurate suggestions.
+    - **Speed Improvements:** Removed some slow background processes that were causing the game to hang when loading large dictionaries.
+    - **More Accurate Suggestions:** Increased how many words the engine looks at, ensuring high-quality suggestions for common words.
+    - **Improved Accuracy:** The spellchecker is now significantly smarter, frequently guessing the right word first in our internal stress tests.
+
 -- 1.2.4
   - *Overlay improvements:*
     - **Unfocused Persistence:** The overlay can now stay open while allowing keyboard input to propagate back to the game (WASD, abilities) when unfocused.
