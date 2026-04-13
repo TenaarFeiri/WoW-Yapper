@@ -23,6 +23,7 @@ local string_sub = string.sub
 local string_byte = string.byte
 local string_lower = string.lower
 local string_gsub = string.gsub
+local string_upper = string.upper
 local type = type
 local ipairs = ipairs
 local pairs = pairs
@@ -78,28 +79,88 @@ local KB_ROW_STAGGER = { 0, 0.25, 0.75 }
 -- already filters words containing them.
 local KB_LAYOUTS = {
     QWERTY = {
-        q={0,0},       w={1,0},       e={2,0},       r={3,0},       t={4,0},
-        y={5,0},       u={6,0},       i={7,0},       o={8,0},       p={9,0},
-        a={0.25,1},    s={1.25,1},    d={2.25,1},    f={3.25,1},    g={4.25,1},
-        h={5.25,1},    j={6.25,1},    k={7.25,1},    l={8.25,1},
-        z={0.75,2},    x={1.75,2},    c={2.75,2},    v={3.75,2},    b={4.75,2},
-        n={5.75,2},    m={6.75,2},
+        q = { 0, 0 },
+        w = { 1, 0 },
+        e = { 2, 0 },
+        r = { 3, 0 },
+        t = { 4, 0 },
+        y = { 5, 0 },
+        u = { 6, 0 },
+        i = { 7, 0 },
+        o = { 8, 0 },
+        p = { 9, 0 },
+        a = { 0.25, 1 },
+        s = { 1.25, 1 },
+        d = { 2.25, 1 },
+        f = { 3.25, 1 },
+        g = { 4.25, 1 },
+        h = { 5.25, 1 },
+        j = { 6.25, 1 },
+        k = { 7.25, 1 },
+        l = { 8.25, 1 },
+        z = { 0.75, 2 },
+        x = { 1.75, 2 },
+        c = { 2.75, 2 },
+        v = { 3.75, 2 },
+        b = { 4.75, 2 },
+        n = { 5.75, 2 },
+        m = { 6.75, 2 },
     },
     QWERTZ = {
-        q={0,0},       w={1,0},       e={2,0},       r={3,0},       t={4,0},
-        z={5,0},       u={6,0},       i={7,0},       o={8,0},       p={9,0},
-        a={0.25,1},    s={1.25,1},    d={2.25,1},    f={3.25,1},    g={4.25,1},
-        h={5.25,1},    j={6.25,1},    k={7.25,1},    l={8.25,1},
-        y={0.75,2},    x={1.75,2},    c={2.75,2},    v={3.75,2},    b={4.75,2},
-        n={5.75,2},    m={6.75,2},
+        q = { 0, 0 },
+        w = { 1, 0 },
+        e = { 2, 0 },
+        r = { 3, 0 },
+        t = { 4, 0 },
+        z = { 5, 0 },
+        u = { 6, 0 },
+        i = { 7, 0 },
+        o = { 8, 0 },
+        p = { 9, 0 },
+        a = { 0.25, 1 },
+        s = { 1.25, 1 },
+        d = { 2.25, 1 },
+        f = { 3.25, 1 },
+        g = { 4.25, 1 },
+        h = { 5.25, 1 },
+        j = { 6.25, 1 },
+        k = { 7.25, 1 },
+        l = { 8.25, 1 },
+        y = { 0.75, 2 },
+        x = { 1.75, 2 },
+        c = { 2.75, 2 },
+        v = { 3.75, 2 },
+        b = { 4.75, 2 },
+        n = { 5.75, 2 },
+        m = { 6.75, 2 },
     },
     AZERTY = {
-        a={0,0},       z={1,0},       e={2,0},       r={3,0},       t={4,0},
-        y={5,0},       u={6,0},       i={7,0},       o={8,0},       p={9,0},
-        q={0.25,1},    s={1.25,1},    d={2.25,1},    f={3.25,1},    g={4.25,1},
-        h={5.25,1},    j={6.25,1},    k={7.25,1},    l={8.25,1},    m={9.25,1},
-        w={0.75,2},    x={1.75,2},    c={2.75,2},    v={3.75,2},    b={4.75,2},
-        n={5.75,2},
+        a = { 0, 0 },
+        z = { 1, 0 },
+        e = { 2, 0 },
+        r = { 3, 0 },
+        t = { 4, 0 },
+        y = { 5, 0 },
+        u = { 6, 0 },
+        i = { 7, 0 },
+        o = { 8, 0 },
+        p = { 9, 0 },
+        q = { 0.25, 1 },
+        s = { 1.25, 1 },
+        d = { 2.25, 1 },
+        f = { 3.25, 1 },
+        g = { 4.25, 1 },
+        h = { 5.25, 1 },
+        j = { 6.25, 1 },
+        k = { 7.25, 1 },
+        l = { 8.25, 1 },
+        m = { 9.25, 1 },
+        w = { 0.75, 2 },
+        x = { 1.75, 2 },
+        c = { 2.75, 2 },
+        v = { 3.75, 2 },
+        b = { 4.75, 2 },
+        n = { 5.75, 2 },
     },
 }
 
@@ -121,8 +182,8 @@ local function BuildKBDistTable(layoutName)
                     -- Euclidean distance (sqrt avoided at query time by
                     -- comparing squared distances would be cheaper, but the
                     -- table is built once so sqrt here is fine)
-                    local d = (dx*dx + dy*dy) ^ 0.5
-                    tbl[(ch1-97)*26 + (ch2-97) + 1] = d
+                    local d = (dx * dx + dy * dy) ^ 0.5
+                    tbl[(ch1 - 97) * 26 + (ch2 - 97) + 1] = d
                 end
             end
         end
@@ -174,20 +235,66 @@ local function IsWordStartByte(byte)
     return (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
 end
 
+-- Exact parity with generate_phonetic_dict.py
+function Spellcheck.GetPhoneticHash(word)
+    local hash = string_upper(word)
+    -- Strip non-alphabetic characters (including apostrophes)
+    hash = string_gsub(hash, "[^%a]", "")
+
+    -- Strip duplicate adjacent letters (e.g., "LL" -> "L")
+    hash = string_gsub(hash, "(%a)%1", "%1")
+
+    -- Silent/Variable groups
+    hash = string_gsub(hash, "GHT", "T")
+    hash = string_gsub(hash, "PH", "F")
+    hash = string_gsub(hash, "KN", "N")
+    hash = string_gsub(hash, "GN", "N")
+    hash = string_gsub(hash, "WR", "R")
+    hash = string_gsub(hash, "CH", "K")
+    hash = string_gsub(hash, "SH", "X")
+    hash = string_gsub(hash, "C", "K")
+    hash = string_gsub(hash, "Q", "K")
+    hash = string_gsub(hash, "X", "KS")
+    hash = string_gsub(hash, "Z", "S")
+
+    -- GH at the end of word often sounds like F (laugh, enough)
+    if string_sub(hash, -2) == "GH" then
+        hash = string_sub(hash, 1, -3) .. "F"
+    else
+        hash = string_gsub(hash, "GH", "") -- Silent GH (night, through)
+    end
+
+    if hash == "" then return "" end
+
+    -- Keep the first letter, strip vowels from the rest
+    local firstChar = string_sub(hash, 1, 1)
+    local rest = string_sub(hash, 2)
+    rest = string_gsub(rest, "[AEIOUY]", "")
+
+    return firstChar .. rest
+end
+
 -- Number of words to process per frame tick during async dictionary loading.
 -- Configurable for devs; higher = faster loading but more per-frame cost.
 local DICT_CHUNK_SIZE = 2000
 
 function Spellcheck:LoadDictionary(locale)
-    -- Don't start a new load if it's already in memory OR currently loading.
+    -- Don't start a new load if it's already in memory, currently loading, or pending.
     if self.Dictionaries and self.Dictionaries[locale] then return end
     if self._asyncLoaders and self._asyncLoaders[locale] then return end
+    if self._pendingBuilders and self._pendingBuilders[locale] then return end
 
     if self.DictionaryBuilders and self.DictionaryBuilders[locale] then
+        -- Mark as pending immediately so recursive/repeated calls don't double-fire.
+        self._pendingBuilders = self._pendingBuilders or {}
+        self._pendingBuilders[locale] = true
+
         local builder = self.DictionaryBuilders[locale]
-        
-        -- Use pcall to prevent bad dicts from destroying spellcheck permanently
+        -- The builder only assembles raw word/phonetic tables — this is cheap.
+        -- The heavy per-word indexing is handled asynchronously inside RegisterDictionary.
         local success, data = pcall(builder)
+        self._pendingBuilders[locale] = nil
+
         if success and data then
             self:RegisterDictionary(locale, data)
         else
@@ -224,10 +331,37 @@ function Spellcheck:RegisterDictionary(locale, data)
     local existing = self.Dictionaries[locale]
     local set = existing and existing.set or {}
     local index = existing and existing.index or {}
-    local outWords = existing and existing.words or {}
+    local outWords = (existing and existing.words) or (not data.extends and words) or {}
     local ngramIndex = existing and existing.ngramIndex or {}
-    local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or 2
-    local ngramMaxPosting = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramMaxPosting) or 200
+    local phonetics = data.phonetics or (existing and existing.phonetics) or {}
+
+    local cfg = YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck or {}
+    local ngramN = cfg.NgramN or 2
+    local ngramMaxPosting = cfg.NgramMaxPosting or 200
+    local ngramKeyCapSize = (cfg.NgramKeyCapSize ~= nil) and tonumber(cfg.NgramKeyCapSize) or 0
+    if ngramKeyCapSize == 0 then ngramKeyCapSize = math.huge end
+
+    -- Handle Inheritance (Base + Delta)
+    if data.extends then
+        local base = self.Dictionaries[data.extends]
+        if not base then
+            -- Base is not yet loaded — demand-load it synchronously now.
+            -- This is safe: the builder is cheap, and the chunked async indexer
+            -- will handle the base's word processing in the background.
+            self:LoadDictionary(data.extends)
+            base = self.Dictionaries[data.extends]
+        end
+        if base then
+            -- Membership: safe O(1) metatable inheritance
+            setmetatable(set, { __index = base.set })
+            -- Words + Phonetics: safe because the Python generator offsets delta
+            -- indices past the base word count, preventing index collision.
+            setmetatable(phonetics, { __index = base.phonetics })
+            setmetatable(outWords, { __index = base.words })
+        elseif YapperTable.Utils and YapperTable.Utils.Print then
+            YapperTable.Utils:Print("error", "Base dictionary " .. tostring(data.extends) .. " not found for " .. locale)
+        end
+    end
 
     -- Make the dictionary available immediately (even if empty/partial),
     -- so CollectMisspellings can start using words as they arrive.
@@ -238,39 +372,62 @@ function Spellcheck:RegisterDictionary(locale, data)
             set = set,
             index = index,
             ngramIndex = ngramIndex,
+            phonetics = phonetics,
+            extends = data.extends,
             _metaCache = {},
             _metaUsageTimer = 0,
             _metaCacheSize = 0,
         }
     end
 
+    local dict = self.Dictionaries[locale]
+    local indexedCount = 0
+
+    -- If the data already contains a pre-built set and index, we can skip processing.
+    if data.isPreBuilt then
+        self:_OnDictRegistrationComplete(locale)
+        return
+    end
+
     -- Core word processing: adds a word to set, index, and ngramIndex.
     -- Returns true if the word was newly added.
-    local function processWord(word)
+    local function processWord(word, originalId)
         if type(word) ~= "string" or word == "" then return false end
         local w = NormalizeWord(word)
         if w == "" then return false end
         local b = string_byte(w, 1)
         if not b or not IsWordStartByte(b) then return false end
+
+        -- Check set (including the base dictionary via metatable)
         if set[w] then return false end
 
         set[w] = true
-        outWords[#outWords + 1] = word
+        indexedCount = indexedCount + 1
+
+        -- Only append to outWords if the builder didn't already pre-fill it.
+        -- This prevents the "Doubling Dictionary" bug where memory usage
+        -- could balloon to 2x the required size during reload.
+        local finalId = originalId
+        if outWords ~= words then
+            outWords[#outWords + 1] = word
+            finalId = #outWords
+        end
+
         local key = string_sub(w, 1, 1)
         if key ~= "" then
             index[key] = index[key] or {}
             index[key][#index[key] + 1] = w
         end
 
-        -- Build n-gram postings inline
-        local id = #outWords
-        if #w >= ngramN then
+        -- Build n-gram postings inline, respecting the cap.
+        -- indexedCount ensures the cap applies correctly starting from the first word.
+        if #w >= ngramN and (ngramKeyCapSize == 0 or indexedCount <= ngramKeyCapSize) then
             for i = 1, (#w - ngramN + 1) do
                 local g = string_sub(w, i, i + ngramN - 1)
                 ngramIndex[g] = ngramIndex[g] or {}
                 local posting = ngramIndex[g]
                 if #posting < ngramMaxPosting then
-                    posting[#posting + 1] = id
+                    posting[#posting + 1] = finalId
                 end
             end
         end
@@ -279,10 +436,23 @@ function Spellcheck:RegisterDictionary(locale, data)
 
     local totalWords = #words
 
+    -- If dict is pre-processed or extends another, outWords might not match words.
+    -- But if words matches outWords (synchronous load), we can skip ONLY IF the index is already populated.
+    local hasIndex = false
+    for k, v in pairs(index) do
+        hasIndex = true; break
+    end
+
+    if words == outWords and #outWords > 0 and not data.isDelta and hasIndex then
+        -- Already populated via builder/cache
+        self:_OnDictRegistrationComplete(locale)
+        return
+    end
+
     -- For small dictionaries, process synchronously (no overhead)
     if totalWords <= DICT_CHUNK_SIZE then
-        for _, word in ipairs(words) do
-            processWord(word)
+        for i, word in ipairs(words) do
+            processWord(word, i)
         end
         self:_OnDictRegistrationComplete(locale)
         return
@@ -298,22 +468,35 @@ function Spellcheck:RegisterDictionary(locale, data)
     }
     self._asyncLoaders[locale] = loader
 
-    -- Notify user that loading has started (only if spellcheck is enabled)
-    if self:IsEnabled() then
+    -- Show a one-time loading message when the async path kicks off
+    if self:IsEnabled() and not existing then
         self:Notify("Yapper: loading " .. tostring(locale) .. " dictionary (" .. tostring(totalWords) .. " words)...")
     end
 
     local function processChunk()
-        if loader.cancelled then return end
+        -- On cancellation: nil all large upvalue references so this closure
+        -- doesn't pin the old tables for an extra GC cycle after cancel.
+        if loader.cancelled then
+            words       = nil
+            outWords    = nil
+            set         = nil
+            index       = nil
+            ngramIndex  = nil
+            phonetics   = nil
+            processWord = nil
+            return
+        end
 
         local endIdx = math_min(loader.cursor + DICT_CHUNK_SIZE - 1, totalWords)
         for i = loader.cursor, endIdx do
-            processWord(words[i])
+            processWord(words[i], i)
         end
         loader.cursor = endIdx + 1
 
         if loader.cursor > totalWords then
-            -- Finished loading
+            -- Finished: release the raw builder words array — the processed
+            -- data lives in outWords/ngramIndex/set; the flat array is now waste.
+            data.words = nil
             if self._asyncLoaders then
                 self._asyncLoaders[locale] = nil
             end
@@ -327,6 +510,7 @@ function Spellcheck:RegisterDictionary(locale, data)
                 for i = loader.cursor, totalWords do
                     processWord(words[i])
                 end
+                data.words = nil
                 if self._asyncLoaders then
                     self._asyncLoaders[locale] = nil
                 end
@@ -339,18 +523,70 @@ function Spellcheck:RegisterDictionary(locale, data)
     processChunk()
 end
 
+function Spellcheck:ReloadDictionaries()
+    local locale = self:GetLocale()
+    if not locale then return end
+
+    -- Cancel any active indexing loaders first so their next-frame
+    -- callbacks will nil their own upvalue references on next fire.
+    if self._asyncLoaders then
+        for loc, loader in pairs(self._asyncLoaders) do
+            loader.cancelled = true
+        end
+        self._asyncLoaders = {}
+    end
+
+    -- Cancel any pending post-load refresh timers — they reference stale state.
+    if self._pendingLocaleRefreshTimers then
+        for loc, timer in pairs(self._pendingLocaleRefreshTimers) do
+            if timer and timer.Cancel then timer:Cancel() end
+        end
+        self._pendingLocaleRefreshTimers = {}
+    end
+
+    -- Explicitly nil the heavy sub-tables on each loaded dictionary before
+    -- dropping the top-level reference. This gives the GC smaller, isolated
+    -- roots to collect rather than one giant reachable graph.
+    for loc, dict in pairs(self.Dictionaries) do
+        if type(dict) == "table" then
+            dict.ngramIndex = nil
+            dict.set        = nil
+            dict.index      = nil
+            dict.words      = nil
+            dict.phonetics  = nil
+            dict._metaCache = nil
+        end
+    end
+
+    -- Drop the top-level reference. Everything previously reachable through
+    -- it is now collectable.
+    self.Dictionaries = {}
+
+    -- Trigger a fresh load of the active locale (which will demand-load base entries).
+    self:Notify("Reloading spellcheck dictionaries...")
+    self:LoadDictionary(locale)
+
+    -- Refresh UI to reflect the temporary lack of suggestions.
+    self:ScheduleRefresh()
+end
+
 function Spellcheck:_OnDictRegistrationComplete(locale)
     local dict = self.Dictionaries[locale]
     local count = dict and dict.words and #dict.words or 0
 
-    if YapperTable.Utils and YapperTable.Utils.Print then
-        YapperTable.Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(count)))
-    else
-        self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(count) .. " words).")
+    -- Only notify the user about their active locale. Base dictionaries load
+    -- silently in the background; the user doesn't need to know about them.
+    local cfg = self:GetConfig()
+    local isActiveLocale = cfg and cfg.Locale == locale
+    if isActiveLocale then
+        if YapperTable.Utils and YapperTable.Utils.Print then
+            YapperTable.Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(count)))
+        else
+            self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(count) .. " words).")
+        end
     end
 
-    local cfg = self:GetConfig()
-    if cfg and cfg.Locale == locale and self:IsEnabled() then
+    if isActiveLocale and self:IsEnabled() then
         -- Coalesce multiple rapid registrations for the same locale
         -- (chunked dictionaries) so we don't schedule a rebuild for
         -- every chunk. Schedule a single short-timer refresh instead.
@@ -369,7 +605,6 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
         end
     end
 end
-
 
 function Spellcheck:GetAvailableLocales()
     local out = {}
@@ -570,7 +805,7 @@ function Spellcheck:GetMeta(dict, word)
     local bigrams = {}
     if #word >= 2 then
         for i = 1, (#word - 1) do
-            local g = string_sub(word, i, i+1)
+            local g = string_sub(word, i, i + 1)
             bigrams[g] = (bigrams[g] or 0) + 1
         end
     end
@@ -591,21 +826,22 @@ end
 
 function Spellcheck:EvictOldestMeta(dict, count)
     if type(dict) ~= "table" or type(dict._metaCache) ~= "table" then return end
-    local keys = {}
-    for w, entry in pairs(dict._metaCache) do
-        keys[#keys + 1] = { word = w, lastUsed = (entry and entry.lastUsed) or 0 }
-    end
-    if #keys == 0 then return end
-    table_sort(keys, function(a, b) return a.lastUsed < b.lastUsed end)
+
+    -- Fast random-ish eviction: just purge the first 'count' entries we find
+    -- via pairs(). Since Lua's pairs() order is effectively random, this
+    -- serves as a cheap approximation of eviction without sorting 20,000 keys.
     local removed = 0
-    for i = 1, math_min(count, #keys) do
-        local w = keys[i].word
-        if dict._metaCache[w] then
-            dict._metaCache[w] = nil
-            removed = removed + 1
-        end
+    local cache = dict._metaCache
+    for w in pairs(cache) do
+        cache[w] = nil
+        removed = removed + 1
+        if removed >= count then break end
     end
     dict._metaCacheSize = math_max(0, (dict._metaCacheSize or 0) - removed)
+
+    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        self:Notify("Spellcheck:EvictOldestMeta purged " .. tostring(removed) .. " entries.")
+    end
 end
 
 function Spellcheck:GetUserDictStore()
@@ -827,7 +1063,7 @@ function Spellcheck:PurgeOtherDictionaries(keepLocale)
         for locale, dict in pairs(self.Dictionaries) do
             if locale ~= keepLocale then
                 -- Scrub internal tables first to reduce capacity before nil-ing
-                dict.words = {"."}
+                dict.words = { "." }
                 dict.set = {}
                 dict.index = {}
                 dict.ngramIndex = {}
@@ -887,6 +1123,17 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
         self._lastCursorVisX = x
     end
 
+    -- Early-exit guard: if neither the cursor position nor the text has changed
+    -- since the last call, skip all work. This prevents redundant processing
+    -- during rapid OnCursorChanged fires (e.g. holding an arrow key).
+    local curPos = editBox:GetCursorPosition() or 0
+    local curText = editBox:GetText() or ""
+    if curPos == self._lastOnCursorPos and curText == self._lastOnCursorText then
+        return
+    end
+    self._lastOnCursorPos  = curPos
+    self._lastOnCursorText = curText
+
     self:UpdateActiveWord()
     self:UpdateHint()
 
@@ -944,10 +1191,12 @@ end
 
 function Spellcheck:EnsureMeasureFontString()
     if self.MeasureFS then return end
-    -- Detach the measurement FontString from the UI scene graph
-    -- Calling SetText on a child FontString dirties the parent's layout.
-    -- Parenting to nil and bounding it fully isolates it.
-    local hiddenFrame = CreateFrame("Frame")
+    -- Parent the measurement frame to the Overlay so it inherits the same
+    -- effective scale as the EditBox. This ensures GetStringWidth() returns
+    -- values in the same coordinate space as SetPoint offsets on the EditBox.
+    -- We hide it immediately so SetText doesn't dirty the Overlay's layout.
+    local parent = self.Overlay or UIParent
+    local hiddenFrame = CreateFrame("Frame", nil, parent)
     hiddenFrame:SetSize(1, 1)
     hiddenFrame:Hide()
     local fs = hiddenFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
@@ -1086,7 +1335,8 @@ function Spellcheck:ScheduleHintShow()
             if not self.EditBox then return end
             local curCursor = self.EditBox.GetCursorPosition and (self.EditBox:GetCursorPosition() or 0) or 0
             if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-                self:Notify("Spellcheck:HintTimer fired; curCursor=" .. tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
+                self:Notify("Spellcheck:HintTimer fired; curCursor=" ..
+                tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
             end
             if curCursor ~= self._pendingHintCursor then
                 if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
@@ -1125,7 +1375,7 @@ end
 
 function Spellcheck:ShowHint()
     if not self.HintFrame or not self.EditBox then return end
-    
+
     local fontSize = self:ApplyOverlayFont(self.HintFrame._fs, 22)
     local hintHeight = math_max(20, fontSize + 8)
     local hintWidth = self.HintFrame._fs:GetStringWidth() + 12
@@ -1283,7 +1533,8 @@ function Spellcheck:OpenOrCycleSuggestions()
     if type(suggestions) ~= "table" then suggestions = {} end
     local sugCount = #suggestions
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify("Spellcheck:OpenOrCycleSuggestions word='" .. tostring(self.ActiveWord) .. "' suggestions=" .. tostring(sugCount))
+        self:Notify("Spellcheck:OpenOrCycleSuggestions word='" ..
+        tostring(self.ActiveWord) .. "' suggestions=" .. tostring(sugCount))
     end
     if sugCount == 0 then
         self:HideSuggestions()
@@ -1323,11 +1574,11 @@ function Spellcheck:ShowSuggestions()
     for i = 1, #self.SuggestionRows do
         local row = self.SuggestionRows[i]
         self:ApplyOverlayFont(row._fs)
-        
+
         row:ClearAllPoints()
         row:SetSize(maxWidth, rowHeight)
         row:SetPoint("TOPLEFT", self.SuggestionFrame, "TOPLEFT", 6, -6 - ((i - 1) * rowHeight))
-        
+
         local entry = self.ActiveSuggestions[i]
         if entry then
             row._fs:SetText(self:FormatSuggestionLabel(entry, i))
@@ -1419,7 +1670,7 @@ function Spellcheck:ApplySuggestion(index)
     local after = text:sub(endPos + 1)
     local newText = before .. replacement .. after
 
-    -- Snapshot the pre-replacement text so we can seamlessly Undo (Ctrl+Z) 
+    -- Snapshot the pre-replacement text so we can seamlessly Undo (Ctrl+Z)
     -- spellchecker corrections even if the new word is the same length.
     if YapperTable and YapperTable.History and self.EditBox then
         YapperTable.History:AddSnapshot(self.EditBox, true)
@@ -1441,15 +1692,28 @@ end
 
 function Spellcheck:GetCaretXOffset()
     local editBox = self.EditBox
-    local text = editBox and editBox:GetText() or ""
-    local cursor = editBox and editBox:GetCursorPosition() or #text
+    if not editBox then return 0 end
+
+    local text = editBox:GetText() or ""
+    local cursor = editBox:GetCursorPosition() or #text
     local prefix = text:sub(1, cursor)
+
     local leftInset = 0
-    if editBox and editBox.GetTextInsets then
+    if editBox.GetTextInsets then
         leftInset = select(1, editBox:GetTextInsets()) or 0
     end
+
+    -- MeasureFS is now parented to the Overlay (same scale as the EditBox),
+    -- so GetStringWidth() is already in the correct coordinate space.
     local width = self:MeasureText(prefix)
-    return leftInset + width
+    local scroll = self:GetScrollOffset()
+
+    local x = leftInset + width - scroll
+
+    -- Clamp to the visible text area of the EditBox to prevent the tooltip
+    -- from flying off-screen or detaching during heavy horizontal scrolling.
+    local boxWidth = editBox:GetWidth() or 200
+    return math.max(leftInset, math.min(x, boxWidth - 10))
 end
 
 function Spellcheck:ApplyOverlayFont(fontString, maxSize)
@@ -1477,6 +1741,13 @@ function Spellcheck:MeasureText(text)
                 self.MeasureFS:SetFont(face, size, flags or "")
             end
         end
+        -- Also synchronize character spacing if the EditBox uses it (e.g. custom skins)
+        if editBox.GetSpacing and self.MeasureFS.SetSpacing then
+            local spacing = editBox:GetSpacing() or 0
+            if (self.MeasureFS:GetSpacing() or 0) ~= spacing then
+                self.MeasureFS:SetSpacing(spacing)
+            end
+        end
     end
     self.MeasureFS:SetText(text or "")
     return self.MeasureFS:GetStringWidth() or 0
@@ -1488,7 +1759,17 @@ end
 function Spellcheck:GetScrollOffset()
     if not self.EditBox or not self._lastCursorVisX then return 0 end
     local cursor = self.EditBox:GetCursorPosition() or 0
-    if cursor == 0 then return 0 end
+    if cursor == 0 then
+        self._lastScrollCursor = 0
+        self._lastScrollValue  = 0
+        return 0
+    end
+    -- Cache by cursor position: MeasureText is expensive (SetText + GetStringWidth).
+    -- The scroll offset can only change when the cursor moves, so skip re-measuring
+    -- when the cursor hasn't changed since the last call.
+    if self._lastScrollCursor == cursor then
+        return self._lastScrollValue or 0
+    end
     local text = self.EditBox:GetText() or ""
     local prefix = text:sub(1, cursor)
     local absoluteX = self:MeasureText(prefix)
@@ -1496,8 +1777,11 @@ function Spellcheck:GetScrollOffset()
     if self.EditBox.GetTextInsets then
         leftInset = select(1, self.EditBox:GetTextInsets()) or 0
     end
-    local offset = (leftInset + absoluteX) - self._lastCursorVisX
-    return offset > 0 and offset or 0
+    local offset           = (leftInset + absoluteX) - self._lastCursorVisX
+    offset                 = offset > 0 and offset or 0
+    self._lastScrollCursor = cursor
+    self._lastScrollValue  = offset
+    return offset
 end
 
 -- Maximum number of characters to scan around the cursor for misspellings.
@@ -1573,7 +1857,7 @@ function Spellcheck:UpdateUnderlines()
         needRescan = true
     else
         if cursor - self._scanWindowStart < SCAN_RECENTER_MARGIN
-           or self._scanWindowEnd - cursor < SCAN_RECENTER_MARGIN then
+            or self._scanWindowEnd - cursor < SCAN_RECENTER_MARGIN then
             needRescan = true
         end
     end
@@ -1686,7 +1970,7 @@ function Spellcheck:DrawUnderline(startPos, endPos, text, scrollOffset)
     local ovTop = self.Overlay:GetTop() or 0
     local ebTop = self.EditBox:GetTop() or 0
     local offsetX = (ebLeft - ovLeft) + x
-    local offsetTopY = -(ovTop - ebTop)  -- negative because Y grows downward in SetPoint
+    local offsetTopY = -(ovTop - ebTop) -- negative because Y grows downward in SetPoint
 
     local tex = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
@@ -1962,17 +2246,27 @@ function Spellcheck:GetSuggestions(word)
     -- dictionary and user-added/ignored lists haven't changed.
     self._suggestionCache = self._suggestionCache or {}
     local sc = self._suggestionCache
-    local maxCandidates = (type(self.GetMaxCandidates) == "function") and self:GetMaxCandidates() or 200
+    local maxCandidates = (type(self.GetMaxCandidates) == "function") and self:GetMaxCandidates() or 1000
     if sc.word == lower and sc.dict == dict and sc.userRev == userRev and sc.locale == locale and sc.maxCandidates == maxCandidates then
         return sc.result or {}
     end
     local first = lower:sub(1, 1)
-    -- Build a stable candidate list copy so we can append user-added words
-    local base = {}
-    local srcCandidates = dict.index[first]
-    if srcCandidates then
-        for _, v in ipairs(srcCandidates) do base[#base+1] = v end
+    -- Base dict if this is a delta (for explicit index lookups not covered by phonetics)
+    local base = dict.extends and self.Dictionaries[dict.extends]
+
+    -- Prefix candidates: regional delta first, then base
+    local prefixCandidates = {}
+    local function addPrefixMatches(d)
+        local src = d.index and d.index[first]
+        if src then
+            for _, v in ipairs(src) do
+                if #prefixCandidates >= 2000 then break end
+                prefixCandidates[#prefixCandidates + 1] = v
+            end
+        end
     end
+    addPrefixMatches(dict)
+    if base then addPrefixMatches(base) end
 
     -- Assemble user-added words (normalized) explicitly to bypass array caps
     local addedCandidates = {}
@@ -1982,63 +2276,77 @@ function Spellcheck:GetSuggestions(word)
             if type(uw) == "string" and uw ~= "" then
                 local norm = NormalizeWord(uw)
                 if norm ~= "" then
-                    addedCandidates[#addedCandidates+1] = norm
+                    addedCandidates[#addedCandidates + 1] = norm
                 end
             end
         end
     end
 
-    local candidates = base
+    local candidates = prefixCandidates
     -- N-gram (bigram) preselection: compute ranked candidate list
     local ngramCandidates = nil
-    local useNgram = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.UseNgramIndex) or false
-    local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or 2
-    local ngramTop = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramTopCandidates) or 300
-    if useNgram and dict.ngramIndex and #lower >= ngramN then
+    local useNgram = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.UseNgramIndex) or
+    false
+    local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or
+    2
+    local ngramTop = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramTopCandidates) or
+    300
+
+    if useNgram and #lower >= ngramN then
         local hits = {}
-        for i = 1, (#lower - ngramN + 1) do
-            local g = lower:sub(i, i + ngramN - 1)
-            local posting = dict.ngramIndex[g]
-            if posting then
-                for _, id in ipairs(posting) do
-                    hits[id] = (hits[id] or 0) + 1
+        local function addNgramHits(node, wordsTable)
+            if not node then return end
+            for i = 1, (#lower - ngramN + 1) do
+                local g = lower:sub(i, i + ngramN - 1)
+                local posting = node[g]
+                if posting then
+                    for _, id in ipairs(posting) do
+                        -- Composite key for hit tracking to avoid delta/base ID collisions
+                        local key = (wordsTable == dict.words) and id or (-id)
+                        hits[key] = (hits[key] or 0) + 1
+                    end
                 end
             end
         end
+
+        addNgramHits(dict.ngramIndex, dict.words)
+        if base then addNgramHits(base.ngramIndex, base.words) end
+
         local tmp = {}
         local lowerLen = #lower
-        for id, cnt in pairs(hits) do
-            local w = dict.words[id]
+        for key, cnt in pairs(hits) do
+            local dObj = (key > 0) and dict or base
+            local id = math_abs(key)
+            local w = dObj.words[id]
             if w then
                 local wLen = #w
                 local lenDiff = math_abs(wLen - lowerLen)
-                -- Pseudo Jaccard/Dice coefficient weighting
                 local score = (2 * cnt) / (lowerLen + wLen) - (lenDiff * 0.1)
-                
                 if string_byte(w, 1) == string_byte(lower, 1) then
                     score = score + 0.1
                 end
-                
-                tmp[#tmp + 1] = { id = id, score = score }
+                tmp[#tmp + 1] = { word = w, score = score }
             end
         end
         table_sort(tmp, function(a, b)
-            if a.score == b.score then return a.id < b.id end
+            if a.score == b.score then return a.word < b.word end
             return a.score > b.score
         end)
         ngramCandidates = {}
         for i = 1, math_min(#tmp, ngramTop) do
-            local id = tmp[i].id
-            if dict.words and dict.words[id] then
-                ngramCandidates[#ngramCandidates + 1] = dict.words[id]
-            end
+            ngramCandidates[#ngramCandidates + 1] = tmp[i].word
         end
+
         if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-            self:Notify("Spellcheck:GetSuggestions ngramCandidates=" .. tostring(#ngramCandidates) .. " for word='" .. tostring(lower) .. "'")
+            self:Notify("Spellcheck:GetSuggestions ngramCandidates=" ..
+            tostring(#ngramCandidates) .. " for word='" .. tostring(lower) .. "'")
         end
     end
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify("Spellcheck:GetSuggestions word='" .. tostring(word) .. "' lower='" .. tostring(lower) .. "' locale='" .. tostring(locale) .. "' candidates=" .. tostring(#candidates))
+        self:Notify("Spellcheck:GetSuggestions word='" ..
+        tostring(word) ..
+        "' lower='" ..
+        tostring(lower) .. "' locale='" .. tostring(locale) .. "' prefixCandidates=" .. tostring(#prefixCandidates))
     end
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
     local out = {}
@@ -2075,7 +2383,7 @@ function Spellcheck:GetSuggestions(word)
         for k in pairs(bigrams) do bigrams[k] = nil end
         if #lower >= 2 then
             for i = 1, (#lower - 1) do
-                local g = string_sub(lower, i, i+1)
+                local g = string_sub(lower, i, i + 1)
                 bigrams[g] = (bigrams[g] or 0) + 1
             end
         end
@@ -2083,6 +2391,22 @@ function Spellcheck:GetSuggestions(word)
     end
 
     local inputBag, inputBigrams = buildInputMeta(lower)
+
+    local phoneticCandidates = {}
+    local phoneticHash = Spellcheck.GetPhoneticHash(lower)
+    if phoneticHash ~= "" then
+        -- dict.phonetics inherits from base.phonetics via metatable (indices are globally unique)
+        -- so a single lookup covers both regional and base words simultaneously.
+        local matches = dict.phonetics and dict.phonetics[phoneticHash]
+        if matches then
+            for _, id in ipairs(matches) do
+                if #phoneticCandidates >= 2000 then break end
+                -- dict.words also inherits from base.words via metatable
+                local w = dict.words[id]
+                if w then table_insert(phoneticCandidates, w) end
+            end
+        end
+    end
 
     local function LetterBagScore(candidate)
         -- Lazily fetch/build per-word metadata. Lower is better.
@@ -2124,20 +2448,27 @@ function Spellcheck:GetSuggestions(word)
     local lHasApostrophe = lower:find("'", 1, true)
     local lFlat = lHasApostrophe and string_gsub(lower, "'", "") or lower
 
-    -- LocaleVariantBonus: declared once outside tryAdd to avoid closure re-creation
+    -- LocaleVariantBonus: optimized set-based check to avoid string_gsub in the hot loop
     local isVariantLocale = (locale == "enGB" or locale == "enUS")
+    local VARIANT_RULES = {
+        { "or",  "our" }, { "our", "or" },
+        { "ize", "ise" }, { "ise", "ize" },
+        { "er", "re" }, { "re", "er" },
+        { "og", "ogue" }, { "ogue", "og" },
+        { "l", "ll" }, { "ll", "l" },
+    }
     local function LocaleVariantBonus(input, cand)
         if not isVariantLocale then return 0 end
-
-        local function check(p1, p2)
-            return string_gsub(input, p1, p2) == cand or string_gsub(cand, p1, p2) == input
+        for i = 1, #VARIANT_RULES do
+            local r = VARIANT_RULES[i]
+            local p1, p2 = r[1], r[2]
+            -- Use find to quickly check if pattern exists before attempting a virtual swap
+            if input:find(p1, 1, true) then
+                if string_gsub(input, p1, p2) == cand then
+                    return (i <= 2) and 5.0 or 3.5
+                end
+            end
         end
-
-        if check("or", "our") then return 5.0 end
-        if check("ize", "ise") then return 4.0 end
-        if check("er", "re") then return 4.0 end
-        if check("og", "ogue") then return 3.0 end
-        if check("l", "ll") then return 3.0 end
         return 0
     end
 
@@ -2146,10 +2477,12 @@ function Spellcheck:GetSuggestions(word)
 
     -- Pre-convert input word to byte array for proximity scan (reuse buffer)
     local lowerBytes = self._kbLowerBytes
-    if not lowerBytes then lowerBytes = {}; self._kbLowerBytes = lowerBytes end
+    if not lowerBytes then
+        lowerBytes = {}; self._kbLowerBytes = lowerBytes
+    end
     for i = 1, lowerLen do lowerBytes[i] = string_byte(lower, i) end
 
-    local function tryAdd(candidate, dist)
+    local function tryAdd(candidate, dist, isPhonetic)
         local candidateLen = #candidate
         local lenDiff = math_abs(candidateLen - lowerLen)
         local prefix = CommonPrefixLen(lower, candidate)
@@ -2169,6 +2502,12 @@ function Spellcheck:GetSuggestions(word)
             - (prefix * SCORE_WEIGHTS.prefix)
             + (bagScore * SCORE_WEIGHTS.letterBag)
             - (bigramScore * SCORE_WEIGHTS.bigram)
+            - (isPhonetic and 7.0 or 0)
+
+        -- Phonetic Complexity Bonus: favor longer "proper" spellings over short noise
+        if isPhonetic and candidateLen > lowerLen then
+            score = score - ((candidateLen - lowerLen) * 0.75)
+        end
 
         -- Treat missing/extra apostrophes as negligible typing errors safely
         local cHasApostrophe = candidate:find("'", 1, true)
@@ -2247,32 +2586,49 @@ function Spellcheck:GetSuggestions(word)
 
     local checks = 0
     local seenCandidates = {}
-    local function tryCandidates(list)
+    local function tryCandidates(list, isPhonetic)
         for _, candidate in ipairs(list) do
-            if #out >= 60 then return true end
-            if seenCandidates[candidate] then
-                -- already processed this candidate via another bucket/variant
-            else
+            if #out >= 100 then return true end
+            if not seenCandidates[candidate] then
                 seenCandidates[candidate] = true
-                checks = checks + 1
-                if checks > dynamicCap then return true end
                 if ignoredSet and ignoredSet[candidate] then
                     -- skip ignored
                 else
                     local lenDiff = math_abs(#candidate - lowerLen)
                     local isUserWord = addedSet and addedSet[candidate]
-                    local isLongPrefix = isUserWord and (#candidate > lowerLen) and (string_sub(candidate, 1, lowerLen) == lower)
-                    
-                    if lenDiff <= maxLenDiff or isLongPrefix then
-                        local dist = isLongPrefix and lenDiff or self:EditDistance(lower, candidate, maxDist)
-                        if dist and (dist <= maxDist or isLongPrefix) then
-                            tryAdd(candidate, dist)
+                    local isLongPrefix = isUserWord and (#candidate > lowerLen) and
+                    (string_sub(candidate, 1, lowerLen) == lower)
+
+                    if isPhonetic or lenDiff <= maxLenDiff or isLongPrefix then
+                        checks = checks + 1
+                        if not isPhonetic and checks > dynamicCap then return true end
+
+                        local effectiveMax = isPhonetic and 6 or maxDist
+                        local dist = isLongPrefix and lenDiff or self:EditDistance(lower, candidate, effectiveMax)
+                        if dist and (dist <= effectiveMax or isLongPrefix) then
+                            tryAdd(candidate, dist, isPhonetic)
                         end
                     end
                 end
             end
         end
         return false
+    end
+
+    local aborted = false
+
+    -- Unconditionally parse custom words before array caps can trigger
+    if addedCandidates and #addedCandidates > 0 then
+        aborted = tryCandidates(addedCandidates)
+    end
+
+    -- Process Phonetic Candidates with high priority
+    if not aborted and #phoneticCandidates > 0 then
+        aborted = tryCandidates(phoneticCandidates, true)
+        if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+            self:Notify("Spellcheck:GetSuggestions aborted after phoneticCandidates; checks=" ..
+            tostring(checks) .. " out=" .. tostring(#out))
+        end
     end
 
     -- Direct regional variant injection: bypass ranking cutoffs by explicitly injecting expected variants.
@@ -2282,7 +2638,7 @@ function Spellcheck:GetSuggestions(word)
             seenCandidates[varWord] = true
             local dist = self:EditDistance(lower, varWord, maxDist)
             if dist and dist <= maxDist then
-                tryAdd(varWord, dist)
+                tryAdd(varWord, dist, false)
             end
         end
     end
@@ -2301,61 +2657,53 @@ function Spellcheck:GetSuggestions(word)
     end
 
     -- Bucket candidates: exact 2-char prefix, 1-char prefix, others.
+    -- OPTIMIZATION: Cap categorization at 5000 to avoid O(N) thrashing on massive phonetic buckets.
     local pref2 = {}
     local pref1 = {}
     local other = {}
     local p2 = string_sub(lower, 1, 2) or ""
     local p1 = string_sub(lower, 1, 1) or ""
+    local catCount = 0
     for _, c in ipairs(candidates) do
-        if string_sub(c, 1, 2) == p2 and p2 ~= "" then
-            pref2[#pref2+1] = c
-        elseif string_sub(c, 1, 1) == p1 then
-            pref1[#pref1+1] = c
-        else
-            other[#other+1] = c
-        end
-    end
+        catCount = catCount + 1
+        if catCount > 5000 then break end
 
-    local function sortByProximity(a, b)
-        local diffA = math_abs(#a - lowerLen)
-        local diffB = math_abs(#b - lowerLen)
-        if diffA == diffB then
-            return a < b
+        if string_sub(c, 1, 2) == p2 and p2 ~= "" then
+            pref2[#pref2 + 1] = c
+        elseif string_sub(c, 1, 1) == p1 then
+            pref1[#pref1 + 1] = c
+        else
+            other[#other + 1] = c
         end
-        return diffA < diffB
     end
-    table_sort(pref2, sortByProximity)
-    table_sort(pref1, sortByProximity)
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify(string.format("Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d", #pref2, #pref1, #other, dynamicCap, maxDist, maxLenDiff))
+        self:Notify(string.format(
+        "Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d", #pref2, #pref1,
+            #other, dynamicCap, maxDist, maxLenDiff))
     end
 
-    local aborted = false
-
-    -- Unconditionally parse custom words before array caps can trigger
-    if addedCandidates and #addedCandidates > 0 then
-        aborted = tryCandidates(addedCandidates)
-    end
-
-    -- If n-gram candidates were produced, try them first (pre-ranked by overlap).
+    -- If n-gram candidates were produced, try them next (pre-ranked by overlap).
     if not aborted and ngramCandidates and #ngramCandidates > 0 then
         aborted = tryCandidates(ngramCandidates)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-            self:Notify("Spellcheck:GetSuggestions aborted after ngramCandidates; checks=" .. tostring(checks) .. " out=" .. tostring(#out))
+            self:Notify("Spellcheck:GetSuggestions aborted after ngramCandidates; checks=" ..
+            tostring(checks) .. " out=" .. tostring(#out))
         end
     end
 
     if not aborted then
         aborted = tryCandidates(pref2)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-            self:Notify("Spellcheck:GetSuggestions aborted after pref2; checks=" .. tostring(checks) .. " out=" .. tostring(#out))
+            self:Notify("Spellcheck:GetSuggestions aborted after pref2; checks=" ..
+            tostring(checks) .. " out=" .. tostring(#out))
         end
     end
     if not aborted then
         aborted = tryCandidates(pref1)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-            self:Notify("Spellcheck:GetSuggestions aborted after pref1; checks=" .. tostring(checks) .. " out=" .. tostring(#out))
+            self:Notify("Spellcheck:GetSuggestions aborted after pref1; checks=" ..
+            tostring(checks) .. " out=" .. tostring(#out))
         end
     end
     if not aborted then
@@ -2363,7 +2711,8 @@ function Spellcheck:GetSuggestions(word)
     end
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify("Spellcheck:GetSuggestions finished checks=" .. tostring(checks) .. " candidatesFound=" .. tostring(#out))
+        self:Notify("Spellcheck:GetSuggestions finished checks=" ..
+        tostring(checks) .. " candidatesFound=" .. tostring(#out))
     end
 
     -- If we haven't filled the suggestion list, attempt a small number
@@ -2381,7 +2730,7 @@ function Spellcheck:GetSuggestions(word)
                 -- Use a conservative threshold (allow up to maxWrong*2 bag distance)
                 if bagScore and bagScore <= (maxWrong * 2) then
                     vseen[v] = true
-                    variants[#variants+1] = v
+                    variants[#variants + 1] = v
                 end
             end
 
@@ -2407,12 +2756,14 @@ function Spellcheck:GetSuggestions(word)
 
             -- 3) single replacements using likely letters (dict.first-letters + original letters)
             local alph = {}
-            for k in pairs(dict.index) do alph[#alph+1] = k end
-            for i = 1, #lower do alph[#alph+1] = string_sub(lower, i, i) end
+            for k in pairs(dict.index) do alph[#alph + 1] = k end
+            for i = 1, #lower do alph[#alph + 1] = string_sub(lower, i, i) end
             local alphSeen = {}
             local alphaList = {}
             for _, ch in ipairs(alph) do
-                if not alphSeen[ch] then alphSeen[ch] = true; alphaList[#alphaList+1] = ch end
+                if not alphSeen[ch] then
+                    alphSeen[ch] = true; alphaList[#alphaList + 1] = ch
+                end
             end
             for i = 1, #lower do
                 if #variants >= attempts then break end
@@ -2491,9 +2842,13 @@ function Spellcheck:EditDistance(a, b, maxDist)
 
     -- Convert to byte arrays once to avoid string.sub in the inner loop
     local aBytes = self._ed_aBytes
-    if not aBytes then aBytes = {}; self._ed_aBytes = aBytes end
+    if not aBytes then
+        aBytes = {}; self._ed_aBytes = aBytes
+    end
     local bBytes = self._ed_bBytes
-    if not bBytes then bBytes = {}; self._ed_bBytes = bBytes end
+    if not bBytes then
+        bBytes = {}; self._ed_bBytes = bBytes
+    end
     for i = 1, lenA do aBytes[i] = string_byte(a, i) end
     for j = 1, lenB do bBytes[j] = string_byte(b, j) end
 
