@@ -24,6 +24,7 @@ local CODE = {
     MISSING_CONFIG                 = "YapperTable.Config is missing — did it fail to load?",
     MISSING_EVENTS                 = "YapperTable.Events is missing — did it fail to load?",
     MISSING_FRAMES                 = "YapperTable.Frames is missing — did it fail to load?",
+    MISSING_INTERFACE              = "YapperTable.Interface (PurgeRenderCache) is missing — critical failure during boot.",
 
     -- Frames
     HOOKS_NOT_TABLE                = "Hooks were not a table for frame %s.",

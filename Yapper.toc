@@ -28,6 +28,7 @@ Src/Spellcheck.lua
 Src/Spellcheck/Dicts/enBase.lua
 Src/Spellcheck/Dicts/enUS.lua
 Src/Spellcheck/Dicts/enGB.lua
+Src/Spellcheck/YALLM.lua
 
 # Editbox must load here or this won't work.
 Src/EditBox.lua

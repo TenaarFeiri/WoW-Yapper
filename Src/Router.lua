@@ -21,7 +21,7 @@ Router.SendChatMessage = nil
 Router.BNSendWhisper   = nil
 Router.ClubSendMessage = nil
 
-local function NormalizeBnetTarget(value)
+local function NormaliseBnetTarget(value)
     if not value then return nil end
     local text = tostring(value)
     text = text:match("^%s*(.-)%s*$")
@@ -51,7 +51,7 @@ local function MatchesBnetNeedle(needle, accountName, battleTag, toonName, chara
 end
 
 function Router:ResolveBnetTarget(target)
-    local needle = NormalizeBnetTarget(target)
+    local needle = NormaliseBnetTarget(target)
     if not needle then return nil, nil end
 
     if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
@@ -86,7 +86,7 @@ function Router:ResolveBnetTarget(target)
 end
 
 function Router:ResolveBnetDisplay(target)
-    local needle = NormalizeBnetTarget(target)
+    local needle = NormaliseBnetTarget(target)
     if not needle then return nil end
 
     local function pickName(accountName, battleTag, characterName, toonName)

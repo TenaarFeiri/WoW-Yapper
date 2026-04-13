@@ -46,7 +46,8 @@ if not YapperTable.Error then
 end
 if not YapperTable.Config  then YapperTable.Error:Throw("MISSING_CONFIG")  end
 if not YapperTable.Events  then YapperTable.Error:Throw("MISSING_EVENTS")  end
-if not YapperTable.Frame  then YapperTable.Error:Throw("MISSING_FRAMES")  end
+if not YapperTable.Frame   then YapperTable.Error:Throw("MISSING_FRAMES")  end
+if not YapperTable.Interface then YapperTable.Error:Throw("MISSING_INTERFACE") end
 
 -- ---------------------------------------------------------------------------
 -- Boot sequence
@@ -124,9 +125,10 @@ YapperTable.Events:Register("PARENT_FRAME", "ADDON_LOADED", OnAddonLoaded)
 
 -- 3. PLAYER_ENTERING_WORLD — hook chat frames and initialise pipeline.
 local function OnPlayerEnteringWorld()
-    if YapperTable.Interface and YapperTable.Interface.PurgeRenderCache then
-        YapperTable.Interface:PurgeRenderCache()
+    if not YapperTable.Interface.PurgeRenderCache then
+        YapperTable.Error:Throw("MISSING_INTERFACE")
     end
+    YapperTable.Interface:PurgeRenderCache()
 
     -- Hook all Blizzard chat editboxes with our taint-free overlay.
     if YapperTable.EditBox then

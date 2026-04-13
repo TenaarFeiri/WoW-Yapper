@@ -328,16 +328,6 @@ function History:Redo(editbox)
     if name then LastText[name] = entry.text end
 end
 
-function History:ClearUndoBuffer(editbox)
-    local name = editbox.GetName and editbox:GetName()
-    if not name then return end
-    UndoBuffers[name] = {
-        position = 1,
-        entries  = { { text = "", cursor = 0 } },
-    }
-    LastText[name] = ""
-end
-
 -- ---------------------------------------------------------------------------
 -- Overlay EditBox hooks
 -- ---------------------------------------------------------------------------

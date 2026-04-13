@@ -300,7 +300,7 @@ end
 -- ---------------------------------------------------------------------------
 
 -- Normalize marker helper (defined early so Split can call it).
-local function NormalizeMarker(raw)
+local function NormaliseMarker(raw)
     local marker = tostring(raw or "")
     marker = s_match(marker, "^%s*(.-)%s*$") or ""
     return marker
@@ -308,7 +308,24 @@ end
 
 
 --- Split text into chunks that each fit within the byte limit.
-function Chunking:Split(text, limit, useDelineators, delineator, prefix)
+function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, delineator, prefix)
+    -- [NEW] Paragraph Isolation Logic for "Send All"
+    if ignoreParagraphMerging and s_find(text, "\n") then
+        local allChunks = {}
+        -- Iterate over every line, splitting by \n
+        for paragraph in string.gmatch(text .. "\n", "(.-)\n") do
+            -- Only process non-empty lines (skip blank lines)
+            if paragraph ~= "" then
+                -- Recurse into the standard splitting logic for this paragraph alone
+                local pChunks = self:Split(paragraph, limit, false, useDelineators, delineator, prefix)
+                for _, chunk in ipairs(pChunks) do
+                    allChunks[#allChunks + 1] = chunk
+                end
+            end
+        end
+        return allChunks
+    end
+
     local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
 
     limit          = limit or cfg.CHARACTER_LIMIT or 255
@@ -319,7 +336,7 @@ function Chunking:Split(text, limit, useDelineators, delineator, prefix)
     -- opaque UTF-8 string and add spacing here to ensure consistent
     -- behaviour when building chunks.
     local markerSource = delineator or cfg.DELINEATOR or cfg.PREFIX or ""
-    local marker = NormalizeMarker(markerSource)
+    local marker = NormaliseMarker(markerSource)
     if marker == "" then
         delineator = ""
         prefix = ""
@@ -510,7 +527,7 @@ end
 --- Returns the delineation markers currently in use.
 function Chunking:GetDelineators()
     local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-    local marker = NormalizeMarker(cfg.DELINEATOR or cfg.PREFIX)
+    local marker = NormaliseMarker(cfg.DELINEATOR or cfg.PREFIX)
     if marker == "" then
         return "", ""
     end

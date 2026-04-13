@@ -1,10 +1,16 @@
 -- 1.3.0
-  - *Spellcheck Engine & Memory:*
-    - **Memory Leaks:** Fixed numerous memory leaks introduced with the new spellchecking features. Dictionaries no longer duplicate when reloading (but may briefly show as using memory until the GC can collect the shrunk tables).
-    - **Fixed "Confused" Suggestions:** Fixed a bug where the spellchecker would sometimes get "confused" and point at the wrong words, resulting in bizarre or completely unrelated suggestions.
-    - **Suggestions no longer travel to Narnia:** Fixed a bug where the spelling suggestion menu would drift away from the cursor or disappear when typing long messages that scroll sideways.
-  - *Interface & UX:*
-    - **Settings UI Cleanup:** Fixed some alignment issues in the settings menu where buttons and input boxes were getting cut off or were partially invisible.
+  - *The Engine Now Learns:*
+    - **Adaptive Learning (YALLM):** Yapper now tracks your common words and manual corrections. Over time, the engine learns your vocabulary profile so the first suggestion is actually what you meant.
+    - **Selection Bias:** Manually overriding a suggestion (e.g. choosing "heart" over "hear") now sticks. The engine remembers your preference for future collisions.
+    - **Anti-Contamination:** Added common-sense filters to stop the dictionary from learning "keyboard smash" gibberish or accidental typos.
+  - *Structural Cleanup:*
+    - **Spring Cleaning:** Purged a lot of legacy "orphaned" code and redundant N-gram relics that were just taking up space. The engine is leaner and faster.
+    - **Hardened Initialisation:** Added better sanity checks during boot. If something critical (like the UI cache) fails to load, Yapper will now tell you exactly what went wrong instead of failing silently.
+  - *Stability & Bug Fixes:*
+    - **Memory Management:** Killed off several memory leaks and ensured dictionaries don't duplicate on reload. 
+    - **Fixed "Confused" Suggestions:** Resolved a bug where the spellchecker would occasionally point at the wrong words in a sentence.
+    - **UI Polish:** Fixed alignment issues in the settings menu where buttons and input boxes were getting cut off.
+    - **Visual Fixes:** Suggestions no longer "travel to Narnia" on long, sideways-scrolling messages.
 
 -- 1.2.5
   - *Major Spellcheck Overhaul:*

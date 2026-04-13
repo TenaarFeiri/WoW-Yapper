@@ -40,6 +40,9 @@ local DEFAULTS = {
         -- Default active theme name (registered by `Src/Theme.lua`).
         ActiveTheme               = "Yapper Default",
 
+        -- [NEW] Storyteller animation duration
+        StorytellerSlideSpeed     = 0.3,
+
         -- Tracks whether the welcome/appearance-choice popup has been shown.
         -- Set to the VERSION at which it was last displayed; 0 means never.
         _welcomeShown             = 0,
@@ -158,6 +161,15 @@ local DEFAULTS = {
         -- When true, ESC will store the current text as a recoverable draft.
         -- When false, ESC adds to text history but does not save drafts.
         RecoverOnEscape       = false,
+
+        -- [NEW] Storyteller configuration
+        StorytellerAutoExpand = true,
+        StorytellerShowHint   = true,
+        _multilineHintShown   = false, -- Session flag (persisted as false on reload)
+
+        -- [NEW] Storyteller Manual Dimensions
+        StorytellerWidth      = 400,
+        StorytellerHeight     = 250,
     },
 
     Spellcheck = {

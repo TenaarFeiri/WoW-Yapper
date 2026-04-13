@@ -9,7 +9,7 @@ Interface.MouseWheelStepRate = YapperTable.Config.FrameSettings.MouseWheelStepRa
 Interface.IsVisible = false
 
 -- Treat these paths as RGBA color pickers in the dynamic settings renderer.
-local COLOR_KEYS = {
+local COLOUR_KEYS = {
     InputBg = true,
     LabelBg = true,
     TextColor = true,
@@ -120,6 +120,12 @@ local SETTING_TOOLTIPS = {
     "Toggle integration with Gopher (CrossRP compatibility). |cFFFF4444Disabling this WHILE using a Gopher-powered addon like CrossRP is a BAD idea and will cause stalls and chat problems.|r",
     ["System.EnableTypingTrackerBridge"] =
     "Toggle integration with Simply_RP_Typing_Tracker. Disabling this stops typing indicators from being sent.",
+    ["EditBox.StorytellerAutoExpand"] =
+    "When enabled, the chat box smoothly slides and expands into multi-line mode as soon as your text reaches the edge of the screen. Great for long-form storyteller posts!",
+    ["EditBox.StorytellerShowHint"] =
+    "If automatic expansion is off, Yapper can show a subtle glow and a reminder text (once per session) to let you know you can trigger multi-line mode manually with your bind.",
+    ["System.StorytellerSlideSpeed"] =
+    "How fast the chat box should slide and expand when entering storyteller mode. Lower values are snappier.",
 }
 
 -- UI-only aliases to not scare the normies.
@@ -164,6 +170,9 @@ local FRIENDLY_LABELS = {
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
     ["EditBox.BlizzardSkinProxyPad"] = "Skin proxy padding",
+    ["EditBox.StorytellerAutoExpand"] = "Automatic expansion",
+    ["EditBox.StorytellerShowHint"] = "Show storyteller mode hint",
+    ["System.StorytellerSlideSpeed"] = "Animation duration",
 }
 
 -- ---------------------------------------------------------------------------
@@ -249,6 +258,16 @@ local CATEGORIES = {
         },
         -- Bridges are appended by custom logic.
         custom = { "bridges", "spellcheckUserDict" },
+    },
+    {
+        id     = "multiline",
+        label  = "Multiline",
+        icon   = nil,
+        paths  = {
+            "EditBox.StorytellerAutoExpand",
+            "EditBox.StorytellerShowHint",
+            "System.StorytellerSlideSpeed",
+        },
     },
     {
         id     = "diagnostics",
@@ -356,7 +375,7 @@ function LayoutCursor:Pad(px)
 end
 
 -- Basic RGB(A) shape check for config colour tables.
-local function IsColorTable(tbl)
+local function IsColourTable(tbl)
     return type(tbl) == "table"
         and type(tbl.r) == "number"
         and type(tbl.g) == "number"
@@ -364,7 +383,7 @@ local function IsColorTable(tbl)
 end
 
 -- Copy a colour table safely, supplying sane defaults.
-local function CopyColor(tbl)
+local function CopyColour(tbl)
     return {
         r = tbl.r or 1,
         g = tbl.g or 1,
@@ -385,7 +404,7 @@ local function ClonePath(path)
     return out
 end
 
--- Trim user text input for normalization workflows.
+-- Trim user text input for normalisation workflows.
 local function TrimString(s)
     s = tostring(s or "")
     return (s:match("^%s*(.-)%s*$") or "")
@@ -589,7 +608,7 @@ function Interface:SetLocalPath(path, value)
     if type(normalizedValue) == "table"
         and #path >= 2
         and (path[1] == "EditBox" or path[1] == "Spellcheck")
-        and COLOR_KEYS[path[2]] then
+        and COLOUR_KEYS[path[2]] then
         normalizedValue = {
             r = Clamp01(normalizedValue.r, 1),
             g = Clamp01(normalizedValue.g, 1),
@@ -631,7 +650,7 @@ function Interface:SetLocalPath(path, value)
     if type(normalizedValue) == "table"
         and #path >= 2
         and path[1] == "EditBox"
-        and COLOR_KEYS[path[2]] then
+        and COLOUR_KEYS[path[2]] then
         if type(root._themeOverrides) ~= "table" then root._themeOverrides = {} end
         root._themeOverrides[path[2]] = true
         _G.YapperLocalConf = root
@@ -890,7 +909,7 @@ function Interface:BuildRenderSchema()
 
             if not shouldSkipPath(nextPath) then
                 if type(value) == "table" then
-                    if IsColorTable(value) and COLOR_KEYS[key] then
+                    if IsColourTable(value) and COLOUR_KEYS[key] then
                         return true
                     end
                     if hasRenderableEntries(value, nextPath) then
@@ -917,7 +936,7 @@ function Interface:BuildRenderSchema()
 
             if not shouldSkipPath(nextPath) then
                 if type(value) == "table" then
-                    if IsColorTable(value) and COLOR_KEYS[key] then
+                    if IsColourTable(value) and COLOUR_KEYS[key] then
                         schema[#schema + 1] = {
                             kind = "color",
                             key = key,
@@ -1881,7 +1900,7 @@ end
 -- }
 local function OpenColorPicker(opts)
     local color       = opts.color
-    local previous    = CopyColor(color)
+    local previous    = CopyColour(color)
     local liveTicker  = nil
     local lastApplied = nil
 
@@ -1951,7 +1970,7 @@ local function OpenColorPicker(opts)
         local r, g, b, a = readPickerColor(callbackData)
         local nextColor = { r = r, g = g, b = b, a = a }
         if sameColor(lastApplied, nextColor) then return end
-        lastApplied = CopyColor(nextColor)
+        lastApplied = CopyColour(nextColor)
         opts.onApply(nextColor)
     end
 
@@ -1959,8 +1978,8 @@ local function OpenColorPicker(opts)
         stopLiveTicker()
         prev = prev or previous
         if prev then
-            opts.onCancel(CopyColor(prev))
-            lastApplied = CopyColor(prev)
+            opts.onCancel(CopyColour(prev))
+            lastApplied = CopyColour(prev)
         end
     end
 
@@ -2067,11 +2086,11 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
 
     local function getChannelColor(key)
         local color = self:GetConfigPath({ "EditBox", "ChannelTextColors", key })
-        if IsColorTable(color) then
+        if IsColourTable(color) then
             return color
         end
         local def = self:GetDefaultPath({ "EditBox", "ChannelTextColors", key })
-        if IsColorTable(def) then
+        if IsColourTable(def) then
             return def
         end
         return { r = 1, g = 1, b = 1, a = 1 }
@@ -2084,8 +2103,8 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     local function resetAllChannelColors()
         for _, option in ipairs(CHANNEL_OVERRIDE_OPTIONS) do
             local def = self:GetDefaultPath({ "EditBox", "ChannelTextColors", option.key })
-            if IsColorTable(def) then
-                setChannelColor(option.key, CopyColor(def))
+            if IsColourTable(def) then
+                setChannelColor(option.key, CopyColour(def))
             end
         end
         for _, row in ipairs(rows) do
@@ -2185,7 +2204,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         end
 
         colorBtn:SetScript("OnClick", function()
-            local clr = CopyColor(getChannelColor(option.key))
+            local clr = CopyColour(getChannelColor(option.key))
             OpenColorPicker({
                 color      = clr,
                 hasOpacity = false,
@@ -2219,15 +2238,15 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             if YapperTable and YapperTable.Theme and type(YapperTable.Theme.GetTheme) == "function" then
                 local th = YapperTable.Theme:GetTheme()
                 if th and type(th.channelTextColors) == "table" and type(th.channelTextColors[key]) == "table" then
-                    applied = CopyColor(th.channelTextColors[key])
+                    applied = CopyColour(th.channelTextColors[key])
                 end
             end
             if not applied then
                 local d = self:GetDefaultPath({ "EditBox", "ChannelTextColors", key })
-                if type(d) == "table" then applied = CopyColor(d) end
+                if type(d) == "table" then applied = CopyColour(d) end
             end
             if type(applied) == "table" then
-                -- Use SetLocalPath to ensure proper normalization and hooks.
+                -- Use SetLocalPath to ensure proper normalisation and hooks.
                 self:SetLocalPath({ "EditBox", "ChannelTextColors", key }, applied)
             else
                 -- Remove explicit local value so config falls back to global.
@@ -2641,7 +2660,7 @@ function Interface:CreateColorPickerControl(parent, label, path, cursor)
     -- Keep swatch in sync with live config state.
     local function refreshSwatch()
         local color = self:GetConfigPath(path) or { r = 1, g = 1, b = 1, a = 1 }
-        if IsColorTable(color) then
+        if IsColourTable(color) then
             swatch:SetVertexColor(color.r, color.g, color.b, color.a or 1)
         else
             swatch:SetVertexColor(1, 1, 1, 1)
@@ -2658,23 +2677,23 @@ function Interface:CreateColorPickerControl(parent, label, path, cursor)
 
     btn:SetScript("OnClick", function()
         local color = self:GetConfigPath(path) or { r = 1, g = 1, b = 1, a = 1 }
-        if not IsColorTable(color) then
+        if not IsColourTable(color) then
             color = { r = 1, g = 1, b = 1, a = 1 }
         end
         color.a = Clamp01(color.a, 1)
 
         OpenColorPicker({
-            color      = CopyColor(color),
+            color      = CopyColour(color),
             hasOpacity = true,
             onApply    = function(newColor) applyStoredColor(newColor) end,
-            onCancel   = function(prev) applyStoredColor(CopyColor(prev)) end,
+            onCancel   = function(prev) applyStoredColor(CopyColour(prev)) end,
         })
     end)
 
     local resetBtn = Interface:CreateResetButton(parent, LAYOUT.RESET_X, y, function()
         local defaultColor = Interface:GetDefaultPath(path)
-        if IsColorTable(defaultColor) then
-            applyStoredColor(CopyColor(defaultColor))
+        if IsColourTable(defaultColor) then
+            applyStoredColor(CopyColour(defaultColor))
         end
     end)
 

@@ -47,7 +47,7 @@ def parse_de_words():
         words.extend(parse_lua_words_from_file(path))
     return words
 
-# Normalize similar to Lua NormalizeWord (lowercase unicode)
+# Normalize similar to Lua NormaliseWord (lowercase unicode)
 def normalize(word):
     if not isinstance(word, str):
         return ''

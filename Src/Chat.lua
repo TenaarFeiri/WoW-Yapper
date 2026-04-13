@@ -196,6 +196,25 @@ end
 
 --- Send a single message through Router (or raw fallback).
 function Chat:DirectSend(msg, chatType, language, target)
+    -- [YALLM] Adaptive Learning Hook
+    if YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM then
+        local YALLM = YapperTable.Spellcheck.YALLM
+        YALLM:RecordUsage(msg)
+        
+        -- Check for "ignored" misspellings in the outgoing message
+        local sc = YapperTable.Spellcheck
+        local dict = sc:GetDictionary()
+        if dict then
+            local typos = sc:CollectMisspellings(msg, dict)
+            if typos then
+                for _, item in ipairs(typos) do
+                    local word = msg:sub(item.startPos, item.endPos)
+                    YALLM:RecordIgnored(word)
+                end
+            end
+        end
+    end
+
     if YapperTable.Router then
         YapperTable.Router:Send(msg, chatType, language, target)
     else

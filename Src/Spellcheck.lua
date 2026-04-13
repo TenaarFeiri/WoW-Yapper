@@ -10,7 +10,7 @@ local _, YapperTable = ...
 local Spellcheck = {}
 YapperTable.Spellcheck = Spellcheck
 
--- Localize Lua globals for performance (avoids table lookups in hot loops)
+-- Localise Lua globals for performance (avoids table lookups in hot loops)
 local math_abs = math.abs
 local math_min = math.min
 local math_max = math.max
@@ -59,12 +59,19 @@ Spellcheck._ed_prev_prev = {}
 
 local MAX_SUGGESTION_ROWS = 6
 local SCORE_WEIGHTS = {
-    lenDiff = 0.25,
-    prefix = 0.15,
-    letterBag = 0.20,
-    bigram = 0.16,
-    longerPenalty = 0.12,
-    kbProximity = 0.35,
+    lenDiff       = 3.0,
+    longerPenalty = 2.0,
+    prefix        = 1.5,
+    letterBag     = 1.0,
+    bigram        = 1.5,
+    kbProximity   = 1.0, -- Multiplier for adjacency bonus
+    firstCharBias = 1.5, -- New weight for first-character anchor
+    vowelBonus    = 2.5, -- New weight for vowel-neutral similarity
+}
+
+local RAID_ICONS = {
+    "{Star}", "{Circle}", "{Diamond}", "{Triangle}",
+    "{Moon}", "{Square}", "{Cross}", "{X}", "{Skull}", "{Coin}"
 }
 
 -- Coordinates: { x, y } where x is column (with stagger) and y is row.
@@ -194,9 +201,14 @@ local function Clamp(val, minVal, maxVal)
     return val
 end
 
-local function NormalizeWord(word)
+local function NormaliseWord(word)
     if type(word) ~= "string" then return "" end
     return string_lower(word)
+end
+
+local function NormaliseVowels(word)
+    if type(word) ~= "string" then return "" end
+    return string_gsub(string_lower(word), "[aeiouy]", "*")
 end
 
 local function SuggestionKey(entry)
@@ -225,7 +237,8 @@ local function IsWordStartByte(byte)
     if byte >= 128 then
         return true
     end
-    return (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
+    -- Allow standard letters, plus '{' (123) for raid icons
+    return (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) or (byte == 123)
 end
 
 -- Exact parity with generate_phonetic_dict.py
@@ -325,12 +338,11 @@ function Spellcheck:RegisterDictionary(locale, data)
     local set = existing and existing.set or {}
     local index = existing and existing.index or {}
     local outWords = (existing and existing.words) or (not data.extends and words) or {}
-    local ngramIndex = existing and existing.ngramIndex or {}
+    local ngramIndex2 = existing and existing.ngramIndex2 or {}
+    local ngramIndex3 = existing and existing.ngramIndex3 or {}
     local phonetics = data.phonetics or (existing and existing.phonetics) or {}
 
     local cfg = YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck or {}
-    local ngramN = cfg.NgramN or 2
-    local ngramMaxPosting = cfg.NgramMaxPosting or 200
     local ngramKeyCapSize = (cfg.NgramKeyCapSize ~= nil) and tonumber(cfg.NgramKeyCapSize) or 0
     if ngramKeyCapSize == 0 then ngramKeyCapSize = math.huge end
 
@@ -364,8 +376,10 @@ function Spellcheck:RegisterDictionary(locale, data)
             words = outWords,
             set = set,
             index = index,
-            ngramIndex = ngramIndex,
+            ngramIndex2 = ngramIndex2,
+            ngramIndex3 = ngramIndex3,
             phonetics = phonetics,
+            isDelta = data.extends and true or false,
             extends = data.extends,
             _metaCache = {},
             _metaUsageTimer = 0,
@@ -386,7 +400,7 @@ function Spellcheck:RegisterDictionary(locale, data)
     -- Returns true if the word was newly added.
     local function processWord(word, originalId)
         if type(word) ~= "string" or word == "" then return false end
-        local w = NormalizeWord(word)
+        local w = NormaliseWord(word)
         if w == "" then return false end
         local b = string_byte(w, 1)
         if not b or not IsWordStartByte(b) then return false end
@@ -412,14 +426,31 @@ function Spellcheck:RegisterDictionary(locale, data)
             index[key][#index[key] + 1] = w
         end
 
-        -- Build n-gram postings inline, respecting the cap.
-        -- indexedCount ensures the cap applies correctly starting from the first word.
-        if #w >= ngramN and (ngramKeyCapSize == 0 or indexedCount <= ngramKeyCapSize) then
-            for i = 1, (#w - ngramN + 1) do
-                local g = string_sub(w, i, i + ngramN - 1)
-                ngramIndex[g] = ngramIndex[g] or {}
-                local posting = ngramIndex[g]
-                if #posting < ngramMaxPosting then
+        -- Build n-gram postings inline using vowel-neutral normalisation
+        local norm = NormaliseVowels(w)
+        local n2, n3 = 2, 3
+        
+        -- Bigram Index (N=2)
+        if #norm >= n2 then
+            dict.ngramIndex2 = dict.ngramIndex2 or {}
+            for i = 1, (#norm - n2 + 1) do
+                local g = string_sub(norm, i, i + n2 - 1)
+                dict.ngramIndex2[g] = dict.ngramIndex2[g] or {}
+                local posting = dict.ngramIndex2[g]
+                if #posting < 500 then -- TIERED CAP N2: 500
+                    posting[#posting + 1] = finalId
+                end
+            end
+        end
+        
+        -- Trigram Index (N=3)
+        if #norm >= n3 then
+            dict.ngramIndex3 = dict.ngramIndex3 or {}
+            for i = 1, (#norm - n3 + 1) do
+                local g = string_sub(norm, i, i + n3 - 1)
+                dict.ngramIndex3[g] = dict.ngramIndex3[g] or {}
+                local posting = dict.ngramIndex3[g]
+                if #posting < 2500 then -- TIERED CAP N3: 2500
                     posting[#posting + 1] = finalId
                 end
             end
@@ -514,53 +545,6 @@ function Spellcheck:RegisterDictionary(locale, data)
 
     -- Kick off the first chunk immediately (synchronous for the first batch)
     processChunk()
-end
-
-function Spellcheck:ReloadDictionaries()
-    local locale = self:GetLocale()
-    if not locale then return end
-
-    -- Cancel any active indexing loaders first so their next-frame
-    -- callbacks will nil their own upvalue references on next fire.
-    if self._asyncLoaders then
-        for loc, loader in pairs(self._asyncLoaders) do
-            loader.cancelled = true
-        end
-        self._asyncLoaders = {}
-    end
-
-    -- Cancel any pending post-load refresh timers — they reference stale state.
-    if self._pendingLocaleRefreshTimers then
-        for loc, timer in pairs(self._pendingLocaleRefreshTimers) do
-            if timer and timer.Cancel then timer:Cancel() end
-        end
-        self._pendingLocaleRefreshTimers = {}
-    end
-
-    -- Explicitly nil the heavy sub-tables on each loaded dictionary before
-    -- dropping the top-level reference. This gives the GC smaller, isolated
-    -- roots to collect rather than one giant reachable graph.
-    for loc, dict in pairs(self.Dictionaries) do
-        if type(dict) == "table" then
-            dict.ngramIndex = nil
-            dict.set        = nil
-            dict.index      = nil
-            dict.words      = nil
-            dict.phonetics  = nil
-            dict._metaCache = nil
-        end
-    end
-
-    -- Drop the top-level reference. Everything previously reachable through
-    -- it is now collectable.
-    self.Dictionaries = {}
-
-    -- Trigger a fresh load of the active locale (which will demand-load base entries).
-    self:Notify("Reloading spellcheck dictionaries...")
-    self:LoadDictionary(locale)
-
-    -- Refresh UI to reflect the temporary lack of suggestions.
-    self:ScheduleRefresh()
 end
 
 function Spellcheck:_OnDictRegistrationComplete(locale)
@@ -863,7 +847,7 @@ function Spellcheck:BuildWordSet(list)
     local set = {}
     for _, w in ipairs(list or {}) do
         if type(w) == "string" and w ~= "" then
-            local norm = NormalizeWord(w)
+            local norm = NormaliseWord(w)
             set[norm] = true
         end
     end
@@ -889,15 +873,15 @@ function Spellcheck:AddUserWord(locale, word)
     if type(word) ~= "string" or word == "" then return end
     local dict = self:GetUserDict(locale)
     if not dict then return end
-    local norm = NormalizeWord(word)
+    local norm = NormaliseWord(word)
     for _, w in ipairs(dict.AddedWords) do
-        if NormalizeWord(w) == norm then
+        if NormaliseWord(w) == norm then
             return
         end
     end
     dict.AddedWords[#dict.AddedWords + 1] = word
     for i = #dict.IgnoredWords, 1, -1 do
-        if NormalizeWord(dict.IgnoredWords[i]) == norm then
+        if NormaliseWord(dict.IgnoredWords[i]) == norm then
             table.remove(dict.IgnoredWords, i)
         end
     end
@@ -908,15 +892,15 @@ function Spellcheck:IgnoreWord(locale, word)
     if type(word) ~= "string" or word == "" then return end
     local dict = self:GetUserDict(locale)
     if not dict then return end
-    local norm = NormalizeWord(word)
+    local norm = NormaliseWord(word)
     for _, w in ipairs(dict.IgnoredWords) do
-        if NormalizeWord(w) == norm then
+        if NormaliseWord(w) == norm then
             return
         end
     end
     dict.IgnoredWords[#dict.IgnoredWords + 1] = word
     for i = #dict.AddedWords, 1, -1 do
-        if NormalizeWord(dict.AddedWords[i]) == norm then
+        if NormaliseWord(dict.AddedWords[i]) == norm then
             table.remove(dict.AddedWords, i)
         end
     end
@@ -1034,6 +1018,9 @@ function Spellcheck:ApplyState(enabled, locale)
     if locale == nil then locale = self:GetLocale() end
 
     if enabled then
+        if self.YALLM and self.YALLM.Init then
+            self.YALLM:Init()
+        end
         self:PurgeOtherDictionaries(locale)
         if not self:EnsureLocale(locale) then
             return false
@@ -1050,11 +1037,21 @@ end
 function Spellcheck:OnTextChanged(editBox, isUserInput)
     if editBox ~= self.EditBox then return end
     if isUserInput then
-        -- Mark that the text changed due to user input so suggestion
-        -- selection can run once for this change (not on caret moves).
         self._textChangedFlag = true
+        self._lastTypingTime = GetTime()
+        
+        -- Peek at the last character to detect word boundaries.
+        -- If the user just hit space or punctuation, we fire immediately.
+        local text = editBox:GetText() or ""
+        local lastChar = string_sub(text, -1)
+        if lastChar:match("[%s%.%,%!%?%:%;]") then
+            self:ScheduleRefresh(0)
+        else
+            self:ScheduleRefresh(0.30) -- Relaxed 300ms "think pause" for active typing
+        end
+    else
+        self:ScheduleRefresh()
     end
-    self:ScheduleRefresh()
 end
 
 function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
@@ -1100,7 +1097,7 @@ function Spellcheck:OnOverlayHide()
     self:HideHint()
 end
 
-function Spellcheck:ScheduleRefresh()
+function Spellcheck:ScheduleRefresh(delay)
     if not self:IsEnabled() then
         self:HideSuggestions()
         self:ClearUnderlines()
@@ -1113,8 +1110,10 @@ function Spellcheck:ScheduleRefresh()
     end
 
     if C_Timer and C_Timer.NewTimer then
-        self._debounceTimer = C_Timer.NewTimer(0.12, function()
+        -- Default to 0.3s if no specific delay is requested (e.g. initial bind)
+        self._debounceTimer = C_Timer.NewTimer(delay or 0.30, function()
             self:Rebuild()
+            self._debounceTimer = nil
         end)
     else
         self:Rebuild()
@@ -1146,6 +1145,9 @@ function Spellcheck:EnsureMeasureFontString()
     hiddenFrame:SetSize(1, 1)
     hiddenFrame:Hide()
     local fs = hiddenFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    fs:SetWordWrap(true)
+    fs:SetJustifyH("LEFT")
+    fs:SetJustifyV("TOP")
     self.MeasureFS = fs
 end
 
@@ -1633,6 +1635,13 @@ function Spellcheck:ApplySuggestion(index)
     self._expectedCursor = cursorPos
     self:HideSuggestions()
     self._textChangedFlag = true
+
+    -- [YALLM] Selection Bias Tracking
+    if self.YALLM and self.YALLM.RecordSelection then
+        local original = text:sub(startPos, endPos)
+        self.YALLM:RecordSelection(original, replacement)
+    end
+
     self:ScheduleRefresh()
 end
 
@@ -1734,8 +1743,6 @@ end
 -- Configurable for devs; larger values scan more text but cost more CPU per rebuild.
 local SCAN_RADIUS = 1000
 
--- Re-center the scan window when the cursor is within this many characters
--- of the window edge. Prevents the user from reaching un-checked text.
 local SCAN_RECENTER_MARGIN = 200
 
 function Spellcheck:UpdateUnderlines()
@@ -1760,23 +1767,14 @@ function Spellcheck:UpdateUnderlines()
     local scrollOffset = self:GetScrollOffset()
 
     -- For short texts, scan everything (no window overhead).
-    -- The dictionary scan is cached on text+dict identity.
-    -- Scroll changes only need a redraw, not a rescan.
     if textLen <= SCAN_RADIUS * 2 then
         local textSame = (self._lastUnderlinesText == text and self._lastUnderlinesDict == dict)
         local diff = math_abs((self._lastScrollOffset or 0) - scrollOffset)
         local scrollSame = (diff < 0.5)
-        if textSame and scrollSame then
-            return
-        end
 
-        -- If only the scroll changed, reuse the cached misspelling list.
-        if textSame and self._lastMisspellings then
-            self._lastScrollOffset = scrollOffset
-            self:ClearUnderlines()
-            for _, item in ipairs(self._lastMisspellings) do
-                self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
-            end
+        if textSame then
+            -- If the text is the same, just redraw the underlines (handles scroll & resize reflow)
+            self:RedrawUnderlines()
             return
         end
 
@@ -1785,13 +1783,10 @@ function Spellcheck:UpdateUnderlines()
         self._lastScrollOffset = scrollOffset
         self._scanWindowStart = nil
         self._scanWindowEnd = nil
-        self:ClearUnderlines()
 
         local words = self:CollectMisspellings(text, dict)
         self._lastMisspellings = words
-        for _, item in ipairs(words) do
-            self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
-        end
+        self:RedrawUnderlines()
         return
     end
 
@@ -1808,20 +1803,9 @@ function Spellcheck:UpdateUnderlines()
         end
     end
 
-    local diff = math_abs((self._lastScrollOffset or 0) - scrollOffset)
-    local scrollSame = (diff < 0.5)
-
-    if not needRescan and scrollSame then
-        return
-    end
-
-    -- Scroll-only change with cached misspellings: just redraw.
-    if not needRescan and self._lastMisspellings then
-        self._lastScrollOffset = scrollOffset
-        self:ClearUnderlines()
-        for _, item in ipairs(self._lastMisspellings) do
-            self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
-        end
+    if not needRescan then
+        -- Text hasn't changed or window hasn't shifted; just redraw based on new UI metrics
+        self:RedrawUnderlines()
         return
     end
 
@@ -1854,8 +1838,6 @@ function Spellcheck:UpdateUnderlines()
     self._scanWindowStart = rawStart
     self._scanWindowEnd = rawEnd
 
-    self:ClearUnderlines()
-
     local windowText = string_sub(text, rawStart, rawEnd)
     local words = self:CollectMisspellings(windowText, dict)
 
@@ -1868,8 +1850,18 @@ function Spellcheck:UpdateUnderlines()
         }
     end
     self._lastMisspellings = fullPosWords
+    self:RedrawUnderlines()
+end
 
-    for _, item in ipairs(fullPosWords) do
+function Spellcheck:RedrawUnderlines()
+    if not self.EditBox or not self._lastMisspellings then return end
+    
+    local text = self.EditBox:GetText() or ""
+    local scrollOffset = self:GetScrollOffset()
+    self._lastScrollOffset = scrollOffset
+    
+    self:ClearUnderlines()
+    for _, item in ipairs(self._lastMisspellings) do
         self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
     end
 end
@@ -1918,26 +1910,69 @@ function Spellcheck:DrawUnderline(startPos, endPos, text, scrollOffset)
     local offsetX = (ebLeft - ovLeft) + x
     local offsetTopY = -(ovTop - ebTop) -- negative because Y grows downward in SetPoint
 
-    local tex = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
-
     local cfg = self:GetConfig()
 
+    -- [NEW] Sync MeasureFS to current EditBox width for accurate wrap calculation
+    local boxWidth = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
+    self.MeasureFS:SetWidth(boxWidth)
+
+    -- Calculate the Y-Offset (Vertical Drop)
+    self.MeasureFS:SetText(prefix)
+    local fullHeight = self.MeasureFS:GetStringHeight() or 14
+    local lineHeight = self.MeasureFS:GetLineHeight() or 14
+    local yOffset = -(fullHeight - lineHeight)
+
+    -- Calculate the X-Offset (Horizontal Position)
+    -- We isolate only the text on the "last" wrapped line to find the X coordinate.
+    local currentLineText = string_match(prefix, "[^\n]*$") or prefix
+    self.MeasureFS:SetText(currentLineText)
+    local cursorX = self.MeasureFS:GetStringWidth()
+
+    -- Clamp to visible area
+    local finalX = leftInset + cursorX - (scrollOffset or 0)
+    local w = self:MeasureText(word)
+
+    -- Clamp to the visible text area so underlines don't escape the EditBox.
+    local visibleWidth = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
+
+    -- Entirely off-screen -> skip.
+    if (finalX + w) <= 0 or finalX >= visibleWidth then return end
+
+    -- Partially off the left edge -> trim.
+    if finalX < 0 then
+        w = w + finalX
+        finalX = 0
+    end
+    -- Partially off the right edge -> trim.
+    if (finalX + w) > visibleWidth then
+        w = visibleWidth - finalX
+    end
+    if w <= 0 then return end
+
+    -- Compute the EditBox's offset within the Overlay
+    local ebLeft = self.EditBox:GetLeft() or 0
+    local ovLeft = self.Overlay:GetLeft() or 0
+    local ebTop = self.EditBox:GetTop() or 0
+    local ovTop = self.Overlay:GetTop() or 0
+    local offsetX = (ebLeft - ovLeft) + finalX
+    local offsetTopY = -(ovTop - ebTop) -- negative because Y grows downward in SetPoint
+
+    local tex = self:AcquireUnderline()
+
     if style == "highlight" then
-        local height = (self.EditBox:GetHeight() or 20) - 6
+        local height = lineHeight - 2
         local c = cfg.HighlightColor or { r = 1, g = 0.18, b = 0.18, a = 0.36 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, height)
         tex:ClearAllPoints()
-        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY - 3)
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY + yOffset - 3)
     else
-        local ovBottom = self.UnderlineLayer:GetBottom() or 0
-        local offsetBottomY = ebBottom - ovBottom
         local c = cfg.UnderlineColor or { r = 1, g = 0.2, b = 0.2, a = 0.9 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, 2)
         tex:ClearAllPoints()
-        tex:SetPoint("BOTTOMLEFT", self.UnderlineLayer, "BOTTOMLEFT", offsetX, offsetBottomY + 2)
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY + yOffset - lineHeight + 1)
     end
 
     tex:Show()
@@ -1993,7 +2028,7 @@ function Spellcheck:CollectMisspellings(text, dict)
             end
             local e = idx - 1
             local word = text:sub(s, e)
-            local norm = NormalizeWord(word)
+            local norm = NormaliseWord(word)
             if not self:IsRangeIgnored(s, e, ignoreRanges)
                 and self:ShouldCheckWord(word, minLen)
                 and not (ignoredSet and ignoredSet[norm])
@@ -2047,6 +2082,16 @@ function Spellcheck:GetIgnoredRanges(text)
         ranges[#ranges + 1] = { startPos = s, endPos = e }
         idx = e + 1
     end
+
+    -- [NEW] Ignore complete Raid Icons and custom markers
+    local searchPos = 1
+    while true do
+        local s, e = text:find("{[^}]-}", searchPos)
+        if not s then break end
+        ranges[#ranges + 1] = { startPos = s, endPos = e }
+        searchPos = e + 1
+    end
+
     return ranges
 end
 
@@ -2084,7 +2129,7 @@ function Spellcheck:UpdateActiveWord()
         return
     end
 
-    local norm = NormalizeWord(wordInfo.word)
+    local norm = NormaliseWord(wordInfo.word)
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
     if dict.set[norm] or dict.set[wordInfo.word] or (addedSet and addedSet[norm]) then
         self.ActiveWord = nil
@@ -2173,6 +2218,19 @@ function Spellcheck:GetWordAtCursor(text, cursor)
 end
 
 function Spellcheck:GetSuggestions(word)
+    -- [NEW] Intercept Raid Icons
+    if string_sub(word, 1, 1) == "{" then
+        local suggestions = {}
+        local lowerWord = string_lower(word)
+        for _, icon in ipairs(RAID_ICONS) do
+            -- Prefix match for rapid filtering
+            if string_sub(string_lower(icon), 1, #lowerWord) == lowerWord then
+                table_insert(suggestions, { word = icon, score = 0 })
+            end
+        end
+        return suggestions
+    end
+
     local dict = self:GetDictionary()
     if not dict then
         if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
@@ -2186,16 +2244,15 @@ function Spellcheck:GetSuggestions(word)
     local userRev = userCache and userCache._rev or nil
 
     local maxCount = self:GetMaxSuggestions()
-    local lower = NormalizeWord(word)
+    local lower = NormaliseWord(word)
 
     -- Suggestion cache: reuse recent result when the input word,
     -- dictionary and user-added/ignored lists haven't changed.
     self._suggestionCache = self._suggestionCache or {}
     local sc = self._suggestionCache
     local maxCandidates = (type(self.GetMaxCandidates) == "function") and self:GetMaxCandidates() or 1000
-    if sc.word == lower and sc.dict == dict and sc.userRev == userRev and sc.locale == locale and sc.maxCandidates == maxCandidates then
-        return sc.result or {}
-    end
+    local lower = NormaliseWord(word)
+    local lowerLen = #lower
     local first = lower:sub(1, 1)
     -- Base dict if this is a delta (for explicit index lookups not covered by phonetics)
     local base = dict.extends and self.Dictionaries[dict.extends]
@@ -2214,13 +2271,13 @@ function Spellcheck:GetSuggestions(word)
     addPrefixMatches(dict)
     if base then addPrefixMatches(base) end
 
-    -- Assemble user-added words (normalized) explicitly to bypass array caps
+    -- Assemble user-added words (normalised) explicitly to bypass array caps
     local addedCandidates = {}
     local userDict = self:GetUserDict(locale)
     if userDict and type(userDict.AddedWords) == "table" then
         for _, uw in ipairs(userDict.AddedWords) do
             if type(uw) == "string" and uw ~= "" then
-                local norm = NormalizeWord(uw)
+                local norm = NormaliseWord(uw)
                 if norm ~= "" then
                     addedCandidates[#addedCandidates + 1] = norm
                 end
@@ -2229,25 +2286,24 @@ function Spellcheck:GetSuggestions(word)
     end
 
     local candidates = prefixCandidates
-    -- N-gram (bigram) preselection: compute ranked candidate list
     local ngramCandidates = nil
     local useNgram = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.UseNgramIndex) or
         false
-    local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or
-        2
-    local ngramTop = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramTopCandidates) or
-        300
 
-    if useNgram and #lower >= ngramN then
+    if useNgram then
         local hits = {}
+        local n = lowerLen < 5 and 2 or 3 -- ADAPTIVE N-SWITCH
+        local norm = NormaliseVowels(lower)
+        
         local function addNgramHits(node, wordsTable)
             if not node then return end
-            for i = 1, (#lower - ngramN + 1) do
-                local g = lower:sub(i, i + ngramN - 1)
-                local posting = node[g]
+            local idx = node["ngramIndex" .. n]
+            if not idx then return end
+            for i = 1, (#norm - n + 1) do
+                local g = string_sub(norm, i, i + n - 1)
+                local posting = idx[g]
                 if posting then
                     for _, id in ipairs(posting) do
-                        -- Composite key for hit tracking to avoid delta/base ID collisions
                         local key = (wordsTable == dict.words) and id or (-id)
                         hits[key] = (hits[key] or 0) + 1
                     end
@@ -2255,11 +2311,10 @@ function Spellcheck:GetSuggestions(word)
             end
         end
 
-        addNgramHits(dict.ngramIndex, dict.words)
-        if base then addNgramHits(base.ngramIndex, base.words) end
+        addNgramHits(dict.ngramIndex2 and dict or nil, dict.words)
+        if base then addNgramHits(base, base.words) end
 
         local tmp = {}
-        local lowerLen = #lower
         for key, cnt in pairs(hits) do
             local dObj = (key > 0) and dict or base
             local id = math_abs(key)
@@ -2267,9 +2322,12 @@ function Spellcheck:GetSuggestions(word)
             if w then
                 local wLen = #w
                 local lenDiff = math_abs(wLen - lowerLen)
+                -- Base score favors length similarity and hit count
                 local score = (2 * cnt) / (lowerLen + wLen) - (lenDiff * 0.1)
+                
+                -- First-character bias (Anchor)
                 if string_byte(w, 1) == string_byte(lower, 1) then
-                    score = score + 0.1
+                    score = score + 0.5 -- Boost for N-gram list priority
                 end
                 tmp[#tmp + 1] = { word = w, score = score }
             end
@@ -2278,14 +2336,10 @@ function Spellcheck:GetSuggestions(word)
             if a.score == b.score then return a.word < b.word end
             return a.score > b.score
         end)
+        
         ngramCandidates = {}
-        for i = 1, math_min(#tmp, ngramTop) do
+        for i = 1, math_min(#tmp, 500) do -- RELAXED POOL 500 (Inferno Gold Master)
             ngramCandidates[#ngramCandidates + 1] = tmp[i].word
-        end
-
-        if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-            self:Notify("Spellcheck:GetSuggestions ngramCandidates=" ..
-                tostring(#ngramCandidates) .. " for word='" .. tostring(lower) .. "'")
         end
     end
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
@@ -2450,6 +2504,16 @@ function Spellcheck:GetSuggestions(word)
             - (bigramScore * SCORE_WEIGHTS.bigram)
             - (isPhonetic and 7.0 or 0)
 
+        -- First-Character Anchor Bias
+        if string_byte(candidate, 1) == string_byte(lower, 1) then
+            score = score - SCORE_WEIGHTS.firstCharBias
+        end
+
+        -- Vowel-Neutral Match Bonus
+        if NormaliseVowels(candidate) == NormaliseVowels(lower) then
+            score = score - SCORE_WEIGHTS.vowelBonus
+        end
+
         -- Phonetic Complexity Bonus: favor longer "proper" spellings over short noise
         if isPhonetic and candidateLen > lowerLen then
             score = score - ((candidateLen - lowerLen) * 0.75)
@@ -2511,13 +2575,20 @@ function Spellcheck:GetSuggestions(word)
                 score = score + ((bagScore - maxWrong) * 0.5)
             end
         elseif lenDiff == 1 and dist == 1 then
-            -- Regional variants often differ by exactly 1 character (e.g. color/colour, traveler/traveller)
+            -- Regional variants often differ by exactly 1 character (e.g. colour/color, traveller/traveler)
             if isVariantLocale then
                 if bagScore <= (maxWrong + 1) then
                     score = score - (SCORE_WEIGHTS.lenDiff * 1.0)
                 end
             end
         end
+
+        -- [YALLM] Personalized Learning Bonus
+        if self.YALLM and self.YALLM.GetBonus then
+            score = score + self.YALLM:GetBonus(candidate, lower)
+        end
+
+        -- print("DIAG: tryAdd success", candidate, "score", score) -- TEMPORARY
         out[#out + 1] = { word = candidate, dist = dist, score = score, bag = bagScore }
     end
 
@@ -2761,7 +2832,7 @@ function Spellcheck:GetSuggestions(word)
     -- Add optional actions at the end of the list.
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
     if word and word ~= "" then
-        local norm = NormalizeWord(word)
+        local norm = NormaliseWord(word)
         if not (addedSet and addedSet[norm]) then
             final[#final + 1] = { kind = "add", value = word }
         end
