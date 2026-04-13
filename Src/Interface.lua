@@ -76,7 +76,8 @@ local SETTING_TOOLTIPS = {
     ["Spellcheck.HighlightColor"] = "Change the colour of the spellcheck highlight style.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
-    ["Spellcheck.NgramKeyCapSize"] = "Maximum number of unique n-gram index keys built when loading the dictionary. Higher values improve suggestion recall for uncommon words but directly increase memory usage by roughly 1-2 MB per 10,000 extra keys. Set to 0 to remove the cap entirely (maximum accuracy, higher memory cost).",
+    ["Spellcheck.NgramKeyCapSize"] =
+    "Maximum number of unique n-gram index keys built when loading the dictionary. Higher values improve suggestion recall for uncommon words but directly increase memory usage by roughly 1-2 MB per 10,000 extra keys. Set to 0 to remove the cap entirely (maximum accuracy, higher memory cost).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
     ["Chat.MAX_HISTORY_LINES"] = "How many previous messages are kept in local history.",
@@ -2611,7 +2612,6 @@ function Interface:CreateTextInput(parent, label, path, cursor)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_TEXT_INPUT))
 end
 
-
 function Interface:CreateColorPickerControl(parent, label, path, cursor)
     local y = cursor:Y()
     self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))
@@ -3182,9 +3182,7 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
         if spell.TouchUserDict then
             spell:TouchUserDict(dict)
         end
-        if spell.ApplyUserAddedWords then
-            spell:ApplyUserAddedWords(locale)
-        end
+
         if spell.ScheduleRefresh then
             spell:ScheduleRefresh()
         end

@@ -18,7 +18,6 @@ local math_huge = math.huge
 local table_insert = table.insert
 local table_sort = table.sort
 local table_remove = table.remove
-local table_concat = table.concat
 local string_sub = string.sub
 local string_byte = string.byte
 local string_lower = string.lower
@@ -52,7 +51,6 @@ Spellcheck.HintFrame = nil
 Spellcheck._debounceTimer = nil
 Spellcheck.UserDictCache = {}
 Spellcheck._pendingLocaleLoads = {}
-Spellcheck._debugLoadedLocales = {}
 Spellcheck.DictionaryBuilders = {}
 -- Reusable buffers for EditDistance to avoid per-call allocations
 Spellcheck._ed_prev = {}
@@ -68,11 +66,6 @@ local SCORE_WEIGHTS = {
     longerPenalty = 0.12,
     kbProximity = 0.35,
 }
-
--- Keyboard layout coordinate maps for proximity scoring.
--- Row stagger offsets (configurable): each row is shifted right by this
--- fraction of a key width relative to the row above it.
-local KB_ROW_STAGGER = { 0, 0.25, 0.75 }
 
 -- Coordinates: { x, y } where x is column (with stagger) and y is row.
 -- Only lowercase a-z; digits/punctuation excluded since ShouldCheckWord
@@ -851,44 +844,6 @@ function Spellcheck:GetUserDictStore()
     return _G.YapperDB.Spellcheck.Dict
 end
 
--- Persist/restore a single cached dictionary (active locale) to SavedVariables
-function Spellcheck:GetCachedDictStore()
-    if type(_G.YapperDB) ~= "table" then return nil end
-    if type(_G.YapperDB.Spellcheck) ~= "table" then _G.YapperDB.Spellcheck = {} end
-    if type(_G.YapperDB.Spellcheck.Cache) ~= "table" then _G.YapperDB.Spellcheck.Cache = {} end
-    return _G.YapperDB.Spellcheck.Cache
-end
-
-function Spellcheck:LoadCachedDictionary(locale)
-    if type(locale) ~= "string" or locale == "" then return nil end
-    local store = self:GetCachedDictStore()
-    if not store or type(store[locale]) ~= "table" then return nil end
-    -- Use cached structure directly (words, set, index, ngramIndex)
-    self.Dictionaries[locale] = store[locale]
-    return self.Dictionaries[locale]
-end
-
-function Spellcheck:SaveActiveDictionaryToDB(locale)
-    if type(locale) ~= "string" or locale == "" then return end
-    local dict = self.Dictionaries[locale]
-    if type(dict) ~= "table" then return end
-    local store = self:GetCachedDictStore()
-    if not store then return end
-    -- Only write once if cache missing or size changed to avoid repeated SavedVariable churn
-    local existing = store[locale]
-    if existing and type(existing.words) == "table" and #existing.words == #dict.words then
-        return
-    end
-    local dump = {
-        locale = dict.locale,
-        words = dict.words,
-        set = dict.set,
-        index = dict.index,
-        ngramIndex = dict.ngramIndex,
-    }
-    store[locale] = dump
-end
-
 function Spellcheck:GetUserDict(locale)
     local store = self:GetUserDictStore()
     if not store then return nil end
@@ -947,7 +902,6 @@ function Spellcheck:AddUserWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
-    self:ApplyUserAddedWords(locale)
 end
 
 function Spellcheck:IgnoreWord(locale, word)
@@ -967,13 +921,6 @@ function Spellcheck:IgnoreWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
-end
-
-function Spellcheck:ApplyUserAddedWords(locale)
-    -- User-added words are handled via user sets (added/ignored).
-    -- Avoid mutating the base dictionary sets so manual edits can
-    -- remove words cleanly without stale entries.
-    self:GetUserSets(locale)
 end
 
 function Spellcheck:GetMaxSuggestions()
@@ -1069,7 +1016,6 @@ function Spellcheck:PurgeOtherDictionaries(keepLocale)
                 dict.ngramIndex = {}
 
                 self.Dictionaries[locale] = nil
-                self._debugLoadedLocales[locale] = nil
             end
         end
     end
@@ -1336,7 +1282,7 @@ function Spellcheck:ScheduleHintShow()
             local curCursor = self.EditBox.GetCursorPosition and (self.EditBox:GetCursorPosition() or 0) or 0
             if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
                 self:Notify("Spellcheck:HintTimer fired; curCursor=" ..
-                tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
+                    tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
             end
             if curCursor ~= self._pendingHintCursor then
                 if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
@@ -1534,7 +1480,7 @@ function Spellcheck:OpenOrCycleSuggestions()
     local sugCount = #suggestions
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify("Spellcheck:OpenOrCycleSuggestions word='" ..
-        tostring(self.ActiveWord) .. "' suggestions=" .. tostring(sugCount))
+            tostring(self.ActiveWord) .. "' suggestions=" .. tostring(sugCount))
     end
     if sugCount == 0 then
         self:HideSuggestions()
@@ -2286,11 +2232,11 @@ function Spellcheck:GetSuggestions(word)
     -- N-gram (bigram) preselection: compute ranked candidate list
     local ngramCandidates = nil
     local useNgram = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.UseNgramIndex) or
-    false
+        false
     local ngramN = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramN) or
-    2
+        2
     local ngramTop = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck and YapperTable.Config.Spellcheck.NgramTopCandidates) or
-    300
+        300
 
     if useNgram and #lower >= ngramN then
         local hits = {}
@@ -2339,14 +2285,14 @@ function Spellcheck:GetSuggestions(word)
 
         if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
             self:Notify("Spellcheck:GetSuggestions ngramCandidates=" ..
-            tostring(#ngramCandidates) .. " for word='" .. tostring(lower) .. "'")
+                tostring(#ngramCandidates) .. " for word='" .. tostring(lower) .. "'")
         end
     end
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify("Spellcheck:GetSuggestions word='" ..
-        tostring(word) ..
-        "' lower='" ..
-        tostring(lower) .. "' locale='" .. tostring(locale) .. "' prefixCandidates=" .. tostring(#prefixCandidates))
+            tostring(word) ..
+            "' lower='" ..
+            tostring(lower) .. "' locale='" .. tostring(locale) .. "' prefixCandidates=" .. tostring(#prefixCandidates))
     end
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
     local out = {}
@@ -2597,7 +2543,7 @@ function Spellcheck:GetSuggestions(word)
                     local lenDiff = math_abs(#candidate - lowerLen)
                     local isUserWord = addedSet and addedSet[candidate]
                     local isLongPrefix = isUserWord and (#candidate > lowerLen) and
-                    (string_sub(candidate, 1, lowerLen) == lower)
+                        (string_sub(candidate, 1, lowerLen) == lower)
 
                     if isPhonetic or lenDiff <= maxLenDiff or isLongPrefix then
                         checks = checks + 1
@@ -2627,7 +2573,7 @@ function Spellcheck:GetSuggestions(word)
         aborted = tryCandidates(phoneticCandidates, true)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
             self:Notify("Spellcheck:GetSuggestions aborted after phoneticCandidates; checks=" ..
-            tostring(checks) .. " out=" .. tostring(#out))
+                tostring(checks) .. " out=" .. tostring(#out))
         end
     end
 
@@ -2679,7 +2625,8 @@ function Spellcheck:GetSuggestions(word)
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify(string.format(
-        "Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d", #pref2, #pref1,
+            "Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d", #pref2,
+            #pref1,
             #other, dynamicCap, maxDist, maxLenDiff))
     end
 
@@ -2688,7 +2635,7 @@ function Spellcheck:GetSuggestions(word)
         aborted = tryCandidates(ngramCandidates)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
             self:Notify("Spellcheck:GetSuggestions aborted after ngramCandidates; checks=" ..
-            tostring(checks) .. " out=" .. tostring(#out))
+                tostring(checks) .. " out=" .. tostring(#out))
         end
     end
 
@@ -2696,14 +2643,14 @@ function Spellcheck:GetSuggestions(word)
         aborted = tryCandidates(pref2)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
             self:Notify("Spellcheck:GetSuggestions aborted after pref2; checks=" ..
-            tostring(checks) .. " out=" .. tostring(#out))
+                tostring(checks) .. " out=" .. tostring(#out))
         end
     end
     if not aborted then
         aborted = tryCandidates(pref1)
         if aborted and YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
             self:Notify("Spellcheck:GetSuggestions aborted after pref1; checks=" ..
-            tostring(checks) .. " out=" .. tostring(#out))
+                tostring(checks) .. " out=" .. tostring(#out))
         end
     end
     if not aborted then
@@ -2712,7 +2659,7 @@ function Spellcheck:GetSuggestions(word)
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify("Spellcheck:GetSuggestions finished checks=" ..
-        tostring(checks) .. " candidatesFound=" .. tostring(#out))
+            tostring(checks) .. " candidatesFound=" .. tostring(#out))
     end
 
     -- If we haven't filled the suggestion list, attempt a small number
