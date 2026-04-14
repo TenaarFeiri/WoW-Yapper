@@ -194,6 +194,10 @@ local DEFAULTS = {
         HighlightColor     = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
         KeyboardLayout     = "QWERTY",
         Dict               = {},
+        -- YALLM adaptive learning data caps
+        YALLMFreqCap       = 2000,  -- Max unique vocabulary words tracked
+        YALLMBiasCap       = 500,   -- Max typo→correction pairs stored
+        YALLMAutoThreshold = 10,    -- Times a word must be sent before auto-adding to dictionary
     },
 }
 
