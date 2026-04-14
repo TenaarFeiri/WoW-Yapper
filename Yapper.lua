@@ -4,6 +4,13 @@
 
 local YapperName, YapperTable = ...
 
+-- Localise Lua globals for performance
+local math_max    = math.max
+local string_format = string.format
+local type   = type
+local pairs  = pairs
+local select = select
+
 local function GetBypassBindingHint()
     local key1, key2 = nil, nil
     if GetBindingKey then
@@ -96,6 +103,11 @@ local function OnAddonLoaded(addonName)
     -- Initialise all three SavedVariables (YapperDB, YapperLocalConf, YapperLocalHistory).
     YapperTable.Core:InitSavedVars()
 
+    -- Initialise StaticPopup definitions.
+    if YapperTable.Interface and YapperTable.Interface.InitPopups then
+        YapperTable.Interface:InitPopups()
+    end
+
     -- Restore the previously selected theme so Theme._current is valid for the
     -- entire session.  SetTheme re-seeds non-overridden colour values from the
     -- theme into YapperLocalConf.EditBox.*, but honours _themeOverrides so any
@@ -108,9 +120,15 @@ local function OnAddonLoaded(addonName)
         end
     end
 
+    local cfg = YapperTable.Config or {}
+
     -- Register launcher at startup (Addon Compartment preferred, fallbacks inside Interface).
     if YapperTable.Interface and YapperTable.Interface.CreateLauncher then
         YapperTable.Interface:CreateLauncher()
+    end
+
+    if YapperTable.Spellcheck and YapperTable.Spellcheck.Init then
+        YapperTable.Spellcheck:Init(math_max(1, cfg.SpellcheckThreads or 1))
     end
 
     -- Initialise persistent history store.
