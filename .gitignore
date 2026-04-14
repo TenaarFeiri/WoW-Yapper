@@ -6,3 +6,4 @@ Legacy/
 # *.log
 # Local documentation
 Documentation/
+.vscode/
