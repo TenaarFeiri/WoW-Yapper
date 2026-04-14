@@ -17,6 +17,11 @@ local YapperName, YapperTable = ...
 local GopherBridge            = {}
 YapperTable.GopherBridge      = GopherBridge
 
+-- Localise Lua globals for performance
+local type     = type
+local tonumber = tonumber
+local pcall    = pcall
+
 GopherBridge.active           = false -- true after a successful Init
 GopherBridge._gopher          = nil
 

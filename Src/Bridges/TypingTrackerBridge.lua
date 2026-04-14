@@ -9,6 +9,11 @@ local Bridge                    = {
     ["Exists"] = true, -- Just so we don't have an empty bridge table.
 }
 YapperTable.TypingTrackerBridge = Bridge
+
+-- Localise Lua globals for performance
+local string_format = string.format
+local tostring      = tostring
+local type          = type
 YapperTable.Utils:DebugPrint("TypingTrackerBridge: Bridge registered on YapperTable")
 
 local COMM_PREFIX        = "SRPTypingTracker"
@@ -81,7 +86,7 @@ local function SendSignal(isTyping, chatType)
     -- Not gonna tackle more than I need to, to make it work.
 
     -- Format: guid,name,rpname,guild,isTyping,chatType,zoneID,x,y,isGroup,neighborhood
-    local msg          = string.format("%s,%s,%s,%s,%d,%s,%d,%f,%f,%d,%s",
+    local msg          = string_format("%s,%s,%s,%s,%d,%s,%d,%f,%f,%d,%s",
         playerGUID, playerName, rpName, guildName,
         isTypingNum, chatType, zoneID, x, y,
         isGroup, neighborhood

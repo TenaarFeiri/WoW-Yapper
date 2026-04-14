@@ -8,15 +8,19 @@
 
 local YapperName, YapperTable = ...
 
--- Localising some methods to avoid table lookups.
--- bc wow is single-threaded, this helps save on CPU time.
-local s_byte   = string.byte
-local s_sub    = string.sub
-local s_find   = string.find
-local s_match  = string.match
-local t_concat = table.concat
-local tostring = tostring
+-- Localise Lua globals for performance
+local string_byte   = string.byte
+local string_sub    = string.sub
+local string_find   = string.find
+local string_match  = string.match
+local string_gmatch = string.gmatch
+local table_concat  = table.concat
+local type     = type
+local pairs    = pairs
 local ipairs   = ipairs
+local tostring = tostring
+local tonumber = tonumber
+local select   = select
 
 local Chunking = {}
 YapperTable.Chunking = Chunking
@@ -32,96 +36,96 @@ local function Tokenise(text)
     local len = #text
 
     while pos <= len do
-        local b1 = s_byte(text, pos)
+        local b1 = string_byte(text, pos)
 
         -- ── WoW escape: starts with | (124) ──────────────────────────
         if b1 == 124 then
-            local b2 = s_byte(text, pos + 1)
+            local b2 = string_byte(text, pos + 1)
 
             if b2 == 99 then -- "c"
                 -- Colour open.  Consume |c plus everything up to the
                 -- next pipe — standard |cAARRGGBB (10 bytes) and the
                 -- shorter non-hex variants WoW 12.0 produces both work.
-                local nextPipe = s_find(text, "|", pos + 2, true)
+                local nextPipe = string_find(text, "|", pos + 2, true)
                 if nextPipe then
-                    tokens[#tokens + 1] = s_sub(text, pos, nextPipe - 1)
+                    tokens[#tokens + 1] = string_sub(text, pos, nextPipe - 1)
                     pos = nextPipe
                 else
-                    tokens[#tokens + 1] = s_sub(text, pos)
+                    tokens[#tokens + 1] = string_sub(text, pos)
                     pos = len + 1
                 end
 
             elseif b2 == 114 then -- "r"
                 -- Colour reset: |r  (2 bytes)
-                tokens[#tokens + 1] = s_sub(text, pos, pos + 1)
+                tokens[#tokens + 1] = string_sub(text, pos, pos + 1)
                 pos = pos + 2
 
             elseif b2 == 72 then -- "H"
                 -- Hyperlink: |H<type>:<data>|h[display text]|h
-                local metaEnd = s_find(text, "|h", pos + 2, true)
+                local metaEnd = string_find(text, "|h", pos + 2, true)
                 if metaEnd then
-                    local displayEnd = s_find(text, "|h", metaEnd + 2, true)
+                    local displayEnd = string_find(text, "|h", metaEnd + 2, true)
                     if displayEnd then
-                        tokens[#tokens + 1] = s_sub(text, pos, displayEnd + 1)
+                        tokens[#tokens + 1] = string_sub(text, pos, displayEnd + 1)
                         pos = displayEnd + 2
                     else
                         -- Malformed — take up to first |h.
-                        tokens[#tokens + 1] = s_sub(text, pos, metaEnd + 1)
+                        tokens[#tokens + 1] = string_sub(text, pos, metaEnd + 1)
                         pos = metaEnd + 2
                     end
                 else
                     -- No |h at all — emit the pipe as plain text.
-                    tokens[#tokens + 1] = s_sub(text, pos, pos)
+                    tokens[#tokens + 1] = string_sub(text, pos, pos)
                     pos = pos + 1
                 end
 
             elseif b2 == 84 or b2 == 116 then -- "T" or "t"
                 -- Texture: |T<path>|t
-                local closePos = s_find(text, "|t", pos + 2, true)
+                local closePos = string_find(text, "|t", pos + 2, true)
                 if closePos then
-                    tokens[#tokens + 1] = s_sub(text, pos, closePos + 1)
+                    tokens[#tokens + 1] = string_sub(text, pos, closePos + 1)
                     pos = closePos + 2
                 else
-                    tokens[#tokens + 1] = s_sub(text, pos, pos + 1)
+                    tokens[#tokens + 1] = string_sub(text, pos, pos + 1)
                     pos = pos + 2
                 end
 
             elseif b2 == 65 then -- "A"
                 -- Atlas marker: |A<name>|a
-                local closePos = s_find(text, "|a", pos + 2, true)
+                local closePos = string_find(text, "|a", pos + 2, true)
                 if closePos then
-                    tokens[#tokens + 1] = s_sub(text, pos, closePos + 1)
+                    tokens[#tokens + 1] = string_sub(text, pos, closePos + 1)
                     pos = closePos + 2
                 else
-                    tokens[#tokens + 1] = s_sub(text, pos, pos + 1)
+                    tokens[#tokens + 1] = string_sub(text, pos, pos + 1)
                     pos = pos + 2
                 end
 
             else
                 -- Unknown escape — emit just the pipe.
-                tokens[#tokens + 1] = s_sub(text, pos, pos)
+                tokens[#tokens + 1] = string_sub(text, pos, pos)
                 pos = pos + 1
             end
 
         -- ── Atlas shorthand: {atlas} (123) ───────────────────────────
         elseif b1 == 123 then
-            local closePos = s_find(text, "}", pos + 1, true)
+            local closePos = string_find(text, "}", pos + 1, true)
             if closePos then
-                tokens[#tokens + 1] = s_sub(text, pos, closePos)
+                tokens[#tokens + 1] = string_sub(text, pos, closePos)
                 pos = closePos + 1
             else
-                tokens[#tokens + 1] = s_sub(text, pos, pos)
+                tokens[#tokens + 1] = string_sub(text, pos, pos)
                 pos = pos + 1
             end
 
         -- ── Plain text: consume up to the next special character ─────
         else
-            local nextSpecial = s_find(text, "[|{]", pos + 1)
+            local nextSpecial = string_find(text, "[|{]", pos + 1)
             if nextSpecial then
-                tokens[#tokens + 1] = s_sub(text, pos, nextSpecial - 1)
+                tokens[#tokens + 1] = string_sub(text, pos, nextSpecial - 1)
                 pos = nextSpecial
             else
-                tokens[#tokens + 1] = s_sub(text, pos)
+                tokens[#tokens + 1] = string_sub(text, pos)
                 pos = len + 1
             end
         end
@@ -182,7 +186,7 @@ local function FindUnclosedPair(text)
             local count = 0
             local pos   = 1
             while true do
-                local s = s_find(text, pair.open, pos, true)
+                local s = string_find(text, pair.open, pos, true)
                 if not s then break end
                 count = count + 1
                 pos   = s + #pair.open
@@ -195,13 +199,13 @@ local function FindUnclosedPair(text)
             local lastOpen = nil
             local pos      = 1
             while true do
-                local s = s_find(text, pair.open, pos, true)
+                local s = string_find(text, pair.open, pos, true)
                 if not s then break end
                 lastOpen = s
                 pos      = s + #pair.open
             end
             if lastOpen then
-                local closePos = s_find(text, pair.close, lastOpen + #pair.open, true)
+                local closePos = string_find(text, pair.close, lastOpen + #pair.open, true)
                 if not closePos then
                     return pair
                 end
@@ -216,7 +220,7 @@ end
 --- check without re-running the full heuristics.
 local function CloseExistsAhead(tokens, fromIndex, close)
     for i = fromIndex, #tokens do
-        if s_find(tokens[i], close, 1, true) then
+        if string_find(tokens[i], close, 1, true) then
             return true
         end
     end
@@ -229,7 +233,7 @@ end
 --- tokens — i.e. the user *does* intend to close it eventually.  If there
 --- is no closer anywhere ahead, assume mistake or intentional open.
 local function InjectContClose(parts, tokens, fromIndex)
-    local pair = FindUnclosedPair(t_concat(parts))
+    local pair = FindUnclosedPair(table_concat(parts))
     if pair then
         if CloseExistsAhead(tokens, fromIndex, pair.close) then
             parts[#parts + 1] = pair.close
@@ -246,7 +250,7 @@ end
 -- Search backwards for a space to split on.
 local function FindSplitSpace(s)
     for i = #s, 1, -1 do
-        if s_byte(s, i) == 32 then return i end
+        if string_byte(s, i) == 32 then return i end
     end
     return nil
 end
@@ -256,7 +260,7 @@ local function SafeUTF8Cut(s, maxBytes)
     if maxBytes >= #s then return #s end
     local pos = maxBytes
     while pos > 0 do
-        local b = s_byte(s, pos)
+        local b = string_byte(s, pos)
         -- ASCII or UTF-8 leading byte — safe to cut here.
         if b < 128 or b >= 192 then
             -- Leading byte of multi-byte char: cut before it.
@@ -277,7 +281,7 @@ end
 -- Flush accumulated parts into chunks and return fresh accumulators.
 local function FlushChunk(chunks, parts)
     if #parts > 0 then
-        chunks[#chunks + 1] = t_concat(parts)
+        chunks[#chunks + 1] = table_concat(parts)
     end
     return {}, 0
 end
@@ -302,7 +306,7 @@ end
 -- Normalize marker helper (defined early so Split can call it).
 local function NormaliseMarker(raw)
     local marker = tostring(raw or "")
-    marker = s_match(marker, "^%s*(.-)%s*$") or ""
+    marker = string_match(marker, "^%s*(.-)%s*$") or ""
     return marker
 end
 
@@ -310,10 +314,10 @@ end
 --- Split text into chunks that each fit within the byte limit.
 function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, delineator, prefix)
     -- [NEW] Paragraph Isolation Logic for "Send All"
-    if ignoreParagraphMerging and s_find(text, "\n") then
+    if ignoreParagraphMerging and string_find(text, "\n") then
         local allChunks = {}
         -- Iterate over every line, splitting by \n
-        for paragraph in string.gmatch(text .. "\n", "(.-)\n") do
+        for paragraph in string_gmatch(text .. "\n", "(.-)\n") do
             -- Only process non-empty lines (skip blank lines)
             if paragraph ~= "" then
                 -- Recurse into the standard splitting logic for this paragraph alone
@@ -351,7 +355,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
     end
 
     -- Trim.
-    text = s_match(text, "^%s*(.-)%s*$") or ""
+    text = string_match(text, "^%s*(.-)%s*$") or ""
 
     -- Fast path: already fits.
     if #text <= limit then
@@ -368,7 +372,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
 
     for i = 1, #tokens do
         local token = tokens[i]
-        local b1, b2 = s_byte(token, 1, 2)
+        local b1, b2 = string_byte(token, 1, 2)
         local isColour = (b1 == 124 and b2 == 99 and #token >= 4)
         local isReset  = (b1 == 124 and b2 == 114 and #token == 2)
         local isEscape = (b1 == 124 and #token > 1) or b1 == 123
@@ -393,7 +397,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
             if #parts > 0 then
                 local last = parts[#parts]
                 local lb1, lb2
-                if last then lb1, lb2 = s_byte(last, 1, 2) end
+                if last then lb1, lb2 = string_byte(last, 1, 2) end
                 
                 if last and lb1 == 124 and lb2 == 99 and #last >= 4 then
                     -- Case A: orphaned colour code.
@@ -406,7 +410,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                     -- Check if the part before it is a |c colour code.
                     local prev = #parts > 1 and parts[#parts - 1] or nil
                     local pb1, pb2
-                    if prev then pb1, pb2 = s_byte(prev, 1, 2) end
+                    if prev then pb1, pb2 = string_byte(prev, 1, 2) end
                     
                     if prev and pb1 == 124 and pb2 == 99 and #prev >= 4 then
                         -- Case B: pull back both |c and |H.
@@ -436,7 +440,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                 size = size + #mp
             end
             if #movedParts > 0 then
-                local mpb1, mpb2 = s_byte(movedParts[1], 1, 2)
+                local mpb1, mpb2 = string_byte(movedParts[1], 1, 2)
                 if mpb1 == 124 and mpb2 == 99 then
                     colour = movedParts[1]
                 end
@@ -477,21 +481,21 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                     -- Recalculate and loop.
                 else
                     -- Try to split on a word boundary.
-                    local bite  = s_sub(remaining, 1, space)
+                    local bite  = string_sub(remaining, 1, space)
                     local split = FindSplitSpace(bite)
 
                     if split and split > 0 then
                         -- Split on the space (discard the space itself).
-                        parts[#parts + 1] = s_sub(remaining, 1, split - 1)
+                        parts[#parts + 1] = string_sub(remaining, 1, split - 1)
                         size = size + (split - 1)
-                        remaining = s_sub(remaining, split + 1)
+                        remaining = string_sub(remaining, split + 1)
                     else
                         -- No space found — force-cut (UTF-8 safe).
                         local cut = SafeUTF8Cut(remaining, space)
                         if cut <= 0 then cut = 1 end
-                        parts[#parts + 1] = s_sub(remaining, 1, cut)
+                        parts[#parts + 1] = string_sub(remaining, 1, cut)
                         size = size + cut
-                        remaining = s_sub(remaining, cut + 1)
+                        remaining = string_sub(remaining, cut + 1)
                     end
 
                     -- Close chunk. fromIndex=i so CloseExistsAhead sees both
@@ -514,7 +518,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
 
     -- Flush the final chunk (no delineator on the last one).
     if #parts > 0 then
-        chunks[#chunks + 1] = t_concat(parts)
+        chunks[#chunks + 1] = table_concat(parts)
     end
 
     return chunks

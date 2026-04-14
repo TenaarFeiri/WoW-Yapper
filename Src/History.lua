@@ -8,6 +8,16 @@ local YapperName, YapperTable = ...
 local History                 = {}
 YapperTable.History           = History
 
+-- Localise Lua globals for performance
+local table_remove  = table.remove
+local math_abs      = math.abs
+local type     = type
+local pairs    = pairs
+local ipairs   = ipairs
+local tostring = tostring
+local tonumber = tonumber
+local GetTime  = GetTime
+
 -- ---------------------------------------------------------------------------
 -- Configuration
 -- ---------------------------------------------------------------------------
@@ -140,7 +150,7 @@ function History:AddChatHistory(text, chatType, target)
     }
 
     while #h > CHAT_HISTORY_SIZE do
-        table.remove(h, 1)
+        table_remove(h, 1)
     end
 end
 
@@ -269,14 +279,14 @@ function History:AddSnapshot(editbox, force, textOverride, cursorOverride)
 
     -- Skip if delta is too small (unless forced).
     if not force and cur then
-        if math.abs(#text - #cur.text) < SNAPSHOT_THRESHOLD and text ~= "" then
+        if math_abs(#text - #cur.text) < SNAPSHOT_THRESHOLD and text ~= "" then
             return
         end
     end
 
     -- Discard redo states past current position.
     for i = #buf.entries, buf.position + 1, -1 do
-        table.remove(buf.entries, i)
+        table_remove(buf.entries, i)
     end
 
     buf.position = buf.position + 1
@@ -284,7 +294,7 @@ function History:AddSnapshot(editbox, force, textOverride, cursorOverride)
 
     -- Trim old entries.
     while #buf.entries > UNDO_HISTORY_SIZE do
-        table.remove(buf.entries, 1)
+        table_remove(buf.entries, 1)
         buf.position = buf.position - 1
     end
 end
@@ -374,7 +384,7 @@ function History:HookOverlayEditBox()
         if insertedBoundary or removedBoundary then
             self:AddSnapshot(box, true, last, #last)
             self:SaveDraft(box)
-        elseif math.abs(#text - #last) >= SNAPSHOT_THRESHOLD then
+        elseif math_abs(#text - #last) >= SNAPSHOT_THRESHOLD then
             self:AddSnapshot(box, false)
         end
 

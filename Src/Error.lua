@@ -8,6 +8,15 @@ local YapperName, YapperTable = ...
 local Error = {}
 YapperTable.Error = Error
 
+-- Localise Lua globals for performance
+local string_format = string.format
+local table_concat  = table.concat
+local type   = type
+local pairs  = pairs
+local select = select
+local unpack = unpack
+local error  = error
+
 -- ---------------------------------------------------------------------------
 -- Error code catalogue
 -- ---------------------------------------------------------------------------
@@ -55,14 +64,14 @@ local function FormatSafe(str, ...)
     if #args > count and count > 0 then
         local extras = {}
         for i = count + 1, #args do extras[#extras + 1] = tostring(args[i]) end
-        args[count] = (args[count] or "") .. " " .. table.concat(extras, " ")
+        args[count] = (args[count] or "") .. " " .. table_concat(extras, " ")
         for i = #args, count + 1, -1 do args[i] = nil end
     end
 
     -- Too few args — pad with "".
     while #args < count do args[#args + 1] = "" end
 
-    return string.format(str, unpack(args))
+    return string_format(str, unpack(args))
 end
 
 -- ---------------------------------------------------------------------------

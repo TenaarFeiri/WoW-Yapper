@@ -9,6 +9,12 @@ local Frame = {
     defined = true, -- Marker to prevent nil indexing when the module fails to load.
 } -- Container for methods.
 local EventFrames    = {}
+
+-- Localise Lua globals for performance
+local table_insert = table.insert
+local math_max     = math.max
+local ipairs       = ipairs
+local type         = type
 local Container = {}
 Container.Events = {}
 Container.UI = {} -- For non-event frames (settings, etc.)
@@ -118,7 +124,6 @@ end
 --- if elements extend past its current height. Cell dimensions are used
 --- as defaults when the element reports a zero size.
 function Frame:MakeGrid(parent, cellW, cellH, padding)
-    local max = math.max
     local grid = {
         parent = parent,
         cellW = cellW or parent:GetWidth(),
@@ -140,7 +145,7 @@ function Frame:MakeGrid(parent, cellW, cellH, padding)
     end
 
     function grid:Add(elem)
-        table.insert(self.items, elem)
+        table_insert(self.items, elem)
         elem:ClearAllPoints()
         elem:SetPoint("TOPLEFT", self.parent, "TOPLEFT", self.cursorX, -self.cursorY)
 
@@ -149,7 +154,7 @@ function Frame:MakeGrid(parent, cellW, cellH, padding)
         if h == 0 then h = self.cellH end
 
         self.cursorX = self.cursorX + w + self.padding
-        self.rowHeight = max(self.rowHeight, h)
+        self.rowHeight = math_max(self.rowHeight, h)
 
         if self.cursorX + w > self.parent:GetWidth() then
             self.cursorX = 0

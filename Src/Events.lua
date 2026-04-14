@@ -8,6 +8,11 @@ local YapperName, YapperTable = ...
 local Events = {}
 YapperTable.Events = Events
 
+-- Localise Lua globals for performance
+local table_insert = table.insert
+local pairs        = pairs
+local type         = type
+
 -- ---------------------------------------------------------------------------
 -- Register / unregister
 -- ---------------------------------------------------------------------------
@@ -33,7 +38,7 @@ function Events:Register(frameName, event, fn, handlerId)
     if handlerId then
         Events[event].Handlers[handlerId] = fn
     else
-        table.insert(Events[event].Handlers, fn)
+        table_insert(Events[event].Handlers, fn)
     end
 end
 
