@@ -25,7 +25,6 @@ EditBox.Overlay            = nil
 EditBox.OverlayEdit        = nil
 EditBox.ChannelLabel       = nil
 EditBox.LabelBg            = nil
-EditBox._isStorytellerMode  = false
 
 -- State.
 EditBox.HookedBoxes        = {}
@@ -77,7 +76,6 @@ function EditBox:AddReplyTarget(name, kind)
         table.remove(self.ReplyQueue)
     end
 end
-
 
 -- Get next reply target given current name and direction.
 -- Behaviour: if current equals queue front, advance by direction (wrap).
@@ -238,8 +236,9 @@ function EditBox:OpenBlizzardChat()
     BypassEditBox = eb and eb.GetName and eb:GetName() or nil
 
     -- Ensure any overlay state is handed off and saved first.
+    -- Pass true (silent) so users bypassing intentionally don't see the lockdown message.
     if self.Overlay and self.Overlay:IsShown() then
-        self:HandoffToBlizzard()
+        self:HandoffToBlizzard(true)
     end
 
     -- Defer the actual opening to the next frame so our Show-hook
@@ -524,7 +523,7 @@ function EditBox:DetachBlizzardSkinProxy()
 end
 
 -- Perform one-pass visual refresh (fills, anchors, colours, border). `pad` is 0 or overlay.BorderPad; call only from ShowOverlay/ApplyConfigToLiveOverlay.
-local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad, forceStorytellerTheme)
+local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local overlay = editBox.Overlay
     local labelBg = editBox.LabelBg
     local edit    = editBox.OverlayEdit
@@ -537,15 +536,6 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad, forceStory
     local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
     local rounded     = cfg.RoundedCorners == true
     local shadow      = cfg.Shadow == true
-    local useBlizzSkin = cfg.UseBlizzardSkinProxy == true
-
-    -- [NEW] Theme Snapping Constraint
-    if forceStorytellerTheme then
-        activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme("Yapper Default")
-        useBlizzSkin = false
-        shadow = false
-        -- We explicitly leave rounded as config.RoundedCorners to respect user choice
-    end
 
     if activeTheme then
         if activeTheme.allowRoundedCorners == false then rounded = false end
@@ -553,7 +543,7 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad, forceStory
     end
 
     -- Blizzard skin proxy overrides visual customizations
-    if useBlizzSkin then
+    if cfg.UseBlizzardSkinProxy == true then
         rounded = false
         shadow = false
     end
@@ -1851,7 +1841,7 @@ function EditBox:Show(origEditBox)
         local activeThemeOnShow = YapperTable.Theme and YapperTable.Theme:GetTheme()
         local borderOnShow      = activeThemeOnShow and activeThemeOnShow.border == true
         local padOnShow         = (borderOnShow and overlay.BorderPad) or 0
-        RefreshOverlayVisuals(self, cfg, borderOnShow, padOnShow, self._isStorytellerMode)
+        RefreshOverlayVisuals(self, cfg, borderOnShow, padOnShow)
     end
 
     -- Final setup
@@ -1963,7 +1953,7 @@ function EditBox:Hide()
 end
 
 --- Save draft, close overlay, and notify during lockdown.
-function EditBox:HandoffToBlizzard()
+function EditBox:HandoffToBlizzard(silent)
     if not self.Overlay or not self.Overlay:IsShown() then
         YapperTable.Utils:DebugPrint("HandoffToBlizzard called but overlay hidden. Skipping.")
         return
@@ -1996,8 +1986,10 @@ function EditBox:HandoffToBlizzard()
     self:Hide()
 
     self._lockdownHandedOff = true
-    YapperTable.Utils:Print("info",
-        "Chat in lockdown — your post has been saved. Press Enter after lockdown ends to continue.")
+    if not silent then
+        YapperTable.Utils:Print("info",
+            "Chat in lockdown — your post has been saved. Press Enter after lockdown ends to continue.")
+    end
 
     -- Cancel the polling ticker if one is running.
     if self._lockdownTicker then
@@ -2092,7 +2084,7 @@ function EditBox:ApplyConfigToLiveOverlay(force)
 
     -- Single-pass visual refresh (fills, anchors, text colour, border)
     local pad = (borderActive and self.Overlay.BorderPad) or 0
-    RefreshOverlayVisuals(self, cfg, borderActive, pad, self._isStorytellerMode)
+    RefreshOverlayVisuals(self, cfg, borderActive, pad)
 
     self:RefreshLabel()
     localConf.System.SettingsHaveChanged = false
@@ -2916,254 +2908,4 @@ end
 --- Used by Queue to consume hardware events for send continuation.
 function EditBox:SetPreShowCheck(fn)
     self.PreShowCheck = fn
-end
-
--- ---------------------------------------------------------------------------
--- Storyteller Mode (Multi-line)
--- ---------------------------------------------------------------------------
-
--- Helper to safely acquire pooled buttons
-local function GetStorytellerButton(label, onClick)
-    -- Using the agreed upon Interface pool
-    local btn = YapperTable.Interface:AcquireWidget("Button", EditBox.Overlay)
-    btn:SetText(label)
-    btn:SetScript("OnClick", onClick)
-    return btn
-end
-
-function EditBox:EnterStorytellerMode()
-    if self._isStorytellerMode then return end
-    self._isStorytellerMode = true
-
-    local config = YapperTable.Config.EditBox
-    local targetWidth = config.StorytellerWidth or 400
-    local targetHeight = config.StorytellerHeight or 250
-
-    -- 1. Enable Multiline on the existing EditBox widget
-    self.OverlayEdit:SetMultiLine(true)
-    self.OverlayEdit:SetMaxBytes(99999) -- Allow massive drafts
-
-    -- 2. Apply Theme Snapping (true = force storyteller theme)
-    self:ApplyConfigToLiveOverlay(true)
-
-    -- 3. Quadrant Math (X & Y Awareness)
-    local screenW = UIParent:GetWidth()
-    local screenH = UIParent:GetHeight()
-    -- Get the centre of the original Blizzard box, not the overlay, to anchor perfectly
-    local editX, editY = self.OrigEditBox:GetCenter()
-
-    local isOnRightHalf = (editX or (screenW / 2)) > (screenW / 2)
-    local isOnTopHalf = (editY or (screenH / 2)) > (screenH / 2)
-
-    -- Determine anchors to push away from the chat frame and towards screen centre
-    local overlayPoint, parentPoint
-    local gripPoint, gripSizeDir
-    local texU1, texU2, texV1, texV2 -- Texture flipping coordinates
-
-    if isOnTopHalf then
-        if isOnRightHalf then
-            -- Top-Right Quadrant: Expand DOWN and LEFT
-            overlayPoint = "TOPRIGHT"
-            parentPoint = "BOTTOMRIGHT"
-            gripPoint = "BOTTOMLEFT"
-            gripSizeDir = "BOTTOMLEFT"
-            texU1, texU2, texV1, texV2 = 1, 0, 0, 1 -- Flip horizontally
-        else
-            -- Top-Left Quadrant: Expand DOWN and RIGHT
-            overlayPoint = "TOPLEFT"
-            parentPoint = "BOTTOMLEFT"
-            gripPoint = "BOTTOMRIGHT"
-            gripSizeDir = "BOTTOMRIGHT"
-            texU1, texU2, texV1, texV2 = 0, 1, 0, 1 -- Default (Bottom Right)
-        end
-    else
-        if isOnRightHalf then
-            -- Bottom-Right Quadrant: Expand UP and LEFT
-            overlayPoint = "BOTTOMRIGHT"
-            parentPoint = "TOPRIGHT"
-            gripPoint = "TOPLEFT"
-            gripSizeDir = "TOPLEFT"
-            texU1, texU2, texV1, texV2 = 1, 0, 1, 0 -- Flip both (horizontal & vertical)
-        else
-            -- Bottom-Left Quadrant (Standard): Expand UP and RIGHT
-            overlayPoint = "BOTTOMLEFT"
-            parentPoint = "TOPLEFT"
-            gripPoint = "TOPRIGHT"
-            gripSizeDir = "TOPRIGHT"
-            texU1, texU2, texV1, texV2 = 0, 1, 1, 0 -- Flip vertically
-        end
-    end
-
-    -- 4. Apply Anchors and Clamping
-    self.Overlay:ClearAllPoints()
-    -- We add a 2px offset on the Y axis to give the chat frame breathing room
-    local yOffset = isOnTopHalf and -2 or 2
-    self.Overlay:SetPoint(overlayPoint, self.OrigEditBox, parentPoint, 0, yOffset)
-
-    -- The magic bullet: WoW will physically prevent this frame from leaving the monitor
-    self.Overlay:SetClampedToScreen(true)
-
-    -- 5. Animate Sizing (Omni-directional)
-    local slideSpeed = YapperTable.Config.System.StorytellerSlideSpeed or 0.3
-    local startW, startH = self.Overlay:GetSize()
-    local startTime = GetTime()
-
-    self.Overlay:SetScript("OnUpdate", function(frame)
-        local fraction = (GetTime() - startTime) / slideSpeed
-        if fraction >= 1 then
-            frame:SetSize(targetWidth, targetHeight)
-            frame:SetScript("OnUpdate", nil)
-            EditBox:BuildStorytellerControls(gripPoint) -- Pass the grip point to arrange buttons
-        else
-            local ease = 1 - (1 - fraction) * (1 - fraction)
-            frame:SetSize(
-                startW + (targetWidth - startW) * ease,
-                startH + (targetHeight - startH) * ease
-            )
-        end
-
-        -- [NEW] Force spellcheck redraw during animation for smooth re-flow
-        if YapperTable.Spellcheck and YapperTable.Spellcheck.RedrawUnderlines then
-            YapperTable.Spellcheck:RedrawUnderlines()
-        end
-    end)
-
-    -- 6. Enable Manual Resizing (Smart Grip)
-    self.Overlay:SetResizable(true)
-    self.Overlay:SetResizeBounds(300, 150, 800, 800)
-
-    -- [NEW] Force spellcheck redraw during manual resize
-    self.Overlay:SetScript("OnSizeChanged", function()
-        if YapperTable.Spellcheck and YapperTable.Spellcheck.RedrawUnderlines then
-            YapperTable.Spellcheck:RedrawUnderlines()
-        end
-    end)
-
-    if not self.ResizeGrip then
-        self.ResizeGrip = CreateFrame("Button", nil, self.Overlay)
-        self.ResizeGrip:SetSize(16, 16)
-        self.ResizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-        self.ResizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-        self.ResizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-    end
-
-    -- Position the grip on the floating corner
-    self.ResizeGrip:ClearAllPoints()
-    local gripX = (gripPoint == "BOTTOMLEFT" or gripPoint == "TOPLEFT") and 2 or -2
-    local gripY = (gripPoint == "TOPLEFT" or gripPoint == "TOPRIGHT") and -2 or 2
-    self.ResizeGrip:SetPoint(gripPoint, self.Overlay, gripPoint, gripX, gripY)
-
-    -- Apply the 4-way texture mirroring
-    self.ResizeGrip:GetNormalTexture():SetTexCoord(texU1, texU2, texV1, texV2)
-    self.ResizeGrip:GetHighlightTexture():SetTexCoord(texU1, texU2, texV1, texV2)
-    self.ResizeGrip:GetPushedTexture():SetTexCoord(texU1, texU2, texV1, texV2)
-
-    self.ResizeGrip:SetScript("OnMouseDown", function()
-        self.Overlay:StartSizing(gripSizeDir)
-    end)
-
-    self.ResizeGrip:SetScript("OnMouseUp", function()
-        self.Overlay:StopMovingOrSizing()
-        local newW, newH = self.Overlay:GetSize()
-        YapperTable.Config.EditBox.StorytellerWidth = newW
-        YapperTable.Config.EditBox.StorytellerHeight = newH
-        _G.YapperDB.EditBox.StorytellerWidth = newW
-        _G.YapperDB.EditBox.StorytellerHeight = newH
-    end)
-
-    self.ResizeGrip:Show()
-
-    -- 7. Session Hint
-    if config.StorytellerShowHint and not config._multilineHintShown then
-        config._multilineHintShown = true
-        if YapperTable.Utils and YapperTable.Utils.Print then
-            YapperTable.Utils:Print("info", "Storyteller Mode: Press Shift+Enter for new lines. Send All will isolate paragraphs.")
-        end
-    end
-end
-
-function EditBox:BuildStorytellerControls(gripPoint)
-    -- Acquire widgets from the pool
-    self.BtnMinimise = GetStorytellerButton("Minimise", function()
-        EditBox:ExitStorytellerMode()
-    end)
-    self.BtnSend = GetStorytellerButton("Send", function()
-        -- Trigger normal send
-        EditBox:OnEnterPressed(false)
-    end)
-    self.BtnSendAll = GetStorytellerButton("Send All", function()
-        -- Trigger chunked send with paragraph isolation
-        EditBox:OnEnterPressed(true)
-    end)
-
-    -- Position them logically. We typically want them at the bottom.
-    -- If the grip is at a bottom corner, we anchor relative to it.
-    -- If the grip is at the top, we just anchor to the bottom edge.
-    self.BtnMinimise:ClearAllPoints()
-    self.BtnSendAll:ClearAllPoints()
-    self.BtnSend:ClearAllPoints()
-
-    self.BtnMinimise:SetPoint("BOTTOMLEFT", self.Overlay, "BOTTOMLEFT", 10, 10)
-
-    if gripPoint == "BOTTOMRIGHT" or gripPoint == "BOTTOMLEFT" then
-        -- Anchor relative to the grip to avoid overlap
-        local side = (gripPoint == "BOTTOMRIGHT") and "LEFT" or "RIGHT"
-        local xOff = (gripPoint == "BOTTOMRIGHT") and -5 or 5
-        self.BtnSendAll:SetPoint("BOTTOM" .. (gripPoint:sub(7)), self.ResizeGrip, "BOTTOM" .. side, xOff, 0)
-    else
-        -- Grip is at the top; anchor buttons to the bottom-right corner of the overlay
-        self.BtnSendAll:SetPoint("BOTTOMRIGHT", self.Overlay, "BOTTOMRIGHT", -10, 10)
-    end
-
-    self.BtnSend:SetPoint("RIGHT", self.BtnSendAll, "LEFT", -5, 0)
-end
-
-function EditBox:ExitStorytellerMode()
-    if not self._isStorytellerMode then return end
-    self._isStorytellerMode = false
-
-    -- Release buttons back to the pool
-    if self.BtnMinimise then YapperTable.Interface:ReleaseWidget(self.BtnMinimise) end
-    if self.BtnSend then YapperTable.Interface:ReleaseWidget(self.BtnSend) end
-    if self.BtnSendAll then YapperTable.Interface:ReleaseWidget(self.BtnSendAll) end
-    if self.ResizeGrip then self.ResizeGrip:Hide() end
-
-    -- Revert EditBox properties
-    self.OverlayEdit:SetMultiLine(false)
-    self.OverlayEdit:SetMaxBytes(255) -- Back to standard limit
-
-    -- Save draft if needed
-    self._multilineBuffer = self.OverlayEdit:GetText()
-    -- Flatten text for single-line view
-    local flatText = string.gsub(self._multilineBuffer, "\n", " ")
-    self.OverlayEdit:SetText(flatText)
-
-    -- Animate back to single line size
-    local startW, startH = self.Overlay:GetSize()
-    -- Assuming your default single-line height is roughly 32 and width is chat frame width
-    local targetW = self.OrigEditBox and self.OrigEditBox:GetWidth() or 200
-    local targetH = 32
-    local slideSpeed = YapperTable.Config.System.StorytellerSlideSpeed or 0.3
-    local startTime = GetTime()
-
-    self.Overlay:SetScript("OnUpdate", function(frame)
-        local fraction = (GetTime() - startTime) / slideSpeed
-        if fraction >= 1 then
-            frame:SetSize(targetW, targetH)
-            frame:SetScript("OnUpdate", nil)
-            -- Remove Theme Snap constraint
-            EditBox:ApplyConfigToLiveOverlay(true)
-        else
-            local ease = 1 - (1 - fraction) * (1 - fraction)
-            frame:SetSize(
-                startW + (targetW - startW) * ease,
-                startH + (targetH - startH) * ease
-            )
-        end
-
-        -- [NEW] Force spellcheck redraw during animation for smooth re-flow
-        if YapperTable.Spellcheck and YapperTable.Spellcheck.RedrawUnderlines then
-            YapperTable.Spellcheck:RedrawUnderlines()
-        end
-    end)
 end
