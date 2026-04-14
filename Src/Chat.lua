@@ -196,7 +196,7 @@ end
 
 --- Send a single message through Router (or raw fallback).
 function Chat:DirectSend(msg, chatType, language, target)
-    -- [YALLM] Adaptive Learning Hook
+    -- Record outgoing message for adaptive learning
     if YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM then
         local YALLM = YapperTable.Spellcheck.YALLM
         YALLM:RecordUsage(msg)
