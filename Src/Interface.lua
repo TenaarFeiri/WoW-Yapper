@@ -2652,7 +2652,7 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
 
             local child = self:AcquireWidget("YALLMTableScrollChild", sf, nil, "Frame")
             child:SetSize(500, totalContentHeight)
-            child:SetPoint("TOPLEFT", sf, "TOPLEFT", 0, 0) -- [FIX] Anchor the child so it's visible
+            child:SetPoint("TOPLEFT", sf, "TOPLEFT", 0, 0)
             sf:SetScrollChild(child)
 
             sf:EnableMouseWheel(true)
