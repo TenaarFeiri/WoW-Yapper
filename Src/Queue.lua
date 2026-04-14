@@ -12,6 +12,18 @@ local YapperName, YapperTable = ...
 local Queue = {}
 YapperTable.Queue = Queue
 
+-- Localise Lua globals for performance
+local table_insert = table.insert
+local table_remove = table.remove
+local math_max     = math.max
+local math_min     = math.min
+local type     = type
+local pairs    = pairs
+local ipairs   = ipairs
+local tostring = tostring
+local select   = select
+local GetTime  = GetTime
+
 local POLICY_CLASS = {
     OPEN_WORLD_LOCAL = "OPEN_WORLD_LOCAL",
     INSTANCE_LOCAL   = "INSTANCE_LOCAL",
@@ -381,7 +393,7 @@ function Queue:SendNext(inHardwareEvent)
         return
     end
 
-    entry = table.remove(self.Entries, 1)
+    entry = table_remove(self.Entries, 1)
     self:BeginEntry(entry)
 end
 
@@ -445,7 +457,7 @@ function Queue:RawSend(entry)
         -- Treat a declined/failed send as a stall. Re-queue the entry and
         -- prompt rather than tight-loop retrying.
         if self.PendingEntry then
-            table.insert(self.Entries, 1, self.PendingEntry)
+            table_insert(self.Entries, 1, self.PendingEntry)
             self.PendingEntry = nil
             self:ClearPendingAck()
         end
@@ -561,7 +573,7 @@ function Queue:OnStallTimeout()
 
     if not self.PendingEntry then return end
     local entry = self.PendingEntry
-    table.insert(self.Entries, 1, entry)
+    table_insert(self.Entries, 1, entry)
     self.PendingEntry = nil
     self:ClearPendingAck()
     self:ShowContinuePrompt()
@@ -657,7 +669,7 @@ function Queue:ShowContinuePrompt()
         local face  = cfg.FontFace or baseFace
         local size  = (cfg.FontSize and cfg.FontSize > 0) and cfg.FontSize or baseSize
         local flags = (cfg.FontFlags and cfg.FontFlags ~= "") and cfg.FontFlags or (baseFlags or "")
-        size = math.max(10, math.min(size, 24))
+        size = math_max(10, math_min(size, 24))
         f.text:SetFont(face, size, flags)
     end
 

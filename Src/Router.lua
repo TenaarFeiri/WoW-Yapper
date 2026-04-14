@@ -16,6 +16,12 @@ local _, YapperTable = ...
 local Router = {}
 YapperTable.Router = Router
 
+-- Localise Lua globals for performance
+local string_lower = string.lower
+local type     = type
+local tostring = tostring
+local tonumber = tonumber
+
 -- Raw Blizzard send functions (set during Init).
 Router.SendChatMessage = nil
 Router.BNSendWhisper   = nil
@@ -31,9 +37,9 @@ end
 
 local function MatchesBnetNeedle(needle, accountName, battleTag, toonName, characterName)
     if not needle then return false end
-    local lowerNeedle = string.lower(needle)
+    local lowerNeedle = string_lower(needle)
     local function eq(value)
-        return value and string.lower(value) == lowerNeedle
+        return value and string_lower(value) == lowerNeedle
     end
 
     if eq(accountName) or eq(battleTag) or eq(toonName) or eq(characterName) then
@@ -42,7 +48,7 @@ local function MatchesBnetNeedle(needle, accountName, battleTag, toonName, chara
 
     if battleTag then
         local base = battleTag:match("^([^#]+)")
-        if base and string.lower(base) == lowerNeedle then
+        if base and string_lower(base) == lowerNeedle then
             return true
         end
     end
