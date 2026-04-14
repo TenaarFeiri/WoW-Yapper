@@ -23,6 +23,9 @@ local string_byte = string.byte
 local string_lower = string.lower
 local string_gsub = string.gsub
 local string_upper = string.upper
+local string_match = string.match
+local string_char = string.char
+local string_format = string.format
 local type = type
 local ipairs = ipairs
 local pairs = pairs
@@ -166,16 +169,32 @@ local KB_LAYOUTS = {
 
 -- Build a flat 676-entry distance lookup indexed by (b1-97)*26 + (b2-97) + 1
 -- where b1,b2 are byte values of lowercase a-z. Called once per layout change.
+
+function Spellcheck:Init(threads)
+    -- Ensure distance buffers are pre-allocated to avoid first-run stalls/nils
+    if not self._ed_prev then self._ed_prev = {} end
+    if not self._ed_cur then self._ed_cur = {} end
+    if not self._ed_prev_prev then self._ed_prev_prev = {} end
+
+    -- Ensure YALLM is initialized and hooks its SavedVariables
+    if self.YALLM and self.YALLM.Init then
+        self.YALLM:Init()
+    end
+
+    -- Apply initial state based on current config
+    self:ApplyState()
+end
+
 local function BuildKBDistTable(layoutName)
     local coords = KB_LAYOUTS[layoutName] or KB_LAYOUTS.QWERTY
     local tbl = {}
     -- Pre-fill with a large sentinel so missing keys return high distance
     for i = 1, 676 do tbl[i] = 99 end
     for ch1 = 97, 122 do
-        local c1 = coords[string.char(ch1)]
+        local c1 = coords[string_char(ch1)]
         if c1 then
             for ch2 = 97, 122 do
-                local c2 = coords[string.char(ch2)]
+                local c2 = coords[string_char(ch2)]
                 if c2 then
                     local dx = c1[1] - c2[1]
                     local dy = c1[2] - c2[2]
@@ -344,7 +363,7 @@ function Spellcheck:RegisterDictionary(locale, data)
 
     local cfg = YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck or {}
     local ngramKeyCapSize = (cfg.NgramKeyCapSize ~= nil) and tonumber(cfg.NgramKeyCapSize) or 0
-    if ngramKeyCapSize == 0 then ngramKeyCapSize = math.huge end
+    if ngramKeyCapSize == 0 then ngramKeyCapSize = math_huge end
 
     -- Handle Inheritance (Base + Delta)
     if data.extends then
@@ -429,7 +448,7 @@ function Spellcheck:RegisterDictionary(locale, data)
         -- Build n-gram postings inline using vowel-neutral normalisation
         local norm = NormaliseVowels(w)
         local n2, n3 = 2, 3
-        
+
         -- Bigram Index (N=2)
         if #norm >= n2 then
             dict.ngramIndex2 = dict.ngramIndex2 or {}
@@ -442,7 +461,7 @@ function Spellcheck:RegisterDictionary(locale, data)
                 end
             end
         end
-        
+
         -- Trigram Index (N=3)
         if #norm >= n3 then
             dict.ngramIndex3 = dict.ngramIndex3 or {}
@@ -556,10 +575,19 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
     local cfg = self:GetConfig()
     local isActiveLocale = cfg and cfg.Locale == locale
     if isActiveLocale then
+        -- Handle Metatable inheritance for count (show the user the unified total)
+        local totalCount = count
+        if dict and dict.extends then
+            local base = self.Dictionaries[dict.extends]
+            if base and base.words then
+                totalCount = totalCount + #base.words
+            end
+        end
+
         if YapperTable.Utils and YapperTable.Utils.Print then
-            YapperTable.Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(count)))
+            YapperTable.Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(totalCount)))
         else
-            self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(count) .. " words).")
+            self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(totalCount) .. " words).")
         end
     end
 
@@ -588,7 +616,7 @@ function Spellcheck:GetAvailableLocales()
     for locale in pairs(self.Dictionaries) do
         out[#out + 1] = locale
     end
-    table.sort(out)
+    table_sort(out)
     return out
 end
 
@@ -882,7 +910,7 @@ function Spellcheck:AddUserWord(locale, word)
     dict.AddedWords[#dict.AddedWords + 1] = word
     for i = #dict.IgnoredWords, 1, -1 do
         if NormaliseWord(dict.IgnoredWords[i]) == norm then
-            table.remove(dict.IgnoredWords, i)
+            table_remove(dict.IgnoredWords, i)
         end
     end
     self:TouchUserDict(dict)
@@ -901,7 +929,7 @@ function Spellcheck:IgnoreWord(locale, word)
     dict.IgnoredWords[#dict.IgnoredWords + 1] = word
     for i = #dict.AddedWords, 1, -1 do
         if NormaliseWord(dict.AddedWords[i]) == norm then
-            table.remove(dict.AddedWords, i)
+            table_remove(dict.AddedWords, i)
         end
     end
     self:TouchUserDict(dict)
@@ -990,14 +1018,21 @@ function Spellcheck:Bind(editBox, overlay)
 end
 
 function Spellcheck:PurgeOtherDictionaries(keepLocale)
+    -- Identify and protect the base dictionary if the keepLocale depends on it.
+    local keepBase = nil
+    if self.Dictionaries and self.Dictionaries[keepLocale] then
+        keepBase = self.Dictionaries[keepLocale].extends
+    end
+
     if self.Dictionaries then
         for locale, dict in pairs(self.Dictionaries) do
-            if locale ~= keepLocale then
+            if locale ~= keepLocale and locale ~= keepBase then
                 -- Scrub internal tables first to reduce capacity before nil-ing
                 dict.words = { "." }
                 dict.set = {}
                 dict.index = {}
-                dict.ngramIndex = {}
+                dict.ngramIndex2 = {}
+                dict.ngramIndex3 = {}
 
                 self.Dictionaries[locale] = nil
             end
@@ -1005,11 +1040,53 @@ function Spellcheck:PurgeOtherDictionaries(keepLocale)
     end
     if self._asyncLoaders then
         for locale, loader in pairs(self._asyncLoaders) do
-            if locale ~= keepLocale then
+            if locale ~= keepLocale and locale ~= keepBase then
                 loader.cancelled = true
                 self._asyncLoaders[locale] = nil
             end
         end
+    end
+end
+
+--- Completely purge all dictionary data from memory.
+function Spellcheck:UnloadAllDictionaries(purgeNow)
+    if self.Dictionaries then
+        for locale, dict in pairs(self.Dictionaries) do
+            if type(dict) == "table" then
+                -- Scrub internal tables to break references immediately
+                dict.words = nil
+                dict.set = nil
+                dict.index = nil
+                dict.ngramIndex2 = nil
+                dict.ngramIndex3 = nil
+            end
+            self.Dictionaries[locale] = nil
+        end
+    end
+
+    -- Cancel all background loading tasks
+    if self._asyncLoaders then
+        for locale, loader in pairs(self._asyncLoaders) do
+            loader.cancelled = true
+            self._asyncLoaders[locale] = nil
+        end
+    end
+
+    -- Clear caches
+    self.UserDictCache = {}
+    
+    -- Hidden internal suggestion state
+    self._lastSuggestionsText = nil
+    self._lastSuggestionsLocale = nil
+    self.ActiveSuggestions = nil
+    
+    -- Cleanup UI state
+    self:ClearUnderlines()
+    if self.SuggestionFrame then self.SuggestionFrame:Hide() end
+    if self.HintFrame then self.HintFrame:Hide() end
+
+    if purgeNow then
+        collectgarbage("collect")
     end
 end
 
@@ -1025,6 +1102,11 @@ function Spellcheck:ApplyState(enabled, locale)
         if not self:EnsureLocale(locale) then
             return false
         end
+    else
+        -- When disabled, we don't automatically unload (user might just be toggling).
+        -- The explicit "Unload" is handled by the UI popup or manual call.
+        self:ClearUnderlines()
+        if self.SuggestionFrame then self.SuggestionFrame:Hide() end
     end
     self:ScheduleRefresh()
     return true
@@ -1039,7 +1121,7 @@ function Spellcheck:OnTextChanged(editBox, isUserInput)
     if isUserInput then
         self._textChangedFlag = true
         self._lastTypingTime = GetTime()
-        
+
         -- Peek at the last character to detect word boundaries.
         -- If the user just hit space or punctuation, we fire immediately.
         local text = editBox:GetText() or ""
@@ -1145,8 +1227,6 @@ function Spellcheck:EnsureMeasureFontString()
     hiddenFrame:SetSize(1, 1)
     hiddenFrame:Hide()
     local fs = hiddenFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-    fs:SetWordWrap(true)
-    fs:SetJustifyH("LEFT")
     fs:SetJustifyV("TOP")
     self.MeasureFS = fs
 end
@@ -1491,6 +1571,7 @@ function Spellcheck:OpenOrCycleSuggestions()
 
     self.ActiveSuggestions = suggestions
     self.ActiveIndex = 1
+    self._suggestionOffset = 0 -- Reset pagination offset for new word
     self:ShowSuggestions()
 end
 
@@ -1498,9 +1579,35 @@ function Spellcheck:ShowSuggestions()
     if not self.SuggestionFrame then return end
     if not self.ActiveSuggestions then return end
 
+    -- Snapshot ActiveSuggestions so ResolveImplicitTrace can record rejections
+    -- if the user bypasses all suggestions and manually retypes the word.
+    if self.ActiveWord and self.ActiveRange then
+        self._implicitTrace = {
+            word        = self.ActiveWord,
+            startPos    = self.ActiveRange.startPos,
+            endPos      = self.ActiveRange.endPos,
+            suggestions = self.ActiveSuggestions,
+        }
+    end
+
+    local total = #self.ActiveSuggestions
+    local offset = self._suggestionOffset or 0
+
+    -- Smart Pagination: If we have room to fit exactly 6 items without
+    -- needing a "More" row, do so.
+    local pageRows = MAX_SUGGESTION_ROWS - 1 -- Default: save row 6 for pagination
+    if total <= MAX_SUGGESTION_ROWS and offset == 0 then
+        pageRows = MAX_SUGGESTION_ROWS
+    end
+
+    local hasMore = total > (offset + pageRows)
+
     -- If the suggestion frame is already visible and the suggestions
     -- haven't changed, skip updating to avoid per-frame work and debug spam.
-    if self.SuggestionFrame:IsShown() and self._lastShownSuggestions and self:SuggestionsEqual(self.ActiveSuggestions, self._lastShownSuggestions) then
+    -- Bypassed when offset changed so pagination refreshes.
+    if self.SuggestionFrame:IsShown() and self._lastShownSuggestions and
+        self:SuggestionsEqual(self.ActiveSuggestions, self._lastShownSuggestions) and
+        self._lastShownOffset == offset then
         return
     end
 
@@ -1511,7 +1618,6 @@ function Spellcheck:ShowSuggestions()
     self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x, 4)
 
     local fontSize = 10
-    local editBox = self.EditBox
     if editBox and editBox.GetFont then
         local _, sz = editBox:GetFont()
         if sz then fontSize = sz end
@@ -1519,37 +1625,81 @@ function Spellcheck:ShowSuggestions()
     local rowHeight = math_max(18, fontSize + 4)
 
     local maxWidth = 160
-    for i = 1, #self.SuggestionRows do
+    local visibleRows = 0
+
+    for i = 1, MAX_SUGGESTION_ROWS do
         local row = self.SuggestionRows[i]
         self:ApplyOverlayFont(row._fs)
-
         row:ClearAllPoints()
         row:SetSize(maxWidth, rowHeight)
         row:SetPoint("TOPLEFT", self.SuggestionFrame, "TOPLEFT", 6, -6 - ((i - 1) * rowHeight))
 
-        local entry = self.ActiveSuggestions[i]
-        if entry then
-            row._fs:SetText(self:FormatSuggestionLabel(entry, i))
-            row:Show()
-            local w = row._fs:GetStringWidth() + 30
-            if w > maxWidth then maxWidth = w end
-        else
-            row:Hide()
+        if i <= pageRows then
+            -- Regular Suggestion
+            local sugIndex = offset + i
+            local entry = self.ActiveSuggestions[sugIndex]
+            if entry then
+                row._fs:SetText(self:FormatSuggestionLabel(entry, i))
+                row:Show()
+                visibleRows = i
+                local w = row._fs:GetStringWidth() + 30
+                if w > maxWidth then maxWidth = w end
+            else
+                row:Hide()
+            end
+        elseif i == MAX_SUGGESTION_ROWS then
+            -- Pagination Row (Row 6)
+            if hasMore or offset > 0 then
+                row:Show()
+                visibleRows = i
+                if hasMore then
+                    row._fs:SetText("|cffbbbbbb" .. i .. ". More Suggestions »|r")
+                else
+                    row._fs:SetText("|cffbbbbbb" .. i .. ". « Back to Top|r")
+                end
+                local w = row._fs:GetStringWidth() + 30
+                if w > maxWidth then maxWidth = w end
+            else
+                row:Hide()
+            end
         end
     end
 
-    for i = 1, #self.SuggestionRows do
+    for i = 1, MAX_SUGGESTION_ROWS do
         self.SuggestionRows[i]:SetWidth(maxWidth)
     end
 
-    local visibleCount = math_min(#self.ActiveSuggestions, #self.SuggestionRows)
-    self.SuggestionFrame:SetSize(maxWidth + 10, (visibleCount * rowHeight) + 12)
+    self.SuggestionFrame:SetSize(maxWidth + 10, (visibleRows * rowHeight) + 12)
     self:RefreshSuggestionSelection()
+
     if self.SuggestionClickCatcher then
         self.SuggestionClickCatcher:Show()
     end
     self.SuggestionFrame:Show()
     self._lastShownSuggestions = self.ActiveSuggestions
+    self._lastShownOffset = offset
+end
+
+function Spellcheck:NextSuggestionsPage()
+    if not self.ActiveSuggestions then return end
+
+    -- Record that the current suggestion page was skipped
+    if self.YALLM and self.YALLM.RecordRejection and self.ActiveWord then
+        local offset = self._suggestionOffset or 0
+        local rejected = {}
+        for i = offset + 1, math_min(offset + 5, #self.ActiveSuggestions) do
+            table.insert(rejected, self.ActiveSuggestions[i])
+        end
+        self.YALLM:RecordRejection(self.ActiveWord, rejected)
+    end
+
+    local total = #self.ActiveSuggestions
+    local newOffset = (self._suggestionOffset or 0) + 5
+    if newOffset >= total then
+        newOffset = 0 -- Wrap around
+    end
+    self._suggestionOffset = newOffset
+    self:ShowSuggestions()
 end
 
 function Spellcheck:HideSuggestions()
@@ -1562,12 +1712,73 @@ function Spellcheck:HideSuggestions()
     self.ActiveSuggestions = nil
     self.ActiveIndex = 1
     self._lastShownSuggestions = nil
+
+    -- Prune old learning data when the suggestion UI closes
+    if self.YALLM and self.YALLM.Prune then
+        -- Deferred so the prune runs after the frame has hidden
+        C_Timer.After(0, function()
+            self.YALLM:Prune("freq", self.YALLM:GetFreqCap())
+            self.YALLM:Prune("bias", self.YALLM:GetBiasCap())
+        end)
+    end
 end
 
 function Spellcheck:ApplySuggestion(index)
     if not self.ActiveSuggestions or not self.ActiveRange then return end
-    local entry = self.ActiveSuggestions[index]
+
+    if index == MAX_SUGGESTION_ROWS then
+        local total = #self.ActiveSuggestions
+        local offset = self._suggestionOffset or 0
+        if total > (offset + 5) or offset > 0 then
+            self:NextSuggestionsPage()
+            return
+        end
+    end
+
+    -- Clear implicit trace on explicit selection
+    self._implicitTrace = nil
+
+    local sugIndex = (self._suggestionOffset or 0) + index
+    local entry = self.ActiveSuggestions[sugIndex]
     if not entry then return end
+
+    -- Was YALLM actually helpful here?
+    local isUseful = false
+    if self.ActiveSuggestions[1] then
+        -- Find the "Natural" #1 candidate by looking for the best baseScore.
+        -- We ignore entries without a baseScore (like "Ignore word").
+        local naturalRank1 = nil
+        for i = 1, #self.ActiveSuggestions do
+            local cand = self.ActiveSuggestions[i]
+            if cand.baseScore then
+                if not naturalRank1 or cand.baseScore < naturalRank1.baseScore then
+                    naturalRank1 = cand
+                end
+            end
+        end
+
+        if naturalRank1 then
+            -- It was useful if our selected entry pushed ahead of the natural #1.
+            local selectedVal = entry.value or entry.word
+            local naturalVal = naturalRank1.value or naturalRank1.word
+
+            if selectedVal == naturalVal then
+                -- This was already the natural #1 or at least no worse.
+                isUseful = false
+            elseif entry.baseScore and entry.baseScore > naturalRank1.baseScore then
+                -- This was worse than #1 naturally, but YALLM saved it.
+                isUseful = true
+            end
+        end
+    end
+
+    -- Selection Bias Tracking
+    if self.YALLM and self.YALLM.RecordSelection then
+        local text = self.EditBox:GetText() or ""
+        local startPos, endPos = self.ActiveRange.startPos, self.ActiveRange.endPos
+        local original = text:sub(startPos, endPos)
+        self.YALLM:RecordSelection(original, entry.word, isUseful)
+    end
 
     -- Mark that a suggestion was just applied so higher-level Enter
     -- handlers can swallow the following Enter (applied via keyboard).
@@ -1636,7 +1847,7 @@ function Spellcheck:ApplySuggestion(index)
     self:HideSuggestions()
     self._textChangedFlag = true
 
-    -- [YALLM] Selection Bias Tracking
+    -- Record the accepted correction for adaptive learning
     if self.YALLM and self.YALLM.RecordSelection then
         local original = text:sub(startPos, endPos)
         self.YALLM:RecordSelection(original, replacement)
@@ -1668,7 +1879,7 @@ function Spellcheck:GetCaretXOffset()
     -- Clamp to the visible text area of the EditBox to prevent the tooltip
     -- from flying off-screen or detaching during heavy horizontal scrolling.
     local boxWidth = editBox:GetWidth() or 200
-    return math.max(leftInset, math.min(x, boxWidth - 10))
+    return math_max(leftInset, math_min(x, boxWidth - 10))
 end
 
 function Spellcheck:ApplyOverlayFont(fontString, maxSize)
@@ -1855,11 +2066,11 @@ end
 
 function Spellcheck:RedrawUnderlines()
     if not self.EditBox or not self._lastMisspellings then return end
-    
+
     local text = self.EditBox:GetText() or ""
     local scrollOffset = self:GetScrollOffset()
     self._lastScrollOffset = scrollOffset
-    
+
     self:ClearUnderlines()
     for _, item in ipairs(self._lastMisspellings) do
         self:DrawUnderline(item.startPos, item.endPos, text, scrollOffset)
@@ -1873,106 +2084,58 @@ function Spellcheck:DrawUnderline(startPos, endPos, text, scrollOffset)
     local rightInset = 0
     if self.EditBox.GetTextInsets then
         leftInset, rightInset = self.EditBox:GetTextInsets()
-        leftInset = leftInset or 0
+        leftInset  = leftInset  or 0
         rightInset = rightInset or 0
     end
 
-    local prefix = text:sub(1, startPos - 1)
-    local word = text:sub(startPos, endPos)
+    local prefix = string_sub(text, 1, startPos - 1)
+    local word   = string_sub(text, startPos, endPos)
     local x = leftInset + self:MeasureText(prefix) - (scrollOffset or 0)
     local w = self:MeasureText(word)
 
     -- Clamp to the visible text area so underlines don't escape the EditBox.
     local visibleWidth = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
 
-    -- Entirely off-screen -> skip.
     if (x + w) <= 0 or x >= visibleWidth then return end
-
-    -- Partially off the left edge -> trim.
     if x < 0 then
         w = w + x
         x = 0
     end
-    -- Partially off the right edge -> trim.
     if (x + w) > visibleWidth then
         w = visibleWidth - x
     end
     if w <= 0 then return end
 
-    -- Compute the EditBox's offset within the Overlay so we can anchor
-    -- textures to the Overlay instead of the EditBox. This avoids a
-    -- layout dependency that resets the EditBox's cursor blink timer.
-    local ebLeft = self.EditBox:GetLeft() or 0
-    local ovLeft = self.Overlay:GetLeft() or 0
+    -- Compute offsets from the UnderlineLayer (covers the Overlay) to the EditBox
+    -- text baseline.  Anchoring here avoids touching the EditBox layout, which
+    -- would reset the cursor blink timer on every keystroke.
+    local ebLeft   = self.EditBox:GetLeft()   or 0
+    local ovLeft   = self.Overlay:GetLeft()   or 0
     local ebBottom = self.EditBox:GetBottom() or 0
-    local ovTop = self.Overlay:GetTop() or 0
-    local ebTop = self.EditBox:GetTop() or 0
-    local offsetX = (ebLeft - ovLeft) + x
-    local offsetTopY = -(ovTop - ebTop) -- negative because Y grows downward in SetPoint
+    local ovTop    = self.Overlay:GetTop()    or 0
+    local ebTop    = self.EditBox:GetTop()    or 0
+    local offsetX    = (ebLeft - ovLeft) + x
+    local offsetTopY = -(ovTop - ebTop)  -- negative: Y grows downward in SetPoint
 
+    local tex   = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
-    local cfg = self:GetConfig()
-
-    -- [NEW] Sync MeasureFS to current EditBox width for accurate wrap calculation
-    local boxWidth = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
-    self.MeasureFS:SetWidth(boxWidth)
-
-    -- Calculate the Y-Offset (Vertical Drop)
-    self.MeasureFS:SetText(prefix)
-    local fullHeight = self.MeasureFS:GetStringHeight() or 14
-    local lineHeight = self.MeasureFS:GetLineHeight() or 14
-    local yOffset = -(fullHeight - lineHeight)
-
-    -- Calculate the X-Offset (Horizontal Position)
-    -- We isolate only the text on the "last" wrapped line to find the X coordinate.
-    local currentLineText = string_match(prefix, "[^\n]*$") or prefix
-    self.MeasureFS:SetText(currentLineText)
-    local cursorX = self.MeasureFS:GetStringWidth()
-
-    -- Clamp to visible area
-    local finalX = leftInset + cursorX - (scrollOffset or 0)
-    local w = self:MeasureText(word)
-
-    -- Clamp to the visible text area so underlines don't escape the EditBox.
-    local visibleWidth = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
-
-    -- Entirely off-screen -> skip.
-    if (finalX + w) <= 0 or finalX >= visibleWidth then return end
-
-    -- Partially off the left edge -> trim.
-    if finalX < 0 then
-        w = w + finalX
-        finalX = 0
-    end
-    -- Partially off the right edge -> trim.
-    if (finalX + w) > visibleWidth then
-        w = visibleWidth - finalX
-    end
-    if w <= 0 then return end
-
-    -- Compute the EditBox's offset within the Overlay
-    local ebLeft = self.EditBox:GetLeft() or 0
-    local ovLeft = self.Overlay:GetLeft() or 0
-    local ebTop = self.EditBox:GetTop() or 0
-    local ovTop = self.Overlay:GetTop() or 0
-    local offsetX = (ebLeft - ovLeft) + finalX
-    local offsetTopY = -(ovTop - ebTop) -- negative because Y grows downward in SetPoint
-
-    local tex = self:AcquireUnderline()
+    local cfg   = self:GetConfig()
 
     if style == "highlight" then
-        local height = lineHeight - 2
+        local height = (self.EditBox:GetHeight() or 20) - 6
         local c = cfg.HighlightColor or { r = 1, g = 0.18, b = 0.18, a = 0.36 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, height)
         tex:ClearAllPoints()
-        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY + yOffset - 3)
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY - 3)
     else
+        local ovBottom   = self.UnderlineLayer:GetBottom() or 0
+        local offsetBotY = ebBottom - ovBottom
         local c = cfg.UnderlineColor or { r = 1, g = 0.2, b = 0.2, a = 0.9 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, 2)
         tex:ClearAllPoints()
-        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY + yOffset - lineHeight + 1)
+        tex:SetPoint("BOTTOMLEFT", self.UnderlineLayer, "BOTTOMLEFT", offsetX, offsetBotY + 2)
     end
 
     tex:Show()
@@ -1981,8 +2144,6 @@ end
 
 function Spellcheck:EnsureUnderlineLayer()
     if self.UnderlineLayer or not self.Overlay then return end
-    -- Create a dedicated layer for underlines to prevent texture anchoring
-    -- from dirtying the Overlay layout, which resets the EditBox blink timer.
     local layer = CreateFrame("Frame", nil, self.Overlay)
     layer:SetAllPoints(self.Overlay)
     self.UnderlineLayer = layer
@@ -1990,12 +2151,9 @@ end
 
 function Spellcheck:AcquireUnderline()
     local tex = table_remove(self.UnderlinePool)
-    if tex then
-        return tex
-    end
+    if tex then return tex end
     self:EnsureUnderlineLayer()
-    tex = self.UnderlineLayer:CreateTexture(nil, "OVERLAY")
-    return tex
+    return self.UnderlineLayer:CreateTexture(nil, "OVERLAY")
 end
 
 function Spellcheck:ClearUnderlines()
@@ -2083,7 +2241,7 @@ function Spellcheck:GetIgnoredRanges(text)
         idx = e + 1
     end
 
-    -- [NEW] Ignore complete Raid Icons and custom markers
+    -- Ignore complete Raid Icons and custom markers
     local searchPos = 1
     while true do
         local s, e = text:find("{[^}]-}", searchPos)
@@ -2104,6 +2262,70 @@ function Spellcheck:IsRangeIgnored(startPos, endPos, ranges)
     return false
 end
 
+function Spellcheck:IsWordCorrect(word)
+    if not word or word == "" then return false end
+    local dict = self:GetDictionary()
+    if not dict then return false end
+
+    local norm = NormaliseWord(word)
+    local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
+
+    -- Correct if in dictionary (original or normalised) or in user-added set
+    if dict.set[norm] or dict.set[word] or (addedSet and addedSet[norm]) then
+        return true
+    end
+    -- Explicitly ignored words are treated as "correct" for learning purposes
+    if ignoredSet and ignoredSet[norm] then
+        return true
+    end
+
+    return false
+end
+
+function Spellcheck:ResolveImplicitTrace(force)
+    if not self._implicitTrace or not self.EditBox then return end
+
+    local trace = self._implicitTrace
+    local text = self.EditBox:GetText() or ""
+    local cursor = self.EditBox:GetCursorPosition() or #text
+    local caret = cursor + 1
+
+    -- If not forced, only resolve if the cursor has left the word boundaries
+    -- (accounting for potential length changes).
+    if not force then
+        -- We use a slightly generous boundary check to handle active typing
+        -- but trigger once they are clearly elsewhere.
+        if caret >= trace.startPos and caret <= (trace.endPos + 1) then
+            return -- Still inside or at boundary
+        end
+    end
+
+    -- Dynamic Resolution: Re-scan the word at the trace position to find its
+    -- current length.
+    if #text >= trace.startPos then
+        local s = trace.startPos
+        local e = s
+        while e <= #text do
+            local b = text:byte(e)
+            if not b or not IsWordByte(b) then break end
+            e = e + 1
+        end
+        e = e - 1
+
+        local currentWord = text:sub(s, e)
+        if currentWord ~= "" and currentWord ~= trace.word then
+            -- IsSaneWord guards against keyboard-smash or junk.
+            if self:IsWordCorrect(currentWord) then
+                if self.YALLM and self.YALLM.RecordImplicitCorrection then
+                    self.YALLM:RecordImplicitCorrection(trace.word, currentWord, trace.suggestions)
+                end
+            end
+        end
+    end
+
+    self._implicitTrace = nil -- Consume trace
+end
+
 function Spellcheck:UpdateActiveWord()
     if not self.EditBox then return end
 
@@ -2122,6 +2344,14 @@ function Spellcheck:UpdateActiveWord()
     end
 
     local wordInfo = self:GetWordAtCursor(text, cursor)
+
+    local wordInfo = self:GetWordAtCursor(text, cursor)
+
+    -- Implicit learning: check if the user manually corrected without using a suggestion
+    if self._implicitTrace then
+        self:ResolveImplicitTrace(false) -- Non-forced check
+    end
+
     if not wordInfo then
         self.ActiveWord = nil
         self.ActiveRange = nil
@@ -2129,15 +2359,7 @@ function Spellcheck:UpdateActiveWord()
         return
     end
 
-    local norm = NormaliseWord(wordInfo.word)
-    local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
-    if dict.set[norm] or dict.set[wordInfo.word] or (addedSet and addedSet[norm]) then
-        self.ActiveWord = nil
-        self.ActiveRange = nil
-        self:HideSuggestions()
-        return
-    end
-    if ignoredSet and ignoredSet[norm] then
+    if self:IsWordCorrect(wordInfo.word) then
         self.ActiveWord = nil
         self.ActiveRange = nil
         self:HideSuggestions()
@@ -2218,7 +2440,7 @@ function Spellcheck:GetWordAtCursor(text, cursor)
 end
 
 function Spellcheck:GetSuggestions(word)
-    -- [NEW] Intercept Raid Icons
+    -- Intercept Raid Icons
     if string_sub(word, 1, 1) == "{" then
         local suggestions = {}
         local lowerWord = string_lower(word)
@@ -2292,9 +2514,9 @@ function Spellcheck:GetSuggestions(word)
 
     if useNgram then
         local hits = {}
-        local n = lowerLen < 5 and 2 or 3 -- ADAPTIVE N-SWITCH
+        local n = lowerLen < 5 and 2 or 3 -- switch to trigrams for longer words
         local norm = NormaliseVowels(lower)
-        
+
         local function addNgramHits(node, wordsTable)
             if not node then return end
             local idx = node["ngramIndex" .. n]
@@ -2324,7 +2546,7 @@ function Spellcheck:GetSuggestions(word)
                 local lenDiff = math_abs(wLen - lowerLen)
                 -- Base score favors length similarity and hit count
                 local score = (2 * cnt) / (lowerLen + wLen) - (lenDiff * 0.1)
-                
+
                 -- First-character bias (Anchor)
                 if string_byte(w, 1) == string_byte(lower, 1) then
                     score = score + 0.5 -- Boost for N-gram list priority
@@ -2336,9 +2558,9 @@ function Spellcheck:GetSuggestions(word)
             if a.score == b.score then return a.word < b.word end
             return a.score > b.score
         end)
-        
+
         ngramCandidates = {}
-        for i = 1, math_min(#tmp, 500) do -- RELAXED POOL 500 (Inferno Gold Master)
+        for i = 1, math_min(#tmp, 500) do
             ngramCandidates[#ngramCandidates + 1] = tmp[i].word
         end
     end
@@ -2583,13 +2805,13 @@ function Spellcheck:GetSuggestions(word)
             end
         end
 
-        -- [YALLM] Personalized Learning Bonus
+        -- Apply personalised learning bonus
+        local baseScore = score
         if self.YALLM and self.YALLM.GetBonus then
-            score = score + self.YALLM:GetBonus(candidate, lower)
+            score = score + self.YALLM:GetBonus(candidate, lower, phoneticHash)
         end
 
-        -- print("DIAG: tryAdd success", candidate, "score", score) -- TEMPORARY
-        out[#out + 1] = { word = candidate, dist = dist, score = score, bag = bagScore }
+        out[#out + 1] = { word = candidate, dist = dist, score = score, baseScore = baseScore, bag = bagScore }
     end
 
     -- Prioritise candidates that share more prefix characters with the
@@ -2695,7 +2917,7 @@ function Spellcheck:GetSuggestions(word)
     end
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify(string.format(
+        self:Notify(string_format(
             "Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d", #pref2,
             #pref1,
             #other, dynamicCap, maxDist, maxLenDiff))
@@ -2825,8 +3047,12 @@ function Spellcheck:GetSuggestions(word)
     end)
 
     local final = {}
-    for i = 1, math_min(maxCount, #out) do
-        final[i] = { kind = "word", value = out[i].word }
+    -- Expose up to 3 pages of candidates (maxCount per page) so More... is useful.
+    -- The suggestion pagination system handles displaying them in groups of 5.
+    local poolSize = math_min(maxCount * 3, #out)
+    for i = 1, poolSize do
+        local o = out[i]
+        final[i] = { kind = "word", value = o.word, score = o.score, baseScore = o.baseScore }
     end
 
     -- Add optional actions at the end of the list.
