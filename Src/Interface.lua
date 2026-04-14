@@ -3,13 +3,118 @@
 ]]
 
 local YapperName, YapperTable = ...
-local Interface = {}
-YapperTable.Interface = Interface
-Interface.MouseWheelStepRate = YapperTable.Config.FrameSettings.MouseWheelStepRate or 30
-Interface.IsVisible = false
+local Interface               = {}
+YapperTable.Interface         = Interface
+Interface.MouseWheelStepRate  = YapperTable.Config.FrameSettings.MouseWheelStepRate or 30
+Interface.IsVisible           = false
+
+-- Localise Lua globals for performance
+local math_floor              = math.floor
+local math_rad                = math.rad
+local math_cos                = math.cos
+local math_sin                = math.sin
+local math_deg                = math.deg
+local math_atan2              = math.atan2 or math.atan
+local math_max                = math.max
+local math_min                = math.min
+local math_abs                = math.abs
+local string_upper            = string.upper
+local string_format           = string.format
+local table_concat            = table.concat
+local table_sort              = table.sort
+local type                    = type
+local pairs                   = pairs
+local ipairs                  = ipairs
+local tostring                = tostring
+local tonumber                = tonumber
+local select                  = select
+local tinsert                 = table.insert
+
+-- ---------------------------------------------------------------------------
+-- StaticPopups
+-- ---------------------------------------------------------------------------
+
+function Interface:InitPopups()
+    if not StaticPopupDialogs["YAPPER_CONFIRM_RESET_LEARNING"] then
+        StaticPopupDialogs["YAPPER_CONFIRM_RESET_LEARNING"] = {
+            text =
+            "Are you sure you want to permanently erase all learned typing patterns, bias corrections, and word frequencies?",
+            button1 = "Yes, Reset",
+            button2 = "Cancel",
+            OnAccept = function()
+                local yallm = YapperTable and YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+                if yallm and yallm.Reset then
+                    yallm:Reset()
+                    Interface:BuildConfigUI() -- Refresh
+                end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["YAPPER_CONFIRM_DICTIONARY_PURGE"] then
+        StaticPopupDialogs["YAPPER_CONFIRM_DICTIONARY_PURGE"] = {
+            text =
+            "Spellchecker disabled. Would you like to immediately purge the dictionary from memory (causes a brief stutter) or wait for natural collection?",
+            button1 = "Purge Now",
+            button2 = "Wait (No Stutter)",
+            OnAccept = function()
+                if YapperTable.Spellcheck and YapperTable.Spellcheck.UnloadAllDictionaries then
+                    YapperTable.Spellcheck:UnloadAllDictionaries(true)
+                end
+            end,
+            OnCancel = function()
+                if YapperTable.Spellcheck and YapperTable.Spellcheck.UnloadAllDictionaries then
+                    YapperTable.Spellcheck:UnloadAllDictionaries(false)
+                end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["YAPPER_RESET_CONFIRM"] then
+        StaticPopupDialogs["YAPPER_RESET_CONFIRM"] = {
+            text =
+            "Are you sure you want to restore all settings to their default values?  This will not affect your learned dictionary data or history.",
+            button1 = "Yes, Reset Everything",
+            button2 = "Cancel",
+            OnAccept = function()
+                Interface:ResetAllSettings()
+                Interface:BuildConfigUI()
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
+    if not StaticPopupDialogs["YAPPER_YALLM_RESET_CONFIRM"] then
+        StaticPopupDialogs["YAPPER_YALLM_RESET_CONFIRM"] = {
+            text = "Reset all YALLM adaptive learning data? This will clear your vocabulary trends and bias history.",
+            button1 = "Yes",
+            button2 = "No",
+            OnAccept = function()
+                local yallm = YapperTable and YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+                if yallm and yallm.Reset then
+                    yallm:Reset()
+                    if Interface.MainWindowFrame and Interface.MainWindowFrame:IsShown() then
+                        Interface:RefreshActivePage()
+                    end
+                end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+end
 
 -- Treat these paths as RGBA color pickers in the dynamic settings renderer.
-local COLOUR_KEYS = {
+local COLOUR_KEYS                   = {
     InputBg = true,
     LabelBg = true,
     TextColor = true,
@@ -19,7 +124,7 @@ local COLOUR_KEYS = {
     HighlightColor = true,
 }
 
-local CHANNEL_OVERRIDE_OPTIONS = {
+local CHANNEL_OVERRIDE_OPTIONS      = {
     { key = "SAY",           label = "Say" },
     { key = "YELL",          label = "Yell" },
     { key = "PARTY",         label = "Party" },
@@ -32,7 +137,7 @@ local CHANNEL_OVERRIDE_OPTIONS = {
     { key = "RAID_WARNING",  label = "Raid Warning" },
 }
 
-local CREDITS_DICTIONARIES_BUNDLED = {
+local CREDITS_DICTIONARIES_BUNDLED  = {
     { locale = "enUS", label = "English (US)", package = "dictionary-en",    license = "MIT AND BSD" },
     { locale = "enGB", label = "English (UK)", package = "dictionary-en-GB", license = "MIT AND BSD" },
 }
@@ -48,14 +153,14 @@ local CREDITS_DICTIONARIES_OPTIONAL = {
 }
 
 -- Friendly dropdown values for font outline modes.
-local FONT_OUTLINE_OPTIONS = {
+local FONT_OUTLINE_OPTIONS          = {
     { value = "",             label = "Default (None)" },
     { value = "OUTLINE",      label = "Outline" },
     { value = "THICKOUTLINE", label = "Thick Outline" },
 }
 
 -- Tooltip copy keyed by setting path / synthetic header keys.
-local SETTING_TOOLTIPS = {
+local SETTING_TOOLTIPS              = {
     ["HEADER.AUTOSAVE"] = "Settings are automatically saved; go ahead and change them!",
     ["HEADER.VIEWMODE"] =
     "Basic should be all you need but if you want a little more technical customisation, you can change some chat mechanics in advanced.",
@@ -76,6 +181,9 @@ local SETTING_TOOLTIPS = {
     ["Spellcheck.HighlightColor"] = "Change the colour of the spellcheck highlight style.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
+    ["Spellcheck.YALLMFreqCap"] = "Maximum number of unique vocabulary words YALLM tracks. Older and less-used words are pruned first when this cap is hit.",
+    ["Spellcheck.YALLMBiasCap"] = "Maximum number of typo→correction pairs stored by YALLM. Lower-utility pairs are pruned first.",
+    ["Spellcheck.YALLMAutoThreshold"] = "How many times you must send a word before YALLM automatically adds it to your personal dictionary.",
     ["Spellcheck.NgramKeyCapSize"] =
     "Maximum number of unique n-gram index keys built when loading the dictionary. Higher values improve suggestion recall for uncommon words but directly increase memory usage by roughly 1-2 MB per 10,000 extra keys. Set to 0 to remove the cap entirely (maximum accuracy, higher memory cost).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
@@ -129,7 +237,7 @@ local SETTING_TOOLTIPS = {
 }
 
 -- UI-only aliases to not scare the normies.
-local FRIENDLY_LABELS = {
+local FRIENDLY_LABELS               = {
     ["SECTION.Chat"] = "Message Sending",
     ["SECTION.EditBox"] = "Chat Input Appearance",
     ["SECTION.FrameSettings"] = "Window & Scrolling",
@@ -144,6 +252,9 @@ local FRIENDLY_LABELS = {
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
     ["Spellcheck.MaxCandidates"] = "Max word candidates checked",
+    ["Spellcheck.YALLMFreqCap"] = "Vocabulary cap",
+    ["Spellcheck.YALLMBiasCap"] = "Correction bias cap",
+    ["Spellcheck.YALLMAutoThreshold"] = "Auto-learn threshold",
     ["Spellcheck.NgramKeyCapSize"] = "N-gram key cap (0 = uncapped)",
     ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
@@ -181,7 +292,7 @@ local FRIENDLY_LABELS = {
 -- A nil/empty `paths` list means "render nothing from the schema" (the page
 -- builder can still emit custom controls).
 -- ---------------------------------------------------------------------------
-local CATEGORIES = {
+local CATEGORIES                    = {
     {
         id    = "general",
         label = "General",
@@ -260,14 +371,25 @@ local CATEGORIES = {
         custom = { "bridges", "spellcheckUserDict" },
     },
     {
-        id     = "multiline",
-        label  = "Multiline",
-        icon   = nil,
-        paths  = {
+        id    = "multiline",
+        label = "Multiline",
+        icon  = nil,
+        paths = {
             "EditBox.StorytellerAutoExpand",
             "EditBox.StorytellerShowHint",
             "System.StorytellerSlideSpeed",
         },
+    },
+    {
+        id     = "learning",
+        label  = "Adaptive Learning",
+        icon   = nil,
+        paths  = {
+            "Spellcheck.YALLMFreqCap",
+            "Spellcheck.YALLMBiasCap",
+            "Spellcheck.YALLMAutoThreshold",
+        },
+        custom = { "yallmLearning" },
     },
     {
         id     = "diagnostics",
@@ -286,7 +408,7 @@ local CATEGORIES = {
 }
 
 -- Quick lookup: path -> category id.
-local PATH_TO_CATEGORY = {}
+local PATH_TO_CATEGORY              = {}
 for _, cat in ipairs(CATEGORIES) do
     if cat.paths then
         for _, p in ipairs(cat.paths) do
@@ -394,7 +516,7 @@ end
 
 -- Convert a path array into "A.B.C" form for lookup keys.
 local function JoinPath(path)
-    return table.concat(path, ".")
+    return table_concat(path, ".")
 end
 
 -- Copy a path array so render walkers can mutate independently.
@@ -423,7 +545,7 @@ end
 -- Force font size to valid even values in our supported range.
 local function RoundToEven(value)
     value = tonumber(value) or 14
-    value = math.floor(value + 0.5)
+    value = math_floor(value + 0.5)
     if value % 2 ~= 0 then
         value = value + 1
     end
@@ -435,7 +557,7 @@ end
 -- Normalise legacy/variant font flag values into known dropdown options.
 local function NormalizeFontFlags(value)
     if type(value) ~= "string" then return "" end
-    local flags = string.upper(TrimString(value))
+    local flags = string_upper(TrimString(value))
     if flags == "" or flags == "NONE" then
         return ""
     end
@@ -674,6 +796,9 @@ function Interface:SetLocalPath(path, value)
     elseif JoinPath(path) == "FrameSettings.MinimapButtonOffset" then
         Interface:PositionMinimapButton()
     elseif JoinPath(path):match("^Spellcheck%.") then
+        if JoinPath(path) == "Spellcheck.Enabled" and normalizedValue == false then
+            StaticPopup_Show("YAPPER_CONFIRM_DICTIONARY_PURGE")
+        end
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnConfigChanged) == "function" then
             YapperTable.Spellcheck:OnConfigChanged()
         end
@@ -746,9 +871,9 @@ function Interface:PositionMinimapButton()
     local minimapCfg = self:GetMinimapButtonSettings()
     local angle = tonumber(minimapCfg.angle) or 220
     local radius = ((_G.Minimap:GetWidth() or 140) / 2) + 10 + self:GetMinimapButtonOffset()
-    local rad = math.rad(angle)
-    local x = math.cos(rad) * radius
-    local y = math.sin(rad) * radius
+    local rad = math_rad(angle)
+    local x = math_cos(rad) * radius
+    local y = math_sin(rad) * radius
     self.MinimapButton:ClearAllPoints()
     self.MinimapButton:SetPoint("CENTER", _G.Minimap, "CENTER", x, y)
 end
@@ -763,8 +888,8 @@ function Interface:UpdateMinimapButtonAngleFromCursor()
     cy = cy / scale
     local dx = cx - mx
     local dy = cy - my
-    local angleRad = (math.atan2 and math.atan2(dy, dx)) or math.atan(dy, dx)
-    local angle = math.deg(angleRad)
+    local angleRad = (math.atan2 and math_atan2(dy, dx)) or math_atan2(dy, dx)
+    local angle = math_deg(angleRad)
     local minimapCfg = self:GetMinimapButtonSettings()
     minimapCfg.angle = angle
     self:PositionMinimapButton()
@@ -927,7 +1052,7 @@ function Interface:BuildRenderSchema()
     local function walk(tbl, path)
         local keys = {}
         for key in pairs(tbl) do keys[#keys + 1] = key end
-        table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+        table_sort(keys, function(a, b) return tostring(a) < tostring(b) end)
 
         for _, key in ipairs(keys) do
             local value = tbl[key]
@@ -1108,7 +1233,7 @@ local function CreateScrollableContent(parent)
             or Interface.MouseWheelStepRate
         local cur = self:GetVerticalScroll()
         local maxv = self:GetVerticalScrollRange()
-        local nxt = math.min(maxv, math.max(0, cur - delta * step))
+        local nxt = math_min(maxv, math_max(0, cur - delta * step))
         self:SetVerticalScroll(nxt)
         if self.ScrollBar and self.ScrollBar:IsShown() then
             self.ScrollBar:SetValue(nxt)
@@ -1134,7 +1259,7 @@ local function CreateScrollBarForFrame(parent, scrollFrame)
     scrollBar:SetWidth(P.SCROLLBAR_WIDTH)
 
     local function UpdateVisibility(yRange)
-        yRange = math.max(0, yRange or 0)
+        yRange = math_max(0, yRange or 0)
         local needsScroll = yRange > 0
         scrollBar:SetMinMaxValues(0, yRange)
         scrollBar:SetShown(needsScroll)
@@ -1545,7 +1670,7 @@ function Interface:GetUIFontOffset()
 end
 
 function Interface:SetUIFontOffset(offset)
-    offset = math.max(UI_FONT_MIN_OFFSET, math.min(UI_FONT_MAX_OFFSET, offset))
+    offset = math_max(UI_FONT_MIN_OFFSET, math_min(UI_FONT_MAX_OFFSET, offset))
     self:SetLocalPath({ "FrameSettings", "UIFontOffset" }, offset)
     return offset
 end
@@ -1566,7 +1691,7 @@ function Interface:ApplyUIFontScale()
     -- Query the Blizzard base once per pass.
     local _, blizzBase = GameFontNormal:GetFont()
     blizzBase = blizzBase or 12
-    local targetSize = math.max(8, blizzBase + offset)
+    local targetSize = math_max(8, blizzBase + offset)
 
     local function scaleRegions(parent)
         for _, region in pairs({ parent:GetRegions() }) do
@@ -1592,7 +1717,7 @@ function Interface:RefreshFontScaleLabel()
     local offset = self:GetUIFontOffset()
     local _, baseSize = GameFontNormal:GetFont()
     baseSize = baseSize or 12
-    frame.FontScaleLabel:SetText(tostring(math.floor(baseSize + offset)))
+    frame.FontScaleLabel:SetText(tostring(math_floor(baseSize + offset)))
 end
 
 -- ---------------------------------------------------------------------------
@@ -1701,6 +1826,13 @@ function Interface:ReleaseWidget(widget)
         widget:SetWordWrap(false)
     end
 
+    -- ScrollingMessageFrame: reset fading and clear messages to prevent cross-page contamination.
+    if widget.widgetType == "ScrollingMessageFrame" then
+        if widget.Clear then widget:Clear() end
+        if widget.SetFading then widget:SetFading(true) end
+        if widget.SetMaxLines then widget:SetMaxLines(100) end
+    end
+
     pool[#pool + 1] = widget
 end
 
@@ -1769,7 +1901,7 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
             local bestOffset = 0
             local lo, hi = 0, offset
             for _ = 1, 8 do
-                local mid = math.floor((lo + hi) / 2 + 0.5)
+                local mid = math_floor((lo + hi) / 2 + 0.5)
                 if mid == 0 then
                     lo = 0; break
                 end
@@ -1880,7 +2012,7 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj)
         hitFrame:SetPoint("BOTTOMLEFT", fs, "BOTTOMLEFT", 0, -2)
         -- Size to actual text width so ANCHOR_RIGHT stays near the label.
         local textW = fs:GetStringWidth() or 100
-        hitFrame:SetWidth(math.min(textW + 8, width))
+        hitFrame:SetWidth(math_min(textW + 8, width))
         hitFrame:SetFrameLevel(parent:GetFrameLevel() + 6)
         hitFrame:EnableMouse(true)
         self:AttachTooltip(hitFrame, effectiveTooltip, titleLine)
@@ -2367,6 +2499,279 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     cursor:Pad(10)
 end
 
+-- ---------------------------------------------------------------------------
+-- YALLM Learning Page
+-- ---------------------------------------------------------------------------
+
+local TIME_UNITS = {
+    { s = 31536000, label = "y" },
+    { s = 2592000,  label = "mo" },
+    { s = 604800,   label = "w" },
+    { s = 86400,    label = "d" },
+    { s = 3600,     label = "h" },
+    { s = 60,       label = "m" },
+    { s = 1,        label = "s" },
+}
+
+local function FormatRelativeTime(ts)
+    if not ts or ts == 0 then return "Never" end
+    local now = time()
+    local diff = now - ts
+    if diff < 10 then return "Just now" end
+
+    for _, unit in ipairs(TIME_UNITS) do
+        if diff >= unit.s then
+            local val = math_floor(diff / unit.s)
+            return val .. unit.label .. " ago"
+        end
+    end
+    return "Just now"
+end
+
+function Interface:CreateYALLMLearningPage(parent, cursor)
+    local sc = YapperTable.Spellcheck
+    local yallm = sc and sc.YALLM
+    if not yallm or not yallm.GetDataSummary then
+        self:CreateLabel(parent, "YALLM engine not initialized.", LAYOUT.WINDOW_PADDING, cursor:Y(), 400)
+        return
+    end
+
+    local data = yallm:GetDataSummary()
+    if not data then return end
+
+    -- Title: Adaptive Learning (YALLM) - in yellow
+    local titleFs = self:CreateLabel(
+        parent,
+        "Adaptive Learning (YALLM)",
+        LAYOUT.WINDOW_PADDING,
+        cursor:Y(),
+        400,
+        "Personalized typing patterns and correction biases stored by the YALLM engine.",
+        "GameFontNormal"
+    )
+    titleFs:SetTextColor(1, 0.82, 0) -- Yellow
+    cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
+
+    -- 1. Top Vocabulary Trends
+    cursor:Pad(4)
+    self:CreateLabel(parent, "Top Vocabulary Trends", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    cursor:Advance(self:ScaledRow(20))
+    
+    local freqCount = 0
+    if data.freq then
+        for i = 1, math.min(5, #data.freq) do
+            local item = data.freq[i]
+            self:CreateLabel(parent, string.format("%d. %s (%d uses)", i, item.word, item.count), LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 400)
+            cursor:Advance(self:ScaledRow(15))
+            freqCount = freqCount + 1
+        end
+    end
+    if freqCount == 0 then
+        self:CreateLabel(parent, "No word usage recorded yet.", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 400)
+        cursor:Advance(self:ScaledRow(15))
+    end
+    cursor:Advance(self:ScaledRow(10))
+
+    -- 2. Common Corrections
+    self:CreateLabel(parent, "Common Corrections", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    cursor:Advance(self:ScaledRow(20))
+    
+    local biasCount = 0
+    if data.bias then
+        for i = 1, math.min(6, #data.bias) do
+            local item = data.bias[i]
+            local text = string.format("|cffff4444%s|r -> |cff44ff44%s|r (%d times)", item.typo, item.correction, item.count)
+            self:CreateLabel(parent, text, LAYOUT.WINDOW_PADDING + 120, cursor:Y(), 460)
+            cursor:Advance(self:ScaledRow(15))
+            biasCount = biasCount + 1
+        end
+    end
+    if biasCount == 0 then
+        self:CreateLabel(parent, "No correction patterns learned yet.", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 400)
+        cursor:Advance(self:ScaledRow(15))
+    end
+    cursor:Advance(self:ScaledRow(10))
+
+    -- 3. Learning Candidates
+    self:CreateLabel(parent, "Learning Candidates", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    cursor:Advance(self:ScaledRow(20))
+    
+    local autoCount = 0
+    if data.auto then
+        for i = 1, math.min(3, #data.auto) do
+            local item = data.auto[i]
+            local progress = math.min(100, math.floor((item.count / (data.threshold or 10)) * 100))
+            local text = string.format("%s: %d/%d (%d%% to auto-learned)", item.word, item.count, data.threshold or 10, progress)
+            self:CreateLabel(parent, text, LAYOUT.WINDOW_PADDING + 120, cursor:Y(), 400)
+            cursor:Advance(self:ScaledRow(15))
+            autoCount = autoCount + 1
+        end
+    end
+    if autoCount == 0 then
+        self:CreateLabel(parent, "No candidate words identified for auto-learning.", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 400)
+        cursor:Advance(self:ScaledRow(15))
+    end
+    cursor:Advance(self:ScaledRow(10))
+
+    -- 4. Detailed Data (Granular Tables)
+    self:CreateLabel(parent, "Detailed Engine Context", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    cursor:Advance(self:ScaledRow(20))
+
+    local function renderTable(list, headers, emptyMsg, maxHeight)
+        if not list or #list == 0 then
+            self:CreateLabel(parent, emptyMsg or "No data recorded yet.", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 400)
+            cursor:Advance(self:ScaledRow(20))
+            return
+        end
+
+        local headerY = cursor:Y()
+        local curX = LAYOUT.WINDOW_PADDING + 5
+        for _, col in ipairs(headers) do
+            local fs = self:AcquireWidget("YALLMTableHead", parent, "GameFontNormalSmall", "FontString")
+            fs:SetPoint("TOPLEFT", parent, "TOPLEFT", curX, headerY)
+            fs:SetText(col.label)
+            fs:SetTextColor(0.6, 0.6, 0.6)
+            self:AddControl(fs)
+            curX = curX + col.width
+        end
+        cursor:Advance(self:ScaledRow(16))
+
+        maxHeight = maxHeight or 120
+        local rowCount = #list
+        local totalContentHeight = rowCount * 15 + 10
+        local useScroll = totalContentHeight > maxHeight
+
+        local container = parent
+        local renderCursorY = cursor:Y()
+
+        if useScroll then
+            local sf = self:AcquireWidget("YALLMTableScroll", parent, nil, "ScrollFrame")
+            sf:SetSize(520, maxHeight)
+            sf:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, renderCursorY)
+            self:AddControl(sf)
+
+            local child = self:AcquireWidget("YALLMTableScrollChild", sf, nil, "Frame")
+            child:SetSize(500, totalContentHeight)
+            child:SetPoint("TOPLEFT", sf, "TOPLEFT", 0, 0) -- [FIX] Anchor the child so it's visible
+            sf:SetScrollChild(child)
+
+            sf:EnableMouseWheel(true)
+            sf:SetScript("OnMouseWheel", function(s, delta)
+                s:SetVerticalScroll(math.max(0, math.min(totalContentHeight - maxHeight, s:GetVerticalScroll() - delta * 20)))
+            end)
+
+            container = child
+            renderCursorY = 0
+            cursor:Advance(maxHeight + 10)
+        end
+
+        for i = 1, #list do
+            local row = list[i]
+            local rowY = renderCursorY - ((i - 1) * 15)
+            local rX = useScroll and 5 or (LAYOUT.WINDOW_PADDING + 5)
+
+            for _, col in ipairs(headers) do
+                local val = ""
+                if col.key == "typo" then val = row.typo or row.hash or "-"
+                elseif col.key == "correction" then val = row.correction or "-"
+                elseif col.key == "count" then val = tostring(row.count or 0)
+                elseif col.key == "utility" then val = string.format("%.1f", row.utility or 1)
+                elseif col.key == "word" then val = row.word or "-"
+                elseif col.key == "last" then val = FormatRelativeTime(row.last)
+                elseif col.key == "progress" then
+                    local progress = math.min(100, math.floor(((row.count or 0) / (data.threshold or 10)) * 100))
+                    val = progress .. "%"
+                end
+
+                local fs = self:AcquireWidget("YALLMTableRow", container, "GameFontHighlightSmall", "FontString")
+                fs:SetPoint("TOPLEFT", container, "TOPLEFT", rX, rowY)
+                fs:SetSize(col.width - 5, 14)
+                fs:SetJustifyH("LEFT")
+                fs:SetText(val)
+                self:AddControl(fs)
+                rX = rX + col.width
+            end
+            if not useScroll then cursor:Advance(15) end
+        end
+        if not useScroll then cursor:Pad(10) end
+    end
+
+    -- Full Correction Bias Table
+    -- Utility > 1.0 means the user implicitly confirmed the correction was useful
+    -- (YALLM promoted a lower-ranked candidate above the natural #1 and the user accepted it).
+    self:CreateLabel(parent, "Correction Bias (Full)", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(15))
+    self:CreateLabel(parent, "|cffaaaaaa[Utility > 1.0 = implicitly learned — user accepted a YALLM-promoted candidate]|r",
+        LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(14))
+    renderTable(data.bias, {
+        { label = "Typo",       width = 130, key = "typo" },
+        { label = "Correction", width = 130, key = "correction" },
+        { label = "Uses",       width = 55,  key = "count" },
+        { label = "Utility",    width = 55,  key = "utility" },
+        { label = "Last Seen",  width = 110, key = "last" },
+    }, "No correction patterns learned yet.", 120)
+
+    -- Phonetic Bias Table
+    -- These are generalised patterns learned by sound: if the user consistently
+    -- corrects words with the same phonetic shape to the same word, YALLM applies
+    -- that generalised bias even to typos it has never seen before.
+    self:CreateLabel(parent, "Phonetic Pattern Bias", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(15))
+    self:CreateLabel(parent, "|cffaaaaaa[Generalised corrections by sound — hash is the phonetic fingerprint of the typo]|r",
+        LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(14))
+    renderTable(data.phBias, {
+        { label = "Phonetic Hash", width = 130, key = "typo" },
+        { label = "Correction",   width = 130, key = "correction" },
+        { label = "Uses",         width = 55,  key = "count" },
+        { label = "Last Seen",    width = 110, key = "last" },
+    }, "No phonetic patterns learned yet.", 120)
+
+    -- Rejection (Implicit Backtrack) Table
+    -- Populated when the user clicks \"More...\" (explicit rejection), OR when
+    -- ResolveImplicitTrace detects the user backtracked and manually retyped a word
+    -- that YALLM had suggested — i.e. the user silently disagreed with the suggestion.
+    self:CreateLabel(parent, "Rejected Suggestions / Implicit Backtracks", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(15))
+    self:CreateLabel(parent, "|cffaaaaaa[Populated when user clicks \"More...\" or manually retypes over a YALLM suggestion]|r",
+        LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(14))
+    renderTable(data.negBias, {
+        { label = "Typo",      width = 130, key = "typo" },
+        { label = "Rejected",  width = 130, key = "word" },
+        { label = "Rejections",width = 70,  key = "count" },
+        { label = "Penalty",   width = 55,  key = "utility" },
+        { label = "Last Seen", width = 110, key = "last" },
+    }, "No rejections or backtracks recorded yet.", 120)
+
+    -- Full Vocabulary Frequency
+    self:CreateLabel(parent, "Complete Vocabulary", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(15))
+    renderTable(data.freq, {
+        { label = "Word",      width = 270, key = "word" },
+        { label = "Uses",      width = 80,  key = "count" },
+        { label = "Last Seen", width = 110, key = "last" },
+    }, "No word usage recorded yet.", 150)
+
+    cursor:Advance(self:ScaledRow(20))
+
+    -- 5. Management Section
+    self:CreateLabel(parent, "Management", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    cursor:Advance(self:ScaledRow(20))
+
+    -- Reset Button
+    local resetAllBtn = self:AcquireWidget("YALLMResetAll", parent, "UIPanelButtonTemplate", "Button")
+    resetAllBtn:SetSize(160, 24)
+    resetAllBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 10, cursor:Y() - 2)
+    resetAllBtn:SetText("Reset All Learning")
+    resetAllBtn:SetScript("OnClick", function()
+        StaticPopup_Show("YAPPER_CONFIRM_RESET_LEARNING")
+    end)
+    self:AddControl(resetAllBtn)
+    cursor:Advance(30)
+end
+
 function Interface:CreateQueueDiagnostics(parent, cursor)
     local y = cursor:Y()
     self:CreateLabel(
@@ -2513,7 +2918,7 @@ function Interface:CreateCreditsPage(parent, cursor)
 
     addLine("Bundled dictionaries:")
     for _, entry in ipairs(CREDITS_DICTIONARIES_BUNDLED) do
-        addLine(string.format(
+        addLine(string_format(
             "%s (%s) - %s - %s",
             entry.locale,
             entry.label,
@@ -2527,7 +2932,7 @@ function Interface:CreateCreditsPage(parent, cursor)
     addLine("Install the locale addon to enable it in Yapper settings.")
     addLine("Addon naming: Yapper_Dict_<locale> (example: Yapper_Dict_frFR).")
     for _, entry in ipairs(CREDITS_DICTIONARIES_OPTIONAL) do
-        addLine(string.format(
+        addLine(string_format(
             "%s (%s) - %s - %s",
             entry.locale,
             entry.label,
@@ -3110,7 +3515,7 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
 
     local function ListToText(list)
         if not list or #list == 0 then return "" end
-        return table.concat(list, "\n")
+        return table_concat(list, "\n")
     end
 
     local function RefreshEditors()
@@ -3442,6 +3847,11 @@ function Interface:BuildConfigUI()
         self:CreateCreditsPage(frame.ContentFrame, cursor)
     end
 
+    -- YALLM Learning.
+    if customSet["yallmLearning"] then
+        self:CreateYALLMLearningPage(frame.ContentFrame, cursor)
+    end
+
     -- Message Bridges.
     if customSet["bridges"] then
         cursor:Pad(10)
@@ -3488,6 +3898,7 @@ function Interface:BuildConfigUI()
         self:CreateSpellcheckUserDictEditor(frame.ContentFrame, cursor)
     end
 
+
     if activeCat.id == "advanced" then
         -- Reset all Yapper data to defaults (wipes SavedVariables and reloads UI).
         cursor:Pad(10)
@@ -3502,24 +3913,8 @@ function Interface:BuildConfigUI()
         )
         cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
 
-        -- Ensure a confirmation dialog definition exists.
-        if not StaticPopupDialogs or not StaticPopupDialogs["YAPPER_RESET_CONFIRM"] then
-            StaticPopupDialogs = StaticPopupDialogs or {}
-            StaticPopupDialogs["YAPPER_RESET_CONFIRM"] = {
-                text = "Reset all Yapper settings to defaults and wipe saved data? This will reload the UI.",
-                button1 = "Yes",
-                button2 = "No",
-                OnAccept = function()
-                    _G.YapperDB = nil
-                    _G.YapperLocalConf = nil
-                    _G.YapperLocalHistory = nil
-                    ReloadUI()
-                end,
-                timeout = 0,
-                whileDead = true,
-                hideOnEscape = true,
-            }
-        end
+        -- Lazy popup initialization here was causing crashes.
+        -- Moved to Interface:InitPopups() called at boot.
 
         local resetBtn = self:AcquireWidget("ActionButton", frame.ContentFrame, "UIPanelButtonTemplate", "Button")
         resetBtn:SetSize(160, 24)
@@ -3536,7 +3931,7 @@ function Interface:BuildConfigUI()
 
     -- Finish layout and size the content child so the scroll range is correct.
     cursor:Pad(20)
-    frame.ContentFrame:SetHeight(math.abs(cursor:Y()) + 20)
+    frame.ContentFrame:SetHeight(math_abs(cursor:Y()) + 20)
     frame.ScrollFrame:UpdateScrollChildRect()
 
     -- Apply UI font scaling and refresh the sidebar size readout.
@@ -3763,3 +4158,4 @@ function Interface:CreateLauncher()
 
     self.LauncherCreated = true
 end
+
