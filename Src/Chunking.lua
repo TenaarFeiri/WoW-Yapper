@@ -313,7 +313,7 @@ end
 
 --- Split text into chunks that each fit within the byte limit.
 function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, delineator, prefix)
-    -- [NEW] Paragraph Isolation Logic for "Send All"
+    -- Paragraph isolation for "Send All": keep each paragraph as a standalone chunk
     if ignoreParagraphMerging and string_find(text, "\n") then
         local allChunks = {}
         -- Iterate over every line, splitting by \n
