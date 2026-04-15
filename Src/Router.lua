@@ -27,6 +27,10 @@ Router.SendChatMessage = nil
 Router.BNSendWhisper   = nil
 Router.ClubSendMessage = nil
 
+-- BNet friend lookup cache (60-second TTL).
+local _bnetCache     = {}   -- [normalised_needle] = { presenceID, bnetAccountID, expires }
+local _bnetCacheTTL  = 60   -- seconds
+
 local function NormaliseBnetTarget(value)
     if not value then return nil end
     local text = tostring(value)
@@ -59,6 +63,27 @@ end
 function Router:ResolveBnetTarget(target)
     local needle = NormaliseBnetTarget(target)
     if not needle then return nil, nil end
+
+    -- Check cache first.
+    local cached = _bnetCache[string_lower(needle)]
+    if cached and cached.expires > GetTime() then
+        return cached.presenceID, cached.bnetAccountID
+    end
+
+    local presenceID, bnetAccountID = self:_ResolveBnetTargetUncached(needle)
+
+    -- Store result (even nil) to avoid repeated O(n) scans.
+    _bnetCache[string_lower(needle)] = {
+        presenceID   = presenceID,
+        bnetAccountID = bnetAccountID,
+        expires      = GetTime() + _bnetCacheTTL,
+    }
+
+    return presenceID, bnetAccountID
+end
+
+--- Internal uncached BNet friend resolution.  Called by ResolveBnetTarget.
+function Router:_ResolveBnetTargetUncached(needle)
 
     if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
         local count = BNGetNumFriends()
@@ -148,6 +173,11 @@ end
 -- Initialisation
 -- ---------------------------------------------------------------------------
 
+--- Flush the BNet friend lookup cache (e.g. on friend list changes).
+function Router:FlushBnetCache()
+    for k in pairs(_bnetCache) do _bnetCache[k] = nil end
+end
+
 function Router:Init()
     -- Try to activate the Gopher bridge first.
     local bridge = YapperTable.GopherBridge
@@ -167,6 +197,13 @@ function Router:Init()
         YapperTable.Utils:VerbosePrint("Router: sending via GopherBridge.")
     else
         YapperTable.Utils:VerbosePrint("Router: using standard WoW send APIs.")
+    end
+
+    -- Flush BNet cache when the friend list changes.
+    if YapperTable.Events then
+        YapperTable.Events:Register("PARENT_FRAME", "BN_FRIEND_INFO_CHANGED", function()
+            self:FlushBnetCache()
+        end)
     end
 end
 
