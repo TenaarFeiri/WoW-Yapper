@@ -64,10 +64,22 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Hook              Payload keys                   Cancellable?
     ────              ────────────                   ────────────
+    PRE_EDITBOX_SHOW  chatType, target               yes
+      Fires before the overlay opens.  Return false to suppress it.
+      Used by WIMBridge to yield focus when WIM owns the whisper window.
+
     PRE_SEND          text, chatType, language,      yes
                       target
+      Fires after the user presses Enter but before the message is routed.
+      Modify payload fields to rewrite the message or return false to block.
+
     PRE_CHUNK         text, limit                    yes
+      Fires before the chunker splits a long message.  Modify text or limit,
+      or return false to prevent chunking entirely.
+
     PRE_SPELLCHECK    text                           yes
+      Fires before the spellchecker runs on the current input.  Return false
+      to skip spellchecking for this particular text.
 
 ---------------------------------------------------------------------------
 2.  CALLBACKS (post-hooks / event notifications)
@@ -118,12 +130,27 @@
     Event                    Arguments
     ─────                    ─────────
     POST_SEND                text, chatType, language, target
+      Fires after a message has been handed to the WoW send API.
+
     CONFIG_CHANGED           path (string), value
+      Fires when a Yapper setting changes.  path is dot-delimited,
+      e.g. "EditBox.FontSize", "Spellcheck.Locale".
+
     EDITBOX_SHOW             chatType, target
+      Fires when the Yapper overlay becomes visible.
+
     EDITBOX_HIDE             (none)
+      Fires when the Yapper overlay is hidden.
+
     EDITBOX_CHANNEL_CHANGED  chatType, target
+      Fires when the user switches chat channel (Tab, slash command, etc.).
+
     THEME_CHANGED            themeName
+      Fires when the active theme is changed.
+
     API_ERROR                kind, hook, handler_info, errorMessage, data, ...
+      Fires when a filter or callback handler errors.  Delivered only to the
+      addon that owns the faulting handler (matched by source file path).
 
 ---------------------------------------------------------------------------
 3.  READ-ONLY ACCESSORS
