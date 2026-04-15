@@ -165,7 +165,7 @@ local function OnPlayerEnteringWorld()
 
     YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Use /yapper for settings. Use the " .. GetBypassBindingHint() .. " to drop down to Blizzard's text box if you run into issues like blocked actions (often caused by things like /target and /gquit).")
 
-    -- First-run appearance choice (once per schema bump, or every reload in DEBUG).
+    -- First-run appearance choice (once per schema bump).
     if YapperTable.Interface and YapperTable.Interface.ShouldShowWelcomeChoice then
         if YapperTable.Interface:ShouldShowWelcomeChoice() then
             YapperTable.Interface:CreateWelcomeChoiceFrame()
