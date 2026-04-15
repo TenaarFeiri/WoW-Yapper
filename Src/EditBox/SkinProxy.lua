@@ -56,10 +56,10 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     local vScaleSize    = 1
     if origH > 0 and overlayHeight and overlayHeight > 0 then
         local baseScale = overlayHeight / origH
-        vScaleAnchors = math.max(1, baseScale)
+        vScaleAnchors = math_max(1, baseScale)
         -- Extra margin: 50% of the growth beyond 1× for texture sizes.
-        local margin = math.max(0, (baseScale - 1) * 0.5)
-        vScaleSize = math.max(1, baseScale + margin)
+        local margin = math_max(0, (baseScale - 1) * 0.5)
+        vScaleSize = math_max(1, baseScale + margin)
     end
 
     -- Reattach every anchor from the original box to our overlay; y offsets
@@ -186,10 +186,10 @@ function EditBox:TintSkinProxyTextures(r, g, b, a)
     b = b or defB
     a = a or defA
 
-    local isDefault = (math.abs(r - defR) < 0.01)
-        and (math.abs(g - defG) < 0.01)
-        and (math.abs(b - defB) < 0.01)
-        and (math.abs(a - defA) < 0.01)
+    local isDefault = (math_abs(r - defR) < 0.01)
+        and (math_abs(g - defG) < 0.01)
+        and (math_abs(b - defB) < 0.01)
+        and (math_abs(a - defA) < 0.01)
     if isDefault then
         return -- leave the original Blizzard tint as-is
     end
