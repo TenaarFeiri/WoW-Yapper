@@ -39,14 +39,16 @@ Src/EditBoxCompat.lua
 
 # These files must load in this order:
 # Bridges/ — compatibility bridges for third-party addons.
-#   GopherBridge       — compatibility bridge for LibGopher (CrossRP, etc.).
+#   GopherBridge        — compatibility bridge for LibGopher (CrossRP, etc.).
 #   TypingTrackerBridge — signals Simply_RP_Typing_Tracker when the overlay is active.
+#   RPPrefixBridge      — prepends the RP Prefix (Zee) prefix to the first chunk only.
 # Router  — resolves which WoW send API to use (SendChatMessage / BNSendWhisper / C_Club.SendMessage).
 # Chunking — splits long messages into chunks that fit the byte limit.
 # Queue   — ordered delivery with server-confirmation and hardware-event batching.
 # Chat    — orchestrator that wires EditBox -> Chunking -> Queue -> Router.
 Src/Bridges/GopherBridge.lua
 Src/Bridges/TypingTrackerBridge.lua
+Src/Bridges/RPPrefixBridge.lua
 Src/Router.lua
 Src/Chunking.lua
 Src/Queue.lua
