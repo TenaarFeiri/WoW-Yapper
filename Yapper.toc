@@ -54,6 +54,7 @@ Src/EditBoxCompat.lua
 #   GopherBridge        — compatibility bridge for LibGopher (CrossRP, etc.).
 #   TypingTrackerBridge — signals Simply_RP_Typing_Tracker when the overlay is active.
 #   RPPrefixBridge      — prepends the RP Prefix (Zee) prefix to the first chunk only.
+#   WIMBridge           — compatibility bridge for WoW Instant Messenger (WIM).
 # Router  — resolves which WoW send API to use (SendChatMessage / BNSendWhisper / C_Club.SendMessage).
 # Chunking — splits long messages into chunks that fit the byte limit.
 # Queue   — ordered delivery with server-confirmation and hardware-event batching.
@@ -61,6 +62,7 @@ Src/EditBoxCompat.lua
 Src/Bridges/GopherBridge.lua
 Src/Bridges/TypingTrackerBridge.lua
 Src/Bridges/RPPrefixBridge.lua
+Src/Bridges/WIMBridge.lua
 Src/Router.lua
 Src/Chunking.lua
 Src/Queue.lua
