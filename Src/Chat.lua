@@ -101,6 +101,9 @@ function Chat:Init()
     if YapperTable.TypingTrackerBridge then
         YapperTable.TypingTrackerBridge:UpdateState(nil)
     end
+    if YapperTable.RPPrefixBridge then
+        YapperTable.RPPrefixBridge:Init()
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -127,6 +130,12 @@ function Chat:OnSend(text, chatType, language, target)
 
     if YapperTable.History then
         YapperTable.History:AddChatHistory(text, chatType, target)
+    end
+
+    -- RPPrefix bridge: prepend the RP prefix to the full text before chunking
+    -- so it appears on the first post only, not on every continuation chunk.
+    if YapperTable.RPPrefixBridge then
+        text = YapperTable.RPPrefixBridge:ApplyPrefix(text, chatType)
     end
 
     -- Short — send directly.
