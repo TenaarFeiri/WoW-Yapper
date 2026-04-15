@@ -41,6 +41,14 @@ local string_char  = string.char
 local string_format = string.format
 
 function Spellcheck:CollectMisspellings(text, dict)
+    -- PRE_SPELLCHECK filter: external addons can strip custom markup etc.
+    local API = YapperTable.API
+    if API then
+        local payload = API:RunFilter("PRE_SPELLCHECK", { text = text })
+        if payload == false then return nil end
+        text = payload.text
+    end
+
     local out = {}
     local minLen = self:GetMinWordLength()
     local ignoreRanges = self:GetIgnoredRanges(text)
