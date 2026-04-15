@@ -211,6 +211,10 @@ function Interface:SetLocalPath(path, value)
     end
 
     self:SetDirty(true)
+    -- CONFIG_CHANGED callback: notify external addons.
+    if YapperTable.API then
+        YapperTable.API:Fire("CONFIG_CHANGED", JoinPath(path), normalizedValue)
+    end
     return normalizedValue
 end
 
