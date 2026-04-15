@@ -402,9 +402,6 @@ function EditBox:SetupOverlayScripts()
             YapperTable.History:ClearDraft(box)
         end
         self:PersistLastUsed()
-        if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
-            YapperTable.TypingTrackerBridge:OnOverlaySent()
-        end
         self:Hide()
     end)
 
@@ -513,9 +510,6 @@ function EditBox:SetupOverlayScripts()
             end
         end
         self._closedClean = false
-        if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
-            YapperTable.TypingTrackerBridge:OnOverlayFocusLost()
-        end
     end)
 
     -- When focus leaves the overlay editbox (e.g. clicking the game world),
