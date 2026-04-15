@@ -91,6 +91,17 @@ function RPPrefixBridge:Init()
     self.active = true
     YapperTable.Utils:VerbosePrint("RPPrefixBridge: RPPrefix detected — prefix will be prepended to the first chunk only.")
 
+    -- Register as a PRE_SEND filter via the public API so external addons
+    -- can see the bridge in the filter chain and reason about ordering.
+    -- Priority 20 (fires after the default 10) so user filters can modify
+    -- text before the prefix is prepended.
+    if _G.YapperAPI then
+        self._filterHandle = _G.YapperAPI:RegisterFilter("PRE_SEND", function(payload)
+            payload.text = self:ApplyPrefix(payload.text, payload.chatType)
+            return payload
+        end, 20)
+    end
+
     -- First-time detection: warn the user that RPPrefix taints SendChatMessage
     -- and will block chat during combat lockdown.
     -- In debug mode, the popup always shows on every load.

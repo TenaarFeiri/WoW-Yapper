@@ -156,3 +156,16 @@ function GopherBridge:IsBusy()
     end
     return false
 end
+
+-- ---------------------------------------------------------------------------
+-- API self-registration
+-- ---------------------------------------------------------------------------
+-- React to the toggle via the public event system as well.
+
+if _G.YapperAPI then
+    _G.YapperAPI:RegisterCallback("CONFIG_CHANGED", function(path, value)
+        if path == "System.EnableGopherBridge" then
+            GopherBridge:UpdateState()
+        end
+    end)
+end

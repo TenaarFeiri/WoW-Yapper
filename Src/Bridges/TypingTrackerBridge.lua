@@ -300,3 +300,26 @@ end
 function Bridge:OnChannelChanged(newChatType)
     SignalChannelChanged(newChatType)
 end
+
+-- ---------------------------------------------------------------------------
+-- API self-registration
+-- ---------------------------------------------------------------------------
+-- Register as a callback consumer via the public API so the bridge is driven
+-- entirely through the event system rather than hardcoded calls.
+-- The direct calls from EditBox are kept as a legacy path; this registration
+-- is the forward-looking pattern.
+
+if _G.YapperAPI then
+    _G.YapperAPI:RegisterCallback("EDITBOX_SHOW", function(chatType)
+        if Bridge.Enabled then Bridge:OnOverlayFocusGained(chatType) end
+    end)
+    _G.YapperAPI:RegisterCallback("EDITBOX_HIDE", function()
+        if Bridge.Enabled then Bridge:OnOverlayFocusLost() end
+    end)
+    _G.YapperAPI:RegisterCallback("POST_SEND", function()
+        if Bridge.Enabled then Bridge:OnOverlaySent() end
+    end)
+    _G.YapperAPI:RegisterCallback("EDITBOX_CHANNEL_CHANGED", function(chatType)
+        if Bridge.Enabled then Bridge:OnChannelChanged(chatType) end
+    end)
+end
