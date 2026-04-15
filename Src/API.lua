@@ -350,6 +350,10 @@ local YapperAPI = {
 }
 _G.YapperAPI = YapperAPI
 
+-- Per-hook / per-event registration cap to prevent runaway leaks.
+local MAX_FILTERS_PER_HOOK  = 50
+local MAX_CALLBACKS_PER_EVT = 50
+
 -- ===== FILTERS =============================================================
 
 --- Register a filter for a hook point.
@@ -362,12 +366,17 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
         return nil
     end
 
-    priority = type(priority) == "number" and priority or 10
-    local handle = NextHandle()
-
     if not filters[hookPoint] then
         filters[hookPoint] = {}
     end
+
+    if #filters[hookPoint] >= MAX_FILTERS_PER_HOOK then
+        _report("FILTER", hookPoint, nil, "registration cap reached (" .. MAX_FILTERS_PER_HOOK .. " filters)")
+        return nil
+    end
+
+    priority = type(priority) == "number" and priority or 10
+    local handle = NextHandle()
 
     -- Capture registration origin so we can attribute errors to the
     -- registering addon/module.  Best-effort: extract an AddOn folder
@@ -428,11 +437,16 @@ function YapperAPI:RegisterCallback(event, callback)
         return nil
     end
 
-    local handle = NextHandle()
-
     if not callbacks[event] then
         callbacks[event] = {}
     end
+
+    if #callbacks[event] >= MAX_CALLBACKS_PER_EVT then
+        _report("CALLBACK", event, nil, "registration cap reached (" .. MAX_CALLBACKS_PER_EVT .. " callbacks)")
+        return nil
+    end
+
+    local handle = NextHandle()
 
     -- Capture registration origin for callbacks as well.
     local owner = nil
