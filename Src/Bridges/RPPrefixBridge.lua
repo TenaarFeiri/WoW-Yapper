@@ -90,6 +90,15 @@ function RPPrefixBridge:Init()
 
     self.active = true
     YapperTable.Utils:VerbosePrint("RPPrefixBridge: RPPrefix detected — prefix will be prepended to the first chunk only.")
+
+    -- First-time detection: warn the user that RPPrefix taints SendChatMessage
+    -- and will block chat during combat lockdown.
+    -- In debug mode, the popup always shows on every load.
+    local isDebug = YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
+    if isDebug or not (_G.YapperDB and _G.YapperDB.RPPrefixWarningAcknowledged) then
+        StaticPopup_Show("YAPPER_RPPREFIX_LOCKDOWN_WARNING")
+    end
+
     return true
 end
 

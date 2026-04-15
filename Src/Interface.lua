@@ -111,6 +111,30 @@ function Interface:InitPopups()
             hideOnEscape = true,
         }
     end
+
+    if not StaticPopupDialogs["YAPPER_RPPREFIX_LOCKDOWN_WARNING"] then
+        StaticPopupDialogs["YAPPER_RPPREFIX_LOCKDOWN_WARNING"] = {
+            text = "|cFFFF6600Warning: RP Prefix detected|r\n\nRP Prefix works by replacing a protected Blizzard API with addon Lua code, which taints it. This will prevent you from being able to send chat messages entirely during combat lockdown — boss fights, Mythic+, PvP, and any other protected environment.\n\nYou can dismiss this warning and continue using both addons, or unload RP Prefix now.",
+            button1 = "Confirm",
+            button2 = "Unload RP Prefix",
+            OnAccept = function()
+                if type(_G.YapperDB) == "table" then
+                    _G.YapperDB.RPPrefixWarningAcknowledged = true
+                end
+            end,
+            OnCancel = function()
+                if C_AddOns and C_AddOns.DisableAddOn then
+                    C_AddOns.DisableAddOn("RPPrefix")
+                elseif DisableAddOn then
+                    DisableAddOn("RPPrefix")
+                end
+                ReloadUI()
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = false,
+        }
+    end
 end
 
 -- Treat these paths as RGBA color pickers in the dynamic settings renderer.
@@ -369,16 +393,6 @@ local CATEGORIES                    = {
         },
         -- Bridges are appended by custom logic.
         custom = { "bridges", "spellcheckUserDict" },
-    },
-    {
-        id    = "multiline",
-        label = "Multiline",
-        icon  = nil,
-        paths = {
-            "EditBox.StorytellerAutoExpand",
-            "EditBox.StorytellerShowHint",
-            "System.StorytellerSlideSpeed",
-        },
     },
     {
         id     = "learning",
@@ -1301,10 +1315,6 @@ Interface._activeCategory = "general"
 -- Two columns: "Blizzard Skin" vs "Yapper's Own", each with a preview slot.
 
 function Interface:ShouldShowWelcomeChoice()
-    local debug = YapperTable.Config and YapperTable.Config.System
-        and YapperTable.Config.System.DEBUG == true
-    if debug then return true end
-
     -- Check raw saved variable — the value before defaults got merged in.
     local sv = _G.YapperLocalConf
     if type(sv) ~= "table" then return true end
