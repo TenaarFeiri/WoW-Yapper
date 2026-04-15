@@ -83,6 +83,12 @@ function Theme:SetTheme(name)
             YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
         end)
     end
+
+    -- THEME_CHANGED callback: notify external addons.
+    if YapperTable.API then
+        YapperTable.API:Fire("THEME_CHANGED", name)
+    end
+
     return true
 end
 
