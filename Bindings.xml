@@ -6,6 +6,7 @@
     <!-- <Binding name="Open Yapper With Slash" default="/">
          Yapper.EditBox:OpenSlashCommand()
      </Binding> -->
+    <!-- NYI: multiline frame not yet implemented
     <Binding name="YAPPER_TOGGLE_MULTILINE" header="YAPPER">
         local EditBox = _G.YapperTable and _G.YapperTable.EditBox
         if EditBox and EditBox.Overlay and EditBox.Overlay:IsShown() then
@@ -16,4 +17,5 @@
             end
         end
     </Binding>
+    -->
 </Bindings>
