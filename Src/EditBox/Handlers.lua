@@ -504,7 +504,7 @@ function EditBox:SetupOverlayScripts()
                     YapperTable.History:SaveDraft(eb)
                     -- Normal (non-lockdown) saves should not be treated
                     -- as lockdown drafts.
-                    self._lastSavedDraftIsLockdown = false
+                    self._lockdown.savedDraft = false
                 end
                 YapperTable.History:MarkDirty(true)
             end
@@ -563,9 +563,9 @@ function EditBox:SetupOverlayScripts()
             local function beginDeferredHandoff()
                 local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
                 if text == "" then
-                    if self._lockdownIdleTimer then
-                        self._lockdownIdleTimer:Cancel()
-                        self._lockdownIdleTimer = nil
+                    if self._lockdown.idleTimer then
+                        self._lockdown.idleTimer:Cancel()
+                        self._lockdown.idleTimer = nil
                     end
                     self:HandoffToBlizzard()
                     return
@@ -574,10 +574,10 @@ function EditBox:SetupOverlayScripts()
                 self:ResetLockdownIdleTimer()
 
                 -- Hook OnTextChanged to reset the idle timer while the user keeps typing.
-                if not self._lockdownTextHooked and self.OverlayEdit then
-                    self._lockdownTextHooked = true
+                if not self._lockdown.textHooked and self.OverlayEdit then
+                    self._lockdown.textHooked = true
                     self.OverlayEdit:HookScript("OnTextChanged", function(box, isUserInput)
-                        if isUserInput and self._lockdownIdleTimer then
+                        if isUserInput and self._lockdown.idleTimer then
                             self:ResetLockdownIdleTimer()
                         end
                     end)
@@ -586,64 +586,55 @@ function EditBox:SetupOverlayScripts()
 
             -- Immediate check.
             if (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) or YapperTable.Config.System.DEBUG then
-                if not self._lockdownEventRunning then
-                    self._lockdownEventRunning = true
+                if not self._lockdown.eventRunning then
+                    self._lockdown.eventRunning = true
                     YapperTable.Utils:DebugPrint("Lockdown event triggered (DEBUG or real lockdown).")
                     beginDeferredHandoff()
                 end
                 return
             end
             -- Not in lockdown yet — poll briefly.
-            if self._lockdownTicker then
-                self._lockdownTicker:Cancel()
+            if self._lockdown.ticker then
+                self._lockdown.ticker:Cancel()
             end
             local ticks = 0
-            self._lockdownTicker = C_Timer.NewTicker(0.1, function(ticker)
+            self._lockdown.ticker = C_Timer.NewTicker(0.1, function(ticker)
                 ticks = ticks + 1
                 if not self.Overlay or not self.Overlay:IsShown() then
                     ticker:Cancel()
-                    self._lockdownTicker = nil
+                    self._lockdown.ticker = nil
                     return
                 end
                 if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                     beginDeferredHandoff()
                     ticker:Cancel()
-                    self._lockdownTicker = nil
+                    self._lockdown.ticker = nil
                     return
                 end
                 if ticks >= 20 then -- 2 seconds
                     ticker:Cancel()
-                    self._lockdownTicker = nil
+                    self._lockdown.ticker = nil
                 end
             end)
         elseif event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED" then
-            -- Combat / M+ over — cancel polling if still running.
-            if self._lockdownTicker then
-                self._lockdownTicker:Cancel()
-                self._lockdownTicker = nil
-            end
-            if self._lockdownIdleTimer then
-                YapperTable.Utils:DebugPrint("Combat ended - canceling active handoff timer.")
-                self._lockdownIdleTimer:Cancel()
-                self._lockdownIdleTimer = nil
-            end
-            self._lockdownEventRunning = false
+            -- Combat / M+ over — centralised cleanup.
+            self:ClearLockdownState()
             -- If we saved a draft during lockdown, poll until lockdown
             -- is truly over (checks every 1s for up to 5s).
-            if self._lockdownHandedOff then
+            if self._lockdown.handedOff then
                 local checks = 0
                 C_Timer.NewTicker(1, function(ticker)
                     checks = checks + 1
                     if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                        self._lockdownHandedOff = false
+                        self._lockdown.handedOff = false
                         -- If Blizzard sends during lockdown changed the channel,
                         -- persist that sticky choice now.
-                        if self._lastSavedDuringLockdown then
+                        if self._lockdown.savedDuring then
                             self:PersistLastUsed()
-                            self._lastSavedDuringLockdown = nil
+                            self._lockdown.savedDuring = false
                         end
                         -- Allow Show-hook lockdown logic to run again after lockdown.
-                        self._lockdownShowHandled = false
+                        self._lockdown.showHandled = false
                         YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
                         ticker:Cancel()
                         return
@@ -668,21 +659,21 @@ function EditBox:SetupOverlayScripts()
 end
 
 function EditBox:ResetLockdownIdleTimer()
-    if self._lockdownIdleTimer then
-        self._lockdownIdleTimer:Cancel()
+    if self._lockdown.idleTimer then
+        self._lockdown.idleTimer:Cancel()
     end
     YapperTable.Utils:DebugPrint("Lockdown handoff timer started/reset (1.5s idle wait)...")
-    self._lockdownIdleTimer = C_Timer.NewTimer(1.5, function()
+    self._lockdown.idleTimer = C_Timer.NewTimer(1.5, function()
         -- Sanity check: if the overlay was closed normally (sent or escaped)
         -- in the meantime, do not execute the handoff.
         if not self.Overlay or not self.Overlay:IsShown() then
             YapperTable.Utils:DebugPrint("Timer fired but overlay was hidden - bailing handoff.")
-            self._lockdownIdleTimer = nil
+            self._lockdown.idleTimer = nil
             return
         end
 
         YapperTable.Utils:DebugPrint("Lockdown idle timer fired!")
-        self._lockdownIdleTimer = nil
+        self._lockdown.idleTimer = nil
         self:HandoffToBlizzard()
     end)
 end
