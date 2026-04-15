@@ -26,7 +26,7 @@ EditBox.OverlayEdit        = nil
 EditBox.ChannelLabel       = nil
 EditBox.LabelBg            = nil
 
--- State.
+-- Channel / input state.
 EditBox.HookedBoxes        = {}
 EditBox.OrigEditBox        = nil
 EditBox.ChatType           = nil
@@ -38,13 +38,42 @@ EditBox.HistoryIndex       = nil
 EditBox.HistoryCache       = nil
 EditBox.PreShowCheck       = nil
 EditBox._attrCache         = {}
-EditBox._lockdownTicker    = nil
-EditBox._lockdownHandedOff = false
-EditBox._lockdownIdleTimer = nil   -- Defers handoff until user stops typing
+
+-- Lockdown state (combat / M+ handoff FSM).
+-- Grouped to keep the state machine self-contained.
+EditBox._lockdown = {
+    ticker           = nil,    -- C_Timer ticker polling for lockdown start
+    handedOff        = false,  -- overlay handed back to Blizzard
+    idleTimer        = nil,    -- defers handoff until user stops typing
+    eventRunning     = false,  -- REGEN_DISABLED/CHALLENGE_MODE_START active
+    textHooked       = false,  -- OnTextChanged hook installed for idle reset
+    savedDraft       = false,  -- draft was saved due to lockdown
+    savedDuring      = false,  -- save occurred while already in lockdown
+    showHandled      = false,  -- Show-hook lockdown path already ran
+}
+
+-- Overlay display state.
 EditBox._overlayUnfocused  = false -- True when overlay is visible but unfocused
+
 -- Reply queue for recent whisper targets (most-recent at index 1)
 EditBox.ReplyQueue         = {}
 local REPLY_QUEUE_MAX      = 20
+
+--- Centralized lockdown cleanup.
+--- Cancels all timers/tickers and resets flags.  Call from Hide(),
+--- HandoffToBlizzard(), and the REGEN_ENABLED handler.
+function EditBox:ClearLockdownState()
+    local ld = self._lockdown
+    if ld.idleTimer then
+        ld.idleTimer:Cancel()
+        ld.idleTimer = nil
+    end
+    if ld.ticker then
+        ld.ticker:Cancel()
+        ld.ticker = nil
+    end
+    ld.eventRunning = false
+end
 
 -- Reply-queue helpers
 -- Reply-queue helpers
@@ -258,23 +287,6 @@ function EditBox:OpenBlizzardChat()
 end
 
 ------------------------------------------------
-local function IsWIMFocusActive()
-    ---@diagnostic disable-next-line: undefined-field
-    local wim = _G.WIM or nil
-    if not wim then
-        return false
-    end
-    local focus = wim.EditBoxInFocus or nil
-    if not focus then
-        return false
-    end
-
-    local shown = focus.IsShown and focus:IsShown()
-    local visible = focus.IsVisible and focus:IsVisible()
-    local focused = focus.HasFocus and focus:HasFocus()
-    return shown == true or visible == true or focused == true
-end
-
 local function SetFrameFillColour(frame, r, g, b, a, rounded)
     if not frame then return end
     if rounded then
@@ -323,7 +335,6 @@ EditBox._REPLY_QUEUE_MAX        = REPLY_QUEUE_MAX
 EditBox.IsWhisperSlashPrefill   = IsWhisperSlashPrefill
 EditBox.ParseWhisperSlash       = ParseWhisperSlash
 EditBox.GetLastTellTargetInfo   = GetLastTellTargetInfo
-EditBox.IsWIMFocusActive        = IsWIMFocusActive
 EditBox.SetFrameFillColour      = SetFrameFillColour
 
 function EditBox:SetOnSend(fn)
