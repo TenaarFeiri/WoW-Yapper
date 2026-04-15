@@ -14,7 +14,16 @@
     - Three new tuning sliders control the caps: **Vocabulary Cap** (how many words to track), **Correction Bias Cap** (how many correction pairs to store), and **Auto-learn Threshold** (how many times a word must appear before it's added automatically).
   - *Compatibility:*
     - **RP Prefix (by Zee/Songzee):** If you use the RP Prefix addon, Yapper now correctly prepends your prefix to the *first* post of a split message only. Previously the prefix would appear on every continuation chunk.
+  - *Public API for Addon Developers:*
+    - **YapperAPI:** Introduced `_G.YapperAPI`, a public, sandboxed API that lets other addons hook into Yapper without touching internals.
+    - **Filters (pre-hooks):** Register filters on `PRE_SEND`, `PRE_CHUNK`, or `PRE_SPELLCHECK` to inspect, modify, or cancel operations before they happen. Filters support priority ordering and explicit cancellation.
+    - **Callbacks (post-hooks):** Subscribe to events like `POST_SEND`, `CONFIG_CHANGED`, `EDITBOX_SHOW`, `EDITBOX_HIDE`, `EDITBOX_CHANNEL_CHANGED`, and `THEME_CHANGED` for fire-and-forget notifications.
+    - **Read-only Accessors:** `GetVersion()`, `GetCurrentTheme()`, `IsOverlayShown()`, and `GetConfig(path)` let external addons inspect Yapper's state without risk.
+    - **Error Reporting (API_ERROR):** External handler errors are caught, serialised, and emitted as `API_ERROR` callbacks so addon authors get structured, programmatic failure reports.
+    - **Owner-Targeted Delivery:** Errors are attributed to the addon that registered the failing handler and delivered preferentially to that addon's `API_ERROR` handlers, falling back to a broadcast if none exist.
+    - **Bridge Conversion:** RPPrefixBridge, TypingTrackerBridge, and GopherBridge now use the public API instead of reaching into Yapper internals.
   - *Structural Cleanup:*
+    - **Monolith Split:** The three largest files — Interface.lua (4 100+ lines), Spellcheck.lua (3 300+ lines), and EditBox.lua (2 900+ lines) — have each been broken into focused sub-modules. Spellcheck now loads as 6 files, EditBox as 5, and Interface settings as several panel files.
     - **Spring Cleaning:** Purged a lot of legacy "orphaned" code and redundant N-gram relics that were just taking up space. The engine is leaner and faster.
     - **Hardened Initialisation:** Added better sanity checks during boot. If something critical (like the UI cache) fails to load, Yapper will now tell you exactly what went wrong instead of failing silently.
   - *Stability & Bug Fixes:*
