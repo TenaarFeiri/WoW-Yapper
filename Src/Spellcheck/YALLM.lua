@@ -27,6 +27,10 @@ local type = type
 local next = next
 local math_min = math.min
 local math_max = math.max
+local math_abs = math.abs
+local math_floor = math.floor
+local table_insert = table.insert
+local table_sort = table.sort
 
 -- ---------------------------------------------------------------------------
 -- Config-driven cap accessors
@@ -398,13 +402,13 @@ function YALLM:Prune(tableName, limit)
     if not tbl then return end
 
     local keys = {}
-    for k in pairs(tbl) do table.insert(keys, k) end
+    for k in pairs(tbl) do table_insert(keys, k) end
     if #keys <= limit then return end
 
     -- Sort by relevance: Score = Count * Utility * RecencyFactor
     -- Items used a long time ago have lower recency factors.
     local now = time()
-    table.sort(keys, function(a, b)
+    table_sort(keys, function(a, b)
         local ea = tbl[a]
         local eb = tbl[b]
 
@@ -414,8 +418,8 @@ function YALLM:Prune(tableName, limit)
 
         -- Recency weighting (days-based linear decay).
         -- Score = (Count * Utility) / (DaysOld + 1)
-        local ageA_days = math.max(0, (now - (ea.t or 0)) / 86400)
-        local ageB_days = math.max(0, (now - (eb.t or 0)) / 86400)
+        local ageA_days = math_max(0, (now - (ea.t or 0)) / 86400)
+        local ageB_days = math_max(0, (now - (eb.t or 0)) / 86400)
 
         local scoreA = (ea.c * ua) / (ageA_days + 1)
         local scoreB = (eb.c * ub) / (ageB_days + 1)
@@ -424,12 +428,12 @@ function YALLM:Prune(tableName, limit)
     end)
 
     -- Evict the bottom 10% to make breathing room
-    local targetSize = math.floor(limit * 0.9)
+    local targetSize = math_floor(limit * 0.9)
     for i = targetSize + 1, #keys do
         local k = keys[i]
         tbl[k] = nil
         if tableName == "freq" then
-            self.db.total = math.max(0, self.db.total - 1)
+            self.db.total = math_max(0, self.db.total - 1)
         end
     end
 end
@@ -448,41 +452,41 @@ function YALLM:GetDataSummary()
 
     local freqList = {}
     for word, entry in pairs(self.db.freq) do
-        table.insert(freqList, { word = word, count = entry.c, last = entry.t })
+        table_insert(freqList, { word = word, count = entry.c, last = entry.t })
     end
-    table.sort(freqList, function(a, b) return a.count > b.count end)
+    table_sort(freqList, function(a, b) return a.count > b.count end)
 
     local biasList = {}
     for key, entry in pairs(self.db.bias) do
         local typo, correction = key:match("^(.-):(.+)$")
         if typo and correction then
-            table.insert(biasList,
+            table_insert(biasList,
                 { typo = typo, correction = correction, count = entry.c, last = entry.t, utility = entry.u })
         end
     end
-    table.sort(biasList, function(a, b) return a.count > b.count end)
+    table_sort(biasList, function(a, b) return a.count > b.count end)
 
     local autoList = {}
     for word, entry in pairs(self.db.auto) do
-        table.insert(autoList, { word = word, count = entry.c, last = entry.t })
+        table_insert(autoList, { word = word, count = entry.c, last = entry.t })
     end
-    table.sort(autoList, function(a, b) return a.count > b.count end)
+    table_sort(autoList, function(a, b) return a.count > b.count end)
 
     local phList = {}
     for key, entry in pairs(self.db.phBias or {}) do
         local hash, corr = key:match("([^:]+):(.+)")
-        table.insert(phList, { hash = hash, correction = corr, count = entry.c, last = entry.t })
+        table_insert(phList, { hash = hash, correction = corr, count = entry.c, last = entry.t })
     end
-    table.sort(phList, function(a, b) return a.count > b.count end)
+    table_sort(phList, function(a, b) return a.count > b.count end)
 
     local negList = {}
     for key, entry in pairs(self.db.negBias or {}) do
         local typo, word = key:match("^(.-):(.+)$")
         if typo and word then
-            table.insert(negList, { typo = typo, word = word, count = entry.c, last = entry.t, utility = entry.u })
+            table_insert(negList, { typo = typo, word = word, count = entry.c, last = entry.t, utility = entry.u })
         end
     end
-    table.sort(negList, function(a, b) return a.count > b.count end)
+    table_sort(negList, function(a, b) return a.count > b.count end)
 
     return {
         freq      = freqList,
@@ -500,7 +504,7 @@ function YALLM:ClearSpecificUsage(usageType, key)
     if not self.db then return end
     if usageType == "freq" and self.db.freq[key] then
         self.db.freq[key] = nil
-        self.db.total = math.max(0, self.db.total - 1)
+        self.db.total = math_max(0, self.db.total - 1)
     elseif usageType == "bias" and self.db.bias[key] then
         self.db.bias[key] = nil
     elseif usageType == "auto" and self.db.auto[key] then

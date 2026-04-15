@@ -11,10 +11,11 @@ local Spellcheck = {}
 YapperTable.Spellcheck = Spellcheck
 
 -- Localise Lua globals for performance (avoids table lookups in hot loops)
-local math_abs = math.abs
-local math_min = math.min
-local math_max = math.max
-local math_huge = math.huge
+local math_abs   = math.abs
+local math_min   = math.min
+local math_max   = math.max
+local math_floor = math.floor
+local math_huge  = math.huge
 local table_insert = table.insert
 local table_sort = table.sort
 local table_remove = table.remove
@@ -2067,6 +2068,11 @@ end
 function Spellcheck:RedrawUnderlines()
     if not self.EditBox or not self._lastMisspellings then return end
 
+    if self.EditBox.IsMultiLine and self.EditBox:IsMultiLine() then
+        self:RedrawUnderlines_ML()
+        return
+    end
+
     local text = self.EditBox:GetText() or ""
     local scrollOffset = self:GetScrollOffset()
     self._lastScrollOffset = scrollOffset
@@ -2163,6 +2169,186 @@ function Spellcheck:ClearUnderlines()
         self.UnderlinePool[#self.UnderlinePool + 1] = tex
     end
     self.Underlines = {}
+end
+
+-- ---------------------------------------------------------------------------
+-- Multiline Underline Support
+-- ---------------------------------------------------------------------------
+-- These functions handle underline drawing for word-wrap-enabled multiline
+-- EditBoxes.  They coexist with the single-line variants so both can be
+-- tested independently during the transition to the multiline editor frame.
+
+function Spellcheck:EnsureMLMeasureFS()
+    if self.MLMeasureFS then return end
+    self:EnsureMeasureFontString()
+    if not self.MeasureFS then return end
+    -- Parent to the same hidden frame as MeasureFS so scale is consistent.
+    local parent = self.MeasureFS:GetParent()
+    local fs = parent:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    fs:SetWordWrap(true)
+    fs:SetJustifyH("LEFT")
+    fs:SetJustifyV("TOP")
+    self.MLMeasureFS = fs
+end
+
+-- Sync MLMeasureFS font/spacing to the current EditBox and constrain its
+-- width so word-wrap fires at the same column it would in the real box.
+function Spellcheck:SyncMLMeasureFont(boxWidth)
+    local fs = self.MLMeasureFS
+    if not fs then return end
+    local editBox = self.EditBox
+    if editBox and editBox.GetFont then
+        local face, size, flags = editBox:GetFont()
+        if face and size then
+            local curFace, curSize, curFlags = fs:GetFont()
+            if curFace ~= face or curSize ~= size or curFlags ~= flags then
+                fs:SetFont(face, size, flags or "")
+            end
+        end
+        if editBox.GetSpacing and fs.SetSpacing then
+            local spacing = editBox:GetSpacing() or 0
+            if (fs:GetSpacing() or 0) ~= spacing then
+                fs:SetSpacing(spacing)
+            end
+        end
+    end
+    fs:SetWidth(boxWidth)
+end
+
+-- Measure where the END of `prefix` falls inside a word-wrapped box.
+-- Returns: lineIndex (0-based), xOnLine (pixels from left), lineHeight.
+--
+-- Uses binary search to find the start of the last visual line without
+-- reimplementing WoW's word-wrap algorithm.  The search is O(log N) in
+-- character count — typically ~10 SetText calls for a 1000-char prefix.
+function Spellcheck:MeasureMLPrefix(prefix, boxWidth)
+    self:EnsureMLMeasureFS()
+    local fs = self.MLMeasureFS
+    if not fs then return 0, 0, 14 end
+    self:SyncMLMeasureFont(boxWidth)
+
+    local lineHeight = fs:GetLineHeight() or 14
+    if lineHeight <= 0 then lineHeight = 14 end
+
+    if not prefix or prefix == "" then
+        return 0, 0, lineHeight
+    end
+
+    fs:SetText(prefix)
+    local totalHeight = fs:GetStringHeight() or lineHeight
+    -- Round to nearest integer to absorb floating-point error in GetStringHeight.
+    local lineCount = math_max(1, math_floor(totalHeight / lineHeight + 0.5))
+    local lineIndex = lineCount - 1  -- 0-based
+
+    -- Binary-search for the character offset where the last visual line begins.
+    -- We look for the smallest i such that prefix[1..i] spans lineCount lines;
+    -- all characters before i are on earlier lines.
+    local lastLineStart = 0
+    if lineIndex > 0 then
+        local lo, hi = 1, #prefix
+        while lo < hi do
+            local mid = math_floor((lo + hi) / 2)
+            fs:SetText(string_sub(prefix, 1, mid))
+            local h = fs:GetStringHeight() or lineHeight
+            local n = math_max(1, math_floor(h / lineHeight + 0.5))
+            if n < lineCount then
+                lo = mid + 1
+            else
+                hi = mid
+            end
+        end
+        lastLineStart = lo
+    end
+
+    local lastLineText = string_sub(prefix, lastLineStart)
+    fs:SetText(lastLineText)
+    local xOnLine = fs:GetStringWidth() or 0
+    return lineIndex, xOnLine, lineHeight
+end
+
+-- Return the vertical scroll position of the multiline EditBox in pixels.
+-- Checks the EditBox natively first, then falls back to self.MLScrollFrame
+-- for when the box sits inside an explicit scroll container (set by the
+-- multiline editor frame on Bind).
+function Spellcheck:GetVerticalScroll()
+    local eb = self.EditBox
+    if not eb then return 0 end
+    if eb.GetVerticalScroll then return eb:GetVerticalScroll() or 0 end
+    if self.MLScrollFrame and self.MLScrollFrame.GetVerticalScroll then
+        return self.MLScrollFrame:GetVerticalScroll() or 0
+    end
+    return 0
+end
+
+function Spellcheck:RedrawUnderlines_ML()
+    if not self.EditBox or not self._lastMisspellings then return end
+
+    local text = self.EditBox:GetText() or ""
+    local leftInset, rightInset = 0, 0
+    if self.EditBox.GetTextInsets then
+        leftInset, rightInset = self.EditBox:GetTextInsets()
+        leftInset  = leftInset  or 0
+        rightInset = rightInset or 0
+    end
+    local boxWidth   = (self.EditBox:GetWidth() or 200) - leftInset - rightInset
+    local vertScroll = self:GetVerticalScroll()
+
+    self:ClearUnderlines()
+    for _, item in ipairs(self._lastMisspellings) do
+        self:DrawUnderline_ML(item.startPos, item.endPos, text, vertScroll, boxWidth, leftInset)
+    end
+end
+
+function Spellcheck:DrawUnderline_ML(startPos, endPos, text, vertScroll, boxWidth, leftInset)
+    if not self.EditBox or not self.Overlay then return end
+
+    local prefix = string_sub(text, 1, startPos - 1)
+    local word   = string_sub(text, startPos, endPos)
+    local lineIndex, xOnLine, lineHeight = self:MeasureMLPrefix(prefix, boxWidth)
+    local w = self:MeasureText(word)
+
+    -- Clip to right edge of this visual line.
+    local remainingWidth = boxWidth - xOnLine
+    if w > remainingWidth then w = remainingWidth end
+    if w <= 0 then return end
+
+    -- Clip to vertical visibility (skip lines scrolled out of view).
+    local ebHeight   = self.EditBox:GetHeight() or 200
+    local lineTop    = lineIndex * lineHeight - vertScroll
+    local lineBottom = lineTop + lineHeight
+    if lineBottom <= 0 or lineTop >= ebHeight then return end
+
+    -- Build pixel offsets from UnderlineLayer origin to this word's position.
+    -- UnderlineLayer covers the Overlay, so we compensate for the EditBox offset.
+    local ebLeft = self.EditBox:GetLeft() or 0
+    local ovLeft = self.Overlay:GetLeft() or 0
+    local ebTop  = self.EditBox:GetTop()  or 0
+    local ovTop  = self.Overlay:GetTop()  or 0
+    local offsetX    = (ebLeft - ovLeft) + leftInset + xOnLine
+    local offsetTopY = -(ovTop - ebTop)  -- negative: Y grows downward in SetPoint
+
+    local tex   = self:AcquireUnderline()
+    local style = self:GetUnderlineStyle()
+    local cfg   = self:GetConfig()
+
+    if style == "highlight" then
+        local c = cfg.HighlightColor or { r = 1, g = 0.18, b = 0.18, a = 0.36 }
+        tex:SetColorTexture(c.r, c.g, c.b, c.a)
+        tex:SetSize(w, lineHeight - 2)
+        tex:ClearAllPoints()
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT",
+            offsetX, offsetTopY - lineTop - 2)
+    else
+        local c = cfg.UnderlineColor or { r = 1, g = 0.2, b = 0.2, a = 0.9 }
+        tex:SetColorTexture(c.r, c.g, c.b, c.a)
+        tex:SetSize(w, 2)
+        tex:ClearAllPoints()
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT",
+            offsetX, offsetTopY - lineTop - lineHeight + 2)
+    end
+
+    tex:Show()
+    self.Underlines[#self.Underlines + 1] = tex
 end
 
 function Spellcheck:CollectMisspellings(text, dict)
@@ -2342,8 +2528,6 @@ function Spellcheck:UpdateActiveWord()
         self:HideSuggestions()
         return
     end
-
-    local wordInfo = self:GetWordAtCursor(text, cursor)
 
     local wordInfo = self:GetWordAtCursor(text, cursor)
 
