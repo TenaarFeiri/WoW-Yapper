@@ -2,12 +2,24 @@
   - *The Engine Now Learns:*
     - **Adaptive Learning (YALLM):** Yapper now tracks your common words and manual corrections. Over time, the engine learns your vocabulary profile so the first suggestion is actually what you meant.
     - **Selection Bias:** Manually overriding a suggestion (e.g. choosing "heart" over "hear") now sticks. The engine remembers your preference for future collisions.
+    - **Implicit Backtrack Learning:** If you dismiss a suggestion and retype the word yourself, the engine silently notices. It scores the lesson by how similar your correction was to the suggestion, so it learns more confidently from clear corrections than ambiguous ones.
+    - **Rejection Feedback:** Clicking "More Suggestions »" now counts as a soft rejection for the suggestions you skipped. The engine uses this to rank those words lower next time.
+    - **Phonetic Pattern Learning:** Corrections are now tracked by sound as well as spelling. If you consistently correct words that sound like "ther" to "there", the engine picks up the pattern across all similar collisions, not just that exact word.
     - **Anti-Contamination:** Added common-sense filters to stop the dictionary from learning "keyboard smash" gibberish or accidental typos.
+  - *Suggestions UI:*
+    - **Suggestion Pagination:** When there are more than six suggestions, a "More Suggestions »" row appears at the bottom. Clicking it cycles to the next page; after the last page it wraps back to the top. Up to six suggestions are shown per page when browsing; six are always shown on the first page if the total fits.
+  - *New Settings — Adaptive Learning Tab:*
+    - A new "Adaptive Learning" tab has been added to Settings. It shows live tables of everything YALLM has learned: your most-used words, learned corrections, phonetic patterns, and rejected suggestions.
+    - Each row has a delete button so you can remove individual entries you don't want the engine to keep.
+    - Three new tuning sliders control the caps: **Vocabulary Cap** (how many words to track), **Correction Bias Cap** (how many correction pairs to store), and **Auto-learn Threshold** (how many times a word must appear before it's added automatically).
+  - *Compatibility:*
+    - **RP Prefix (by Zee/Songzee):** If you use the RP Prefix addon, Yapper now correctly prepends your prefix to the *first* post of a split message only. Previously the prefix would appear on every continuation chunk.
   - *Structural Cleanup:*
     - **Spring Cleaning:** Purged a lot of legacy "orphaned" code and redundant N-gram relics that were just taking up space. The engine is leaner and faster.
     - **Hardened Initialisation:** Added better sanity checks during boot. If something critical (like the UI cache) fails to load, Yapper will now tell you exactly what went wrong instead of failing silently.
   - *Stability & Bug Fixes:*
-    - **Memory Management:** Killed off several memory leaks and ensured dictionaries don't duplicate on reload. 
+    - **Memory Management:** Killed off several memory leaks and ensured dictionaries don't duplicate on reload.
+    - **Dictionary Base Protection:** Fixed a bug where switching locale could unload the base dictionary that a delta locale (e.g. enGB) depends on, causing the spellchecker to go partially blind.
     - **Fixed "Confused" Suggestions:** Resolved a bug where the spellchecker would occasionally point at the wrong words in a sentence.
     - **UI Polish:** Fixed alignment issues in the settings menu where buttons and input boxes were getting cut off.
     - **Visual Fixes:** Suggestions no longer "travel to Narnia" on long, sideways-scrolling messages.
