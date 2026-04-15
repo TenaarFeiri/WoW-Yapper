@@ -18,7 +18,6 @@ local CHATTYPE_TO_OVERRIDE_KEY = EditBox._CHATTYPE_TO_OVERRIDE_KEY
 local IsWhisperSlashPrefill    = EditBox.IsWhisperSlashPrefill
 local ParseWhisperSlash        = EditBox.ParseWhisperSlash
 local GetLastTellTargetInfo    = EditBox.GetLastTellTargetInfo
-local IsWIMFocusActive         = EditBox.IsWIMFocusActive
 local SetFrameFillColour       = EditBox.SetFrameFillColour
 
 -- Resolve locals from Overlay.lua (loaded before us).
@@ -125,11 +124,11 @@ function EditBox:Show(origEditBox)
     --   2. Lockdown draft — restore the channel the user was on mid-combat.
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
-    if blizzHasTarget and not self._lastSavedDraftIsLockdown then
+    if blizzHasTarget and not self._lockdown.savedDraft then
         self.ChatType = blizzType
         self.Language = blizzLang or nil
         self.Target   = blizzTell or blizzChan or nil
-    elseif (self.LastUsed and self.LastUsed.chatType) and not self._lastSavedDraftIsLockdown then
+    elseif (self.LastUsed and self.LastUsed.chatType) and not self._lockdown.savedDraft then
         self.ChatType = self.LastUsed.chatType
         self.Language = blizzLang or self.LastUsed.language or nil
         self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
@@ -231,7 +230,7 @@ function EditBox:Show(origEditBox)
     local fontNeeded    = activeSize + fontPad
     local blizzH        = origEditBox:GetHeight() or 32
     local minH          = (cfg.MinHeight and cfg.MinHeight > 0) and cfg.MinHeight or blizzH
-    local finalH        = math.max(minH, fontNeeded)
+    local finalH        = math_max(minH, fontNeeded)
     if finalH > blizzH then
         overlay:ClearAllPoints()
         overlay:SetPoint("TOPLEFT", origEditBox, "TOPLEFT", 0, 0)
@@ -339,13 +338,8 @@ function EditBox:Hide()
 
     -- Clean up any active lockdown timers to prevent "ghost" handoffs
     -- if the user finished their post normally or escaped out.
-    if self._lockdownIdleTimer then
-        YapperTable.Utils:DebugPrint("Yapper hidden normally - canceling active handoff timer.")
-        self._lockdownIdleTimer:Cancel()
-        self._lockdownIdleTimer = nil
-    end
-    self._lockdownHandedOff = false
-    self._lockdownEventRunning = false
+    self:ClearLockdownState()
+    self._lockdown.handedOff = false
 
     -- Suppress one immediate Blizzard Show for the same editbox to avoid
     -- hide/show contention on outside-click dismissals.
@@ -377,11 +371,8 @@ function EditBox:HandoffToBlizzard(silent)
     YapperTable.Utils:DebugPrint("Executing HandoffToBlizzard...")
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
 
-    -- clean up lockdown idle timers if present
-    if self._lockdownIdleTimer then
-        self._lockdownIdleTimer:Cancel()
-        self._lockdownIdleTimer = nil
-    end
+    -- Centralised lockdown cleanup (cancels timers/tickers).
+    self:ClearLockdownState()
 
     -- Save as dirty draft for recovery on next open.
     if text ~= "" and YapperTable.History then
@@ -389,7 +380,7 @@ function EditBox:HandoffToBlizzard(silent)
         YapperTable.History:MarkDirty(true)
         -- Mark that this draft was saved due to lockdown so callers
         -- can decide whether to restore it to Blizzard's editbox.
-        self._lastSavedDraftIsLockdown = true
+        self._lockdown.savedDraft = true
     end
 
     -- OnHide won't double-save because _closedClean is true.
@@ -401,16 +392,10 @@ function EditBox:HandoffToBlizzard(silent)
     end
     self:Hide()
 
-    self._lockdownHandedOff = true
+    self._lockdown.handedOff = true
     if not silent then
         YapperTable.Utils:Print("info",
             "Chat in lockdown — your post has been saved. Press Enter after lockdown ends to continue.")
-    end
-
-    -- Cancel the polling ticker if one is running.
-    if self._lockdownTicker then
-        self._lockdownTicker:Cancel()
-        self._lockdownTicker = nil
     end
 end
 
@@ -482,7 +467,7 @@ function EditBox:ApplyConfigToLiveOverlay(force)
         local fontNeeded    = activeSize + fontPad
         local blizzH        = self.OrigEditBox:GetHeight() or 32
         local minH          = (cfg.MinHeight and cfg.MinHeight > 0) and cfg.MinHeight or blizzH
-        local finalH        = math.max(minH, fontNeeded)
+        local finalH        = math_max(minH, fontNeeded)
         local resolvedH     = finalH > blizzH and finalH or blizzH
 
         self.Overlay:ClearAllPoints()
@@ -621,9 +606,9 @@ function EditBox:RefreshLabel()
                 and defaults.EditBox.ChannelTextColors[currentKey]
             local userColor = channelColors and channelColors[currentKey]
             if defColors and userColor
-                and math.abs((userColor.r or 0) - (defColors.r or 0)) < 0.01
-                and math.abs((userColor.g or 0) - (defColors.g or 0)) < 0.01
-                and math.abs((userColor.b or 0) - (defColors.b or 0)) < 0.01 then
+                and math_abs((userColor.r or 0) - (defColors.r or 0)) < 0.01
+                and math_abs((userColor.g or 0) - (defColors.g or 0)) < 0.01
+                and math_abs((userColor.b or 0) - (defColors.b or 0)) < 0.01 then
                 resolvedR, resolvedG, resolvedB = tcol.r, tcol.g, tcol.b
             end
         end
@@ -657,7 +642,7 @@ function EditBox:RefreshLabel()
     -- default. This guards against stale SavedVariables or Blizzard fallbacks.
     if effectiveType == "BN_WHISPER" then
         local function approxEqual(a, b)
-            return math.abs((a or 0) - (b or 0)) < 0.02
+            return math_abs((a or 0) - (b or 0)) < 0.02
         end
         -- standard whisper magenta heuristic
         if approxEqual(resolvedR, 1.0) and approxEqual(resolvedG, 0.5) and approxEqual(resolvedB, 1.0) then
@@ -833,7 +818,7 @@ function EditBox:NavigateHistory(direction)
     if #cache == 0 then return end
 
     local newIdx = (self.HistoryIndex or (#cache + 1)) + direction
-    newIdx = math.max(1, math.min(newIdx, #cache + 1))
+    newIdx = math_max(1, math_min(newIdx, #cache + 1))
 
     if newIdx == self.HistoryIndex then return end
     self.HistoryIndex = newIdx
@@ -984,13 +969,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
                 local lang = c.language or eb.languageID or (eb.GetAttribute and eb:GetAttribute("language"))
 
-                if not self._lastSavedDraftIsLockdown then
+                if not self._lockdown.savedDraft then
                     self.LastUsed.chatType = ct
                     self.LastUsed.target = target
                     self.LastUsed.language = lang
                     -- Persist after lockdown ends if we are still locked.
                     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
-                        self._lastSavedDuringLockdown = true
+                        self._lockdown.savedDuring = true
                     else
                         self:PersistLastUsed()
                     end
@@ -1020,7 +1005,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
                     -- If WIM grabbed whisper focus in the meantime, do not
                     -- reclaim this box for Yapper's overlay.
-                    if IsWIMFocusActive() then
+                    if YapperTable.WIMBridge and YapperTable.WIMBridge:IsFocusActive() then
                         self._bnetEditBox = nil
                         return
                     end
@@ -1146,11 +1131,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- In lockdown Blizzard's untainted box can still send; leave it alone.
         -- In DEBUG mode, we only bypass Yapper if the handoff has actually occurred.
         local isLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
-        local isDebugBypass = YapperTable.Config.System.DEBUG and self._lockdownHandedOff
+        local isDebugBypass = YapperTable.Config.System.DEBUG and self._lockdown.handedOff
 
         if isLockdown or isDebugBypass then
-            if not self._lockdownShowHandled then
-                self._lockdownShowHandled = true
+            if not self._lockdown.showHandled then
+                self._lockdown.showHandled = true
                 local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
                 chosenCT = self:GetResolvedChatType(chosenCT)
 
@@ -1194,11 +1179,6 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
 
 
-        -- If WIM currently owns chat focus, do not present Yapper overlay.
-        if IsWIMFocusActive() then
-            return
-        end
-
         -- Seed LastUsed from Blizzard's editbox so the lockdown fallback
         -- opens on the correct channel. Only seeds when LastUsed is empty —
         -- once the user has made an explicit choice (send or Tab-cycle) we
@@ -1226,6 +1206,21 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
             end)
             return
+        end
+
+        -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
+        -- can inspect the pending open and cancel it.
+        if YapperTable.API then
+            local cache = self._attrCache[eb] or {}
+            local filterCT = cache.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
+            local filterTarget = cache.tellTarget or cache.channelTarget
+            local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
+                chatType = filterCT,
+                target   = filterTarget,
+            })
+            if result == false then
+                return
+            end
         end
 
         -- Fix for tab-switching causing overlay to activate.
