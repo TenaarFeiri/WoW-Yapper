@@ -8,7 +8,10 @@ local _, YapperTable = ...
 local Spellcheck     = YapperTable.Spellcheck
 
 -- Re-localise shared helpers from hub.
-local Clamp          = Spellcheck.Clamp
+local Clamp           = Spellcheck.Clamp
+local NormaliseWord   = Spellcheck.NormaliseWord
+local NormaliseVowels = Spellcheck.NormaliseVowels
+local IsWordStartByte = Spellcheck.IsWordStartByte
 
 -- Re-localise Lua globals.
 local type       = type
@@ -16,9 +19,14 @@ local pairs      = pairs
 local ipairs     = ipairs
 local tostring   = tostring
 local tonumber   = tonumber
+local math_huge    = math.huge
+local math_min     = math.min
+local string_byte  = string.byte
+local string_sub   = string.sub
 local string_lower = string.lower
 local string_format = string.format
 local table_insert  = table.insert
+local table_sort    = table.sort
 
 -- Chunk size for async loading (from hub).
 local DICT_CHUNK_SIZE = Spellcheck._DICT_CHUNK_SIZE

@@ -11,13 +11,14 @@ local Spellcheck     = YapperTable.Spellcheck
 local IsWordByte = Spellcheck.IsWordByte
 
 -- Re-localise Lua globals.
-local type       = type
-local math_min   = math.min
-local math_max   = math.max
-local math_floor = math.floor
-local math_abs   = math.abs
-local string_sub = string.sub
-local string_byte = string.byte
+local type         = type
+local math_min     = math.min
+local math_max     = math.max
+local math_floor   = math.floor
+local math_abs     = math.abs
+local string_sub   = string.sub
+local string_byte  = string.byte
+local table_remove = table.remove
 
 function Spellcheck:GetCaretXOffset()
     local editBox = self.EditBox
