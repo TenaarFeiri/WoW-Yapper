@@ -29,12 +29,20 @@ Src/Spellcheck/Dicts/enBase.lua
 Src/Spellcheck/Dicts/enUS.lua
 Src/Spellcheck/Dicts/enGB.lua
 Src/Spellcheck/YALLM.lua
+Src/Spellcheck/Dictionary.lua
+Src/Spellcheck/UI.lua
+Src/Spellcheck/Underline.lua
+Src/Spellcheck/Engine.lua
 
 # IconGallery handles the storyteller raid icon selection grid.
 Src/IconGallery.lua
 
 # Editbox must load here or this won't work.
 Src/EditBox.lua
+Src/EditBox/SkinProxy.lua
+Src/EditBox/Overlay.lua
+Src/EditBox/Handlers.lua
+Src/EditBox/Hooks.lua
 Src/EditBoxCompat.lua
 
 # These files must load in this order:
@@ -55,10 +63,17 @@ Src/Queue.lua
 Src/Chat.lua
 
 # From here on the order doesn't matter.
+Src/Multiline.lua
+Src/Autocomplete.lua
 Src/History.lua
 Src/Theme.lua
 Src/Themes/Blizzard.lua
 Src/Interface.lua
+Src/Interface/Schema.lua
+Src/Interface/Config.lua
+Src/Interface/Window.lua
+Src/Interface/Widgets.lua
+Src/Interface/Pages.lua
 
 # Always last.
 Yapper.lua

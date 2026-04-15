@@ -1,6 +1,9 @@
 # Ignore legacy folder containing old source
 Legacy/
 
+# Backup files from refactoring
+*.bak
+
 # Add other common ignores below if needed
 # *.luac
 # *.log
