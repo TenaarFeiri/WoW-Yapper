@@ -112,6 +112,22 @@ end
 
 --- Process a message from the user.
 function Chat:OnSend(text, chatType, language, target)
+    -- PRE_SEND filter: external addons can modify or cancel the send.
+    local API = YapperTable.API
+    if API then
+        local payload = API:RunFilter("PRE_SEND", {
+            text     = text,
+            chatType = chatType,
+            language = language,
+            target   = target,
+        })
+        if payload == false then return end
+        text     = payload.text
+        chatType = payload.chatType
+        language = payload.language
+        target   = payload.target
+    end
+
     local cfg    = YapperTable.Config and YapperTable.Config.Chat or {}
     local limit  = cfg.CHARACTER_LIMIT or 255
 
@@ -130,12 +146,6 @@ function Chat:OnSend(text, chatType, language, target)
 
     if YapperTable.History then
         YapperTable.History:AddChatHistory(text, chatType, target)
-    end
-
-    -- RPPrefix bridge: prepend the RP prefix to the full text before chunking
-    -- so it appears on the first post only, not on every continuation chunk.
-    if YapperTable.RPPrefixBridge then
-        text = YapperTable.RPPrefixBridge:ApplyPrefix(text, chatType)
     end
 
     -- Short — send directly.
@@ -162,6 +172,17 @@ function Chat:OnSend(text, chatType, language, target)
         YapperTable.Error:PrintError("UNKNOWN", "Chunking module missing")
         self:DirectSend(text:sub(1, limit), chatType, language, target)
         return
+    end
+
+    -- PRE_CHUNK filter: external addons can modify text before splitting.
+    if API then
+        local chunkPayload = API:RunFilter("PRE_CHUNK", {
+            text  = text,
+            limit = limit,
+        })
+        if chunkPayload == false then return end
+        text  = chunkPayload.text
+        limit = chunkPayload.limit
     end
 
     local chunks = Chunking:Split(text, limit)
@@ -228,5 +249,10 @@ function Chat:DirectSend(msg, chatType, language, target)
         YapperTable.Router:Send(msg, chatType, language, target)
     else
         C_ChatInfo.SendChatMessage(msg, chatType, language, target)
+    end
+
+    -- POST_SEND callback: notify external addons.
+    if YapperTable.API then
+        YapperTable.API:Fire("POST_SEND", msg, chatType, language, target)
     end
 end
