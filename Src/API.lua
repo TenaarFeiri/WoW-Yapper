@@ -221,8 +221,12 @@ local function _serialize_value(val, depth, seen)
         return tostring(val)
     end
     if t == "function" then
-        local ok, info = pcall(debug.getinfo, val, "nS")
-        if ok and info then
+        local info = nil
+        if type(debug) == "table" and type(debug.getinfo) == "function" then
+            local ok, info2 = pcall(debug.getinfo, val, "nS")
+            if ok and info2 then info = info2 end
+        end
+        if info then
             return "<function:" .. (info.name or "?") .. ":" .. (info.short_src or "?") .. ">"
         end
         return "<function>"
@@ -369,12 +373,15 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
     -- registering addon/module.  Best-effort: extract an AddOn folder
     -- name from the source path when available, else store the short_src.
     local owner = nil
-    local ok, reginfo = pcall(debug.getinfo, 2, "S")
-    if ok and reginfo then
-        local src = reginfo.source or reginfo.short_src
-        if type(src) == "string" then
-            local addon = src:match("AddOns[/\\]([^/\\]+)")
-            owner = addon or src
+    if type(debug) == "table" and type(debug.getinfo) == "function" then
+        -- Level 3: pcall(1) → RegisterFilter(2) → caller(3)
+        local ok, reginfo = pcall(debug.getinfo, 3, "S")
+        if ok and reginfo then
+            local src = reginfo.source or reginfo.short_src
+            if type(src) == "string" then
+                local addon = src:match("AddOns[/\\]([^/\\]+)")
+                owner = addon or src
+            end
         end
     end
 
@@ -429,12 +436,15 @@ function YapperAPI:RegisterCallback(event, callback)
 
     -- Capture registration origin for callbacks as well.
     local owner = nil
-    local ok, reginfo = pcall(debug.getinfo, 2, "S")
-    if ok and reginfo then
-        local src = reginfo.source or reginfo.short_src
-        if type(src) == "string" then
-            local addon = src:match("AddOns[/\\]([^/\\]+)")
-            owner = addon or src
+    if type(debug) == "table" and type(debug.getinfo) == "function" then
+        -- Level 3: pcall(1) → RegisterCallback(2) → caller(3)
+        local ok, reginfo = pcall(debug.getinfo, 3, "S")
+        if ok and reginfo then
+            local src = reginfo.source or reginfo.short_src
+            if type(src) == "string" then
+                local addon = src:match("AddOns[/\\]([^/\\]+)")
+                owner = addon or src
+            end
         end
     end
 
