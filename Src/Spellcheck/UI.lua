@@ -24,6 +24,7 @@ local math_max   = math.max
 local math_floor = math.floor
 local string_sub = string.sub
 local string_format = string.format
+local table_insert  = table.insert
 
 function Spellcheck:Bind(editBox, overlay)
     self.EditBox = editBox
@@ -725,7 +726,7 @@ function Spellcheck:NextSuggestionsPage()
         local offset = self._suggestionOffset or 0
         local rejected = {}
         for i = offset + 1, math_min(offset + 5, #self.ActiveSuggestions) do
-            table.insert(rejected, self.ActiveSuggestions[i])
+            table_insert(rejected, self.ActiveSuggestions[i])
         end
         self.YALLM:RecordRejection(self.ActiveWord, rejected)
     end
