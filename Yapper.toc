@@ -24,6 +24,10 @@ Src/Utils.lua
 Src/Error.lua
 Src/Frames.lua
 Src/Events.lua
+
+# Public API — must load before anything that fires or registers hooks.
+Src/API.lua
+
 Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
 Src/Spellcheck/Dicts/enBase.lua
