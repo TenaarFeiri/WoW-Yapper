@@ -134,12 +134,12 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         if not overlay._yapperShadowLayer then
             overlay._yapperShadowLayer = CreateFrame("Frame", nil, overlay)
             -- Push it strictly behind the overlay background to prevent bleed-over
-            overlay._yapperShadowLayer:SetFrameLevel(math.max(0, overlay:GetFrameLevel() - 1))
+            overlay._yapperShadowLayer:SetFrameLevel(math_max(0, overlay:GetFrameLevel() - 1))
             overlay._yapperShadowLayer:SetAllPoints(overlay)
             overlay._yapperShadows = {}
             for i = 1, 3 do
                 local stex = overlay._yapperShadowLayer:CreateTexture(nil, "BACKGROUND")
-                table.insert(overlay._yapperShadows, stex)
+                table_insert(overlay._yapperShadows, stex)
             end
         end
         overlay._yapperShadowLayer:Show()
@@ -244,7 +244,7 @@ end
 local function GetLabelUsableWidth(self)
     if not self or not self.LabelBg then return 80 end
     local rawWidth = self.LabelBg:GetWidth() or 100
-    return math.max(40, rawWidth - 10)
+    return math_max(40, rawWidth - 10)
 end
 
 local function ResetLabelToBaseFont(self)
@@ -336,7 +336,7 @@ local function UpdateLabelBackgroundForText(self, text)
     local headroom = maxAllowed - rawWidth
     -- allow the padding to shrink very small so the edit text is close
     -- to the box when there's very little label text
-    local padding  = math.max(2, math.min(basePad, headroom))
+    local padding  = math_max(2, math_min(basePad, headroom))
     local labelW   = math.ceil(rawWidth + padding)
     -- cap by configuration and available space
     if labelW > maxAllowed then labelW = maxAllowed end
@@ -462,7 +462,7 @@ function EditBox:CreateOverlay()
                         self.ChannelName = nil
                     end
 
-                    self._lastSavedDuringLockdown = true
+                    self._lockdown.savedDuring = true
                 end
             end)
         end
