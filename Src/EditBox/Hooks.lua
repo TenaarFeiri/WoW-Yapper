@@ -315,8 +315,8 @@ function EditBox:Show(origEditBox)
         origEditBox:SetText("")
     end
 
-    if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
-        YapperTable.TypingTrackerBridge:OnOverlayFocusGained(self.ChatType)
+    if YapperTable.API then
+        YapperTable.API:Fire("EDITBOX_SHOW", self.ChatType, self.Target)
     end
 end
 
@@ -360,6 +360,11 @@ function EditBox:Hide()
                 self._suppressNextShowFor = nil
             end
         end)
+    end
+
+    -- EDITBOX_HIDE callback: notify external addons.
+    if YapperTable.API then
+        YapperTable.API:Fire("EDITBOX_HIDE")
     end
 end
 
@@ -719,8 +724,8 @@ function EditBox:CycleChat(direction)
             -- ChannelName not used for whispers
             self.ChannelName = nil
             self:RefreshLabel()
-            if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
-                YapperTable.TypingTrackerBridge:OnChannelChanged(self.ChatType)
+            if YapperTable.API then
+                YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
             end
         end
         return
@@ -746,8 +751,8 @@ function EditBox:CycleChat(direction)
             self.Target      = nil
             self.ChannelName = nil
             self:RefreshLabel()
-            if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.Enabled then
-                YapperTable.TypingTrackerBridge:OnChannelChanged(self.ChatType)
+            if YapperTable.API then
+                YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, nil)
             end
             return
         end
