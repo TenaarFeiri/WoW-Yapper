@@ -38,20 +38,6 @@ local SPLITTABLE = {
 -- ---------------------------------------------------------------------------
 
 function Chat:Init()
-    local function IsWIMFocusActive()
-        local wim = _G.WIM
-        local focus = wim and wim.EditBoxInFocus
-        if not focus then
-            return false
-        end
-
-        local isShown = focus.IsShown and focus:IsShown()
-        local isVisible = focus.IsVisible and focus:IsVisible()
-        local hasFocus = focus.HasFocus and focus:HasFocus()
-
-        return (isShown == true) or (isVisible == true) or (hasFocus == true)
-    end
-
     if YapperTable.EditBox then
         YapperTable.EditBox:SetOnSend(function(text, chatType, language, target)
             self:OnSend(text, chatType, language, target)
@@ -72,24 +58,6 @@ function Chat:Init()
                 return true
             end
 
-            -- If WIM currently owns the chat focus for whisper handling,
-            -- let Blizzard/WIM keep control and do not show Yapper's overlay.
-            local ct = blizzEditBox and blizzEditBox.GetAttribute
-                and blizzEditBox:GetAttribute("chatType")
-            local isWhisper = (ct == "BN_WHISPER" or ct == "WHISPER")
-            local wimActive = IsWIMFocusActive()
-
-            -- Temporary diagnostics for takeover conflicts.
-            if wimActive and YapperTable.Utils and YapperTable.Utils.DebugPrint then
-                YapperTable.Utils:DebugPrint("WIM gate: suppress overlay (chatType=" .. tostring(ct) .. ")")
-            end
-
-            -- chatType may still be unset in some open paths; if WIM has focus,
-            -- prefer suppressing to avoid fighting over whisper edit ownership.
-            if wimActive and (isWhisper or ct == nil or ct == "") then
-                return true
-            end
-
             return false
         end)
     end
@@ -103,6 +71,9 @@ function Chat:Init()
     end
     if YapperTable.RPPrefixBridge then
         YapperTable.RPPrefixBridge:Init()
+    end
+    if YapperTable.WIMBridge then
+        YapperTable.WIMBridge:Init()
     end
 end
 
