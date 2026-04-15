@@ -12,6 +12,12 @@ local JoinPath       = Interface.JoinPath
 local ClonePath      = Interface.ClonePath
 local IsColourTable  = Interface.IsColourTable
 
+-- Re-localise Lua globals.
+local type       = type
+local ipairs     = ipairs
+local pairs      = pairs
+local table_sort = table.sort
+
 local COLOUR_KEYS                   = {
     InputBg = true,
     LabelBg = true,
@@ -304,15 +310,6 @@ for _, cat in ipairs(CATEGORIES) do
         end
     end
 end
-
--- ---------------------------------------------------------------------------
--- Layout constants
--- ---------------------------------------------------------------------------
-local LAYOUT             = {
-    -- Main window
-    WINDOW_WIDTH           = 740,
-    WINDOW_HEIGHT          = 640,
-    WINDOW_PADDING         = 8,
 
 function Interface:BuildRenderSchema()
     local defaults = self:GetDefaultsRoot()

@@ -19,6 +19,7 @@ local ipairs     = ipairs
 local math_abs   = math.abs
 local math_floor = math.floor
 local math_max   = math.max
+local math_min   = math.min
 local tinsert    = table.insert
 local tostring   = tostring
 

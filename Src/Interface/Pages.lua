@@ -32,8 +32,11 @@ local tostring   = tostring
 local tonumber   = tonumber
 local math_abs   = math.abs
 local math_floor = math.floor
-local table_sort = table.sort
+local table_sort    = table.sort
+local table_concat  = table.concat
 local string_format = string.format
+
+local TrimString    = Interface.TrimString
 
 function Interface:CreateChannelOverrideControls(parent, cursor)
     -- Custom row block (outside schema renderer) for per-channel colours.

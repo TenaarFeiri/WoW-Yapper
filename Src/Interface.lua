@@ -188,6 +188,7 @@ local function NormalizeFontFlags(value)
         return ""
     end
 
+    local FONT_OUTLINE_OPTIONS = Interface._FONT_OUTLINE_OPTIONS or {}
     for _, option in ipairs(FONT_OUTLINE_OPTIONS) do
         if option.value == flags then
             return option.value
@@ -199,12 +200,13 @@ end
 
 -- Resolve a font flag value to display text.
 local function GetFontFlagsLabel(flags)
+    local FONT_OUTLINE_OPTIONS = Interface._FONT_OUTLINE_OPTIONS or {}
     for _, option in ipairs(FONT_OUTLINE_OPTIONS) do
         if option.value == flags then
             return option.label
         end
     end
-    return FONT_OUTLINE_OPTIONS[1].label
+    return (FONT_OUTLINE_OPTIONS[1] or {}).label
 end
 
 -- Traverse nested tables using a key path.
