@@ -11,12 +11,13 @@ The typical lifecycle of a chat message in Yapper follows this path:
 ```mermaid
 graph TD
     A[User Input: EditBox.lua] -->|OnSend| B[Chat Orchestrator: Chat.lua]
-    B --> C{Length Check}
+    B -->|PRE_SEND filter| F[YapperAPI filters]
+    F --> C{Length Check}
     C -->|Short| D[Router: Router.lua]
     C -->|Long| E[Chunking: Chunking.lua]
-    E -->|Split into Chunks| F[Queue: Queue.lua]
-    F -->|Throttled Dispatch| D
-    D --> G[WoW SendChatMessage / BNSendWhisper]
+    E -->|PRE_CHUNK filter + Split| G[Queue: Queue.lua]
+    G -->|Throttled Dispatch + PRE_DELIVER filter| D
+    D --> H[WoW SendChatMessage / BNSendWhisper / C_Club.SendMessage]
 ```
 
 ### Key Components
@@ -43,11 +44,20 @@ graph TD
     - Real-time background spellcheck with custom dictionaries.
     - Dynamically renders underlines and highlights without breaking EditBox focus.
 
+6.  **Public API (`API.lua`)**
+    - Exposes `_G.YapperAPI` with filters (PRE_SEND, PRE_CHUNK, PRE_DELIVER, PRE_EDITBOX_SHOW, PRE_SPELLCHECK) and callbacks (POST_SEND, EDITBOX_SHOW, CONFIG_CHANGED, etc.) for third-party addon integration.
+
+7.  **Bridges (`Src/Bridges/`)**
+    - Compatibility shims for LibGopher/CrossRP, Simply_RP_Typing_Tracker, WIM, and RPPrefix. All bridges consume the public API rather than calling core modules directly.
+
+8.  **Autocomplete (`Autocomplete.lua`) / Multiline (`Multiline.lua`)**
+    - Scaffolding for ghost-text word completion and the expanded storyteller editor. Not yet fully wired.
+
 ## Dependency Graph
 
 - **Hard Dependencies**: Most modules depend on `Core.lua` for config and `Utils.lua` for logging/printing.
-- **UI Stack**: `Interface.lua` -> `Theme.lua` -> `EditBox.lua`.
-- **Logic Stack**: `EditBox.lua` -> `Chat.lua` -> `Chunking.lua` / `Queue.lua` -> `Router.lua`.
+- **Load order (TOC)**: `Core` → `Utils` → `Error` → `Frames` → `Events` → `API` → `Spellcheck` → `EditBox` → `Bridges` → `Router` → `Chunking` → `Queue` → `Chat` → `Multiline` → `Autocomplete` → `History` → `Theme` → `Interface`.
+- **Logic Stack**: `EditBox.lua` → `Chat.lua` → `Chunking.lua` / `Queue.lua` → `Router.lua`.
 
 ## Configuration System
 

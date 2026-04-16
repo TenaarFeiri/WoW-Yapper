@@ -20,12 +20,12 @@ A theme table can contain the following fields:
 - `name` (string): Unique identifier.
 - `inputBg` (table): Default colour for the text input area.
 - `labelBg` (table): Default colour for the channel label area.
-- `textColour` (table): Default colour for typed text.
-- `borderColour` (table): Default border colour (only used if `border = true`).
+- `textColor` (table): Default colour for typed text.
+- `borderColor` (table): Default border colour (only used if `border = true`).
 - `font` (table): `{path, size, flags}` block.
 - `allowRoundedCorners` (bool): If `false`, Yapper will force flat corners and disable the user toggle in the UI. Default: `true`.
 - `allowDropShadow` (bool): If `false`, Yapper will disable shadows and hide the user toggle in the UI. Default: `true`.
-- `channelTextColours` (table): Map of chat channel keys (e.g., `SAY`, `PARTY`) to colour tables.
+- `channelTextColors` (table): Map of chat channel keys (e.g., `SAY`, `PARTY`) to colour tables.
 - `OnApply` (function): **Optional**. A script that is executed whenever the theme is applied to a frame. This can be used to add custom textures, animations, or border effects.
 
 ## Visual Overrides

@@ -10,16 +10,14 @@
 
 | Method | Description |
 | :--- | :--- |
-| `Utils:Print(...)` | Prints a standard message to the chat frame prefixed with `[Yapper]`. Supports various message levels (info, error). |
+| `Utils:Print(...)` | Prints a standard message to the chat frame prefixed with `[Yapper]`. Supports optional level presets as first arg: `"info"`, `"warn"`, `"success"`, `"white"`. |
 | `Utils:VerbosePrint(...)` | Only prints if the **Verbose** setting is enabled in Config. |
 | `Utils:DebugPrint(...)` | Only prints if the **Debug** setting is enabled in Config. |
-| `Utils:IsChatLockdown()` | Returns true if the user is currently in a restricted encounter or combat state. |
-| `Utils:IsSecret(value)` | Scans text for patterns that should not be logged or saved to history (e.g. passwords). |
-| `Utils:Trim(s)` | Standard whitespace trimming. |
-| `Utils:FindLastWord(s)` | Identifies the word currently being typed at the end of a string (used for tab completion). |
-| `Utils:MakeFullscreenAware(frame)` | Adjusts frame strata to ensure the UI remains visible over cinemamatics or map overlays. |
+| `Utils:IsChatLockdown()` | Returns true if `C_ChatInfo.InChatMessagingLockdown()` is active. |
+| `Utils:IsSecret(value)` | Returns true if the value should not be logged or saved. Uses Blizzard's `issecretvalue`/`canaccessvalue` APIs when available; falls back to detecting `\|K` obfuscation tokens. |
+| `Utils:GetChatParent()` | Returns the correct UI parent frame for chat-related UI (respects fullscreen panels like the housing editor). |
+| `Utils:MakeFullscreenAware(frame)` | Hooks `FCF_SetFullScreenFrame`/`FCF_ClearFullScreenFrame` and `OnShow` to re-parent the frame whenever the active fullscreen panel changes. |
 
-## Internal Helpers
+## Global Export
 
-- **Chat Parent Detection**: `GetChatParent()` attempts to find the best anchor point for Yapper frames, prioritizing `UIParent` but falling back to specialized frames if needed.
-- **Taint-Safe Checks**: Various methods to check `InCombatLockdown()` and `issecure()` to prevent triggering Blizzard's protected execution paths.
+`Utils` is exported as `_G.YAPPER_UTILS` so that compatibility patches and third-party addons can call these helpers without accessing `YapperTable` directly.

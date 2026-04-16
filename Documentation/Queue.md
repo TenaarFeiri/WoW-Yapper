@@ -17,15 +17,20 @@ The `Queue` module handles the reliable delivery of multi-part (chunked) message
 
 ## Delivery Policies
 
-Yapper applies different throughput rules based on the chat channel:
+Every chat type is assigned to a `POLICY_CLASS` which controls how the queue behaves for that channel:
 
-- **Confirmed Channels** (`EMOTE`, `GUILD`, `OFFICER`):
-  - These use `CHAT_MSG_XYZ` events to confirm the server received the message before the next chunk is sent.
-  - This guarantees perfect ordering even during server lag.
-- **Throttled Channels** (`SAY`, `YELL`, `PARTY`):
-  - These are sent in small batches (e.g. 3 at a time) separated by a brief delay (`BATCH_THROTTLE`).
-- **Hardware-Locked Channels**:
-  - Channels containing certain links or specific restricted types may require a `Hardware Event` (clicking or pressing a button) to send.
+| Policy Class | Chat Types | Behaviour |
+| :--- | :--- | :--- |
+| `OPEN_WORLD_LOCAL` | SAY, YELL (open world) | Prompts for hardware event every chunk; requires user interaction to send. |
+| `INSTANCE_LOCAL` | SAY, YELL (inside instances) | Auto-continues after ack; no hardware event required. |
+| `EMOTE` | EMOTE | Auto-continues after `CHAT_MSG_EMOTE` ack. |
+| `WHISPER` | WHISPER | Auto-continues after `CHAT_MSG_WHISPER_INFORM` ack. |
+| `BN_WHISPER` | BN_WHISPER | Auto-continues after `CHAT_MSG_BN_WHISPER_INFORM` ack. |
+| `GLOBAL_CHANNEL` | CHANNEL (numbered) | Prompts every chunk; waits for `CHAT_MSG_CHANNEL` ack. |
+| `COMMUNITY_CLUB` | CLUB | Prompts every chunk; uses a 3× stall multiplier (community servers are slower). |
+| `GROUP` | PARTY, RAID, GUILD, OFFICER, INSTANCE_CHAT, and their leader variants | Auto-continues after the matching `CHAT_MSG_*` ack. |
+
+**Open World SAY/YELL require a hardware event** (Blizzard anti-spam protection for protected sends). Yapper shows a "Continue" button to satisfy this requirement.
 
 ## The Continuation Prompt
 

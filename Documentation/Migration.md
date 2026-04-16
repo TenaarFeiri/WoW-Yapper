@@ -85,6 +85,7 @@ Src/API.lua        <- public API (must be available for registration)
 Src/Bridges/GopherBridge.lua
 Src/Bridges/TypingTrackerBridge.lua
 Src/Bridges/RPPrefixBridge.lua
+Src/Bridges/WIMBridge.lua
 Src/Router.lua
 ...
 ```

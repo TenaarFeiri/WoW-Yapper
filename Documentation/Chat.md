@@ -28,10 +28,11 @@ If the message is long and the channel supports splitting (e.g., Guild, Party, S
 - Otherwise, the chunks are handed off to the `Queue` system for throttled delivery.
 
 ### 3. Non-Splittable Channels
-If the channel does NOT support splitting (e.g., Whispers, BNet Whispers):
-- The message is **truncated** at the 255-byte limit.
-- The truncated message is sent directly.
-- *Note*: This prevents "overflow kicks" by the server which are more common on private message channels.
+If the channel type is not in the `SPLITTABLE` table (an unusual edge case for unknown/future types):
+- The message is **truncated** at the 255-byte limit and sent directly.
+- An error is printed if the type is entirely unrecognised.
+
+> **Note**: `WHISPER` and `BN_WHISPER` **are** in `SPLITTABLE` and go through the full chunker and queue like any other channel. Long whispers will be split into continuation posts.
 
 ### 4. Adaptive Learning Hooks
 Regardless of message length or delivery method, `Chat:OnSend` triggers a background learning cycle:

@@ -24,33 +24,59 @@ Global addon state and toggles.
 - `VERSION` (float): Current schema version for migrations.
 - `ActiveTheme` (string): The name of the registered theme to use for the overlay.
 - `EnableGopherBridge` (bool): If true, attempts to forward messages to LibGopher (CrossRP).
+- `EnableTypingTrackerBridge` (bool): If true, activates the Simply_RP_Typing_Tracker bridge.
+- `StorytellerSlideSpeed` (float): Duration in seconds for the multiline editor expand/collapse animation.
+- `VERBOSE` / `DEBUG` (bool): Logging verbosity toggles (off by default).
 
 ### `Chat`
 Behavioural settings for the posting pipeline.
 - `CHARACTER_LIMIT` (int): Usually 255. Anything longer triggers the chunker.
-- `DELINEATOR` (string): The marker used to show where a post was split (e.g. `»`).
+- `DELINEATOR` / `PREFIX` (string): The marker appended/prepended at split boundaries (e.g. `»`).
+- `USE_DELINEATORS` (bool): Toggle to disable delineator injection entirely.
+- `MAX_HISTORY_LINES` (int): Number of sent messages kept in persistent history (default 50).
 - `STALL_TIMEOUT` (float): Seconds to wait for server confirmation before skipping to the next chunk.
 
 ### `EditBox`
-Aesthetic settings for the input overlay.
+Aesthetic and behavioural settings for the input overlay.
 - `InputBg` / `LabelBg` (table): `{r, g, b, a}` colour tables.
+- `TextColor` / `BorderColor` (table): `{r, g, b, a}` for text and optional border tint.
 - `FontFace` / `FontSize` / `FontFlags` (string/int): Custom font overrides.
+- `AutoFitLabel` (bool): Shrink the channel label font to fit; false truncates with ellipsis.
 - `RoundedCorners` (bool): Enables native backdrop border curves.
-- `Shadow` (bool): Enables the programmatic 3-layer drop shadow.
+- `Shadow` (bool): Enables the programmatic drop shadow.
 - `ShadowSize` (int): Thickness of the shadow layers.
-- `ShadowColour` (table): `{r, g, b, a}` for the shadow tint.
+- `ShadowColor` (table): `{r, g, b, a}` for the shadow tint.
+- `UseBlizzardSkinProxy` (bool): Keeps the native Blizzard EditBox alive behind the overlay to inherit its skin/backdrop.
+- `StickyChannel` / `StickyGroupChannel` (bool): Remember the last-used channel (and group channel) across opens.
+- `RecoverOnEscape` (bool): If true, pressing Escape saves the current text as a recoverable draft.
+- `ChannelTextColors` (table): Per-channel `{r, g, b, a}` text colour overrides (SAY, YELL, PARTY, WHISPER, etc.).
+- `AutocompleteEnabled` (bool): Enables ghost-text word completion (requires Spellcheck to be active).
+- `StorytellerAutoExpand` / `StorytellerWidth` / `StorytellerHeight` (bool/int): Multiline editor behaviour and dimensions.
 
 ### `Spellcheck`
 Real-time dictionary settings.
 - `Enabled` (bool): Global toggle.
-- `Locale` (string): e.g. "enGB" or "enUS".
+- `Locale` (string): e.g. `"enGB"` or `"enUS"`.
+- `MaxSuggestions` (int): Maximum number of suggestions shown in the popup (default 4).
+- `MaxCandidates` (int): Maximum phonetic candidates scored per check (default 800).
 - `NgramKeyCapSize` (int): Limit on unique bigram keys in the index (0 for uncapped).
-- `UnderlineColour` / `HighlightColour` (table): Custom warning tints.
+- `UnderlineColor` / `HighlightColor` (table): Custom warning tints.
+- `KeyboardLayout` (string): Layout used for keyboard-proximity scoring (`"QWERTY"`, `"QWERTZ"`, `"AZERTY"`).
+- `YALLMFreqCap` (int): Maximum unique vocabulary words tracked by YALLM (default 2000).
+- `YALLMBiasCap` (int): Maximum typo→correction pairs stored (default 500).
+- `YALLMAutoThreshold` (int): Times a word must be sent before YALLM auto-promotes it to the user dictionary (default 10).
 
 ## Data Persistence
 
-Data is stored in two standard WoW SavedVariable files:
-1.  `YapperDB`: Global account settings (seldom used for UI).
+Data is stored in three standard WoW SavedVariable files:
+1.  `YapperDB`: Global account settings.
     - `SpellcheckLearned`: Stores the personalised language model data ([YALLM](Spellcheck/YALLM.md)) for adaptive word ranking.
-2.  `YapperLocalConf`: Character-specific overrides. 
+    - `RPPrefixWarningAcknowledged`: Tracks whether the RPPrefix combat-lockdown warning has been dismissed.
+2.  `YapperLocalConf`: Character-specific config overrides.
+    - `EditBox.*`: Per-character appearance settings.
+    - `_themeOverrides`: Tracks which colour fields the user has manually changed (prevents theme re-application from overwriting them).
+    - `_appliedTheme`: Records the last programmatically applied theme name.
     - *Note*: If a theme is applied, its colours are copied into `YapperLocalConf.EditBox` unless the user has customised that specific colour via the interface.
+3.  `YapperLocalHistory`: Character-specific history and draft data.
+    - `chatHistory`: Array of recently sent messages (up to `MAX_HISTORY_LINES`), used for Alt+Arrow navigation.
+    - `draft`: Crash-recovery draft (text, chatType, target).

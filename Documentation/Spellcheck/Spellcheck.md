@@ -17,9 +17,10 @@ To achieve relevance even with "typing by sound," Yapper uses a custom phonetic 
 - **Terminals**: Converts terminal `GH` to `F` (e.g., "tough").
 
 ### Chunked Dictionary Loading
-To avoid massive memory spikes, the 130k+ word universal base dictionary (`enBase.lua`) uses a lazy-loading metatable architecture:
-- **Index-to-Chunk Mapping**: Words are divided into 1000-word chunks.
-- **On-Demand Hydration**: Chunks are only hydrated (deserialized into Lua tables) when a word ID in that range is first requested.
+To avoid hitting Lua 5.1's constant-table limits and causing frame-rate hitches, the 130k+ word universal base dictionary (`enBase.lua`) splits its content across multiple plain functions:
+- **Word Chunks**: Words are divided into `getWords_N()` functions of up to **15,000 words each**.
+- **Phonetic Chunks**: Phonetic bucket maps are divided into `getPhonetics_N()` functions of up to 10,000 entries each.
+- **Eager Registration**: When the locale file is executed, `Spellcheck:RegisterDictionary` calls all chunk functions and inserts the results directly — no metatables or `loadstring` involved.
 
 ### Regional Delta Inheritance
 Localization is achieved through lightweight regional deltas:

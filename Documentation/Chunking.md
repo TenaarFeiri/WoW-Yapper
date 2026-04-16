@@ -32,5 +32,5 @@ Yapper adds visual markers (suffix on the current chunk, prefix on the next) to 
 
 ## Dependencies
 
-- **Utils**: Uses `SafeUTF8Cut` for character-boundary-safe slicing.
 - **Config**: Reads `CHARACTER_LIMIT` and `DELINEATOR` settings.
+- UTF-8 safe boundary detection is implemented inline inside `Chunking.lua` itself; it walks backwards from the byte limit to find a safe multi-byte character boundary without splitting a continuation byte.
