@@ -113,6 +113,8 @@ local SETTING_TOOLTIPS              = {
     "When 'Remember last channel' is off, group channels (Party, Instance, Raid, Raid Warning) still remain sticky. Uncheck to disable that too.",
     ["EditBox.RecoverOnEscape"] =
     "When enabled, ESC keeps your text as a draft. When disabled, ESC saves to history but discards drafts.",
+    ["EditBox.AutocompleteEnabled"] =
+    "When enabled, Yapper shows ghost-text word predictions as you type, based on your personal vocabulary and the spellcheck dictionary. Press Tab to accept. Requires spellcheck to be enabled.",
     ["EditBox.MinHeight"] =
     "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
     ["EditBox.UseBlizzardSkinProxy"] =
@@ -182,6 +184,7 @@ local FRIENDLY_LABELS               = {
     ["EditBox.StickyChannel"] = "Remember last channel",
     ["EditBox.StickyGroupChannel"] = "Keep group channels sticky",
     ["EditBox.RecoverOnEscape"] = "Recover text after ESC",
+    ["EditBox.AutocompleteEnabled"] = "Autocomplete (ghost text)",
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
     ["EditBox.BlizzardSkinProxyPad"] = "Skin proxy padding",
@@ -217,6 +220,8 @@ local CATEGORIES                    = {
             "EditBox.StickyChannel",
             "EditBox.StickyGroupChannel",
             "EditBox.RecoverOnEscape",
+            -- Autocomplete
+            "EditBox.AutocompleteEnabled",
             -- Label fitting
             "EditBox.AutoFitLabel",
             -- Blizzard skin proxy
@@ -327,6 +332,8 @@ function Interface:BuildRenderSchema()
             or full == "System.VERSION"
             or full == "System.FRAME_ID_PARENT"
             or full == "System._welcomeShown"
+            or full == "System._lastSeenVersion"
+            or full == "EditBox._multilineHintShown"
             or full == "FrameSettings.MouseWheelStepRate"
             or full == "FrameSettings.MainWindowPosition"
             or full == "FrameSettings.SettingsViewMode"

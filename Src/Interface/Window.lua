@@ -175,37 +175,171 @@ end
 Interface._activeCategory = "general"
 
 -- ---------------------------------------------------------------------------
--- First-run appearance choice popup
+-- Version-gated popups: Welcome (first-run / schema change) & What's New
 -- ---------------------------------------------------------------------------
--- Shows once when VERSION < 1.1 (or on every reload if DEBUG is on).
--- Two columns: "Blizzard Skin" vs "Yapper's Own", each with a preview slot.
+-- _welcomeShown   — schema VERSION at which the full welcome was last shown.
+-- _lastSeenVersion — addon version string last seen at login ("1.3.0" etc.).
+--
+-- Full welcome:   triggers when _welcomeShown == 0 or < current schema VERSION.
+-- What's New:     triggers when _lastSeenVersion ~= addon version AND welcome
+--                 was already shown for the current schema.
+-- ---------------------------------------------------------------------------
 
-function Interface:ShouldShowWelcomeChoice()
-    -- Check raw saved variable — the value before defaults got merged in.
-    local sv = _G.YapperLocalConf
-    if type(sv) ~= "table" then return true end
-    local sys = sv.System
-    if type(sys) ~= "table" then return true end
-    local ver = tonumber(sys._welcomeShown)
-    if not ver or ver < 1.1 then return true end
-    return false
+-- ---------------------------------------------------------------------------
+-- What's New notes — keyed by addon version.
+-- Each entry is an array of { title, body } pairs shown in order.
+-- ---------------------------------------------------------------------------
+local WHATS_NEW = {
+    ["1.3.0"] = {
+        {
+            title = "Spellchecking",
+            body  = "Yapper now has a built-in spellchecker with per-locale dictionaries, "
+                 .. "underline styles, and adaptive learning (YALLM) that picks up your "
+                 .. "vocabulary over time.",
+        },
+        {
+            title = "Autocomplete / Ghost Text",
+            body  = "As you type, a muted ghost-text prediction appears based on your "
+                 .. "personal vocabulary and the spellcheck dictionary. Press Tab to accept. "
+                 .. "Requires spellcheck to be enabled.",
+        },
+        {
+            title = "Public API",
+            body  = "Third-party addons can now register filters and callbacks through "
+                 .. "|cFF33FF99YapperAPI|r. Filters can modify or cancel messages before they "
+                 .. "are sent; callbacks fire after the fact.",
+        },
+        {
+            title = "WIM Bridge",
+            body  = "WoW Instant Messenger compatibility is now handled by a dedicated "
+                 .. "bridge module. If WIM is not installed the bridge is a no-op.",
+        },
+    },
+}
+
+-- ---------------------------------------------------------------------------
+-- Helpers
+-- ---------------------------------------------------------------------------
+
+local function GetSchemaVersion()
+    if not Interface.GetDefaultsRoot then return 0 end
+    local defaults = Interface:GetDefaultsRoot()
+    if type(defaults) == "table" and type(defaults.System) == "table" then
+        return tonumber(defaults.System.VERSION) or 0
+    end
+    return 0
 end
 
-function Interface:MarkWelcomeShown()
+local function GetAddonVersion()
+    if YapperTable.Core and YapperTable.Core.GetVersion then
+        return YapperTable.Core:GetVersion() or ""
+    end
+    return ""
+end
+
+local function ReadSV(key)
+    local sv = _G.YapperLocalConf
+    if type(sv) ~= "table" then return nil end
+    local sys = sv.System
+    if type(sys) ~= "table" then return nil end
+    return sys[key]
+end
+
+local function WriteSV(key, value)
     if type(_G.YapperLocalConf) ~= "table" then return end
     if type(_G.YapperLocalConf.System) ~= "table" then
         _G.YapperLocalConf.System = {}
     end
-    _G.YapperLocalConf.System._welcomeShown = 1.1
+    _G.YapperLocalConf.System[key] = value
 end
+
+-- ---------------------------------------------------------------------------
+-- Gating
+-- ---------------------------------------------------------------------------
+
+function Interface:ShouldShowWelcomeChoice()
+    local shown = tonumber(ReadSV("_welcomeShown"))
+    if not shown or shown == 0 then return true end
+    -- Re-show when the schema version bumps (data structure migration).
+    if shown < GetSchemaVersion() then return true end
+    return false
+end
+
+function Interface:ShouldShowWhatsNew()
+    -- Never show What's New if the full welcome hasn't been shown yet.
+    if self:ShouldShowWelcomeChoice() then return false end
+    local last = ReadSV("_lastSeenVersion") or ""
+    local current = GetAddonVersion()
+    if current == "" then return false end
+    return last ~= current
+end
+
+function Interface:MarkWelcomeShown()
+    WriteSV("_welcomeShown", GetSchemaVersion())
+    WriteSV("_lastSeenVersion", GetAddonVersion())
+end
+
+function Interface:MarkVersionSeen()
+    WriteSV("_lastSeenVersion", GetAddonVersion())
+end
+
+-- ---------------------------------------------------------------------------
+-- Shared UI helpers for popup frames
+-- ---------------------------------------------------------------------------
+
+--- Create a standard toggle row inside a popup frame.
+--- Uses Interface:SetLocalPath so the change is fully live immediately.
+---@param parent Frame   Parent frame to anchor widgets to.
+---@param path   table   Config path, e.g. {"Spellcheck", "Enabled"}.
+---@param label  string  Display text next to the checkbox.
+---@param tip    string? Tooltip text.
+---@param y      number  Vertical offset from parent top.
+---@return CheckButton cb, FontString fs, number nextY
+local function CreatePopupToggle(parent, path, label, tip, y)
+    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    cb:SetPoint("LEFT", parent, "LEFT", 24, 0)
+    cb:SetPoint("TOP", parent, "TOP", 0, y)
+    cb:SetSize(26, 26)
+
+    local current = Interface:GetConfigPath(path)
+    cb:SetChecked(current == true)
+
+    cb:SetScript("OnClick", function(self)
+        Interface:SetLocalPath(path, self:GetChecked() == true)
+    end)
+
+    local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    fs:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+    fs:SetText(label)
+    fs:SetTextColor(0.9, 0.9, 0.9, 1)
+
+    if tip then
+        local function OnEnter(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(tip, 1, 1, 1, 1, true)
+            GameTooltip:Show()
+        end
+        local function OnLeave() GameTooltip:Hide() end
+        cb:SetScript("OnEnter", OnEnter)
+        cb:SetScript("OnLeave", OnLeave)
+        fs:SetScript("OnEnter", OnEnter)
+        fs:SetScript("OnLeave", OnLeave)
+    end
+
+    return cb, fs, y - 30
+end
+
+-- ---------------------------------------------------------------------------
+-- Welcome Choice Frame (first-run or schema change)
+-- ---------------------------------------------------------------------------
 
 function Interface:CreateWelcomeChoiceFrame()
     if self.WelcomeFrame then return end
 
     local FRAME_W   = 960
-    local FRAME_H   = 540
+    local FRAME_H   = 620
     local COL_W     = 440
-    local PREVIEW_H = 320
+    local PREVIEW_H = 280
     local BTN_W     = 200
     local BTN_H     = 36
     local PAD       = 20
@@ -236,14 +370,14 @@ function Interface:CreateWelcomeChoiceFrame()
     -- Title.
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", frame, "TOP", 0, -PAD)
-    title:SetText("Choose Your Editbox Appearance")
+    title:SetText("Welcome to Yapper!")
     title:SetTextColor(1, 0.82, 0, 1)
 
     -- Subtitle.
     local sub = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     sub:SetPoint("TOP", title, "BOTTOM", 0, -6)
     sub:SetWidth(FRAME_W - 60)
-    sub:SetText("You can change this at any time in settings. Pick whichever you prefer!")
+    sub:SetText("Pick your editbox appearance, then configure your preferences below. You can change everything later in |cFFFFD100/yapper|r.")
     sub:SetTextColor(0.75, 0.75, 0.75, 1)
 
     local contentTop = -72 -- below title+subtitle
@@ -309,17 +443,12 @@ function Interface:CreateWelcomeChoiceFrame()
     local yapperBtn, yapperPreview = BuildColumn(
         (COL_W / 2 + PAD / 2), -- right of centre
         "Yapper",
-        "Fully customiseable with background colours and opacity. Has several styling options.",
+        "Fully customisable with background colours and opacity. Has several styling options.",
         function()
             Interface:SetLocalPath({ "EditBox", "UseBlizzardSkinProxy" }, false)
             closeWelcome()
         end
     )
-
-    -- Store references for preview images if added later.
-    frame.BlizzPreview             = blizzPreview
-    frame.YapperPreview            = yapperPreview
-    frame.Dimmer                   = dimmer
 
     -- Set preview screenshots.
     local addonPath                = "Interface\\AddOns\\Yapper\\Src\\Img\\"
@@ -328,7 +457,167 @@ function Interface:CreateWelcomeChoiceFrame()
     yapperPreview.Texture:SetTexture(addonPath .. "YapperTheme")
     yapperPreview.Texture:SetTexCoord(0, 1, 0, 1)
 
+    -- ── Feature opt-in toggles below the columns ──────────────────────
+    local toggleY = contentTop - BTN_H - 44 - PREVIEW_H - 24
+
+    local featureLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    featureLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, toggleY)
+    featureLabel:SetText("Optional Features")
+    featureLabel:SetTextColor(1, 0.82, 0, 1)
+    toggleY = toggleY - 24
+
+    local _, _, nextY = CreatePopupToggle(
+        frame,
+        { "Spellcheck", "Enabled" },
+        "Enable spellcheck  |cFF888888(per-locale dictionaries with adaptive learning)|r",
+        "Turns on real-time spellchecking with customisable underlines. "
+        .. "The dictionary for your selected locale will be loaded on the next reload.",
+        toggleY
+    )
+
+    CreatePopupToggle(
+        frame,
+        { "EditBox", "AutocompleteEnabled" },
+        "Enable autocomplete / ghost text  |cFF888888(requires spellcheck)|r",
+        "Shows ghost-text word predictions as you type based on your personal "
+        .. "vocabulary and the spellcheck dictionary. Press Tab to accept.",
+        nextY
+    )
+
+    -- Store references.
+    frame.BlizzPreview  = blizzPreview
+    frame.YapperPreview = yapperPreview
+    frame.Dimmer        = dimmer
+
     self.WelcomeFrame = frame
+    dimmer:Show()
+end
+
+-- ---------------------------------------------------------------------------
+-- What's New Frame (version bump, not a schema change)
+-- ---------------------------------------------------------------------------
+
+function Interface:CreateWhatsNewFrame()
+    if self.WhatsNewFrame then return end
+
+    local version = GetAddonVersion()
+    local notes   = WHATS_NEW[version]
+
+    -- If there are no notes for this version, just mark it seen and bail.
+    if not notes or #notes == 0 then
+        self:MarkVersionSeen()
+        return
+    end
+
+    local FRAME_W = 560
+    local PAD     = 20
+
+    -- Fullscreen darkener.
+    local dimmer  = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    dimmer:SetFrameStrata("FULLSCREEN_DIALOG")
+    dimmer:SetAllPoints(UIParent)
+    dimmer:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
+    dimmer:SetBackdropColor(0, 0, 0, 0.45)
+    dimmer:EnableMouse(true)
+
+    -- Main container — height computed dynamically.
+    local frame = CreateFrame("Frame", "YapperWhatsNew", dimmer, "BackdropTemplate")
+    frame:SetWidth(FRAME_W)
+    frame:SetPoint("CENTER")
+    frame:SetFrameStrata("FULLSCREEN_DIALOG")
+    frame:SetFrameLevel(dimmer:GetFrameLevel() + 5)
+    frame:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 14,
+        insets   = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    frame:SetBackdropColor(0.08, 0.08, 0.08, 0.97)
+    frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+
+    -- Title.
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", frame, "TOP", 0, -PAD)
+    title:SetText("What's New in " .. version)
+    title:SetTextColor(1, 0.82, 0, 1)
+
+    -- Note entries.
+    local cursor = -PAD - 28
+    local textW  = FRAME_W - PAD * 2 - 10
+
+    for _, entry in ipairs(notes) do
+        local heading = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        heading:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
+        heading:SetWidth(textW)
+        heading:SetJustifyH("LEFT")
+        heading:SetText(entry.title)
+        heading:SetTextColor(1, 0.82, 0, 0.95)
+        cursor = cursor - (heading:GetStringHeight() + 4)
+
+        local body = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        body:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
+        body:SetWidth(textW)
+        body:SetJustifyH("LEFT")
+        body:SetText(entry.body)
+        body:SetTextColor(0.8, 0.8, 0.8, 1)
+        cursor = cursor - (body:GetStringHeight() + 14)
+    end
+
+    -- ── Feature opt-in toggles ────────────────────────────────────────
+    -- Only show toggles for features that the user has not yet opted into.
+    local togglesAdded = false
+    local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
+    local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
+
+    if spellEnabled ~= true or acEnabled ~= true then
+        local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        togLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
+        togLabel:SetText("New Features — Try Them Out")
+        togLabel:SetTextColor(1, 0.82, 0, 1)
+        cursor = cursor - 24
+        togglesAdded = true
+
+        if spellEnabled ~= true then
+            local _, _, ny = CreatePopupToggle(
+                frame,
+                { "Spellcheck", "Enabled" },
+                "Enable spellcheck",
+                "Turns on real-time spellchecking.",
+                cursor
+            )
+            cursor = ny
+        end
+
+        if acEnabled ~= true then
+            local _, _, ny = CreatePopupToggle(
+                frame,
+                { "EditBox", "AutocompleteEnabled" },
+                "Enable autocomplete / ghost text  |cFF888888(requires spellcheck)|r",
+                "Shows ghost-text predictions as you type. Press Tab to accept.",
+                cursor
+            )
+            cursor = ny
+        end
+    end
+
+    -- "Got it" button.
+    cursor = cursor - 10
+    local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btn:SetSize(120, 32)
+    btn:SetPoint("TOP", frame, "TOP", 0, cursor)
+    btn:SetText("Got it")
+    btn:SetScript("OnClick", function()
+        Interface:MarkVersionSeen()
+        dimmer:Hide()
+        dimmer:SetParent(nil)
+        Interface.WhatsNewFrame = nil
+    end)
+    cursor = cursor - 32 - PAD
+
+    -- Set final height.
+    frame:SetHeight(math.abs(cursor) + 10)
+
+    self.WhatsNewFrame = frame
     dimmer:Show()
 end
 
