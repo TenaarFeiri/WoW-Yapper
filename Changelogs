@@ -1,3 +1,18 @@
+-- 2.0.2
+  - *Autocomplete:*
+    - **Ghost-text Completion:** Predictive word completion is now live. As you type, a muted ghost preview appears after the caret showing the most likely completion. Press **Tab** to accept; any other key refines or dismisses it.
+    - **Tiered Data Cascade:** Suggestions resolve through four sources in priority order — your personal YALLM vocabulary (highest priority), custom added-words dictionary, primary locale dictionary (binary search, O(log N)), and base-dictionary fallback.
+    - **YALLM Integration:** Your most-used words surface first. Accepting a suggestion via Tab silently records usage so the ranking improves over time.
+    - **Dismissal Learning (negBias):** Typing away from a suggestion is counted as a soft rejection. Repeatedly dismissed suggestions are penalised in future rankings, up to a cap of −12 points.
+    - **Capitalisation Mirroring:** If your typed prefix starts with an uppercase letter (sentence-start or proper noun), the suggested completion is capitalised to match. Applies consistently across all tiers.
+    - **YALLM Prefix Matching:** YALLM frequency keys strip apostrophes (e.g. "that's" is stored as "thats"). Autocomplete now matches against both the raw and the cleaned prefix, so typing "that'" still surfaces "that's".
+    - **Custom Words:** Words you have added via "Add to dictionary" are now searched as a second autocomplete source, immediately after YALLM.
+  - *Spellcheck:*
+    - **Capitalised Suggestions:** The suggestion popup now mirrors the capitalisation of the misspelled word. Typing "Prefct" suggests "Perfect" rather than "perfect".
+    - **Multiline Underline Alignment:** Spellcheck highlight underlines in multiline mode were drawn 1 px too far right. Fixed.
+  - *Stability:*
+    - **`math_min` crash fix:** Fixed a `nil value` error in `Autocomplete.lua` when the dismissal penalty code ran — `math_min` was used but not localised.
+
 -- 2.0.1
   - *The Engine Now Learns:*
     - **Adaptive Learning (YALLM):** Yapper now tracks your common words and manual corrections. Over time, the engine learns your vocabulary profile so the first suggestion is actually what you meant.
