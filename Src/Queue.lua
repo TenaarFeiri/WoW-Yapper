@@ -745,4 +745,8 @@ function Queue:Cancel()
         YapperTable.Utils:Print(
             ("Posting cancelled. %d chunk(s) discarded."):format(discarded))
     end
+
+    if YapperTable.API then
+        YapperTable.API:Fire("QUEUE_COMPLETE")
+    end
 end
