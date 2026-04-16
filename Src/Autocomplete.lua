@@ -35,11 +35,20 @@ local ipairs       = ipairs
 local tostring     = tostring
 local string_sub   = string.sub
 local string_lower = string.lower
+local string_upper = string.upper
 local string_len   = string.len
 local string_byte  = string.byte
 local math_floor   = math.floor
 local math_max     = math.max
-local table_sort   = table.sort
+local math_min     = math.min
+local math_log     = math.log
+local math_huge    = math.huge
+
+--- Capitalise the first letter of `s`, leaving the rest unchanged.
+local function CapFirst(s)
+	if not s or s == "" then return s end
+	return string_upper(string_sub(s, 1, 1)) .. string_sub(s, 2)
+end
 
 -- ---------------------------------------------------------------------------
 -- State
@@ -48,11 +57,25 @@ local table_sort   = table.sort
 Autocomplete.GhostFS       = nil     -- FontString for the ghost-text preview
 Autocomplete.CurrentSugg   = nil     -- currently displayed suggestion (full word)
 Autocomplete.CurrentPrefix = nil     -- the partial word that produced it
+Autocomplete.PrefixText    = nil     -- full EditBox text up to (and including) the cursor
 Autocomplete.Active        = false   -- true while a suggestion is visible
 Autocomplete.Enabled       = true    -- master toggle
 
 -- Minimum characters before offering a suggestion.
 local MIN_PREFIX_LEN = 2
+
+-- Thresholds that control how many prefix-scan candidates are considered
+-- and whether phonetic broadening is applied.
+--   SHORT  (2-3 chars): scan up to SCAN_SHORT candidates; no phonetics.
+--   MEDIUM (4-5 chars): scan up to SCAN_MEDIUM candidates; add phonetic matches.
+--   LONG   (6+ chars):  scan up to SCAN_LONG  candidates; phonetic is tie-breaker only.
+local SCAN_SHORT  = 12   -- wider net when prefix is short
+local SCAN_MEDIUM = 8
+local SCAN_LONG   = 4
+
+-- Pixel gap between the caret and the first character of ghost text.
+-- Prevents the caret from visually swallowing the first ghost letter.
+local GHOST_CARET_PAD = 4
 
 -- ---------------------------------------------------------------------------
 -- Config
@@ -109,53 +132,15 @@ function Autocomplete:ExtractWordAtCursor(text, pos)
 end
 
 -- ---------------------------------------------------------------------------
--- Tier 1: YALLM personal lexicon lookup
+-- Tier 2: Dictionary search with confidence-narrowing
 -- ---------------------------------------------------------------------------
 
---- Scan YALLM's frequency table for the best match starting with `prefix`.
---- Returns the highest-frequency word, or nil.
----@param prefix string  Lowercased prefix to match.
----@return string?       Best matching word, in its original casing.
-function Autocomplete:SearchYALLM(prefix)
-	local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
-	if not yallm or not yallm.db or not yallm.db.freq then return nil end
-
-	local lowerPrefix = string_lower(prefix)
-	local prefixLen   = string_len(lowerPrefix)
-	local bestWord    = nil
-	local bestCount   = 0
-
-	for word, entry in pairs(yallm.db.freq) do
-		local count = type(entry) == "table" and entry.c or entry
-		if type(count) ~= "number" then count = 0 end
-
-		if string_len(word) > prefixLen
-			and string_lower(string_sub(word, 1, prefixLen)) == lowerPrefix
-			and count > bestCount then
-			bestWord  = word
-			bestCount = count
-		end
-	end
-
-	return bestWord
-end
-
--- ---------------------------------------------------------------------------
--- Tier 2: Dictionary binary search
--- ---------------------------------------------------------------------------
-
---- Binary search over a sorted word array for the first entry starting
---- with `prefix`.  Returns the shortest matching word.
----@param words  table   Sorted array of strings (dict.words).
----@param prefix string  Lowercased prefix to match.
----@return string?       Shortest dictionary word starting with prefix.
-function Autocomplete:SearchDictionary(words, prefix)
-	if not words or #words == 0 then return nil end
-
-	local lowerPrefix = string_lower(prefix)
-	local prefixLen   = string_len(lowerPrefix)
-
-	-- Binary search: find the first index where words[i] >= prefix.
+--- Binary search: return the first index in `words` whose lowercased value
+--- is >= `lowerPrefix`.  Returns #words+1 if all entries are smaller.
+---@param words       table   Sorted string array.
+---@param lowerPrefix string  Already-lowercased prefix.
+---@return number
+local function BinarySearchFloor(words, lowerPrefix)
 	local lo, hi = 1, #words
 	while lo < hi do
 		local mid = math_floor((lo + hi) / 2)
@@ -165,57 +150,276 @@ function Autocomplete:SearchDictionary(words, prefix)
 			hi = mid
 		end
 	end
+	return lo
+end
 
-	-- Scan forward from `lo` to find the shortest word that starts with prefix.
-	local best = nil
-	for i = lo, #words do
-		local w = words[i]
+--- Collect up to `limit` words from `words` that start with `lowerPrefix`,
+--- starting at index `startIdx`.  Skips exact-length matches (nothing to complete).
+---@param words       table   Sorted string array.
+---@param lowerPrefix string
+---@param prefixLen   number
+---@param startIdx    number
+---@param limit       number
+---@param out         table   Append results here as {word, isExact=bool}.
+local function CollectPrefixMatches(words, lowerPrefix, prefixLen, startIdx, limit, out)
+	local count = 0
+	for i = startIdx, #words do
+		if count >= limit then break end
+		local w  = words[i]
 		local lw = string_lower(w)
-		if string_sub(lw, 1, prefixLen) ~= lowerPrefix then
-			break -- past the prefix range
-		end
-		-- Skip exact-length matches (the word IS the prefix — nothing to complete).
+		if string_sub(lw, 1, prefixLen) ~= lowerPrefix then break end
 		if string_len(w) > prefixLen then
-			if not best or string_len(w) < string_len(best) then
-				best = w
+			out[#out + 1] = w
+			count = count + 1
+		end
+	end
+end
+
+--- Collect phonetic candidates from `dict` that share the same phonetic hash
+--- as `prefix`, but also start with `lowerPrefix` (prefix constraint still
+--- applies — phonetics is a broadening tiebreaker, not a free match).
+---@param dict        table   Dictionary with .words and .phonetics.
+---@param lowerPrefix string
+---@param prefixLen   number
+---@param limit       number
+---@param out         table   Append results (word strings) here.
+local function CollectPhoneticMatches(dict, lowerPrefix, prefixLen, limit, out)
+	if not dict.phonetics then return end
+
+	local sc = YapperTable.Spellcheck
+	if not sc or not sc.GetPhoneticHash then return end
+	local hash = sc.GetPhoneticHash(lowerPrefix)
+	if not hash or hash == "" then return end
+
+	local indices = dict.phonetics[hash]
+	if not indices then return end
+
+	local words = dict.words
+	if not words then return end
+
+	local count = 0
+	for _, idx in ipairs(indices) do
+		if count >= limit then break end
+		local w = words[idx]
+		if type(w) == "string" and string_len(w) > prefixLen then
+			local lw = string_lower(w)
+			if string_sub(lw, 1, prefixLen) == lowerPrefix then
+				out[#out + 1] = w
+				count = count + 1
+			end
+		end
+	end
+end
+
+--- Score a candidate word given the typed prefix.
+--- Higher is better.  Used to pick the single best match from the candidate pool.
+---   +10  per character of prefix (longer prefix = more anchored)
+---   +N   YALLM frequency bonus (log-scaled, personalised vocabulary)
+---   -1   per extra character beyond the prefix (prefer shorter completions)
+---   -N   negBias penalty when the user has repeatedly dismissed this word
+---@param word        string
+---@param lowerPrefix string
+---@param prefixLen   number
+---@param yallmFreq   table|nil  yallm.db.freq table, or nil.
+---@param yallmNeg    table|nil  yallm.db.negBias table, or nil.
+---@return number
+local function ScoreCandidate(word, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
+	local score = prefixLen * 10
+
+	-- Penalise length: shorter completions are preferred.
+	score = score - (string_len(word) - prefixLen)
+
+	local lword = string_lower(word)
+
+	-- YALLM frequency bonus: words the user sends often rise to the top.
+	if yallmFreq then
+		local entry = yallmFreq[lword]
+		local freq  = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
+		if freq > 0 then
+			-- log-scale so one very frequent word doesn't bury all others.
+			score = score + math_max(1, math_floor(math_log(freq + 1) * 2))
+		end
+	end
+
+	-- negBias penalty: words the user has dismissed for this prefix sink lower.
+	-- Key format matches RecordRejection: Clean(prefix) .. ":" .. Clean(word).
+	if yallmNeg then
+		local key   = lowerPrefix:gsub("[%p%c%s]", "") .. ":" .. lword:gsub("[%p%c%s]", "")
+		local entry = yallmNeg[key]
+		if entry then
+			local dismissals = type(entry) == "table" and (entry.c or 0) or 0
+			-- Each dismissal costs 3 points, capped so the word can still surface
+			-- when there's literally no other option.
+			score = score - math_min(dismissals * 3, 12)
+		end
+	end
+
+	return score
+end
+
+--- Search a single sorted word array with confidence-narrowing logic.
+--- Returns the best candidate string, or nil.
+---@param words       table   Sorted string array (dict.words or dict._base.words).
+---@param phonetics   table|nil  Dict phonetics table for this word list.
+---@param prefix      string  The user's typed partial word (original casing).
+---@param yallmFreq   table|nil
+---@param yallmNeg    table|nil  yallm.db.negBias table, or nil.
+---@param broad       boolean|nil  When true, use widest scan + force phonetics (direction-change retry).
+---@return string?
+function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yallmNeg, broad)
+	if not words or #words == 0 then return nil end
+
+	local lowerPrefix = string_lower(prefix)
+	local prefixLen   = string_len(lowerPrefix)
+
+	-- Determine scan width and whether to broaden with phonetics.
+	-- `broad` is set on a direction-change retry: use the widest net and
+	-- always include phonetic candidates regardless of prefix length.
+	local scanLimit
+	local usePhonetics
+	if broad then
+		scanLimit    = SCAN_SHORT  -- widest net
+		usePhonetics = (phonetics ~= nil)
+	elseif prefixLen <= 3 then
+		scanLimit    = SCAN_SHORT
+		usePhonetics = false
+	elseif prefixLen <= 5 then
+		scanLimit    = SCAN_MEDIUM
+		usePhonetics = (phonetics ~= nil)
+	else
+		scanLimit    = SCAN_LONG
+		usePhonetics = (phonetics ~= nil)
+	end
+
+	-- Collect candidates from the sorted prefix range.
+	local candidates = {}
+	local startIdx   = BinarySearchFloor(words, lowerPrefix)
+	CollectPrefixMatches(words, lowerPrefix, prefixLen, startIdx, scanLimit, candidates)
+
+	-- For medium/long prefixes, broaden with phonetic neighbours.
+	if usePhonetics then
+		local mockDict = { words = words, phonetics = phonetics }
+		CollectPhoneticMatches(mockDict, lowerPrefix, prefixLen, math_max(2, math_floor(scanLimit / 2)), candidates)
+	end
+
+	if #candidates == 0 then return nil end
+
+	-- Score and pick the best.
+	local bestWord  = nil
+	local bestScore = -math_huge
+	local seen = {}
+	for _, w in ipairs(candidates) do
+		local lw = string_lower(w)
+		if not seen[lw] then
+			seen[lw] = true
+			local s = ScoreCandidate(w, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
+			if s > bestScore then
+				bestScore = s
+				bestWord  = w
 			end
 		end
 	end
 
-	return best
+	return bestWord
 end
 
 -- ---------------------------------------------------------------------------
 -- Cascade lookup
 -- ---------------------------------------------------------------------------
 
---- Run the full tiered lookup: YALLM first, then dictionary.
----@param prefix string  The partial word the user is typing.
----@return string?       The best completion, or nil.
-function Autocomplete:GetSuggestion(prefix)
+--- Run the full tiered lookup: YALLM first, then dictionary with
+--- confidence-narrowing based on prefix length.
+---@param prefix string        The partial word the user is typing.
+---@param broad  boolean|nil   When true, force widest scan + phonetics (direction-change retry).
+---@return string?             The best completion, or nil.
+function Autocomplete:GetSuggestion(prefix, broad)
 	if not prefix or string_len(prefix) < MIN_PREFIX_LEN then return nil end
 
-	-- Tier 1: personal lexicon.
-	local yallmHit = self:SearchYALLM(prefix)
-	if yallmHit then return yallmHit end
+	-- Mirror the capitalisation of the first letter back onto the suggestion.
+	-- Handles sentence-start capitals and user-capitalised proper nouns.
+	local b1 = string_byte(prefix, 1)
+	local prefixIsCapital = b1 and b1 >= 65 and b1 <= 90
 
-	-- Tier 2: dictionary base.
+	local lowerPrefix = string_lower(prefix)
+
+	-- Fetch negBias once for use by ScoreCandidate across all tiers.
+	local yallmNeg = (YapperTable.Spellcheck
+		and YapperTable.Spellcheck.YALLM
+		and YapperTable.Spellcheck.YALLM.db
+		and YapperTable.Spellcheck.YALLM.db.negBias) or nil
+
+	-- Tier 1: personal lexicon (YALLM) — exact prefix scan.
+	-- YALLM keys are Clean(word) = lowercased with punctuation stripped, so
+	-- "that's" is stored as "thats". We match against both the raw prefix and
+	-- the cleaned prefix so either typing style resolves correctly.
+	local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+	local yallmFreq = yallm and yallm.db and yallm.db.freq or nil
+	local cleanPrefix = lowerPrefix:gsub("[%p%c%s]", "")
+
+	if yallmFreq then
+		local prefixLen      = string_len(lowerPrefix)
+		local cleanPrefixLen = string_len(cleanPrefix)
+		local bestWord   = nil
+		local bestScore  = -math_huge
+		for word, entry in pairs(yallmFreq) do
+			local wordLen = string_len(word)
+			-- Match on the stored (cleaned) key against both prefix forms.
+			local matches = (wordLen > prefixLen
+					and string_lower(string_sub(word, 1, prefixLen)) == lowerPrefix)
+				or (cleanPrefixLen >= MIN_PREFIX_LEN and wordLen > cleanPrefixLen
+					and string_lower(string_sub(word, 1, cleanPrefixLen)) == cleanPrefix)
+			if matches then
+				local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
+				if freq > bestScore then
+					bestScore = freq
+					bestWord  = word
+				end
+			end
+		end
+		if bestWord then
+			return prefixIsCapital and CapFirst(bestWord) or bestWord
+		end
+	end
+
+	-- Tier 1b: user's custom dictionary (words added via "Add to dictionary").
+	-- This is a small array so linear scan is fine.
 	local sc = YapperTable.Spellcheck
+	if sc and sc.GetUserDict and sc.GetLocale then
+		local userDict = sc:GetUserDict(sc:GetLocale())
+		local addedWords = userDict and userDict.AddedWords
+		if addedWords then
+			local prefixLen = string_len(lowerPrefix)
+			for _, w in ipairs(addedWords) do
+				if string_len(w) > prefixLen
+					and string_lower(string_sub(w, 1, prefixLen)) == lowerPrefix then
+					return prefixIsCapital and CapFirst(w) or w
+				end
+			end
+		end
+	end
+
+	-- Tier 2: dictionary with confidence-narrowing.
 	if not sc or not sc.GetDictionary then return nil end
 	local dict = sc:GetDictionary()
 	if not dict then return nil end
 
-	-- Search the main word list.
-	local dictHit = self:SearchDictionary(dict.words, prefix)
-	if dictHit then return dictHit end
-
-	-- Try the base (parent) dictionary if the current locale extends one.
-	-- (e.g. enGB extends enBase).
-	if dict._base and type(dict._base.words) == "table" then
-		dictHit = self:SearchDictionary(dict._base.words, prefix)
+	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yallmFreq, yallmNeg, broad)
+	if hit then
+		return prefixIsCapital and CapFirst(hit) or hit
 	end
 
-	return dictHit
+	-- Fallback: base dictionary (e.g. enGB extends enBase).
+	if dict.extends and sc.Dictionaries then
+		local base = sc.Dictionaries[dict.extends]
+		if base and type(base.words) == "table" then
+			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yallmFreq, yallmNeg, broad)
+		end
+	end
+
+	if hit then
+		return prefixIsCapital and CapFirst(hit) or hit
+	end
+	return nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -236,12 +440,38 @@ function Autocomplete:GetGhostFS()
 	fs:SetTextColor(0.55, 0.55, 0.55, 0.7) -- muted ghost colour
 	fs:Hide()
 
+	-- Hook OnCursorChanged so we always know the caret's frame-relative x.
+	-- This fires whenever the cursor moves and gives us the visual x that
+	-- already accounts for horizontal scroll — no measurement needed.
+	local ac = self
+	local existing = editBox:GetScript("OnCursorChanged")
+	editBox:SetScript("OnCursorChanged", function(self, x, y, w, h)
+		ac._caretX = x
+		if existing then existing(self, x, y, w, h) end
+		if ac.Active and ac.GhostFS then
+			ac:PositionGhost()
+		end
+	end)
+
 	self.GhostFS = fs
 	return fs
 end
 
---- Position the ghost-text FontString so it appears immediately after
---- the user's current text at the cursor position.
+--- Returns the pixel width of `text` using the EditBox's current font.
+---@param text string
+---@return number
+function Autocomplete:MeasureText(text)
+	local mfs = self.MeasureFS
+	if not mfs then return 0 end
+	mfs:SetText(text or "")
+	local w = mfs:GetStringWidth()
+	mfs:SetText("")
+	return w or 0
+end
+
+--- Position the ghost-text FontString immediately after the caret.
+--- Uses the x coordinate from OnCursorChanged, which is frame-relative
+--- and already accounts for horizontal scroll — no measurement needed.
 function Autocomplete:PositionGhost()
 	local fs = self.GhostFS
 	if not fs then return end
@@ -249,17 +479,19 @@ function Autocomplete:PositionGhost()
 	local editBox = YapperTable.EditBox and YapperTable.EditBox.OverlayEdit
 	if not editBox then return end
 
-	-- TODO: measure the pixel width of text up to the cursor position,
-	-- then anchor the ghost FS at that offset from the EditBox's LEFT edge.
-	-- For now, anchor after the full text.
+	-- _caretX is set by the OnCursorChanged hook in GetGhostFS.
+	-- It is the cursor's frame-relative x, scroll-adjusted by WoW itself.
+	local offsetX = (self._caretX or 0) + GHOST_CARET_PAD
+
 	fs:ClearAllPoints()
-	fs:SetPoint("LEFT", editBox, "LEFT", editBox:GetTextWidth() or 0, 0)
+	fs:SetPoint("LEFT", editBox, "LEFT", offsetX, 0)
 end
 
 --- Show the ghost-text suffix (the part of the suggestion beyond the prefix).
----@param suggestion string  Full suggested word.
----@param prefix     string  The typed prefix.
-function Autocomplete:ShowGhost(suggestion, prefix)
+---@param suggestion    string  Full suggested word.
+---@param prefix        string  The typed partial word.
+---@param textUpToCursor string  Full EditBox text up to and including the cursor.
+function Autocomplete:ShowGhost(suggestion, prefix, textUpToCursor)
 	local fs = self:GetGhostFS()
 	if not fs then return end
 
@@ -269,13 +501,14 @@ function Autocomplete:ShowGhost(suggestion, prefix)
 		return
 	end
 
+	self.CurrentSugg   = suggestion
+	self.CurrentPrefix = prefix
+	self.PrefixText    = textUpToCursor or prefix
+	self.Active        = true
+
 	fs:SetText(suffix)
 	self:PositionGhost()
 	fs:Show()
-
-	self.CurrentSugg   = suggestion
-	self.CurrentPrefix = prefix
-	self.Active        = true
 end
 
 --- Hide the ghost-text and clear state.
@@ -286,6 +519,7 @@ function Autocomplete:HideGhost()
 	end
 	self.CurrentSugg   = nil
 	self.CurrentPrefix = nil
+	self.PrefixText    = nil
 	self.Active        = false
 end
 
@@ -311,9 +545,32 @@ function Autocomplete:OnTextChanged(editBox)
 		return
 	end
 
+	-- Detect a direction change: the user typed something that no longer
+	-- matches the current suggestion.  When that happens, retry with a
+	-- wider search before giving up.
+	local isDirChange = self.Active and self.CurrentSugg and self.CurrentPrefix
+		and string_sub(string_lower(self.CurrentSugg), 1, string_len(word)) ~= string_lower(word)
+
+	-- Record the dismissal the moment the user types away from a suggestion.
+	-- Only fires once per suggestion (isDirChange is only true on the first
+	-- diverging keystroke). Only records if the dismissed suggestion was a
+	-- valid word so we don't pollute negBias with partial-word noise.
+	if isDirChange then
+		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+		if yallm and yallm.db and yallm.RecordRejection then
+			-- RecordRejection expects a typo and a list of candidate objects.
+			-- Use the prefix as the "typo" and the suggestion as the only candidate.
+			yallm:RecordRejection(self.CurrentPrefix, { self.CurrentSugg })
+		end
+	end
+
 	local suggestion = self:GetSuggestion(word)
+	if not suggestion and isDirChange then
+		suggestion = self:GetSuggestion(word, true)  -- broad retry
+	end
+
 	if suggestion then
-		self:ShowGhost(suggestion, word)
+		self:ShowGhost(suggestion, word, string_sub(text, 1, pos))
 	else
 		self:HideGhost()
 	end
