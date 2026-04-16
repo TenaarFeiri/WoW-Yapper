@@ -38,6 +38,12 @@ If a message delivery stalls (e.g., the server didn't acknowledge a `GUILD` mess
 - This prompt acts as a hardware-event bridge.
 - Clicking "Continue" allows the Queue to capture the required user interaction to resume delivery for channels that have become restricted.
 
+### Stall fallback for auto-continue policies
+
+Policies marked `autoUntilThrottle` (e.g. `INSTANCE_LOCAL`, `GROUP`, `WHISPER`) do **not** require user interaction under normal conditions. However, if the expected ack event never arrives and the stall timer fires, `OnStallTimeout` re-queues the in-flight chunk and shows the Continue prompt — the same recovery path used by `OPEN_WORLD_LOCAL`.
+
+This means `INSTANCE_LOCAL` (in-instance SAY/YELL) degrades gracefully: the prompt appears, the user presses Enter, and delivery resumes from the stalled chunk. The `requiresHardwareEvent = false` flag only affects the *initial* flush; it has no bearing on stall recovery.
+
 ## Internal Mechanics
 
 ### Stall Timer
