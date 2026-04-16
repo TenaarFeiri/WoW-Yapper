@@ -397,35 +397,61 @@ function Spellcheck:MeasureMLPrefix(prefix, boxWidth)
         return 0, 0, lineHeight
     end
 
-    fs:SetText(prefix)
-    local totalHeight = fs:GetStringHeight() or lineHeight
-    -- Round to nearest integer to absorb floating-point error in GetStringHeight.
-    local lineCount = math_max(1, math_floor(totalHeight / lineHeight + 0.5))
-    local lineIndex = lineCount - 1  -- 0-based
-
-    -- Binary-search for the character offset where the last visual line begins.
-    -- We look for the smallest i such that prefix[1..i] spans lineCount lines;
-    -- all characters before i are on earlier lines.
-    local lastLineStart = 0
-    if lineIndex > 0 then
-        local lo, hi = 1, #prefix
-        while lo < hi do
-            local mid = math_floor((lo + hi) / 2)
-            fs:SetText(string_sub(prefix, 1, mid))
-            local h = fs:GetStringHeight() or lineHeight
-            local n = math_max(1, math_floor(h / lineHeight + 0.5))
-            if n < lineCount then
-                lo = mid + 1
-            else
-                hi = mid
-            end
-        end
-        lastLineStart = lo
+    -- Split on hard newlines FIRST.  FontString:GetStringHeight() collapses a
+    -- trailing "\n" and does not count it as an extra visual line, but the
+    -- EditBox always advances the cursor to a new line.  If we measured the
+    -- whole prefix in one call, lineIndex would be 0 when prefix ends with
+    -- "\n", placing every underline on line 0.  Processing paragraphs one at
+    -- a time makes hard-newline line counts correct regardless of trailing \n.
+    local segments = {}
+    for seg in (prefix .. "\n"):gmatch("([^\n]*)\n") do
+        segments[#segments + 1] = seg
     end
 
-    local lastLineText = string_sub(prefix, lastLineStart)
-    fs:SetText(lastLineText)
-    local xOnLine = fs:GetStringWidth() or 0
+    -- Accumulate visual-line counts for completed paragraphs (all but the last).
+    local lineIndex = 0
+    for i = 1, #segments - 1 do
+        local seg = segments[i]
+        if seg == "" then
+            lineIndex = lineIndex + 1  -- blank hard-newline → one empty visual line
+        else
+            fs:SetText(seg)
+            local h = fs:GetStringHeight() or lineHeight
+            lineIndex = lineIndex + math_max(1, math_floor(h / lineHeight + 0.5))
+        end
+    end
+
+    -- The last segment is the text after the final "\n" (or the whole prefix
+    -- when there are no "\n"s).  It may itself word-wrap.
+    local lastSeg = segments[#segments]
+    local xOnLine = 0
+
+    if lastSeg ~= "" then
+        fs:SetText(lastSeg)
+        local h        = fs:GetStringHeight() or lineHeight
+        local segLines = math_max(1, math_floor(h / lineHeight + 0.5))
+
+        if segLines == 1 then
+            -- No word-wrap: measure directly with single-line MeasureText.
+            xOnLine = self:MeasureText(lastSeg)
+        else
+            -- Word-wrap within last segment: add the intermediate visual lines
+            -- and binary-search for the start of the last visual line.
+            lineIndex = lineIndex + segLines - 1
+            local lo, hi = 1, #lastSeg
+            while lo < hi do
+                local mid = math_floor((lo + hi) / 2)
+                fs:SetText(string_sub(lastSeg, 1, mid))
+                local mh = fs:GetStringHeight() or lineHeight
+                local n  = math_max(1, math_floor(mh / lineHeight + 0.5))
+                if n < segLines then lo = mid + 1 else hi = mid end
+            end
+            -- Strip the leading space that word-wrap consumed at the line break.
+            local tail = string_sub(lastSeg, lo):match("^[ ]*(.*)$") or ""
+            xOnLine = self:MeasureText(tail)
+        end
+    end
+
     return lineIndex, xOnLine, lineHeight
 end
 
@@ -471,8 +497,11 @@ function Spellcheck:DrawUnderline_ML(startPos, endPos, text, vertScroll, boxWidt
     local w = self:MeasureText(word)
 
     -- Clip to right edge of this visual line.
+    -- Subtract 1px to compensate for the sub-pixel difference between
+    -- FontString measurement and the EditBox's actual glyph rendering.
     local remainingWidth = boxWidth - xOnLine
     if w > remainingWidth then w = remainingWidth end
+    w = w - 1
     if w <= 0 then return end
 
     -- Clip to vertical visibility (skip lines scrolled out of view).
@@ -482,13 +511,23 @@ function Spellcheck:DrawUnderline_ML(startPos, endPos, text, vertScroll, boxWidt
     if lineBottom <= 0 or lineTop >= ebHeight then return end
 
     -- Build pixel offsets from UnderlineLayer origin to this word's position.
-    -- UnderlineLayer covers the Overlay, so we compensate for the EditBox offset.
+    -- UnderlineLayer covers the Overlay (the multiline container), so we
+    -- compensate for the EditBox's position within the container AND its
+    -- top text inset (text does not start at the EditBox frame's top edge).
     local ebLeft = self.EditBox:GetLeft() or 0
     local ovLeft = self.Overlay:GetLeft() or 0
     local ebTop  = self.EditBox:GetTop()  or 0
     local ovTop  = self.Overlay:GetTop()  or 0
-    local offsetX    = (ebLeft - ovLeft) + leftInset + xOnLine
-    local offsetTopY = -(ovTop - ebTop)  -- negative: Y grows downward in SetPoint
+
+    local topInset = 0
+    if self.EditBox.GetTextInsets then
+        local _, _, t = self.EditBox:GetTextInsets()
+        topInset = t or 0
+    end
+
+    local offsetX    = (ebLeft - ovLeft) + leftInset + xOnLine - 1
+    -- offsetTopY reaches the top of the text area (EditBox top + text inset).
+    local offsetTopY = -(ovTop - ebTop) - topInset
 
     local tex   = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
@@ -497,10 +536,10 @@ function Spellcheck:DrawUnderline_ML(startPos, endPos, text, vertScroll, boxWidt
     if style == "highlight" then
         local c = cfg.HighlightColor or { r = 1, g = 0.18, b = 0.18, a = 0.36 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
-        tex:SetSize(w, lineHeight - 2)
+        tex:SetSize(w, lineHeight)
         tex:ClearAllPoints()
         tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT",
-            offsetX, offsetTopY - lineTop - 2)
+            offsetX, offsetTopY - lineTop)
     else
         local c = cfg.UnderlineColor or { r = 1, g = 0.2, b = 0.2, a = 0.9 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
