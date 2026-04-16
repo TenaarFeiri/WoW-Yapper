@@ -154,6 +154,42 @@ if state.stalled then
 end
 ```
 
+Utility helpers
+---------------
+Safe wrappers around `Utils.lua` for bridge and companion-addon authors.
+`_G.YAPPER_UTILS` remains the internal/compat surface for early-loading patches;
+these API methods are the stable, documented equivalents.
+
+- `YapperAPI:IsChatLockdown()` → boolean
+  Returns true if `C_ChatInfo.InChatMessagingLockdown()` is active. Use this to guard sends in bridges the same way Yapper does internally.
+
+- `YapperAPI:IsSecret(value)` → boolean
+  Returns true if a value should not be logged or persisted. Uses Blizzard's `issecretvalue`/`canaccessvalue` APIs with a `|K` token fallback.
+
+- `YapperAPI:GetChatParent()` → Frame
+  Returns the correct UI parent for chat-related frames, respecting fullscreen panels like the housing editor.
+
+- `YapperAPI:MakeFullscreenAware(frame)`
+  Hooks the frame so it re-parents automatically whenever the active fullscreen panel changes. Use this for any Yapper-adjacent UI frame that needs to stay visible when UIParent is hidden.
+
+Example — create a frame that coexists with the housing editor:
+
+```lua
+local f = CreateFrame("Frame", nil, YapperAPI:GetChatParent())
+YapperAPI:MakeFullscreenAware(f)
+```
+
+Example — guard a send against messaging lockdown:
+
+```lua
+YapperAPI:RegisterFilter("PRE_SEND", function(p)
+    if YapperAPI:IsChatLockdown() then
+        return false  -- don't send while locked down
+    end
+    return p
+end)
+```
+
 Spellcheck accessors
 --------------------
 Safe wrappers around the spellcheck system. All return `false` or `nil`

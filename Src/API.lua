@@ -214,6 +214,25 @@
                                         pending (int), inFlight (int)
     YapperAPI:CancelQueue()         → int (number of chunks discarded)
 
+    Utility helpers (safe wrappers around Utils.lua):
+
+    YapperAPI:IsChatLockdown()      → boolean
+      Returns true if C_ChatInfo.InChatMessagingLockdown() is active.
+      Use this to guard sends in bridges the same way Yapper does internally.
+
+    YapperAPI:IsSecret(value)       → boolean
+      Returns true if a value should not be logged or persisted (Blizzard
+      issecretvalue / canaccessvalue APIs, with a |K token fallback).
+
+    YapperAPI:GetChatParent()       → Frame
+      Returns the correct UI parent for chat-related frames, respecting
+      fullscreen panels like the housing editor.
+
+    YapperAPI:MakeFullscreenAware(frame)
+      Hooks the frame so it re-parents automatically whenever the active
+      fullscreen panel changes.  Pass any frame you want to keep visible
+      over panels that hide UIParent.
+
     Spellcheck accessors (safe wrappers — return nil/false if spellcheck is unavailable):
 
     YapperAPI:IsSpellcheckEnabled() → boolean
@@ -732,6 +751,50 @@ function YapperAPI:CancelQueue()
     if count == 0 then return 0 end
     q:Cancel()
     return count
+end
+
+-- ===== UTILITY HELPERS =====================================================
+
+--- Returns true if C_ChatInfo.InChatMessagingLockdown() is active.
+function YapperAPI:IsChatLockdown()
+    local u = YapperTable.Utils
+    if u and u.IsChatLockdown then
+        return u:IsChatLockdown() == true
+    end
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
+        return C_ChatInfo.InChatMessagingLockdown() == true
+    end
+    return false
+end
+
+--- Returns true if value should not be logged or persisted.
+--- Uses Blizzard's issecretvalue/canaccessvalue APIs with a |K token fallback.
+function YapperAPI:IsSecret(value)
+    local u = YapperTable.Utils
+    if u and u.IsSecret then
+        return u:IsSecret(value) == true
+    end
+    return false
+end
+
+--- Returns the correct UI parent frame for chat-related UI.
+--- Respects fullscreen panels such as the housing editor.
+function YapperAPI:GetChatParent()
+    local u = YapperTable.Utils
+    if u and u.GetChatParent then
+        return u:GetChatParent()
+    end
+    return UIParent
+end
+
+--- Hooks frame so it re-parents automatically when the active fullscreen panel changes.
+--- Keeps your frame visible over panels that hide UIParent (e.g. housing editor).
+function YapperAPI:MakeFullscreenAware(frame)
+    if type(frame) ~= "table" then return end
+    local u = YapperTable.Utils
+    if u and u.MakeFullscreenAware then
+        u:MakeFullscreenAware(frame)
+    end
 end
 
 -- ===== POST DELEGATION =====================================================
