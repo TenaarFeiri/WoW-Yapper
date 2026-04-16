@@ -81,6 +81,16 @@
       Fires before the spellchecker runs on the current input.  Return false
       to skip spellchecking for this particular text.
 
+    PRE_DELIVER       text, chatType, language,      yes
+                      target
+      Fires in DirectSend just before Router:Send.  A filter may return false
+      to "claim" the message — Yapper will not send it via Router and will
+      instead start a delegation timer.  The claiming addon receives a
+      POST_CLAIMED callback with a handle and must call
+      YapperAPI:ResolvePost(handle) within the timeout (default 5 s).
+      If the timeout expires, Yapper sends the message itself and prints an
+      error attributing the failure to the claiming addon.
+
 ---------------------------------------------------------------------------
 2.  CALLBACKS (post-hooks / event notifications)
 ---------------------------------------------------------------------------
@@ -152,6 +162,28 @@
       Fires when a filter or callback handler errors.  Delivered only to the
       addon that owns the faulting handler (matched by source file path).
 
+    SPELLCHECK_SUGGESTION    word, suggestions (array of strings)
+      Fires when the spellcheck suggestion popup is shown for a misspelled word.
+
+    SPELLCHECK_APPLIED       original, replacement
+      Fires when the user accepts a spellcheck suggestion.
+
+    SPELLCHECK_WORD_ADDED    word, locale
+      Fires when a word is added to the user dictionary (manually or via YALLM).
+
+    SPELLCHECK_WORD_IGNORED  word, locale
+      Fires when the user marks a word as "ignored".
+
+    YALLM_WORD_LEARNED       word, locale
+      Fires when YALLM auto-promotes a word to the user dictionary after
+      persistent usage (reaching the auto-learn threshold).
+
+    POST_CLAIMED             handle, text, chatType, language, target
+      Fires when a PRE_DELIVER filter claims a message.  The handle must
+      be passed to YapperAPI:ResolvePost(handle) within the delegation
+      timeout to confirm delivery.  If not resolved, Yapper sends the
+      message itself and blames the claiming addon.
+
 ---------------------------------------------------------------------------
 3.  READ-ONLY ACCESSORS
 ---------------------------------------------------------------------------
@@ -160,6 +192,19 @@
     YapperAPI:GetCurrentTheme()     → theme name (string) or nil
     YapperAPI:IsOverlayShown()      → boolean
     YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR"
+
+    Spellcheck accessors (safe wrappers — return nil/false if spellcheck is unavailable):
+
+    YapperAPI:IsSpellcheckEnabled() → boolean
+    YapperAPI:CheckWord(word)       → boolean (true if word is in dict or user dict)
+    YapperAPI:GetSuggestions(word)  → array of suggestion strings, or nil
+    YapperAPI:GetSpellcheckLocale() → locale string (e.g. "enUS") or nil
+    YapperAPI:AddToDictionary(word) → boolean (true if added)
+    YapperAPI:IgnoreWord(word)      → boolean (true if ignored)
+
+    Post delegation:
+
+    YapperAPI:ResolvePost(handle)   → boolean (true if the claim was valid and resolved)
 
     These never expose internal tables directly; tables are shallow-copied.
 
@@ -373,7 +418,7 @@ end
 -- Public object (sandbox)
 -- ---------------------------------------------------------------------------
 local YapperAPI = {
-    _version = "1.0",   -- API version, independent of addon version
+    _version = "1.1",   -- API version, independent of addon version
 }
 _G.YapperAPI = YapperAPI
 
@@ -566,6 +611,165 @@ function YapperAPI:GetConfig(path)
     return cfg
 end
 
+-- ===== SPELLCHECK ACCESSORS ================================================
+
+--- Returns true if the spellcheck system is loaded and enabled.
+function YapperAPI:IsSpellcheckEnabled()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.IsEnabled then
+        return sc:IsEnabled() == true
+    end
+    return false
+end
+
+--- Returns true if `word` is recognised by the active dictionary or user dict.
+function YapperAPI:CheckWord(word)
+    if type(word) ~= "string" or word == "" then return false end
+    local sc = YapperTable.Spellcheck
+    if sc and sc.IsWordCorrect then
+        return sc:IsWordCorrect(word) == true
+    end
+    return false
+end
+
+--- Returns an array of suggestion strings for a misspelled word, or nil.
+function YapperAPI:GetSuggestions(word)
+    if type(word) ~= "string" or word == "" then return nil end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.GetSuggestions then return nil end
+
+    local ok, results = pcall(sc.GetSuggestions, sc, word)
+    if not ok or type(results) ~= "table" then return nil end
+
+    -- Return only the word strings, not internal scoring data.
+    local out = {}
+    for i, entry in ipairs(results) do
+        if type(entry) == "table" then
+            out[i] = entry.word or entry.value or tostring(entry)
+        else
+            out[i] = tostring(entry)
+        end
+    end
+    return #out > 0 and out or nil
+end
+
+--- Returns the current spellcheck locale (e.g. "enUS"), or nil.
+function YapperAPI:GetSpellcheckLocale()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.GetLocale then
+        return sc:GetLocale()
+    end
+    return nil
+end
+
+--- Adds a word to the user dictionary for the current locale.
+--- Returns true on success.
+function YapperAPI:AddToDictionary(word)
+    if type(word) ~= "string" or word == "" then return false end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.AddUserWord or not sc.GetLocale then return false end
+    local locale = sc:GetLocale()
+    if not locale then return false end
+    sc:AddUserWord(locale, word)
+    -- SPELLCHECK_WORD_ADDED is fired by AddUserWord internally.
+    return true
+end
+
+--- Marks a word as ignored for the current locale.
+--- Returns true on success.
+function YapperAPI:IgnoreWord(word)
+    if type(word) ~= "string" or word == "" then return false end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.IgnoreWord or not sc.GetLocale then return false end
+    local locale = sc:GetLocale()
+    if not locale then return false end
+    sc:IgnoreWord(locale, word)
+    -- SPELLCHECK_WORD_IGNORED is fired by IgnoreWord internally.
+    return true
+end
+
+-- ===== POST DELEGATION =====================================================
+
+local DELEGATION_TIMEOUT = 5   -- seconds
+
+-- Active claims: claimHandle → { text, chatType, language, target, owner, timer }
+local activeClaims = {}
+local claimSeq     = 0
+
+--- Internal: create a delegation claim when a PRE_DELIVER filter cancels.
+--- Returns the claim handle.
+local function _create_claim(text, chatType, language, target, owner)
+    claimSeq = claimSeq + 1
+    local handle = claimSeq
+
+    local timer
+    if C_Timer and C_Timer.NewTimer then
+        timer = C_Timer.NewTimer(DELEGATION_TIMEOUT, function()
+            local claim = activeClaims[handle]
+            if not claim then return end
+            activeClaims[handle] = nil
+
+            -- Timeout: send the message ourselves and blame the addon.
+            if YapperTable.Router then
+                YapperTable.Router:Send(claim.text, claim.chatType, claim.language, claim.target)
+            elseif C_ChatInfo and C_ChatInfo.SendChatMessage then
+                C_ChatInfo.SendChatMessage(claim.text, claim.chatType, claim.language, claim.target)
+            end
+
+            -- Fire POST_SEND since we sent the message.
+            API:Fire("POST_SEND", claim.text, claim.chatType, claim.language, claim.target)
+
+            -- Blame the addon that failed to resolve.
+            local blame = claim.owner or "unknown addon"
+            local msg = "|cffff6666Yapper:|r Post delegation timed out — " ..
+                "\"" .. blame .. "\" claimed a message but did not resolve within " ..
+                DELEGATION_TIMEOUT .. "s.  Message was sent by Yapper."
+            if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+                DEFAULT_CHAT_FRAME:AddMessage(msg)
+            else
+                print(msg)
+            end
+
+            _report_api_error("delegation-timeout", "PRE_DELIVER",
+                { handle = handle, owner = claim.owner },
+                "addon failed to resolve claimed post within timeout",
+                { text = claim.text, chatType = claim.chatType })
+        end)
+    end
+
+    activeClaims[handle] = {
+        text     = text,
+        chatType = chatType,
+        language = language,
+        target   = target,
+        owner    = owner,
+        timer    = timer,
+    }
+
+    return handle
+end
+
+--- Internal bridge: lets Chat.lua create delegation claims.
+function API:_createClaim(text, chatType, language, target, owner)
+    return _create_claim(text, chatType, language, target, owner)
+end
+
+--- Resolve a previously claimed post.  Call this from the addon that claimed
+--- a message via a PRE_DELIVER filter returning false.
+--- Returns true if the claim existed and was cleared.
+function YapperAPI:ResolvePost(handle)
+    if type(handle) ~= "number" then return false end
+    local claim = activeClaims[handle]
+    if not claim then return false end
+
+    -- Cancel the timeout timer.
+    if claim.timer and claim.timer.Cancel then
+        claim.timer:Cancel()
+    end
+    activeClaims[handle] = nil
+    return true
+end
+
 -- ===== INTERNAL ENTRY POINTS ===============================================
 -- These are called by Yapper's own modules.  Not on the public object.
 
@@ -589,6 +793,8 @@ function API:RunFilter(hookPoint, payload)
             _report_api_error("filter", hookPoint, entry, result, payload)
         elseif result == false then
             -- Filter explicitly cancelled the operation.
+            -- Store cancelling entry's owner for delegation tracking.
+            self._lastCancelOwner = entry.owner
             return false
         elseif type(result) == "table" then
             payload = result
@@ -600,6 +806,7 @@ function API:RunFilter(hookPoint, payload)
         -- nil return = "I didn't change anything", continue with current payload.
     end
 
+    self._lastCancelOwner = nil
     return payload
 end
 
