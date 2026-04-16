@@ -289,6 +289,10 @@ end
 ------------------------------------------------
 local function SetFrameFillColour(frame, r, g, b, a, rounded)
     if not frame then return end
+    -- Store the fill colour so external readers (e.g. Multiline) can copy it
+    -- without relying on GetVertexColor / GetBackdropColor API quirks.
+    frame._yapperFillColor = { r = r or 0, g = g or 0, b = b or 0, a = a or 1 }
+    frame._yapperFillRounded = rounded and true or false
     if rounded then
         if frame._yapperSolidFill then frame._yapperSolidFill:Hide() end
         if not frame._yapperRoundedFill then
