@@ -46,6 +46,10 @@ local DEFAULTS = {
         -- Tracks whether the welcome/appearance-choice popup has been shown.
         -- Set to the VERSION at which it was last displayed; 0 means never.
         _welcomeShown             = 0,
+
+        -- Tracks the addon version string last seen at login.
+        -- Used to trigger the What's New frame on version bumps.
+        _lastSeenVersion          = "",
     },
 
     -- Obviously this holds settings for our interface frames.
@@ -78,7 +82,7 @@ local DEFAULTS = {
         -- The delineator used to split posts.
         -- Posting system normalises this by prepending/appending a whitespace to the delineator
         -- at the end and beginning of a split post. You can always assume this to be the case.
-        DELINEATOR        = "»",
+        DELINEATOR        = "»", -- We never rename or move this specific var out of here (other addons use it)
 
         -- Always synced to DELINEATOR.
         PREFIX            = "»",
@@ -170,6 +174,10 @@ local DEFAULTS = {
         -- Storyteller manual dimensions
         StorytellerWidth      = 400,
         StorytellerHeight     = 250,
+
+        -- Autocomplete (ghost text): on by default but only active when
+        -- Spellcheck.Enabled is also true (depends on dictionary data).
+        AutocompleteEnabled   = true,
     },
 
     Spellcheck = {
