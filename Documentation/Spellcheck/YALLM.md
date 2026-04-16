@@ -20,6 +20,13 @@ YALLM bonuses are injected into the [Spellcheck ranking loop](Spellcheck.md#scor
 | **Frequency Bonus** | -0.15 per hit | Incremental bonus based on passive usage frequency. |
 | **Correction Cap** | 10 Hits | Bonuses are capped at 10 occurrences to prevent a single typo from permanently dominating the dictionary. |
 
+### 3. Dismissal Penalty (negBias)
+When the user types away from an autocomplete suggestion without accepting it, that is recorded as a **soft rejection** in `YALLM.db.negBias`.
+
+- **Key format**: `Clean(prefix):Clean(suggestion)` — both sides are lowercased and punctuation-stripped so apostrophe variants collapse to the same key.
+- **Penalty**: Each dismissal subtracts **3 points** from the suggestion's autocomplete score, capped at **−12** (4 dismissals).
+- **Scope**: Currently consumed by the autocomplete engine's `ScoreCandidate`. The spellcheck suggestion popup is unaffected — negBias is a "I don't want this completion" signal, not a "this word is wrong" signal.
+
 ## Anti-Contamination (Sanity Heuristics)
 
 To prevent the engine from "learning" keyboard smashes or phonetic noise (e.g., `asdfghj` or `noooowwwwww`), YALLM uses a defensive gatekeeper called `IsSaneWord` before recording any usage.
@@ -45,6 +52,9 @@ Scans a sent message and increments the frequency count for all "sane" words.
 
 ### `YALLM:RecordSelection(typo, correction)`
 Records a manual user selection, applying a high-weight bias to the chosen word for future instances of that specific typo.
+
+### `YALLM:RecordRejection(prefix, candidates)`
+Records a dismissal of one or more autocomplete suggestions for a given prefix. Called by `Autocomplete:OnTextChanged` when the user types away from an active ghost suggestion. Increments the `negBias` counter for the `Clean(prefix):Clean(candidate)` key.
 
 ### `YALLM:GetBonus(candidate, typo)`
 Calculates the combined frequency and selection bonus for a candidate word.
