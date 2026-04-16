@@ -923,6 +923,18 @@ function Spellcheck:GetSuggestions(word)
     end
 
     -- Update suggestion cache
+    -- Mirror capitalisation: if the user's original word started with an
+    -- uppercase letter, capitalise the first letter of every word suggestion.
+    -- This preserves sentence-start capitalisation and conscious proper nouns.
+    local wb = string_byte(word, 1)
+    if wb and wb >= 65 and wb <= 90 then
+        for _, entry in ipairs(final) do
+            if entry.kind == "word" then
+                entry.value = string_upper(string_sub(entry.value, 1, 1)) .. string_sub(entry.value, 2)
+            end
+        end
+    end
+
     sc.word = lower
     sc.dict = dict
     sc.userRev = userRev
