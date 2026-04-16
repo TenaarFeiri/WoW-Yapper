@@ -97,6 +97,10 @@ Available callback events
   Fires when YALLM auto-promotes a word to the user dictionary after persistent usage (reaching the auto-learn threshold).
 - `POST_CLAIMED` — `(handle, text, chatType, language, target)`
   Fires when a `PRE_DELIVER` filter claims a message for delegation. The addon must call `YapperAPI:ResolvePost(handle)` within 5 seconds to confirm it handled delivery (see Post Delegation below).
+- `QUEUE_STALL` — `(chatType, policyClass, chunksRemaining)`
+  Fires when the ack-event stall timer expires before the server confirmed a chunk. Indicates the Continue prompt is now visible. `policyClass` is the internal policy class string (e.g. `"INSTANCE_LOCAL"`); `chunksRemaining` includes the stalled chunk.
+- `QUEUE_COMPLETE` — `()`
+  Fires when the delivery queue finishes (all chunks delivered, or queue cancelled). Pair with `QUEUE_STALL` to track queue sessions.
 
 Example — logging sent messages:
 
@@ -114,6 +118,41 @@ YapperAPI also exposes a few safe read-only helpers:
 - `YapperAPI:GetCurrentTheme()` → string | nil
 - `YapperAPI:IsOverlayShown()` → boolean
 - `YapperAPI:GetConfig(path)` → value (shallow-copies tables)
+
+Queue accessors
+---------------
+- `YapperAPI:GetQueueState()` → table
+  Returns a snapshot of the delivery queue with the following fields:
+  - `active` (bool): whether the queue is currently processing
+  - `stalled` (bool): whether the Continue prompt is currently shown
+  - `chatType` (string|nil): the chat type of the current or next entry
+  - `policyClass` (string|nil): the resolved policy class name
+  - `pending` (int): chunks waiting in the queue
+  - `inFlight` (int): chunks currently sent but not yet ack'd (0 or 1)
+
+- `YapperAPI:CancelQueue()` → int
+  Cancels the active queue and discards all pending chunks. Returns the number of chunks discarded. Prints the same chat-frame notice as the built-in double-Escape cancel.
+
+Example — show a custom notice when a queue stalls:
+
+```lua
+YapperAPI:RegisterCallback("QUEUE_STALL", function(chatType, policyClass, remaining)
+    print("Yapper: waiting for server ack (", remaining, "chunks left)")
+end)
+
+YapperAPI:RegisterCallback("QUEUE_COMPLETE", function()
+    print("Yapper: queue finished")
+end)
+```
+
+Example — inspect queue state:
+
+```lua
+local state = YapperAPI:GetQueueState()
+if state.stalled then
+    print("Queue stalled on", state.chatType, "—", state.pending, "chunks pending")
+end
+```
 
 Spellcheck accessors
 --------------------

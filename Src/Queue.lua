@@ -312,11 +312,12 @@ function Queue:GetActivePolicySnapshot()
     local head = self.PendingEntry or self.Entries[1]
     local policy, policyClass = self:GetPolicy(head)
     return {
-        active = self.Active == true,
+        active   = self.Active == true,
+        stalled  = self.NeedsContinue == true,
         chatType = head and head.type or nil,
         policyClass = policyClass,
         expectedAckEvent = policy and policy.ackEvent or nil,
-        pending = #self.Entries,
+        pending  = #self.Entries,
         inFlight = (self.PendingEntry and 1 or 0),
     }
 end
@@ -467,6 +468,9 @@ end
 
 function Queue:Complete()
     self:Reset()
+    if YapperTable.API then
+        YapperTable.API:Fire("QUEUE_COMPLETE")
+    end
 end
 
 -- ===========================================================================
@@ -572,11 +576,16 @@ function Queue:OnStallTimeout()
     if not self.Active then return end
 
     if not self.PendingEntry then return end
-    local entry = self.PendingEntry
+    local entry        = self.PendingEntry
+    local policyClass  = self.PendingAckPolicyClass  -- capture before ClearPendingAck
     table_insert(self.Entries, 1, entry)
     self.PendingEntry = nil
     self:ClearPendingAck()
     self:ShowContinuePrompt()
+
+    if YapperTable.API then
+        YapperTable.API:Fire("QUEUE_STALL", entry.type, policyClass, #self.Entries)
+    end
 end
 
 -- ===========================================================================

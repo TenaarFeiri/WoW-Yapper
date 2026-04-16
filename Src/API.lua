@@ -184,6 +184,18 @@
       timeout to confirm delivery.  If not resolved, Yapper sends the
       message itself and blames the claiming addon.
 
+    QUEUE_STALL              chatType, policyClass, chunksRemaining
+      Fires when the ack-event stall timer expires before the server
+      confirmed a chunk.  Indicates the Continue prompt is now visible.
+      `chatType` is the WoW chat type string (e.g. "SAY"), `policyClass`
+      is the internal policy class name, `chunksRemaining` is the total
+      number of chunks still waiting (including the one that stalled).
+
+    QUEUE_COMPLETE           (no arguments)
+      Fires when the queue finishes delivering all chunks (successfully
+      or after a cancel).  Paired with QUEUE_STALL for addons that need
+      to track active queue sessions.
+
 ---------------------------------------------------------------------------
 3.  READ-ONLY ACCESSORS
 ---------------------------------------------------------------------------
@@ -192,6 +204,15 @@
     YapperAPI:GetCurrentTheme()     → theme name (string) or nil
     YapperAPI:IsOverlayShown()      → boolean
     YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR"
+
+    Queue accessors:
+
+    YapperAPI:GetQueueState()       → table with fields:
+                                        active (bool), stalled (bool),
+                                        chatType (string|nil),
+                                        policyClass (string|nil),
+                                        pending (int), inFlight (int)
+    YapperAPI:CancelQueue()         → int (number of chunks discarded)
 
     Spellcheck accessors (safe wrappers — return nil/false if spellcheck is unavailable):
 
@@ -686,6 +707,31 @@ function YapperAPI:IgnoreWord(word)
     sc:IgnoreWord(locale, word)
     -- SPELLCHECK_WORD_IGNORED is fired by IgnoreWord internally.
     return true
+end
+
+--- Returns a snapshot of the current delivery queue state.
+--- Fields: active (bool), stalled (bool), chatType (string|nil),
+--- policyClass (string|nil), pending (int), inFlight (int).
+function YapperAPI:GetQueueState()
+    local q = YapperTable.Queue
+    if not q or not q.GetActivePolicySnapshot then
+        return { active = false, stalled = false, pending = 0, inFlight = 0 }
+    end
+    local snap = q:GetActivePolicySnapshot()
+    snap.expectedAckEvent = nil  -- internal event name; not part of the public contract
+    return snap
+end
+
+--- Cancel the active delivery queue, discarding all pending chunks.
+--- Prints a chat-frame notice matching the built-in cancel behaviour.
+--- Returns the number of chunks that were discarded.
+function YapperAPI:CancelQueue()
+    local q = YapperTable.Queue
+    if not q then return 0 end
+    local count = #q.Entries + (q.PendingEntry and 1 or 0)
+    if count == 0 then return 0 end
+    q:Cancel()
+    return count
 end
 
 -- ===== POST DELEGATION =====================================================

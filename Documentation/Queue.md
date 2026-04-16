@@ -44,6 +44,22 @@ Policies marked `autoUntilThrottle` (e.g. `INSTANCE_LOCAL`, `GROUP`, `WHISPER`) 
 
 This means `INSTANCE_LOCAL` (in-instance SAY/YELL) degrades gracefully: the prompt appears, the user presses Enter, and delivery resumes from the stalled chunk. The `requiresHardwareEvent = false` flag only affects the *initial* flush; it has no bearing on stall recovery.
 
+## API Surface
+
+External addons can observe and control the queue via `_G.YapperAPI`:
+
+| Callback | Arguments | Description |
+| :--- | :--- | :--- |
+| `QUEUE_STALL` | `chatType, policyClass, chunksRemaining` | Fired when a stall timeout occurs and the Continue prompt appears. |
+| `QUEUE_COMPLETE` | *(none)* | Fired when the queue finishes (all chunks delivered or queue cancelled). |
+
+| Accessor | Returns | Description |
+| :--- | :--- | :--- |
+| `YapperAPI:GetQueueState()` | table | Snapshot: `active`, `stalled`, `chatType`, `policyClass`, `pending`, `inFlight`. |
+| `YapperAPI:CancelQueue()` | int | Cancels the queue; returns the number of chunks discarded. |
+
+See [API.md](../API.md) for full signatures and examples.
+
 ## Internal Mechanics
 
 ### Stall Timer
