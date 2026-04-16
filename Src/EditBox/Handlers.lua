@@ -217,6 +217,12 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
             return
         end
+        -- Shift+Enter is consumed by OnKeyDown to enter multiline mode.
+        -- Guard here too in case the key event fires OnEnterPressed anyway.
+        if IsShiftKeyDown() then return end
+        -- Also bail if multiline transition just started.
+        local ml = YapperTable.Multiline
+        if ml and ml.Active then return end
         local text = box:GetText() or ""
         local trimmed = strmatch(text, "^%s*(.-)%s*$") or ""
 
