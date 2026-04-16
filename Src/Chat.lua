@@ -216,6 +216,31 @@ function Chat:DirectSend(msg, chatType, language, target)
         end
     end
 
+    -- PRE_DELIVER filter: external addons can claim the message.
+    local API = YapperTable.API
+    if API then
+        local deliverPayload = API:RunFilter("PRE_DELIVER", {
+            text     = msg,
+            chatType = chatType,
+            language = language,
+            target   = target,
+        })
+        if deliverPayload == false then
+            -- An addon claimed this message via delegation.
+            local owner = API._lastCancelOwner
+            if API._createClaim then
+                local handle = API:_createClaim(msg, chatType, language, target, owner)
+                API:Fire("POST_CLAIMED", handle, msg, chatType, language, target)
+            end
+            return
+        end
+        -- Allow the filter to modify fields.
+        msg      = deliverPayload.text     or msg
+        chatType = deliverPayload.chatType or chatType
+        language = deliverPayload.language or language
+        target   = deliverPayload.target   or target
+    end
+
     if YapperTable.Router then
         YapperTable.Router:Send(msg, chatType, language, target)
     else
@@ -223,7 +248,7 @@ function Chat:DirectSend(msg, chatType, language, target)
     end
 
     -- POST_SEND callback: notify external addons.
-    if YapperTable.API then
-        YapperTable.API:Fire("POST_SEND", msg, chatType, language, target)
+    if API then
+        API:Fire("POST_SEND", msg, chatType, language, target)
     end
 end
