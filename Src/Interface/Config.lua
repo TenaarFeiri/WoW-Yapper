@@ -196,6 +196,14 @@ function Interface:SetLocalPath(path, value)
         YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
     end
 
+    -- Also refresh the multiline frame visuals if it is currently open.
+    if path[1] == "EditBox"
+        and YapperTable.Multiline
+        and YapperTable.Multiline.Frame
+        and type(YapperTable.Multiline.ApplyTheme) == "function" then
+        pcall(function() YapperTable.Multiline:ApplyTheme() end)
+    end
+
     -- Apply active theme immediately when changed.
     if JoinPath(path) == "System.ActiveTheme" then
         if YapperTable.Theme and type(YapperTable.Theme.SetTheme) == "function" then
