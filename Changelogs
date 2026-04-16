@@ -1,4 +1,4 @@
--- 1.3.0
+-- 2.0.1
   - *The Engine Now Learns:*
     - **Adaptive Learning (YALLM):** Yapper now tracks your common words and manual corrections. Over time, the engine learns your vocabulary profile so the first suggestion is actually what you meant.
     - **Selection Bias:** Manually overriding a suggestion (e.g. choosing "heart" over "hear") now sticks. The engine remembers your preference for future collisions.

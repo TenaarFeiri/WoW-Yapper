@@ -178,7 +178,7 @@ Interface._activeCategory = "general"
 -- Version-gated popups: Welcome (first-run / schema change) & What's New
 -- ---------------------------------------------------------------------------
 -- _welcomeShown   — schema VERSION at which the full welcome was last shown.
--- _lastSeenVersion — addon version string last seen at login ("1.3.0" etc.).
+-- _lastSeenVersion — addon version string last seen at login ("2.0.1" etc.).
 --
 -- Full welcome:   triggers when _welcomeShown == 0 or < current schema VERSION.
 -- What's New:     triggers when _lastSeenVersion ~= addon version AND welcome
@@ -190,7 +190,7 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 local WHATS_NEW = {
-    ["1.3.0"] = {
+    ["2.0.1"] = {
         {
             title = "Spellchecking",
             body  = "Yapper now has a built-in spellchecker with per-locale dictionaries, "
