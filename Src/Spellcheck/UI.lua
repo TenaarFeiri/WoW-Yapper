@@ -716,6 +716,15 @@ function Spellcheck:ShowSuggestions()
     self.SuggestionFrame:Show()
     self._lastShownSuggestions = self.ActiveSuggestions
     self._lastShownOffset = offset
+
+    -- Notify external addons that suggestions are being shown.
+    if self.ActiveWord and YapperTable.API then
+        local words = {}
+        for i, entry in ipairs(self.ActiveSuggestions) do
+            words[i] = (type(entry) == "table") and (entry.word or entry.value) or entry
+        end
+        YapperTable.API:Fire("SPELLCHECK_SUGGESTION", self.ActiveWord, words)
+    end
 end
 
 function Spellcheck:NextSuggestionsPage()
@@ -889,6 +898,11 @@ function Spellcheck:ApplySuggestion(index)
     if self.YALLM and self.YALLM.RecordSelection then
         local original = text:sub(startPos, endPos)
         self.YALLM:RecordSelection(original, replacement)
+    end
+
+    -- Notify external addons that a spellcheck correction was applied.
+    if YapperTable.API then
+        YapperTable.API:Fire("SPELLCHECK_APPLIED", text:sub(startPos, endPos), replacement)
     end
 
     self:ScheduleRefresh()

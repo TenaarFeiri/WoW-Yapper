@@ -6,7 +6,6 @@
 local YapperName, YapperTable = ...
 local YALLM = {}
 YapperTable.Spellcheck.YALLM = YALLM -- Hook into internal table
-_G.YALLM = YALLM                     -- Global access for simplicity
 
 -- Tuning Constants (used as fallbacks when config is not yet available)
 local FREQ_CAP       = 2000  -- Max unique words to track
@@ -343,6 +342,10 @@ function YALLM:RecordIgnored(word)
             self.db.auto[w] = nil -- Reset now that it's in the dict
             if YapperTable.Utils then
                 YapperTable.Utils:Print("info", "YALLM: Learned new word '" .. word .. "' after persistent usage.")
+            end
+            -- Notify external addons about the auto-learned word.
+            if YapperTable.API then
+                YapperTable.API:Fire("YALLM_WORD_LEARNED", word, locale)
             end
         end
     end

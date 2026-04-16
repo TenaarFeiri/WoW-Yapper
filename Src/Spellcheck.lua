@@ -491,6 +491,9 @@ function Spellcheck:AddUserWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
+    if YapperTable.API then
+        YapperTable.API:Fire("SPELLCHECK_WORD_ADDED", word, locale)
+    end
 end
 
 function Spellcheck:IgnoreWord(locale, word)
@@ -510,6 +513,9 @@ function Spellcheck:IgnoreWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
+    if YapperTable.API then
+        YapperTable.API:Fire("SPELLCHECK_WORD_IGNORED", word, locale)
+    end
 end
 
 function Spellcheck:GetMaxSuggestions()
