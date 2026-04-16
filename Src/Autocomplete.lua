@@ -59,11 +59,21 @@ local MIN_PREFIX_LEN = 2
 -- ---------------------------------------------------------------------------
 
 --- Check if autocomplete is enabled in user config.
+--- Requires both the autocomplete toggle AND spellcheck to be on
+--- (autocomplete depends on dictionary data from the spellcheck engine).
 function Autocomplete:IsEnabled()
 	if not self.Enabled then return false end
-	-- TODO: read from a config key once the Interface setting exists.
-	-- local cfg = YapperTable.Config and YapperTable.Config.EditBox
-	-- if cfg and cfg.AutocompleteEnabled == false then return false end
+	local cfg = YapperTable.Config
+	if cfg then
+		-- Master toggle in EditBox settings.
+		if cfg.EditBox and cfg.EditBox.AutocompleteEnabled == false then
+			return false
+		end
+		-- Depends on spellcheck being active (dictionary data source).
+		if cfg.Spellcheck and cfg.Spellcheck.Enabled ~= true then
+			return false
+		end
+	end
 	return true
 end
 

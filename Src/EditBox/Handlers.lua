@@ -73,6 +73,22 @@ function EditBox:SetupOverlayScripts()
 
         local text = box:GetText() or ""
 
+        -- Update autocomplete ghost text on every user keystroke.
+        if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
+            YapperTable.Autocomplete:OnTextChanged(box)
+        end
+
+        -- Auto-expand into multiline when text fills the overlay.
+        local ml = YapperTable.Multiline
+        if ml and type(ml.ShouldAutoExpand) == "function" and not ml.Active then
+            local textW = box.GetStringWidth and box:GetStringWidth() or 0
+            local boxW  = box.GetWidth and box:GetWidth() or 0
+            if ml:ShouldAutoExpand(textW, boxW) then
+                ml:Enter(text, self.ChatType, self.Language, self.Target)
+                return
+            end
+        end
+
         if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil
@@ -473,12 +489,26 @@ function EditBox:SetupOverlayScripts()
                 return
             end
         end
-        if key == "TAB" then
+        if key == "ENTER" and IsShiftKeyDown() then
+            -- Shift+Enter: expand into multi-line storyteller editor.
+            local ml = YapperTable.Multiline
+            if ml and type(ml.Enter) == "function" and not ml.Active then
+                local text = box:GetText() or ""
+                ml:Enter(text, self.ChatType, self.Language, self.Target)
+                return
+            end
+        elseif key == "TAB" then
             -- If ALT is held we should not cycle chat targets; spellcheck
             -- already owns Alt+Tab behavior, so let it (or other handlers)
             -- handle the key instead.
             if IsAltKeyDown() then
                 return
+            end
+            -- Try autocomplete acceptance first; fall through to channel cycling.
+            if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTabPressed) == "function" then
+                if YapperTable.Autocomplete:OnTabPressed(edit) then
+                    return
+                end
             end
             self:CycleChat(IsShiftKeyDown() and -1 or 1)
         elseif key == "UP" then
@@ -494,6 +524,10 @@ function EditBox:SetupOverlayScripts()
 
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnOverlayHide) == "function" then
             YapperTable.Spellcheck:OnOverlayHide()
+        end
+
+        if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnOverlayHide) == "function" then
+            YapperTable.Autocomplete:OnOverlayHide()
         end
 
         if not self._closedClean and YapperTable.History then

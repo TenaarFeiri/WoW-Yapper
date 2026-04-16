@@ -116,10 +116,23 @@ function Multiline:CreateFrame()
 	sf:SetScrollChild(edit)
 	self.EditBox = edit
 
-	-- TODO: Hook OnEnterPressed for submit (Shift+Enter or plain Enter,
-	--       depending on user preference).
-	-- TODO: Hook OnTextChanged for auto-sizing the scroll child height.
-	-- TODO: Character counter overlay.
+	-- Enter sends; Shift+Enter inserts a literal newline (multi-line default).
+	edit:SetScript("OnEnterPressed", function(box)
+		if IsShiftKeyDown() then
+			box:Insert("\n")
+			return
+		end
+		Multiline:Submit()
+	end)
+
+	-- Auto-size the scroll child height as the user types.
+	edit:SetScript("OnTextChanged", function(box)
+		local contentH = box:GetHeight()
+		local scrollH  = sf:GetHeight()
+		if contentH < scrollH then
+			box:SetHeight(scrollH)
+		end
+	end)
 end
 
 -- ---------------------------------------------------------------------------
