@@ -64,6 +64,19 @@ function EditBox:Show(origEditBox)
             return
         end
     end
+
+    -- Suppress the single-line overlay while the multiline editor is open.
+    -- The game will try to re-open the overlay on every keypress that
+    -- triggers a chat-open event; this guard stops that.
+    -- If the multiline EditBox has lost focus (e.g. user clicked elsewhere),
+    -- reclaim it here so Enter reliably activates the expanded editor.
+    local ml = YapperTable and YapperTable.Multiline
+    if ml and ml.Active then
+        if ml.EditBox and ml.EditBox.SetFocus then
+            ml.EditBox:SetFocus()
+        end
+        return
+    end
     self:CreateOverlay()
 
     local openedFromBnetTransition   = self._nextShowFromBnetTransition == true
