@@ -55,6 +55,111 @@ function Spellcheck:Bind(editBox, overlay)
     end
 end
 
+--- Temporarily rebind spellcheck to the multiline editor.
+--- Moves the underline layer to the new container frame so textures render
+--- in the correct coordinate space.  Call UnbindMultiline() on exit.
+---@param editBox       Frame  The multiline EditBox.
+---@param containerFrame Frame  The multiline container (for underline anchoring).
+---@param scrollFrame   Frame  The ScrollFrame wrapping the EditBox (for GetVerticalScroll).
+function Spellcheck:BindMultiline(editBox, containerFrame, scrollFrame)
+    -- Save originals so we can restore them on exit.
+    self._mlSavedEditBox     = self.EditBox
+    self._mlSavedOverlay     = self.Overlay
+    self._mlSavedScrollFrame = self.MLScrollFrame
+
+    -- Clear any single-line underlines/hints before switching.
+    self:OnOverlayHide()
+
+    self.EditBox       = editBox
+    self.Overlay       = containerFrame
+    self.MLScrollFrame = scrollFrame
+
+    -- Hook OnCursorChanged and OnMouseUp on the multiline EditBox so
+    -- ActiveWord stays current as the cursor moves and right-click works.
+    -- Both handlers guard on box == self.EditBox so they silently no-op
+    -- after UnbindMultiline reassigns self.EditBox back to the overlay.
+    if editBox and editBox.HookScript then
+        editBox:HookScript("OnCursorChanged", function(box, x, y, w, h)
+            if box ~= self.EditBox then return end
+            self:OnCursorChanged(box, x, y, w, h)
+        end)
+        editBox:HookScript("OnMouseUp", function(box, button)
+            if box ~= self.EditBox then return end
+            if button == "RightButton" then
+                self:UpdateActiveWord()
+                if self:IsSuggestionEligible() then
+                    self:OpenOrCycleSuggestions()
+                end
+            end
+        end)
+    end
+
+    -- Reparent overlay-child frames to the multiline container so they
+    -- remain visible when the single-line overlay is hidden.
+    local function reparent(frame)
+        if frame and containerFrame then
+            frame:SetParent(containerFrame)
+        end
+    end
+    reparent(self.UnderlineLayer)
+    if self.UnderlineLayer and containerFrame then
+        self.UnderlineLayer:SetAllPoints(containerFrame)
+    end
+    reparent(self.SuggestionFrame)
+    -- SetParent() resets the frame's strata to the new parent's strata (HIGH).
+    -- Re-assert TOOLTIP so suggestion rows stay above the catcher (also TOOLTIP
+    -- but at frame level 1, far below the buttons at 200+).
+    if self.SuggestionFrame then
+        self.SuggestionFrame:SetFrameStrata("TOOLTIP")
+        self.SuggestionFrame:SetFrameLevel(200)
+    end
+    reparent(self.HintFrame)
+    if self.HintFrame then
+        self.HintFrame:SetFrameStrata("TOOLTIP")
+    end
+
+    self:ScheduleRefresh(0)
+end
+
+--- Restore spellcheck to the single-line overlay after multiline editing.
+function Spellcheck:UnbindMultiline()
+    if not self._mlSavedEditBox then return end  -- not bound to multiline
+
+    -- Clear any multiline underlines before switching back.
+    self:OnOverlayHide()
+
+    local oldOverlay = self._mlSavedOverlay
+
+    self.EditBox       = self._mlSavedEditBox
+    self.Overlay       = oldOverlay
+    self.MLScrollFrame = self._mlSavedScrollFrame
+
+    self._mlSavedEditBox     = nil
+    self._mlSavedOverlay     = nil
+    self._mlSavedScrollFrame = nil
+
+    -- Reparent overlay-child frames back to the single-line overlay.
+    local function reparent(frame)
+        if frame and oldOverlay then
+            frame:SetParent(oldOverlay)
+        end
+    end
+    reparent(self.UnderlineLayer)
+    if self.UnderlineLayer and oldOverlay then
+        self.UnderlineLayer:SetAllPoints(oldOverlay)
+    end
+    reparent(self.SuggestionFrame)
+    -- Re-assert TOOLTIP strata after reparenting back to the overlay.
+    if self.SuggestionFrame then
+        self.SuggestionFrame:SetFrameStrata("TOOLTIP")
+        self.SuggestionFrame:SetFrameLevel(200)
+    end
+    reparent(self.HintFrame)
+    if self.HintFrame then
+        self.HintFrame:SetFrameStrata("TOOLTIP")
+    end
+end
+
 function Spellcheck:PurgeOtherDictionaries(keepLocale)
     -- Identify and protect the base dictionary if the keepLocale depends on it.
     local keepBase = nil
@@ -272,10 +377,16 @@ end
 function Spellcheck:EnsureSuggestionFrame()
     if self.SuggestionFrame or not self.Overlay then return end
 
+    -- The catcher sits at a deliberately LOW frame level so suggestion row
+    -- buttons (which are set to a much higher level) always receive clicks
+    -- first.  Without this, the catcher intercepts clicks that should go to
+    -- the rows, silently swallowing them instead of letting them fire.
     local catcher = CreateFrame("Button", nil, UIParent)
     catcher:SetFrameStrata("TOOLTIP")
+    catcher:SetFrameLevel(1)    -- must stay below the suggestion frame
     catcher:SetAllPoints(UIParent)
-    catcher:RegisterForClicks("AnyUp", "AnyDown")
+    catcher:EnableMouse(true)
+    catcher:RegisterForClicks("AnyUp")
     catcher:SetScript("OnClick", function()
         self:HideSuggestions()
     end)
@@ -284,6 +395,7 @@ function Spellcheck:EnsureSuggestionFrame()
 
     local frame = CreateFrame("Frame", nil, self.Overlay, "BackdropTemplate")
     frame:SetFrameStrata("TOOLTIP")
+    frame:SetFrameLevel(200)    -- well above catcher; buttons get 201+
     frame:EnableMouse(true)
     frame:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -302,9 +414,7 @@ function Spellcheck:EnsureSuggestionFrame()
         btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -6 - ((i - 1) * 18))
         btn:EnableMouse(true)
 
-        -- Highlight frame under the row to indicate selection. Use a
-        -- small child frame with its own texture so it can be shown
-        -- above the suggestion background reliably.
+        -- Keyboard-selection highlight (controlled by RefreshSuggestionSelection).
         local hlFrame = CreateFrame("Frame", nil, frame)
         hlFrame:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
         hlFrame:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
@@ -314,17 +424,32 @@ function Spellcheck:EnsureSuggestionFrame()
         hlTex:SetColorTexture(1, 1, 1, 0.08)
         hlFrame:Hide()
 
+        -- Hover highlight: shown on mouse-over, independent of keyboard selection.
+        local hoverFrame = CreateFrame("Frame", nil, frame)
+        hoverFrame:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+        hoverFrame:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, 0)
+        hoverFrame:SetFrameLevel(btn:GetFrameLevel() + 6)
+        local hoverTex = hoverFrame:CreateTexture(nil, "ARTWORK")
+        hoverTex:SetAllPoints(hoverFrame)
+        hoverTex:SetColorTexture(1, 1, 1, 0.15)
+        hoverFrame:Hide()
+
         local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetPoint("LEFT", btn, "LEFT", 2, 0)
         fs:SetText("-")
 
-        btn._fs = fs
-        btn._hl = hlFrame
-        btn._index = i
+        btn._fs      = fs
+        btn._hl      = hlFrame
+        btn._hoverHL = hoverFrame
+        btn._index   = i
         local idx = i
         btn:SetScript("OnEnter", function()
             self.ActiveIndex = idx
             self:RefreshSuggestionSelection()
+            btn._hoverHL:Show()
+        end)
+        btn:SetScript("OnLeave", function()
+            btn._hoverHL:Hide()
         end)
         btn:SetScript("OnClick", function()
             self:ApplySuggestion(idx)
@@ -885,6 +1010,13 @@ function Spellcheck:ApplySuggestion(index)
     self.EditBox:SetText(newText)
     local cursorPos = #before + #replacement
     self.EditBox:SetCursorPosition(cursorPos)
+    -- Restore focus after one frame so all click-event processing finishes
+    -- before the focus claim fires.  Without deferral the claim can be
+    -- immediately stolen back by another frame's focus handler.
+    local editBoxRef = self.EditBox
+    C_Timer.After(0, function()
+        if editBoxRef and editBoxRef.SetFocus then editBoxRef:SetFocus() end
+    end)
     -- Prevent the following character insertion (numeric hotkey) from
     -- being appended to the editbox; EditBox.OnTextChanged will remove it.
     self._suppressNextChar = true
