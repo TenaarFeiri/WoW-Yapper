@@ -7,6 +7,7 @@
 
   - *Additions:*
     - Added a new help page to the settings dialog, which contains instructions for using Yapper's chat features.
+    - Yapper now includes an icon gallery for quickly inserting raid target icons into your messages. Type `{star`, `{circle`, etc. to open.
 
 -- 2.0.2
   - *Autocomplete:*
