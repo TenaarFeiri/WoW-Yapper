@@ -1,3 +1,13 @@
+-- 2.0.3
+  - *Bugfixes:*
+    - Fixed issue where the post queue would get stuck if you posted to Party, Instance or Raid Chat while you were a leader in one or more of these.
+    - Fixed a bug where YALLM didn't correctly boost words to the autocompleter.
+    - Fixed numerous visual bugs in the overlay, ghost text and the multiline editor.
+    - Fixed minor alignment bugs in the settings dialog.
+
+  - *Additions:*
+    - Added a new help page to the settings dialog, which contains instructions for using Yapper's chat features.
+
 -- 2.0.2
   - *Autocomplete:*
     - **Ghost-text Completion:** Predictive word completion is now live. As you type, a muted ghost preview appears after the caret showing the most likely completion. Press **Tab** to accept; any other key refines or dismisses it.
