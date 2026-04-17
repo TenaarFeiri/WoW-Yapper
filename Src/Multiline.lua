@@ -480,8 +480,6 @@ function Multiline:Exit(restoreText)
 			eb.OverlayEdit:SetFocus()
 		end
 	end
-
-	-- TODO: Animate the transition (collapse).
 end
 
 --- Collapse raw multi-line text into an ordered list of chat posts.
@@ -789,28 +787,3 @@ function Multiline:ApplyTheme()
 	end
 end
 
--- ---------------------------------------------------------------------------
--- Resize handle
--- ---------------------------------------------------------------------------
-
---- Create a draggable resize grip at the bottom-right corner.
-function Multiline:CreateResizeGrip()
-	if not self.Frame or self._resizeGrip then return end
-
-	local grip = CreateFrame("Button", nil, self.Frame)
-	grip:SetSize(16, 16)
-	grip:SetPoint("BOTTOMRIGHT", self.Frame, "BOTTOMRIGHT", -2, 2)
-	grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-	grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-	grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-
-	grip:SetScript("OnMouseDown", function()
-		self.Frame:StartSizing("BOTTOMRIGHT")
-	end)
-	grip:SetScript("OnMouseUp", function()
-		self.Frame:StopMovingOrSizing()
-		-- TODO: persist new dimensions to config.
-	end)
-
-	self._resizeGrip = grip
-end
