@@ -229,7 +229,8 @@ end
 function Interface:GetLauncherTooltipLines()
     return {
         "Left-Click: Toggle Settings",
-        "Right-Click: Toggle Settings",
+        "Left-Click (on Help): Go to General",
+        "Right-Click: Open Help page",
     }
 end
 

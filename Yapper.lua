@@ -86,6 +86,11 @@ SlashCmdList["YAPPER"] = function(msg)
         return
     end
 
+    if input == "help" or input == "?" then
+        YapperTable.Interface:OpenToCategory("help")
+        return
+    end
+
     if input == "close" or input == "hide" then
         if YapperTable.Interface.MainWindowFrame and YapperTable.Interface.MainWindowFrame:IsShown() then
             YapperTable.Interface:CloseFrame(YapperTable.Interface.MainWindowFrame)
@@ -93,7 +98,7 @@ SlashCmdList["YAPPER"] = function(msg)
         return
     end
 
-    YapperTable.Utils:Print("info", "Usage: /yapper [toggle|open|close]")
+    YapperTable.Utils:Print("info", "Usage: /yapper [toggle|open|close|help|?]")
 end
 
 -- 2. ADDON_LOADED — access SavedVariables.

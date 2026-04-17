@@ -706,6 +706,151 @@ function Interface:CreateQueueDiagnostics(parent, cursor)
     cursor:Pad(10)
 end
 
+function Interface:CreateTutorialPage(parent, cursor)
+    local P = LAYOUT
+    local W = 520  -- content width
+
+    local function heading(text)
+        local fs = self:AcquireWidget("TutHead", parent, "GameFontNormalLarge", "FontString")
+        fs:SetFontObject("GameFontNormalLarge")
+        fs:SetTextColor(0.9, 0.75, 0.2, 1)
+        fs:SetPoint("TOPLEFT", parent, "TOPLEFT", P.WINDOW_PADDING, cursor:Y())
+        fs:SetWidth(W)
+        fs:SetJustifyH("LEFT")
+        fs:SetWordWrap(false)
+        fs:SetText(text)
+        self:AddControl(fs)
+        cursor:Advance(self:ScaledRow(20))
+    end
+
+    local function body(text)
+        local fs = self:AcquireWidget("TutBody", parent, "GameFontHighlightSmall", "FontString")
+        fs:SetFontObject("GameFontHighlightSmall")
+        fs:SetTextColor(0.85, 0.85, 0.85, 1)
+        fs:SetPoint("TOPLEFT", parent, "TOPLEFT", P.WINDOW_PADDING, cursor:Y())
+        fs:SetWidth(W)
+        fs:SetJustifyH("LEFT")
+        fs:SetWordWrap(true)
+        fs:SetText(text)
+        self:AddControl(fs)
+        local h = math.max(fs:GetStringHeight(), 14)
+        cursor:Advance(self:ScaledRow(h + 4))
+    end
+
+    local function key(k)
+        return "|cFFFFD700" .. k .. "|r"
+    end
+
+    local function sep()
+        cursor:Pad(8)
+        -- Use a poolable Frame as a 1px-high separator so it gets hidden by
+        -- ClearConfigControls when switching pages.  A bare CreateTexture
+        -- call produces a permanent child that can never be hidden/pooled.
+        local f = self:AcquireWidget("TutSep", parent, nil, "Frame")
+        f:SetSize(W, 1)
+        f:SetPoint("TOPLEFT", parent, "TOPLEFT", P.WINDOW_PADDING, cursor:Y())
+        local tex = f._sepTex
+        if not tex then
+            tex = f:CreateTexture(nil, "ARTWORK")
+            tex:SetAllPoints(f)
+            f._sepTex = tex
+        end
+        tex:SetColorTexture(0.4, 0.4, 0.4, 0.4)
+        tex:Show()
+        self:AddControl(f)
+        cursor:Advance(self:ScaledRow(10))
+    end
+
+    -- ── Title ──────────────────────────────────────────────────────────────
+    self:CreateLabel(parent, "How to use Yapper", P.WINDOW_PADDING, cursor:Y(), W,
+        "A quick reference for Yapper's chat features.", "GameFontNormal")
+    cursor:Advance(self:ScaledRow(P.ROW_SECTION))
+
+    -- ── Basic typing ───────────────────────────────────────────────────────
+    heading("Basic Typing")
+    body("Open chat with " .. key("Enter") .. " as normal. Yapper replaces Blizzard's input box "
+      .. "with its own overlay. Type your message and press " .. key("Enter") .. " to send "
+      .. "or " .. key("Escape") .. " to close.")
+
+    sep()
+
+    -- ── Channel switching ──────────────────────────────────────────────────
+    heading("Switching Channels")
+    body(key("Tab") .. "  — cycle forward through available channels (Say → Party → Raid → Guild …).")
+    body(key("Shift+Tab") .. "  — open spell-check suggestions for the word under the cursor "
+      .. "(or cycle channels backwards when no suggestion popup is open).")
+    body("You can also type a slash command directly: " .. key("/p") .. ", " .. key("/r") .. ", "
+      .. key("/g") .. ", " .. key("/w Name") .. ", etc.")
+    body("The last channel you used is remembered and restored on the next open "
+      .. "(configurable in General settings).")
+
+    sep()
+
+    -- ── Autocomplete ───────────────────────────────────────────────────────
+    heading("Autocomplete")
+    body("As you type, Yapper shows a greyed-out ghost word after the cursor.")
+    body(key("Tab") .. "  — accept the suggestion and move on. A space is appended automatically.")
+    body("Just keep typing to ignore the suggestion. If you repeatedly type a different word "
+      .. "Yapper learns your preference and adjusts future suggestions.")
+
+    sep()
+
+    -- ── Spellcheck ─────────────────────────────────────────────────────────
+    heading("Spellcheck")
+    body("Misspelled words are underlined. Press " .. key("Shift+Tab") .. " to open a "
+      .. "suggestion popup for the word under the cursor.")
+    body("Use the " .. key("number keys") .. " or " .. key("arrow keys") .. " to pick a "
+      .. "suggestion and press " .. key("Enter") .. " to apply it.")
+    body("Press " .. key("Escape") .. " to close the popup without changing the word.")
+    body("Words you send repeatedly despite the underline are automatically added to your "
+      .. "personal dictionary after a few uses.")
+
+    sep()
+
+    -- ── Multiline / Storyteller ────────────────────────────────────────────
+    heading("Multiline Editor (Storyteller)")
+    body("When your text grows long enough, Yapper automatically opens the multiline editor. "
+      .. "You can also open it manually from within the overlay (if auto-expand is enabled).")
+    body(key("Enter") .. " — insert a new line. A blank line creates a paragraph break; "
+      .. "each paragraph is sent as a separate chat message.")
+    body(key("Ctrl+Enter") .. " — send the entire post.")
+    body(key("Escape") .. " — cancel and return to the single-line overlay. Your draft is "
+      .. "preserved so you can continue editing.")
+    body(key("Tab") .. " — accept autocomplete   |   " .. key("Shift+Tab") .. " — spellcheck suggestions.")
+    body("If the game crashes mid-edit your draft is automatically restored the next time "
+      .. "you open the chat box.")
+
+    sep()
+
+    -- ── Draft recovery ─────────────────────────────────────────────────────
+    heading("Crash-safe Drafts")
+    body("Yapper saves your in-progress message every few keystrokes. "
+      .. "After a crash or /reload, the draft is automatically restored "
+      .. "when you open the chat box, exactly as you left it — including the channel and, "
+      .. "for multiline posts, hard line-breaks.")
+
+    sep()
+
+    -- ── Undo / redo ────────────────────────────────────────────────────────
+    heading("Undo / Redo")
+    body(key("Ctrl+Z") .. " — undo the last change.")
+    body(key("Ctrl+Y") .. " — redo.")
+    body("Snapshots are taken at word boundaries so a single undo steps back one whole word "
+      .. "at a time rather than one character.")
+
+    sep()
+
+    -- ── Slash commands ─────────────────────────────────────────────────────
+    heading("Slash Commands")
+    body(key("/yapper") .. "  or  " .. key("/yapper toggle") .. "  — open / close settings.")
+    body(key("/yapper help") .. "  or  " .. key("/yapper ?") .. "  — open this page directly.")
+    body(key("/yapper open") .. "  — show settings.")
+    body(key("/yapper close") .. "  — hide settings.")
+    body("Right-click the minimap or toolbar icon to jump straight to this Help page.")
+
+    cursor:Pad(10)
+end
+
 function Interface:CreateCreditsPage(parent, cursor)
     self:CreateLabel(
         parent,

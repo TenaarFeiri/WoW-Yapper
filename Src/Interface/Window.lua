@@ -190,7 +190,7 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 local WHATS_NEW = {
-    ["2.0.1"] = {
+    ["2.0.3"] = {
         {
             title = "Spellchecking",
             body  = "Yapper now has a built-in spellchecker with per-locale dictionaries, "

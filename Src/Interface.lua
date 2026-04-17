@@ -588,6 +588,11 @@ function Interface:BuildConfigUI()
         self:CreateCreditsPage(frame.ContentFrame, cursor)
     end
 
+    -- Help / Tutorial.
+    if customSet["tutorial"] then
+        self:CreateTutorialPage(frame.ContentFrame, cursor)
+    end
+
     -- YALLM Learning.
     if customSet["yallmLearning"] then
         self:CreateYALLMLearningPage(frame.ContentFrame, cursor)
@@ -688,6 +693,19 @@ function Interface:ShowMainWindow()
     Interface.MainWindowFrame:Show()
 end
 
+--- Open the settings window on a specific sidebar category.
+---@param catId string  Category id, e.g. "help", "general".
+function Interface:OpenToCategory(catId)
+    if not Interface.MainWindowFrame then
+        Interface:Init()
+    end
+    Interface._activeCategory = catId or "help"
+    Interface:UpdateSidebarSelection()
+    Interface:BuildConfigUI()
+    Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
+    Interface.MainWindowFrame:Show()
+end
+
 function Interface:ToggleMainWindow()
     if not Interface.MainWindowFrame then
         Interface:Init()
@@ -719,8 +737,21 @@ local function NormalizeMouseButton(button)
 end
 
 function Interface:HandleLauncherClick(mouseButton)
-    NormalizeMouseButton(mouseButton)
-    Interface:ToggleMainWindow()
+    local btn = NormalizeMouseButton(mouseButton)
+    if btn == "RightButton" then
+        Interface:OpenToCategory("help")
+    else
+        -- Left-click: toggle settings.  But if the window is already open
+        -- on the Help page, treat it as "go to General" rather than close,
+        -- since the user probably got here via right-click and now wants
+        -- to navigate to the actual settings.
+        if Interface.MainWindowFrame and Interface.MainWindowFrame:IsShown()
+                and Interface._activeCategory == "help" then
+            Interface:OpenToCategory("general")
+        else
+            Interface:ToggleMainWindow()
+        end
+    end
 end
 
 function Yapper_FromCompartment(...)

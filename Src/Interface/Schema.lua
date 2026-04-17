@@ -304,6 +304,13 @@ local CATEGORIES                    = {
         paths  = {},
         custom = { "credits" },
     },
+    {
+        id     = "help",
+        label  = "Help",
+        icon   = nil,
+        paths  = {},
+        custom = { "tutorial" },
+    },
 }
 
 -- Quick lookup: path -> category id.
