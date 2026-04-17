@@ -234,16 +234,34 @@ function Multiline:CreateFrame()
 			YapperTable.Spellcheck:HandleKeyDown(key)
 		end
 
-		-- Tab → accept autocomplete ghost text (when no spellcheck popup is open).
+		-- Tab → accept autocomplete ghost text; if not consumed, cycle channel.
 		if key == "TAB" and not IsShiftKeyDown() and not IsAltKeyDown() then
 			local scOpen = YapperTable.Spellcheck
 				and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function"
 				and YapperTable.Spellcheck:IsSuggestionOpen()
+
+			local acConsumed = false
 			if not scOpen
 				and YapperTable.Autocomplete
 				and type(YapperTable.Autocomplete.OnTabPressed) == "function"
 			then
-				YapperTable.Autocomplete:OnTabPressed(box)
+				acConsumed = YapperTable.Autocomplete:OnTabPressed(box)
+			end
+
+			-- If autocomplete didn't consume Tab, cycle the chat channel.
+			-- We mirror the multiline state into EditBox, delegate to its
+			-- CycleChat (which handles availability checks and API events),
+			-- then read the result back into the multiline module.
+			if not acConsumed then
+				local eb = YapperTable.EditBox
+				if eb and type(eb.CycleChat) == "function" then
+					eb.ChatType = Multiline.ChatType
+					eb.Target   = Multiline.Target
+					eb:CycleChat(1)
+					Multiline.ChatType = eb.ChatType
+					Multiline.Target   = eb.Target
+					RefreshMLLabel(Multiline)
+				end
 			end
 		end
 
@@ -573,6 +591,15 @@ function Multiline:Exit(restoreText)
 			eb.OverlayEdit:SetText(text)
 			eb.OverlayEdit:SetCursorPosition(#text)
 		end
+		-- Persist sticky channel so the overlay reopens on the correct channel
+		-- when the user next opens it after cancelling multiline.
+		if type(eb.PersistLastUsed) == "function" then
+			eb.ChatType = self.ChatType
+			eb.Target   = self.Target
+			eb.Language = self.Language
+			eb:PersistLastUsed()
+		end
+
 		-- Re-show the overlay and return focus to it.
 		if eb.Overlay then
 			eb.Overlay:Show()
@@ -733,6 +760,16 @@ function Multiline:Submit()
 		for _, chunk in ipairs(allChunks) do
 			Chat:DirectSend(chunk, chatType, language, target)
 		end
+	end
+
+	-- Persist sticky channel: mirror final chatType/target back into EditBox
+	-- so the overlay opens on the same channel next time.  Must happen before
+	-- Hide() because PersistLastUsed reads from eb.ChatType/Target.
+	if eb and type(eb.PersistLastUsed) == "function" then
+		eb.ChatType  = chatType
+		eb.Target    = target
+		eb.Language  = language
+		eb:PersistLastUsed()
 	end
 
 	-- Hide the overlay entirely — submit means done, not back to overlay.
