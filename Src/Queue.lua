@@ -115,6 +115,18 @@ local SEND_POLICIES = {
     },
 }
 
+-- When a player is the group leader their sent messages echo with the
+-- "_LEADER" event variant (e.g. CHAT_MSG_PARTY_LEADER instead of
+-- CHAT_MSG_PARTY).  Accept either direction so the queue does not stall.
+local ACK_SIBLING = {
+    CHAT_MSG_PARTY                = "CHAT_MSG_PARTY_LEADER",
+    CHAT_MSG_PARTY_LEADER         = "CHAT_MSG_PARTY",
+    CHAT_MSG_RAID                 = "CHAT_MSG_RAID_LEADER",
+    CHAT_MSG_RAID_LEADER          = "CHAT_MSG_RAID",
+    CHAT_MSG_INSTANCE_CHAT        = "CHAT_MSG_INSTANCE_CHAT_LEADER",
+    CHAT_MSG_INSTANCE_CHAT_LEADER = "CHAT_MSG_INSTANCE_CHAT",
+}
+
 local ALL_CONFIRM_EVENTS = {
     -- Local chat echoes
     CHAT_MSG_SAY = true,
@@ -501,7 +513,10 @@ function Queue:OnChatEvent(event, ...)
     end
 
     if not self.PendingEntry then return end
-    if event ~= self.PendingAckEvent then return end
+    if event ~= self.PendingAckEvent
+        and ACK_SIBLING[self.PendingAckEvent] ~= event then
+        return
+    end
 
     -- arg12 = sender GUID when available.
     local guid = select(12, ...)
@@ -714,9 +729,12 @@ function Queue:EnableEscapeCancel()
         if key == "ESCAPE" then
             local now = GetTime()
             if (now - self._lastEscTime) <= DOUBLE_ESC_WINDOW then
-                -- Double-tap: cancel.
+                -- Double-tap: cancel.  Block propagation first, then cancel
+                -- on the next frame so DisableEscapeCancel's re-enable of
+                -- propagation doesn't undo our block before this handler
+                -- returns (WoW evaluates SetPropagateKeyboardInput on return).
                 frame:SetPropagateKeyboardInput(false)
-                self:Cancel()
+                C_Timer.After(0, function() self:Cancel() end)
             else
                 -- First tap: record and consume.
                 self._lastEscTime = now
