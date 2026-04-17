@@ -96,9 +96,24 @@ local function RefreshMLLabel(ml)
 	end
 end
 
+--- Adjust the scroll frame's top anchor so the text area starts just below
+--- the channel label, regardless of label font size.  Call after any font
+--- change that might affect label height.
+function Multiline:UpdateLabelGap()
+	if not self.ScrollFrame or not self.LabelFS or not self.Frame then return end
+	local labelH = self.LabelFS:GetStringHeight() or 14
+	local gap = 8 + labelH + 4  -- 8 = label top inset, 4 = padding below label
+	self.ScrollFrame:SetPoint("TOPLEFT", self.Frame, "TOPLEFT", 8, -gap)
+end
+
 -- ---------------------------------------------------------------------------
 -- Config helpers
 -- ---------------------------------------------------------------------------
+
+--- Maximum font size (in points) for the channel label.  The label sits in
+--- a fixed slot above the scroll frame; allowing it to grow with the text
+--- font causes it to clip or overlap the typing area at large scales.
+local MAX_LABEL_FONT_SIZE = 16
 
 --- Return the storyteller / multiline configuration subtable.
 local function GetConfig()
@@ -142,13 +157,15 @@ function Multiline:CreateFrame()
 	f:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
 	f:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
 
-	-- Channel label
+	-- Channel label — capped at a readable size so it never clips the
+	-- fixed vertical slot even when the text-field font is scaled up.
 	local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	label:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -8)
 	label:SetText("")
 	self.LabelFS = label
 
-	-- Scroll wrapper
+	-- Scroll wrapper — top anchor is updated in UpdateLabelGap() after
+	-- the label font is known so the text area doesn't overlap the label.
 	local sf = CreateFrame("ScrollFrame", "YapperMultilineScroll", f, "UIPanelScrollFrameTemplate")
 	sf:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -28)
 	sf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -28, 8)
@@ -229,6 +246,22 @@ function Multiline:CreateFrame()
 				YapperTable.Autocomplete:OnTabPressed(box)
 			end
 		end
+
+		-- Ctrl+Z / Ctrl+Y → undo/redo.
+		if IsControlKeyDown() and YapperTable.History then
+			if key == "Z" then
+				YapperTable.History:Undo(box)
+			elseif key == "Y" then
+				YapperTable.History:Redo(box)
+			end
+		end
+	end)
+
+	-- Snapshot on focus lost (mirrors the overlay's OnEditFocusLost hook).
+	edit:HookScript("OnEditFocusLost", function(box)
+		if YapperTable.History then
+			YapperTable.History:AddSnapshot(box, true)
+		end
 	end)
 
 	-- Mirror the overlay's OnChar suppression: after a suggestion hotkey
@@ -271,6 +304,44 @@ function Multiline:CreateFrame()
 		-- Autocomplete ghost text.
 		if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
 			YapperTable.Autocomplete:OnTextChanged(box)
+		end
+
+		-- Draft auto-save (crash recovery) — mirrors the overlay's word-
+		-- boundary + idle-timer approach from History:HookOverlayEditBox.
+		local History = YapperTable.History
+		if History then
+			local text = box:GetText() or ""
+			local name = box.GetName and box:GetName() or "YapperMultilineEdit"
+			local last = box._yapperLastText or ""
+
+			local function IsWordBoundary(b)
+				return b == 32 or b == 9 or b == 10 or b == 13
+					or b == 46 or b == 44 or b == 33 or b == 63 or b == 58 or b == 59
+			end
+			local textLast         = (#text > 0) and text:byte(#text) or nil
+			local lastLast         = (#last > 0) and last:byte(#last) or nil
+			local insertedBoundary = (#text > #last) and textLast and IsWordBoundary(textLast)
+			local removedBoundary  = (#text < #last) and lastLast and IsWordBoundary(lastLast)
+
+			if insertedBoundary or removedBoundary then
+				History:AddSnapshot(box, true, last, #last)
+				History:SaveDraft(box, true)  -- true = multiline
+			elseif math_abs(#text - #last) >= 20 then
+				History:AddSnapshot(box, false)
+			end
+
+			box._yapperLastText = text
+
+			-- Debounced idle save (0.5 s).
+			if box._yapperPauseTimer then box._yapperPauseTimer:Cancel() end
+			if #text > 0 then
+				box._yapperPauseTimer = C_Timer.NewTimer(0.5, function()
+					if box:GetText() == text then
+						History:AddSnapshot(box, true)
+						History:SaveDraft(box, true)
+					end
+				end)
+			end
 		end
 
 		local sfW = sf:GetWidth()
@@ -345,7 +416,9 @@ function Multiline:Enter(text, chatType, language, target)
 		local face, size, flags = syncEB.OverlayEdit:GetFont()
 		if face and size then
 			self.EditBox:SetFont(face, size, flags or "")
-			if self.LabelFS then self.LabelFS:SetFont(face, size, flags or "") end
+			local labelSize = math_min(size, MAX_LABEL_FONT_SIZE)
+			if self.LabelFS then self.LabelFS:SetFont(face, labelSize, flags or "") end
+			self:UpdateLabelGap()
 		end
 	end
 
@@ -392,6 +465,15 @@ function Multiline:Enter(text, chatType, language, target)
 		YapperTable.History:ClearDraft(eb.OverlayEdit)
 	end
 
+	-- Immediately persist the multiline draft so a /reload before any
+	-- keystroke doesn't lose the text we just set.
+	if YapperTable.History and self.EditBox then
+		local t = self.EditBox:GetText() or ""
+		if t ~= "" then
+			YapperTable.History:SaveDraft(self.EditBox, true)
+		end
+	end
+
 	-- IMPORTANT: set Active = true BEFORE hiding the overlay.
 	-- The EditBox:Show() hook fires when the overlay is hidden (the game
 	-- tries to re-open it), and its guard checks ml.Active.  If we set
@@ -415,6 +497,11 @@ function Multiline:Enter(text, chatType, language, target)
 	end
 
 	self.Frame:Show()
+	-- Recalculate the label gap now that the frame is visible and the layout
+	-- has been committed.  On first open GetStringHeight() returns 0 for a
+	-- hidden frame, so the earlier calls above produce a wrong anchor; this
+	-- call corrects it once the geometry is actually resolved.
+	self:UpdateLabelGap()
 	self.EditBox:SetFocus()
 
 	-- Bind spellcheck to the multiline EditBox so underlines draw inside
@@ -445,6 +532,20 @@ function Multiline:Exit(restoreText)
 	end
 
 	local text = self.EditBox and self.EditBox:GetText() or ""
+
+	-- Draft pipeline: persist the multiline draft for crash recovery before
+	-- the frame is destroyed.  On Cancel (restoreText=true) the draft is
+	-- kept dirty so it survives a /reload.  On non-restore Exit the
+	-- overlay's own OnHide handler will take over draft management.
+	if YapperTable.History and self.EditBox then
+		if restoreText and text ~= "" then
+			YapperTable.History:SaveDraft(self.EditBox, true)
+			YapperTable.History:MarkDirty(true)
+		else
+			YapperTable.History:ClearDraft(self.EditBox)
+		end
+	end
+
 	self.Active = false
 
 	if self.Frame then
@@ -528,6 +629,11 @@ function Multiline:Submit()
 	self._mlDraft          = nil   -- discard any stashed draft; we're sending now
 	self._mlDraftCollapsed = nil
 
+	-- Draft pipeline: clear the saved draft since we're committing the text.
+	if YapperTable.History then
+		YapperTable.History:ClearDraft(self.EditBox)
+	end
+
 	-- Empty editor: close entirely (do not return to the overlay).
 	if #posts == 0 then
 		local eb = YapperTable.EditBox
@@ -535,6 +641,9 @@ function Multiline:Submit()
 		if self.Frame then self.Frame:Hide() end
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 			YapperTable.Spellcheck:UnbindMultiline()
+		end
+		if YapperTable.Autocomplete and type(YapperTable.Autocomplete.UnbindMultiline) == "function" then
+			YapperTable.Autocomplete:UnbindMultiline()
 		end
 		if eb and eb.OverlayEdit then eb.OverlayEdit:SetText("") end
 		if eb then eb:Hide() end
@@ -545,9 +654,12 @@ function Multiline:Submit()
 	self.Active = false
 	if self.Frame then self.Frame:Hide() end
 
-	-- Restore spellcheck to the single-line overlay.
+	-- Restore spellcheck and autocomplete to the single-line overlay.
 	if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 		YapperTable.Spellcheck:UnbindMultiline()
+	end
+	if YapperTable.Autocomplete and type(YapperTable.Autocomplete.UnbindMultiline) == "function" then
+		YapperTable.Autocomplete:UnbindMultiline()
 	end
 
 	local eb = YapperTable.EditBox
@@ -678,12 +790,21 @@ function Multiline:ApplyTheme()
 		local size  = cfgSize > 0 and cfgSize or baseSize or 14
 		local flags = (cfgFlags ~= "") and cfgFlags or baseFlags or ""
 		self.EditBox:SetFont(face, size, flags)
-		if self.LabelFS then self.LabelFS:SetFont(face, size, flags) end
+		local labelSize = math_min(size, MAX_LABEL_FONT_SIZE)
+		if self.LabelFS then self.LabelFS:SetFont(face, labelSize, flags) end
 	elseif origEB and origEB.GetFontObject then
 		local fontObj = origEB:GetFontObject()
 		if fontObj then
 			self.EditBox:SetFontObject(fontObj)
-			if self.LabelFS then self.LabelFS:SetFontObject(fontObj) end
+			-- Clamp the label even when inheriting a font object.
+			if self.LabelFS then
+				local lf, ls, lfg = fontObj:GetFont()
+				if lf and ls then
+					self.LabelFS:SetFont(lf, math_min(ls, MAX_LABEL_FONT_SIZE), lfg or "")
+				else
+					self.LabelFS:SetFontObject(fontObj)
+				end
+			end
 		end
 	else
 		-- Fallback: inherit from the overlay edit box if available.
@@ -692,11 +813,25 @@ function Multiline:ApplyTheme()
 			local fontObj = overlayEdit:GetFontObject()
 			if fontObj then
 				self.EditBox:SetFontObject(fontObj)
-				if self.LabelFS then self.LabelFS:SetFontObject(fontObj) end
+				if self.LabelFS then
+					local lf, ls, lfg = fontObj:GetFont()
+					if lf and ls then
+						self.LabelFS:SetFont(lf, math_min(ls, MAX_LABEL_FONT_SIZE), lfg or "")
+					else
+						self.LabelFS:SetFontObject(fontObj)
+					end
+				end
 			end
 		else
 			self.EditBox:SetFontObject(ChatFontNormal)
 		end
+	end
+
+	self:UpdateLabelGap()
+
+	-- Keep the autocomplete ghost font in sync with the EditBox.
+	if YapperTable.Autocomplete and type(YapperTable.Autocomplete.SyncGhostFont) == "function" then
+		YapperTable.Autocomplete:SyncGhostFont()
 	end
 
 	-- Visual appearance: read the fill colour the overlay is actually rendering.
