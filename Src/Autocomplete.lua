@@ -516,14 +516,23 @@ function Autocomplete:PositionGhost()
 	if not editBox then return end
 
 	-- _caretX / _caretY are set by the OnCursorChanged hook in GetGhostFS.
-	local offsetX = (self._caretX or 0) + GHOST_CARET_PAD
+	-- OnCursorChanged delivers coordinates in the EditBox's local frame units.
+	-- At non-100% UI scale the effective scale of the EditBox differs from
+	-- UIParent's, so those frame-local units must be converted before being
+	-- passed to SetPoint (which also uses UIParent-relative logical pixels).
+	local uiScale  = UIParent and UIParent:GetEffectiveScale() or 1
+	local ebScale  = editBox:GetEffectiveScale()
+	local toUI     = ebScale / uiScale   -- eb local → UIParent logical pixels
+	local pad      = GHOST_CARET_PAD / toUI  -- keep pad visually consistent
+
+	local offsetX = (self._caretX or 0) * toUI + pad
 
 	fs:ClearAllPoints()
 	if self._isMultiline then
 		-- In multiline, y from OnCursorChanged is the vertical offset from the
 		-- top of the EditBox to the cursor bottom; h is the cursor height.
 		--local offsetY = (self._caretY or 0) + (self._caretH or 0) * 0.5
-		local offsetY = (self._caretY or 0) - (self._caretH or 0) * 0.3
+		local offsetY = ((self._caretY or 0) - (self._caretH or 0) * 0.3) * toUI
 		fs:SetPoint("TOPLEFT", editBox, "TOPLEFT", offsetX, offsetY)
 	else
 		fs:SetPoint("LEFT", editBox, "LEFT", offsetX, 0)
