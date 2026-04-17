@@ -60,6 +60,8 @@ Autocomplete.CurrentPrefix = nil     -- the partial word that produced it
 Autocomplete.PrefixText    = nil     -- full EditBox text up to (and including) the cursor
 Autocomplete.Active        = false   -- true while a suggestion is visible
 Autocomplete.Enabled       = true    -- master toggle
+Autocomplete._activeEditBox = nil    -- the EditBox the ghost is bound to (nil = overlay)
+Autocomplete._isMultiline   = false  -- true while bound to the multiline editor
 
 -- Minimum characters before offering a suggestion.
 local MIN_PREFIX_LEN = 2
@@ -427,34 +429,65 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Create (or return) the ghost-text FontString.
---- Parented to the overlay EditBox so it moves and scales with it.
+--- The FS is created once and re-parented between EditBoxes as needed.
+--- Parented to the active EditBox so it moves and scales with it.
+--- In multiline mode the FS lives on the multiline EditBox (inside the
+--- ScrollFrame) so it scrolls with the text content.
 ---@return FontString?
 function Autocomplete:GetGhostFS()
-	if self.GhostFS then return self.GhostFS end
-
-	local editBox = YapperTable.EditBox and YapperTable.EditBox.OverlayEdit
+	local editBox = self._activeEditBox
+		or (YapperTable.EditBox and YapperTable.EditBox.OverlayEdit)
 	if not editBox then return nil end
 
-	local fs = editBox:CreateFontString(nil, "OVERLAY")
-	fs:SetFontObject(editBox:GetFontObject())
-	fs:SetTextColor(0.55, 0.55, 0.55, 0.7) -- muted ghost colour
-	fs:Hide()
+	-- Create the FontString once; re-parent on subsequent calls.
+	if not self.GhostFS then
+		local fs = editBox:CreateFontString(nil, "OVERLAY")
+		fs:SetFontObject(editBox:GetFontObject())
+		fs:SetTextColor(0.55, 0.55, 0.55, 0.7) -- muted ghost colour
+		fs:Hide()
+		self.GhostFS = fs
+		self._ghostParent = editBox
+	end
 
-	-- Hook OnCursorChanged so we always know the caret's frame-relative x.
-	-- This fires whenever the cursor moves and gives us the visual x that
-	-- already accounts for horizontal scroll — no measurement needed.
+	-- Re-parent if the active EditBox changed (bind/unbind transition).
+	if self._ghostParent ~= editBox then
+		self.GhostFS:SetParent(editBox)
+		self.GhostFS:SetFontObject(editBox:GetFontObject())
+		self._ghostParent = editBox
+	end
+
+	-- Install the OnCursorChanged hook on the active EditBox (once per EB).
+	-- We track which EB we hooked to avoid double-hooking or clobbering.
+	if self._hookedEditBox ~= editBox then
+		self:_InstallCursorHook(editBox)
+	end
+
+	return self.GhostFS
+end
+
+--- Install the OnCursorChanged hook on an EditBox.
+--- Saves the original script so it can be restored later.
+---@param editBox table
+function Autocomplete:_InstallCursorHook(editBox)
+	-- Restore the previous EB's script if we hooked one before.
+	if self._hookedEditBox and self._hookedOrigScript ~= nil then
+		self._hookedEditBox:SetScript("OnCursorChanged", self._hookedOrigScript or nil)
+	end
+
 	local ac = self
 	local existing = editBox:GetScript("OnCursorChanged")
+
 	editBox:SetScript("OnCursorChanged", function(self, x, y, w, h)
 		ac._caretX = x
+		ac._caretY = y
 		if existing then existing(self, x, y, w, h) end
 		if ac.Active and ac.GhostFS then
 			ac:PositionGhost()
 		end
 	end)
 
-	self.GhostFS = fs
-	return fs
+	self._hookedEditBox   = editBox
+	self._hookedOrigScript = existing  -- may be nil (no prior script)
 end
 
 --- Returns the pixel width of `text` using the EditBox's current font.
@@ -472,19 +505,27 @@ end
 --- Position the ghost-text FontString immediately after the caret.
 --- Uses the x coordinate from OnCursorChanged, which is frame-relative
 --- and already accounts for horizontal scroll — no measurement needed.
+--- In multiline mode, y is also used (the caret can be on any line).
 function Autocomplete:PositionGhost()
 	local fs = self.GhostFS
 	if not fs then return end
 
-	local editBox = YapperTable.EditBox and YapperTable.EditBox.OverlayEdit
+	local editBox = self._activeEditBox
+		or (YapperTable.EditBox and YapperTable.EditBox.OverlayEdit)
 	if not editBox then return end
 
-	-- _caretX is set by the OnCursorChanged hook in GetGhostFS.
-	-- It is the cursor's frame-relative x, scroll-adjusted by WoW itself.
+	-- _caretX / _caretY are set by the OnCursorChanged hook in GetGhostFS.
 	local offsetX = (self._caretX or 0) + GHOST_CARET_PAD
 
 	fs:ClearAllPoints()
-	fs:SetPoint("LEFT", editBox, "LEFT", offsetX, 0)
+	if self._isMultiline then
+		-- In multiline, y is the vertical offset from the top of the EditBox
+		-- to the current line's baseline (negative = downward).
+		local offsetY = self._caretY or 0
+		fs:SetPoint("TOPLEFT", editBox, "TOPLEFT", offsetX, offsetY)
+	else
+		fs:SetPoint("LEFT", editBox, "LEFT", offsetX, 0)
+	end
 end
 
 --- Show the ghost-text suffix (the part of the suggestion beyond the prefix).
@@ -564,6 +605,20 @@ function Autocomplete:OnTextChanged(editBox)
 		end
 	end
 
+	-- Soft approval: the user typed out the full suggested word manually instead
+	-- of pressing Tab.  Detected by the word growing exactly onto CurrentSugg
+	-- (CurrentPrefix is shorter, so this fires only on the completing keystroke).
+	-- We give the word a small frequency nudge so it surfaces earlier next time.
+	if self.Active and self.CurrentSugg and self.CurrentPrefix
+		and string_lower(word) == string_lower(self.CurrentSugg)
+		and string_len(word) > string_len(self.CurrentPrefix)
+	then
+		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+		if yallm and yallm.RecordUsage then
+			yallm:RecordUsage(self.CurrentSugg)
+		end
+	end
+
 	local suggestion = self:GetSuggestion(word)
 	if not suggestion and isDirChange then
 		suggestion = self:GetSuggestion(word, true)  -- broad retry
@@ -626,11 +681,54 @@ function Autocomplete:SyncFont()
 	local fs = self.GhostFS
 	if not fs then return end
 
-	local editBox = YapperTable.EditBox and YapperTable.EditBox.OverlayEdit
+	local editBox = self._activeEditBox
+		or (YapperTable.EditBox and YapperTable.EditBox.OverlayEdit)
 	if not editBox then return end
 
 	local fontObj = editBox:GetFontObject()
 	if fontObj then
 		fs:SetFontObject(fontObj)
 	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Multiline binding
+-- ---------------------------------------------------------------------------
+
+--- Switch the autocomplete ghost text to the multiline EditBox.
+--- The FontString is re-parented (not destroyed) to avoid widget leaks.
+--- Call from Multiline:Enter() after the multiline frame is shown.
+---@param mlEditBox table  The multiline EditBox widget.
+function Autocomplete:BindMultiline(mlEditBox)
+	if not mlEditBox then return end
+
+	self:HideGhost()
+
+	self._activeEditBox = mlEditBox
+	self._isMultiline   = true
+	self._caretX        = nil
+	self._caretY        = nil
+
+	-- Re-parent and re-hook will happen lazily in GetGhostFS on next keystroke.
+end
+
+--- Return the autocomplete ghost text to the single-line overlay.
+--- The FontString is re-parented (not destroyed) to avoid widget leaks.
+--- Call from Multiline:Exit() before the overlay is re-shown.
+function Autocomplete:UnbindMultiline()
+	self:HideGhost()
+
+	-- Restore the multiline EB's original OnCursorChanged script.
+	if self._hookedEditBox and self._hookedEditBox == self._activeEditBox then
+		self._hookedEditBox:SetScript("OnCursorChanged", self._hookedOrigScript or nil)
+		self._hookedEditBox    = nil
+		self._hookedOrigScript = nil
+	end
+
+	self._activeEditBox = nil
+	self._isMultiline   = false
+	self._caretX        = nil
+	self._caretY        = nil
+
+	-- Re-parent and re-hook will happen lazily in GetGhostFS on next keystroke.
 end

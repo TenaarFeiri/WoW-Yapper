@@ -211,9 +211,23 @@ function Multiline:CreateFrame()
 
 	-- Route spellcheck key actions (Shift+Tab for suggestions, number keys,
 	-- arrow navigation) through the spellcheck handler.
+	-- Plain Tab is routed to autocomplete for ghost-text acceptance.
 	edit:HookScript("OnKeyDown", function(box, key)
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
 			YapperTable.Spellcheck:HandleKeyDown(key)
+		end
+
+		-- Tab → accept autocomplete ghost text (when no spellcheck popup is open).
+		if key == "TAB" and not IsShiftKeyDown() and not IsAltKeyDown() then
+			local scOpen = YapperTable.Spellcheck
+				and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function"
+				and YapperTable.Spellcheck:IsSuggestionOpen()
+			if not scOpen
+				and YapperTable.Autocomplete
+				and type(YapperTable.Autocomplete.OnTabPressed) == "function"
+			then
+				YapperTable.Autocomplete:OnTabPressed(box)
+			end
 		end
 	end)
 
@@ -252,6 +266,11 @@ function Multiline:CreateFrame()
 		-- so this is safe without disturbing cursor or scroll state.
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
 			YapperTable.Spellcheck:OnTextChanged(box, isUserInput)
+		end
+
+		-- Autocomplete ghost text.
+		if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
+			YapperTable.Autocomplete:OnTextChanged(box)
 		end
 
 		local sfW = sf:GetWidth()
@@ -403,6 +422,11 @@ function Multiline:Enter(text, chatType, language, target)
 	if YapperTable.Spellcheck and type(YapperTable.Spellcheck.BindMultiline) == "function" then
 		YapperTable.Spellcheck:BindMultiline(self.EditBox, self.Frame, self.ScrollFrame)
 	end
+
+	-- Bind autocomplete ghost text to the multiline EditBox.
+	if YapperTable.Autocomplete and type(YapperTable.Autocomplete.BindMultiline) == "function" then
+		YapperTable.Autocomplete:BindMultiline(self.EditBox)
+	end
 end
 
 --- Close the expanded editor and return to the single-line overlay.
@@ -413,6 +437,11 @@ function Multiline:Exit(restoreText)
 	-- Restore spellcheck to the single-line overlay before we re-show it.
 	if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 		YapperTable.Spellcheck:UnbindMultiline()
+	end
+
+	-- Restore autocomplete to the single-line overlay.
+	if YapperTable.Autocomplete and type(YapperTable.Autocomplete.UnbindMultiline) == "function" then
+		YapperTable.Autocomplete:UnbindMultiline()
 	end
 
 	local text = self.EditBox and self.EditBox:GetText() or ""
