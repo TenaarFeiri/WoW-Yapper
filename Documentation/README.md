@@ -30,7 +30,7 @@ Welcome to the internal reference for the Yapper EditBox & Post Splitter. These 
 ### Features & State
 - [x] **[Real-Time Spellcheck](Spellcheck.md)**: Dictionary management, N-gram indexing, and caret isolation.
     - [x] **[Adaptive Learning (YALLM)](Spellcheck/YALLM.md)**: Personalised word ranking, selection bias, and dismissal learning.
-- [x] **[Autocomplete](Autocomplete.md)**: Ghost-text predictive completion with YALLM-backed personalisation and capitalisation mirroring. Horizontal overlay only — multiline support pending.
+- [x] **[Autocomplete](Autocomplete.md)**: Ghost-text predictive completion with YALLM-backed personalisation and capitalisation mirroring. Supports both horizontal overlay and the multiline editor (ghost-text and Tab acceptance).
 - [x] **[History & Drafts](History.md)**: Alt+Arrow navigation and persistent crash recovery.
 
 ### Compatibility

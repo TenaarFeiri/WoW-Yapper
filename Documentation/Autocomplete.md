@@ -8,8 +8,7 @@ The `Autocomplete` module provides predictive word completion for the Yapper Edi
 
 Autocomplete is intentionally separate from the spellchecker — it runs on every keystroke in the positive direction (suggesting what you *will* write), while the spellchecker runs in the negative direction (flagging what you *have* written incorrectly).
 
-**Current scope**: horizontal overlay EditBox only.
-**TODO**: Implement autocompletion in multiline mode.
+**Current scope**: horizontal overlay EditBox and multiline editor (both supported). Autocomplete now supports binding to the multiline editor via `Autocomplete:BindMultiline(mlEditBox)` and `Autocomplete:UnbindMultiline()`. The ghost FontString is reparented to the active EditBox and the caret hook is installed/restored per-EditBox to avoid leaks.
 
 ## Data Cascade (Tiers)
 
@@ -47,7 +46,7 @@ The rule applies consistently across all tiers, so YALLM, custom words, and dict
 A non-interactive `FontString` is parented to the overlay EditBox, rendered in a muted colour (`0.55, 0.55, 0.55, 0.7`), and positioned to continue from the caret.
 
 ### Positioning
-Ghost-text X is derived from the `OnCursorChanged(self, x, y, w, h)` script hook on the overlay EditBox. WoW supplies `x` as a frame-relative coordinate that already accounts for horizontal scroll — no text measurement is required. The value is cached as `_caretX` and consumed by `PositionGhost()` with a `GHOST_CARET_PAD = 4 px` offset to prevent the caret from swallowing the first ghost letter.
+Ghost-text coordinates are taken from the `OnCursorChanged(self, x, y, w, h)` hook on the active EditBox. For the overlay EditBox `x` alone is sufficient (WoW provides a frame-relative, scroll-corrected X), but for the multiline EditBox both `x` and `y` are used so the ghost follows the caret across lines. The ghost `FontString` is parented to the active EditBox (not the outer container), so it naturally scrolls with the text. `PositionGhost()` anchors with `LEFT` for the overlay and `TOPLEFT` for multiline and applies `GHOST_CARET_PAD` horizontally to avoid the caret overlapping the first ghost character.
 
 ### Lifecycle
 
@@ -97,17 +96,29 @@ Hides the ghost `FontString` and clears all active state.
 ### `Autocomplete:IsEnabled()`
 Returns `true` only when both `EditBox.AutocompleteEnabled` and `Spellcheck.Enabled` are `true` in config. Autocomplete requires the spellcheck dictionary as its data source.
 
+### `Autocomplete:BindMultiline(mlEditBox)`
+Bind the autocomplete ghost to a multiline EditBox. Called by `Multiline:Enter()`; the FontString is reparented and the caret hook is installed on the provided EditBox. This avoids creating new FontStrings per open/close and prevents widget leaks.
+
+### `Autocomplete:UnbindMultiline()`
+Restore autocomplete to the overlay: hides the ghost, restores any hooked cursor script on the previously bound EditBox, and switches the active editbox back to the overlay.
+
 ## State Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `GhostFS` | FontString | The ghost-text overlay widget. |
+| `GhostFS` | FontString | The ghost-text overlay widget (created once and reparented between EditBoxes). |
 | `CurrentSugg` | string | Full suggested word currently displayed. |
 | `CurrentPrefix` | string | The partial word that produced the suggestion. |
 | `PrefixText` | string | Full EditBox text up to and including the cursor at display time. |
 | `Active` | bool | `true` while a ghost suggestion is visible. |
 | `Enabled` | bool | Master toggle (runtime). |
+| `_activeEditBox` | Frame? | The EditBox the ghost is currently bound to (nil = overlay). |
+| `_isMultiline` | bool | `true` when bound to a multiline EditBox. |
 | `_caretX` | number | Frame-relative caret X from the last `OnCursorChanged` event. |
+| `_caretY` | number | Frame-relative caret Y (used in multiline mode to position the ghost vertically). |
+| `_hookedEditBox` | Frame? | The EditBox whose `OnCursorChanged` we hooked (so we can restore its original script). |
+| `_hookedOrigScript` | function? | The original `OnCursorChanged` script saved when we hooked `_hookedEditBox`. |
+| `_ghostParent` | Frame? | Last parent frame used for the ghost `FontString` (for bookkeeping). |
 
 ## Constants
 
