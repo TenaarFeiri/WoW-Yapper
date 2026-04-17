@@ -810,10 +810,10 @@ function Interface:CreateTutorialPage(parent, cursor)
     -- ── Multiline / Storyteller ────────────────────────────────────────────
     heading("Multiline Editor (Storyteller)")
     body("When your text grows long enough, Yapper automatically opens the multiline editor. "
-      .. "You can also open it manually from within the overlay (if auto-expand is enabled).")
-    body(key("Enter") .. " — insert a new line. A blank line creates a paragraph break; "
+      .. "You can also open it manually with Shift+Enter from the single-line overlay.")
+    body(key("Enter") .. " — send the entire post.")
+    body(key("Shift+Enter") .. " — insert a line break. A blank line creates a paragraph break; "
       .. "each paragraph is sent as a separate chat message.")
-    body(key("Ctrl+Enter") .. " — send the entire post.")
     body(key("Escape") .. " — cancel and return to the single-line overlay. Your draft is "
       .. "preserved so you can continue editing.")
     body(key("Tab") .. " — accept autocomplete   |   " .. key("Shift+Tab") .. " — spellcheck suggestions.")
