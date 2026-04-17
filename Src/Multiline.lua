@@ -185,6 +185,11 @@ function Multiline:CreateFrame()
 	edit:SetHeight(cfg.defaultHeight)
 	edit:SetTextInsets(4, 4, 4, 4)
 	edit:SetScript("OnEscapePressed", function()
+		-- If icon gallery is open, close it and stay.
+		if YapperTable.IconGallery and YapperTable.IconGallery.Active then
+			YapperTable.IconGallery:Hide()
+			return
+		end
 		-- If a spellcheck suggestion panel is open, ESC closes only the
 		-- panel rather than exiting the multiline editor entirely.
 		if YapperTable.Spellcheck
@@ -230,6 +235,10 @@ function Multiline:CreateFrame()
 	-- arrow navigation) through the spellcheck handler.
 	-- Plain Tab is routed to autocomplete for ghost-text acceptance.
 	edit:HookScript("OnKeyDown", function(box, key)
+		-- Let icon gallery consume ESC/numbers/Enter/Tab first.
+		if YapperTable.IconGallery and YapperTable.IconGallery:HandleKeyDown(key) then
+			return
+		end
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
 			YapperTable.Spellcheck:HandleKeyDown(key)
 		end
@@ -287,6 +296,20 @@ function Multiline:CreateFrame()
 	-- EditBox text.  HandleKeyDown sets _suppressNextChar/_suppressChar;
 	-- this hook clears them and restores the post-correction text.
 	edit:HookScript("OnChar", function(box, char)
+		if YapperTable.IconGallery and YapperTable.IconGallery._suppressNextChar then
+			local ig = YapperTable.IconGallery
+			if ig._suppressChar == char then
+				local expected = ig._expectedText or (box:GetText() or "")
+				local cursor   = ig._expectedCursor
+				box:SetText(expected)
+				if cursor then box:SetCursorPosition(cursor) end
+				ig._suppressNextChar = nil
+				ig._suppressChar     = nil
+				ig._expectedText     = nil
+				ig._expectedCursor   = nil
+				return
+			end
+		end
 		if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
 			local sc = YapperTable.Spellcheck
 			if sc._suppressChar == char then
@@ -322,6 +345,11 @@ function Multiline:CreateFrame()
 		-- Autocomplete ghost text.
 		if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
 			YapperTable.Autocomplete:OnTextChanged(box)
+		end
+
+		-- Icon gallery: detect open `{word` pattern and show/hide picker.
+		if YapperTable.IconGallery then
+			YapperTable.IconGallery:OnTextChanged(box, Multiline.Frame)
 		end
 
 		-- Draft auto-save (crash recovery) — mirrors the overlay's word-
@@ -538,6 +566,11 @@ end
 ---@param restoreText boolean?  If true, push the current text back to the overlay.
 function Multiline:Exit(restoreText)
 	if not self.Active then return end
+
+	-- Hide icon gallery if open.
+	if YapperTable.IconGallery and YapperTable.IconGallery.Active then
+		YapperTable.IconGallery:Hide()
+	end
 
 	-- Restore spellcheck to the single-line overlay before we re-show it.
 	if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
