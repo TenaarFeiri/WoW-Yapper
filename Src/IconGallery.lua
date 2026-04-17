@@ -85,6 +85,10 @@ function IconGallery:Show(rawEditBox, anchorFrame, query)
     self.Frame:Show()
 
     self:Filter(query)
+
+    if YapperTable.API then
+        YapperTable.API:Fire("ICON_GALLERY_SHOW", query)
+    end
 end
 
 function IconGallery:Hide()
@@ -93,6 +97,10 @@ function IconGallery:Hide()
     self.ActiveWord = nil
     self._rawEditBox  = nil
     self._anchorFrame = nil
+
+    if YapperTable.API then
+        YapperTable.API:Fire("ICON_GALLERY_HIDE")
+    end
 end
 
 function IconGallery:Filter(query)
@@ -140,6 +148,10 @@ function IconGallery:Select(index)
         eb:SetCursorPosition(startPos + #tag + 1)
     end
 
+    if YapperTable.API then
+        YapperTable.API:Fire("ICON_GALLERY_SELECT", data.index, data.text, data.code)
+    end
+
     self:Hide()
 end
 
@@ -183,6 +195,14 @@ end
 -- ---------------------------------------------------------------------------
 -- Text-change driven trigger (call from OnTextChanged handlers)
 -- ---------------------------------------------------------------------------
+
+--- Returns a shallow copy of the metadata for raid icon index i (1-8),
+--- or nil when i is out of range.  Fields: index, text, code.
+function IconGallery:_GetIconMeta(i)
+    local d = RAID_ICONS[i]
+    if not d then return nil end
+    return { index = d.index, text = d.text, code = d.code }
+end
 
 --- Call this from an OnTextChanged hook with the raw EditBox widget and an
 --- anchor frame.  Detects an open `{word` sequence before the cursor and

@@ -101,6 +101,12 @@ Available callback events
   Fires when the ack-event stall timer expires before the server confirmed a chunk. Indicates the Continue prompt is now visible. `policyClass` is the internal policy class string (e.g. `"INSTANCE_LOCAL"`); `chunksRemaining` includes the stalled chunk.
 - `QUEUE_COMPLETE` — `()`
   Fires when the delivery queue finishes (all chunks delivered, or queue cancelled). Pair with `QUEUE_STALL` to track queue sessions.
+- `ICON_GALLERY_SHOW` — `(query)`
+  Fires when the raid-icon gallery popup opens. `query` is the partial word typed after `{` (may be an empty string).
+- `ICON_GALLERY_HIDE` — `()`
+  Fires when the gallery popup closes, whether by selection or Esc.
+- `ICON_GALLERY_SELECT` — `(index, text, code)`
+  Fires when the user picks a raid icon. `index` is 1-8; `text` is the icon name (e.g. `"skull"`); `code` is the shorthand (e.g. `"rt8"`).
 
 Example — logging sent messages:
 
@@ -132,6 +138,45 @@ Queue accessors
 
 - `YapperAPI:CancelQueue()` → int
   Cancels the active queue and discards all pending chunks. Returns the number of chunks discarded. Prints the same chat-frame notice as the built-in double-Escape cancel.
+
+Icon Gallery accessors
+----------------------
+- `YapperAPI:ShowIconGallery(editBox, anchorFrame, query)`
+  Shows the raid-icon gallery popup linked to `editBox` (a raw WoW EditBox frame). `anchorFrame` is the frame the popup anchors below (defaults to `editBox`). `query` is an optional name/code prefix pre-filter.
+- `YapperAPI:HideIconGallery()`
+  Closes the gallery if it is open.
+- `YapperAPI:IsIconGalleryShown()` → boolean
+  Returns `true` while the gallery popup is visible.
+- `YapperAPI:GetRaidIconData()` → array (8 entries)
+  Returns a shallow-copied table of the eight raid icons. Each entry has `index` (1-8), `text` (name string), and `code` (`"rt1"`…`"rt8"`).
+
+Example — embed the gallery in an external addon frame:
+
+```lua
+local myBox    = MyAddon.InputBox    -- raw WoW EditBox
+local myAnchor = MyAddon.InputFrame  -- anchor frame for the popup
+
+-- Show/update gallery as the user types
+myBox:HookScript("OnTextChanged", function(box)
+    local ig = YapperTable and YapperTable.IconGallery
+    if ig then ig:OnTextChanged(box, myAnchor) end
+end)
+
+-- Pass key events so digit shortcuts work
+myBox:HookScript("OnKeyDown", function(box, key)
+    local ig = YapperTable and YapperTable.IconGallery
+    if ig and ig:HandleKeyDown(key) then
+        box:SetPropagateKeyboardInput(false)
+    end
+end)
+
+-- React to icon selection
+YapperAPI:RegisterCallback("ICON_GALLERY_SELECT", function(index, text, code)
+    print(("Inserted icon: %s (%s)"):format(text, code))
+end)
+```
+
+For the full integration guide see [IconGallery.md](IconGallery.md).
 
 Example — show a custom notice when a queue stalls:
 

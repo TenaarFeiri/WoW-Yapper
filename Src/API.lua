@@ -196,6 +196,17 @@
       or after a cancel).  Paired with QUEUE_STALL for addons that need
       to track active queue sessions.
 
+    ICON_GALLERY_SHOW        query (string)
+      Fires when the raid-icon gallery popup opens.  query is the
+      partial word the user typed after '{' (may be empty string).
+
+    ICON_GALLERY_HIDE        (no arguments)
+      Fires when the raid-icon gallery popup closes.
+
+    ICON_GALLERY_SELECT      index (int), text (string), code (string)
+      Fires when the user picks a raid icon.  index is 1-8; text is the
+      icon name (e.g. "skull"); code is the shorthand (e.g. "rt8").
+
 ---------------------------------------------------------------------------
 3.  READ-ONLY ACCESSORS
 ---------------------------------------------------------------------------
@@ -213,6 +224,21 @@
                                         policyClass (string|nil),
                                         pending (int), inFlight (int)
     YapperAPI:CancelQueue()         → int (number of chunks discarded)
+
+    Icon Gallery accessors:
+
+    YapperAPI:ShowIconGallery(editBox, anchorFrame, query)
+      Shows the raid-icon gallery anchored to an external EditBox widget.
+      editBox must be a raw WoW EditBox; anchorFrame is the frame the popup
+      anchors to (defaults to editBox); query is an optional pre-filter string.
+
+    YapperAPI:HideIconGallery()
+      Hides the gallery.
+
+    YapperAPI:IsIconGalleryShown()  → boolean
+
+    YapperAPI:GetRaidIconData()     → array of 8 tables, each with:
+                                        index (int), text (string), code (string)
 
     Utility helpers (safe wrappers around Utils.lua):
 
@@ -887,6 +913,43 @@ end
 --- If no filters are registered, returns the payload unchanged.
 ---
 --- @param hookPoint string
+-- ===== ICON GALLERY ========================================================
+
+--- Show the raid-icon gallery anchored to an external EditBox widget.
+--- editBox    — the raw WoW EditBox whose text the gallery writes into.
+--- anchorFrame — frame the popup anchors to (defaults to editBox when nil).
+--- query       — optional pre-filter string (the word typed after "{").
+function YapperAPI:ShowIconGallery(editBox, anchorFrame, query)
+    local ig = YapperTable.IconGallery
+    if not ig then return end
+    if type(editBox) ~= "table" then return end
+    ig:Show(editBox, anchorFrame or editBox, query or "")
+end
+
+--- Hide the raid-icon gallery.
+function YapperAPI:HideIconGallery()
+    local ig = YapperTable.IconGallery
+    if ig then ig:Hide() end
+end
+
+--- Returns true when the raid-icon gallery is currently visible.
+function YapperAPI:IsIconGalleryShown()
+    local ig = YapperTable.IconGallery
+    return ig ~= nil and ig.Active == true
+end
+
+--- Returns a copy of the raid-icon metadata table.
+--- Each entry has: index (1-8), text (name), code ("rt1"…"rt8").
+function YapperAPI:GetRaidIconData()
+    local ig = YapperTable.IconGallery
+    if not ig or not ig._GetIconMeta then return {} end
+    local result = {}
+    for i = 1, 8 do
+        result[i] = ig:_GetIconMeta(i)
+    end
+    return result
+end
+
 --- @param payload table
 --- @return table|false
 function API:RunFilter(hookPoint, payload)

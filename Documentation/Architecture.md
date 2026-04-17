@@ -45,7 +45,13 @@ graph TD
     - Dynamically renders underlines and highlights without breaking EditBox focus.
 
 6.  **Public API (`API.lua`)**
-    - Exposes `_G.YapperAPI` with filters (PRE_SEND, PRE_CHUNK, PRE_DELIVER, PRE_EDITBOX_SHOW, PRE_SPELLCHECK) and callbacks (POST_SEND, EDITBOX_SHOW, CONFIG_CHANGED, etc.) for third-party addon integration.
+    - Exposes `_G.YapperAPI` with filters (PRE_SEND, PRE_CHUNK, PRE_DELIVER, PRE_EDITBOX_SHOW, PRE_SPELLCHECK) and callbacks (POST_SEND, EDITBOX_SHOW, CONFIG_CHANGED, ICON_GALLERY_SELECT, etc.) for third-party addon integration.
+
+7.  **Icon Gallery (`IconGallery.lua`)**
+    - Popup grid of the 8 WoW raid-target icons, triggered by typing `{` in any Yapper-managed edit box.
+    - Filterable by icon name (`star`, `skull`, …) or shorthand code (`rt1`…`rt8`).
+    - Exposed to external addons via `YapperAPI:ShowIconGallery` / `HideIconGallery` / `GetRaidIconData` and the `ICON_GALLERY_*` callbacks.
+    - Loads before `EditBox.lua` so the EditBox handler can reference it immediately.
 
 7.  **Bridges (`Src/Bridges/`)**
     - Compatibility shims for LibGopher/CrossRP, Simply_RP_Typing_Tracker, WIM, and RPPrefix. All bridges consume the public API rather than calling core modules directly.
@@ -56,7 +62,7 @@ graph TD
 ## Dependency Graph
 
 - **Hard Dependencies**: Most modules depend on `Core.lua` for config and `Utils.lua` for logging/printing.
-- **Load order (TOC)**: `Core` → `Utils` → `Error` → `Frames` → `Events` → `API` → `Spellcheck` → `EditBox` → `Bridges` → `Router` → `Chunking` → `Queue` → `Chat` → `Multiline` → `Autocomplete` → `History` → `Theme` → `Interface`.
+- **Load order (TOC)**: `Core` → `Utils` → `Error` → `Frames` → `Events` → `API` → `Spellcheck` → `IconGallery` → `EditBox` → `Bridges` → `Router` → `Chunking` → `Queue` → `Chat` → `Multiline` → `Autocomplete` → `History` → `Theme` → `Interface`.
 - **Logic Stack**: `EditBox.lua` → `Chat.lua` → `Chunking.lua` / `Queue.lua` → `Router.lua`.
 
 ## Configuration System
