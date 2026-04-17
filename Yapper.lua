@@ -204,10 +204,14 @@ function YapperTable:OverrideYapper(disable)
             YapperTable.Queue:Cancel()
         end
         YapperTable.Events:UnregisterAll()
-        YapperTable.Frames:HideParent()
+        if YapperTable.EventFrames then
+            YapperTable.EventFrames:HideParent()
+        end
         YapperTable.Utils:Print("|cFFFF4444Disabled.|r Control returned to Blizzard.")
     else
-        YapperTable.Frames:Init() -- edit this
+        if YapperTable.EventFrames then
+            YapperTable.EventFrames:Init()
+        end
         if YapperTable.EditBox then
             YapperTable.EditBox:HookAllChatFrames()
         end
