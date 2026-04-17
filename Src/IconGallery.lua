@@ -16,13 +16,13 @@ local RAID_ICONS = {
 local ICON_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
 
 -- Core Widget Management
-function IconGallery:Init(parent)
+function IconGallery:Init()
     if self.Frame then return end
 
-    local frame = CreateFrame("Frame", "YapperIconGallery", parent, "BackdropTemplate")
+    local frame = CreateFrame("Frame", "YapperIconGallery", UIParent, "BackdropTemplate")
     frame:SetSize(120, 70)
     frame:SetFrameStrata("DIALOG")
-    frame:SetFrameLevel(parent:GetFrameLevel() + 10)
+    frame:SetFrameLevel(100)
     frame:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -70,18 +70,18 @@ function IconGallery:Init(parent)
     end
 end
 
-function IconGallery:Show(editBox, query)
-    self:Init(editBox.Overlay)
-    self.EditBox = editBox
+function IconGallery:Show(rawEditBox, anchorFrame, query)
+    -- anchorFrame is the frame to anchor the popup below/above.
+    -- rawEditBox is the actual EditBox widget whose text we modify.
+    local parent = anchorFrame or rawEditBox
+    self:Init()
+    self._rawEditBox  = rawEditBox
+    self._anchorFrame = anchorFrame or rawEditBox
     self.Query = query or ""
     self.Active = true
 
-    -- Position relative to cursor if possible, or just TOPLEFT of editbox
-    local x = (editBox.GetCaretXOffset and editBox:GetCaretXOffset()) or 0
-    local y = (editBox.GetCaretYOffset and editBox:GetCaretYOffset()) or 0
-    
     self.Frame:ClearAllPoints()
-    self.Frame:SetPoint("BOTTOMLEFT", editBox.OverlayEdit, "TOPLEFT", x, 4)
+    self.Frame:SetPoint("BOTTOMLEFT", self._anchorFrame, "TOPLEFT", 0, 4)
     self.Frame:Show()
 
     self:Filter(query)
@@ -91,6 +91,8 @@ function IconGallery:Hide()
     if self.Frame then self.Frame:Hide() end
     self.Active = false
     self.ActiveWord = nil
+    self._rawEditBox  = nil
+    self._anchorFrame = nil
 end
 
 function IconGallery:Filter(query)
@@ -121,12 +123,12 @@ end
 
 function IconGallery:Select(index)
     local data = RAID_ICONS[index]
-    if not data or not self.EditBox then return end
+    if not data or not self._rawEditBox then return end
 
-    local eb = self.EditBox.OverlayEdit
+    local eb = self._rawEditBox
     local text = eb:GetText() or ""
     local pos = eb:GetCursorPosition()
-    
+
     -- Find the '{' before the cursor to replace the query
     local pre = text:sub(1, pos)
     local startPos = pre:find("{[^}]*$")
@@ -152,7 +154,15 @@ function IconGallery:HandleKeyDown(key)
     local num = tonumber(key)
     if num and num >= 1 and num <= 8 then
         if self.Cells[num]:IsEnabled() then
+            local eb = self._rawEditBox  -- capture before Select clears it via Hide
             self:Select(num)
+            -- OnChar will fire next with the digit; suppress it.
+            if eb then
+                self._suppressNextChar = true
+                self._suppressChar     = key
+                self._expectedText     = eb:GetText()
+                self._expectedCursor   = eb:GetCursorPosition()
+            end
             return true
         end
     end
@@ -168,4 +178,35 @@ function IconGallery:HandleKeyDown(key)
     end
 
     return false
+end
+
+-- ---------------------------------------------------------------------------
+-- Text-change driven trigger (call from OnTextChanged handlers)
+-- ---------------------------------------------------------------------------
+
+--- Call this from an OnTextChanged hook with the raw EditBox widget and an
+--- anchor frame.  Detects an open `{word` sequence before the cursor and
+--- shows/updates/hides the gallery accordingly.
+---@param rawEditBox table  The EditBox whose text changed.
+---@param anchorFrame table  Frame to anchor the popup against (e.g. the overlay or ML frame).
+function IconGallery:OnTextChanged(rawEditBox, anchorFrame)
+    if not rawEditBox then return end
+    local text = rawEditBox:GetText() or ""
+    local pos  = rawEditBox:GetCursorPosition()
+    local pre  = text:sub(1, pos)
+
+    -- Match an open brace followed by word-chars with no closing brace.
+    local query = pre:match("{([%a%d_]*)$")
+    if query ~= nil then
+        -- Active icon trigger: show or update the gallery.
+        if not self.Active then
+            self:Show(rawEditBox, anchorFrame, query)
+        else
+            self:Filter(query)
+        end
+    else
+        if self.Active then
+            self:Hide()
+        end
+    end
 end

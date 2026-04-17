@@ -78,6 +78,11 @@ function EditBox:SetupOverlayScripts()
             YapperTable.Autocomplete:OnTextChanged(box)
         end
 
+        -- Icon gallery: detect open `{word` pattern and show/hide picker.
+        if YapperTable.IconGallery then
+            YapperTable.IconGallery:OnTextChanged(box, frame)
+        end
+
         -- Auto-expand into multiline when text fills the overlay.
         local ml = YapperTable.Multiline
         if ml and type(ml.ShouldAutoExpand) == "function" and not ml.Active then
@@ -428,6 +433,11 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:SetScript("OnEscapePressed", function(box)
+        -- If icon gallery is open, close it and stay.
+        if YapperTable.IconGallery and YapperTable.IconGallery.Active then
+            YapperTable.IconGallery:Hide()
+            return
+        end
         -- If spell suggestions are open, close them only and keep the
         -- overlay active. This prevents ESC from accidentally closing
         -- the whole overlay when the user expected to dismiss hints.
@@ -472,6 +482,20 @@ function EditBox:SetupOverlayScripts()
     -- applying a suggestion. This ensures pressing '1'..'4' to select a
     -- suggestion does not also insert the digit into the editbox.
     edit:HookScript("OnChar", function(box, char)
+        if YapperTable.IconGallery and YapperTable.IconGallery._suppressNextChar then
+            local ig = YapperTable.IconGallery
+            if ig._suppressChar == char then
+                local expected = ig._expectedText or (box:GetText() or "")
+                local cursor   = ig._expectedCursor
+                box:SetText(expected)
+                if cursor then box:SetCursorPosition(cursor) end
+                ig._suppressNextChar = nil
+                ig._suppressChar     = nil
+                ig._expectedText     = nil
+                ig._expectedCursor   = nil
+                return
+            end
+        end
         if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
             local sc = YapperTable.Spellcheck
             if sc._suppressChar == char then
@@ -490,6 +514,10 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:HookScript("OnKeyDown", function(box, key)
+        -- Let icon gallery consume ESC/numbers/Enter/Tab first.
+        if YapperTable.IconGallery and YapperTable.IconGallery:HandleKeyDown(key) then
+            return
+        end
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.HandleKeyDown) == "function" then
             if YapperTable.Spellcheck:HandleKeyDown(key) then
                 return
@@ -527,6 +555,10 @@ function EditBox:SetupOverlayScripts()
     frame:SetScript("OnHide", function()
         self.HistoryIndex = nil
         self.HistoryCache = nil
+
+        if YapperTable.IconGallery and YapperTable.IconGallery.Active then
+            YapperTable.IconGallery:Hide()
+        end
 
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnOverlayHide) == "function" then
             YapperTable.Spellcheck:OnOverlayHide()
