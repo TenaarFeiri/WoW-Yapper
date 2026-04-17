@@ -294,9 +294,11 @@ function Interface:ApplyMinimapButtonVisibility()
     end
 
     if self.MinimapButton then
-        self.MinimapButton:SetShown(enabled)
         if enabled then
+            self.MinimapButton:Show()
             self:PositionMinimapButton()
+        else
+            self.MinimapButton:Hide()
         end
     end
 end
