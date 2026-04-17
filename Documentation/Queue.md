@@ -30,6 +30,8 @@ Every chat type is assigned to a `POLICY_CLASS` which controls how the queue beh
 | `COMMUNITY_CLUB` | CLUB | Prompts every chunk; uses a 3× stall multiplier (community servers are slower). |
 | `GROUP` | PARTY, RAID, GUILD, OFFICER, INSTANCE_CHAT, and their leader variants | Auto-continues after the matching `CHAT_MSG_*` ack. |
 
+**Note on leader echo variants:** When sending to group channels the server may echo outgoing messages using a "_LEADER" variant if the sender is the group leader (for example, `CHAT_MSG_PARTY_LEADER` instead of `CHAT_MSG_PARTY`). The queue accepts either the leader or non-leader echo as a valid acknowledgement, preventing stalled deliveries when the sender is the leader.
+
 **Open World SAY/YELL require a hardware event** (Blizzard anti-spam protection for protected sends). Yapper shows a "Continue" button to satisfy this requirement.
 
 ## The Continuation Prompt
