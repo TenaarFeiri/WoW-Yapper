@@ -53,10 +53,11 @@ local HISTORY_DEFAULTS = {
     VERSION = CURRENT_VERSION,
     chatHistory = {},     -- Flat array of sent strings, newest last.
     draft = {
-        text     = nil,   -- The raw draft text
-        chatType = nil,   -- Chat type when draft was taken.
-        target   = nil,   -- Whisper target / channel when draft was taken.
-        dirty    = false, -- True if editbox was NOT closed via Enter/send.
+        text      = nil,   -- The raw draft text
+        chatType  = nil,   -- Chat type when draft was taken.
+        target    = nil,   -- Whisper target / channel when draft was taken.
+        dirty     = false, -- True if editbox was NOT closed via Enter/send.
+        multiline = false, -- True if draft was captured from the multiline editor.
     },
 }
 
@@ -107,8 +108,12 @@ function History:InitDB()
 end
 
 function History:SaveDB()
-    -- Mark dirty if the editbox is still open (user mid-type).
-    if YapperTable.EditBox and YapperTable.EditBox.Overlay
+    -- Mark dirty if either the overlay or the multiline editor is still open.
+    local ml = YapperTable.Multiline
+    if ml and ml.Active and ml.EditBox then
+        self:SaveDraft(ml.EditBox, true)
+        self:MarkDirty(true)
+    elseif YapperTable.EditBox and YapperTable.EditBox.Overlay
         and YapperTable.EditBox.Overlay:IsShown() then
         self:SaveDraft(YapperTable.EditBox.OverlayEdit)
         self:MarkDirty(true)
@@ -176,7 +181,10 @@ function History:GetDraftStore()
     return _G.YapperLocalHistory.draft
 end
 
-function History:SaveDraft(editBox)
+--- Save a draft from any EditBox (overlay or multiline).
+--- @param editBox  table   The EditBox widget to read text from.
+--- @param isMultiline boolean?  True when saving from the multiline editor.
+function History:SaveDraft(editBox, isMultiline)
     if not editBox then return end
     local text = editBox:GetText() or ""
     
@@ -187,17 +195,28 @@ function History:SaveDraft(editBox)
 
     local draft = self:GetDraftStore()
     draft.text = text
-    draft.chatType = YapperTable.EditBox and YapperTable.EditBox.ChatType
-    draft.target = YapperTable.EditBox and YapperTable.EditBox.Target
+
+    if isMultiline then
+        local ml = YapperTable.Multiline
+        draft.chatType  = ml and ml.ChatType
+        draft.target    = ml and ml.Target
+        draft.multiline = true
+    else
+        draft.chatType  = YapperTable.EditBox and YapperTable.EditBox.ChatType
+        draft.target    = YapperTable.EditBox and YapperTable.EditBox.Target
+        draft.multiline = false
+    end
     draft.dirty = true
 end
 
+--- Return the saved draft if dirty.
+--- @return string?, string?, string?, boolean?  text, chatType, target, multiline
 function History:GetDraft()
     local draft = self:GetDraftStore()
     if not draft.dirty or not draft.text or draft.text == "" then
-        return nil, nil, nil
+        return nil, nil, nil, nil
     end
-    return draft.text, draft.chatType, draft.target
+    return draft.text, draft.chatType, draft.target, draft.multiline
 end
 
 --- Mark the draft as clean (send) or dirty (everything else).
@@ -212,6 +231,7 @@ function History:ClearDraft(editBox)
     draft.chatType = nil
     draft.target = nil
     draft.dirty = false
+    draft.multiline = false
 
     -- Cleanup any pending snapshot timers if the box is provided.
     if editBox then

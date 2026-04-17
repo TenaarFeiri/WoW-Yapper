@@ -273,14 +273,16 @@ function EditBox:Show(origEditBox)
     -- Draft recovery: restore if the last close was dirty.
     -- Skip if Blizzard set a target (e.g. Friends-list whisper).
     local draftText
+    local draftMultiline = false
     if not blizzHasTarget and YapperTable.History then
-        local text, draftType, draftTarget = YapperTable.History:GetDraft()
+        local text, draftType, draftTarget, isML = YapperTable.History:GetDraft()
         if text then
             draftText = text
+            draftMultiline = isML or false
             if draftType then self.ChatType = draftType end
             if draftTarget then self.Target = draftTarget end
             YapperTable.History:MarkDirty(false)
-            YapperTable.Utils:VerbosePrint("Draft recovered: " .. #text .. " chars.")
+            YapperTable.Utils:VerbosePrint("Draft recovered: " .. #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
         end
     end
 
@@ -321,6 +323,16 @@ function EditBox:Show(origEditBox)
     self:RefreshLabel()
     overlay:Show()
     self.OverlayEdit:SetFocus()
+
+    -- If the recovered draft came from the multiline editor, transition
+    -- directly into multiline so hard newlines are preserved.  The overlay
+    -- is briefly shown above (needed for anchoring), then Multiline:Enter
+    -- hides it and takes over.
+    if draftMultiline and draftText and YapperTable.Multiline
+            and type(YapperTable.Multiline.Enter) == "function" then
+        YapperTable.Multiline:Enter(
+            draftText, self.ChatType, nil, self.Target)
+    end
 
     -- Clear Blizzard's backing editbox to avoid stale carryover on next open.
     if origEditBox and origEditBox.SetText then
