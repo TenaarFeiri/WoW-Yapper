@@ -480,6 +480,7 @@ function Autocomplete:_InstallCursorHook(editBox)
 	editBox:SetScript("OnCursorChanged", function(self, x, y, w, h)
 		ac._caretX = x
 		ac._caretY = y
+		ac._caretH = h
 		if existing then existing(self, x, y, w, h) end
 		if ac.Active and ac.GhostFS then
 			ac:PositionGhost()
@@ -519,9 +520,10 @@ function Autocomplete:PositionGhost()
 
 	fs:ClearAllPoints()
 	if self._isMultiline then
-		-- In multiline, y is the vertical offset from the top of the EditBox
-		-- to the current line's baseline (negative = downward).
-		local offsetY = self._caretY or 0
+		-- In multiline, y from OnCursorChanged is the vertical offset from the
+		-- top of the EditBox to the cursor bottom; h is the cursor height.
+		--local offsetY = (self._caretY or 0) + (self._caretH or 0) * 0.5
+		local offsetY = (self._caretY or 0) - (self._caretH or 0) * 0.3
 		fs:SetPoint("TOPLEFT", editBox, "TOPLEFT", offsetX, offsetY)
 	else
 		fs:SetPoint("LEFT", editBox, "LEFT", offsetX, 0)
@@ -614,8 +616,12 @@ function Autocomplete:OnTextChanged(editBox)
 		and string_len(word) > string_len(self.CurrentPrefix)
 	then
 		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
-		if yallm and yallm.RecordUsage then
-			yallm:RecordUsage(self.CurrentSugg)
+		if yallm then
+			if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg) end
+			-- Moderate bias: the user preferred this exact spelling.
+			if yallm.RecordSelection then
+				yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.15)
+			end
 		end
 	end
 
@@ -650,17 +656,23 @@ function Autocomplete:OnTabPressed(editBox)
 		return false
 	end
 
-	-- Replace the partial word with the full suggestion.
+	-- Replace the partial word with the full suggestion.  Append a space
+	-- so the user can continue typing without manually inserting one.
 	local before  = string_sub(text, 1, wordStart - 1)
 	local after   = string_sub(text, pos + 1)
-	local newText = before .. self.CurrentSugg .. after
+	local trail   = (after:sub(1, 1) ~= " ") and " " or ""
+	local newText = before .. self.CurrentSugg .. trail .. after
 	editBox:SetText(newText)
-	editBox:SetCursorPosition(wordStart - 1 + string_len(self.CurrentSugg))
+	editBox:SetCursorPosition(wordStart - 1 + string_len(self.CurrentSugg) + string_len(trail))
 
-	-- Record the acceptance in YALLM so the word's frequency rises.
+	-- Record the acceptance in YALLM: strong bias signal (prefix→suggestion)
+	-- in addition to frequency so the same completion surfaces faster.
 	local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
-	if yallm and yallm.RecordUsage then
-		yallm:RecordUsage(self.CurrentSugg)
+	if yallm then
+		if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg) end
+		if yallm.RecordSelection then
+			yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.5)
+		end
 	end
 
 	self:HideGhost()
@@ -694,6 +706,20 @@ end
 -- ---------------------------------------------------------------------------
 -- Multiline binding
 -- ---------------------------------------------------------------------------
+
+--- Sync the ghost FontString's font to match the active EditBox.
+--- Call after changing the EditBox font (e.g. ApplyTheme / scaling).
+function Autocomplete:SyncGhostFont()
+	local fs = self.GhostFS
+	if not fs then return end
+	local editBox = self._activeEditBox
+		or (YapperTable.EditBox and YapperTable.EditBox.OverlayEdit)
+	if not editBox then return end
+	local face, size, flags = editBox:GetFont()
+	if face and size then
+		fs:SetFont(face, size, flags or "")
+	end
+end
 
 --- Switch the autocomplete ghost text to the multiline EditBox.
 --- The FontString is re-parented (not destroyed) to avoid widget leaks.
