@@ -235,6 +235,31 @@ YapperAPI:RegisterFilter("PRE_SEND", function(p)
 end)
 ```
 
+Theme helpers
+-------------
+These helpers are exposed on `YapperTable` and the theme module rather than
+on `_G.YapperAPI`. They are useful for addons and bridges that need to
+register custom themes or query the active theme.
+
+- `YapperTable:RegisterTheme(name, data)`
+  Registers a new theme table into Yapper's global theme registry.
+
+- `YapperTable:SetTheme(name)`
+  Activates a theme and writes its base colour values into live config.
+
+- `YapperTable:GetRegisteredThemes()` → array
+  Returns a sorted list of registered theme names.
+
+- `YapperTable:GetTheme(name)` → table | nil
+  Returns the theme table for the given name if it exists.
+
+- `YapperTable.Theme:GetCurrentName()` → string | nil
+  Returns the name of the currently active theme.
+
+- `YapperTable.Theme:SetLiveTheme(name)` → boolean
+  Applies the named theme's colour values immediately without marking it as
+  the user's saved theme preference.
+
 Spellcheck accessors
 --------------------
 Safe wrappers around the spellcheck system. All return `false` or `nil`
