@@ -907,14 +907,18 @@ function Multiline:ApplyTheme()
 	-- Visual appearance: read the fill colour the overlay is actually rendering.
 	-- SetFrameFillColour now caches the last colour set on any overlay frame as
 	-- _yapperFillColor, so we don't need GetVertexColor / GetBackdropColor (both
-	-- have API quirks).  Fall back to config if the overlay hasn't been drawn yet.
+	-- have API quirks).  However, the Blizzard skin proxy renders the overlay
+	-- background transparently, and multiline should not inherit that proxy
+	-- transparency.  Fall back to config/theme when the proxy is active.
 	local eb      = YapperTable.EditBox
 	local overlay = eb and eb.Overlay
 
 	local fillR, fillG, fillB, fillA = 0.05, 0.05, 0.05, 0.95
 	local rounded = false
+	-- _skinProxyTextures is stored on the EditBox module, not on the overlay frame.
+	local proxyActive = eb and eb._skinProxyTextures
 
-	if overlay and overlay._yapperFillColor then
+	if overlay and overlay._yapperFillColor and not proxyActive then
 		local c = overlay._yapperFillColor
 		fillR, fillG, fillB, fillA = c.r, c.g, c.b, c.a
 		rounded = overlay._yapperFillRounded == true
