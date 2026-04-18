@@ -203,9 +203,10 @@ local DEFAULTS = {
         KeyboardLayout     = "QWERTY",
         Dict               = {},
         -- YALLM adaptive learning data caps
-        YALLMFreqCap       = 2000,  -- Max unique vocabulary words tracked
-        YALLMBiasCap       = 500,   -- Max typo→correction pairs stored
-        YALLMAutoThreshold = 10,    -- Times a word must be sent before auto-adding to dictionary
+        YALLMFreqCap        = 2000,  -- Max unique vocabulary words tracked
+        YALLMBiasCap        = 500,   -- Max typo→correction pairs stored
+        YALLMAutoThreshold  = 10,    -- Times a word must be sent before auto-adding to dictionary
+        SuggestionCacheSize = 50,    -- Max unique word suggestion results cached per session (0 = disabled)
     },
 }
 
