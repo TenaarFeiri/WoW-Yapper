@@ -785,6 +785,49 @@ function YapperAPI:CancelQueue()
     return count
 end
 
+-- ===== THEME MANAGEMENT ===================================================
+
+--- Register a named theme.  `data` follows the same structure as Yapper's
+--- built-in themes: inputBg, labelBg, textColor, borderColor (each {r,g,b,a}),
+--- border (bool), allowRoundedCorners (bool), allowDropShadow (bool),
+--- font ({path,size,flags}), and an optional OnApply hook.
+--- Returns true on success, false if name or data is invalid.
+function YapperAPI:RegisterTheme(name, data)
+    if type(name) ~= "string" or type(data) ~= "table" then return false end
+    local th = YapperTable.Theme
+    if not th then return false end
+    return th:RegisterTheme(name, data) == true
+end
+
+--- Activate a registered theme by name.  Persists the selection to
+--- YapperLocalConf (same as selecting it in the Settings dialog).
+--- Returns true on success.
+function YapperAPI:SetTheme(name)
+    if type(name) ~= "string" then return false end
+    local th = YapperTable.Theme
+    if not th then return false end
+    return th:SetTheme(name) == true
+end
+
+--- Return an array of all registered theme names, sorted alphabetically.
+function YapperAPI:GetRegisteredThemes()
+    local th = YapperTable.Theme
+    if not th then return {} end
+    return th:GetRegisteredNames()
+end
+
+--- Return a shallow copy of a registered theme's data table, or nil.
+--- Pass no argument (or nil) to get the currently active theme.
+function YapperAPI:GetTheme(name)
+    local th = YapperTable.Theme
+    if not th then return nil end
+    local data = th:GetTheme(name)
+    if type(data) ~= "table" then return nil end
+    local copy = {}
+    for k, v in pairs(data) do copy[k] = v end
+    return copy
+end
+
 -- ===== UTILITY HELPERS =====================================================
 
 --- Returns true if C_ChatInfo.InChatMessagingLockdown() is active.
