@@ -2,6 +2,12 @@
 ===========================================================================
     Yapper Public API  (Src/API.lua)
 ===========================================================================
+    Full documentation are available on GitHub: https://github.com/TenaarFeiri/WoW-Yapper/tree/main/Documentation
+    This will always be up to date.
+    I am always looking for new opportunities to expand the API, so if you have need 
+    for a hook point that doesn't exist yet, please open an issue or PR on the Yapper repository.
+    Alternatively, you can DM me on GitHub, CurseForge (Symphicat), or send me an email at symphicat@gmail.com
+
 
     This file creates `_G.YapperAPI`, a safe, public-facing object that
     lets other addons hook into Yapper without touching the internal
