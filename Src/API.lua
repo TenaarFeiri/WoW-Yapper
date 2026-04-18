@@ -222,6 +222,22 @@
     YapperAPI:IsOverlayShown()      → boolean
     YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR"
 
+    Theme helpers:
+
+    YapperAPI:RegisterTheme(name, data)
+      Register a custom theme. `data` follows the same schema as built-in
+      themes: inputBg, labelBg, textColor, borderColor, border, allowRoundedCorners,
+      allowDropShadow, font, and optional OnApply.
+
+    YapperAPI:SetTheme(name)
+      Activate a registered theme and persist it as the current selection.
+
+    YapperAPI:GetRegisteredThemes() → array
+      Return a sorted list of registered theme names.
+
+    YapperAPI:GetTheme(name) → table|nil
+      Return the data table for a registered theme, or nil if not found.
+
     Queue accessors:
 
     YapperAPI:GetQueueState()       → table with fields:
