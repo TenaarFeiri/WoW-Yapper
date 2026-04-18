@@ -36,7 +36,6 @@
     - **Suggestion Pagination:** When there are more than six suggestions, a "More Suggestions »" row appears at the bottom. Clicking it cycles to the next page; after the last page it wraps back to the top. Up to six suggestions are shown per page when browsing; six are always shown on the first page if the total fits.
   - *New Settings — Adaptive Learning Tab:*
     - A new "Adaptive Learning" tab has been added to Settings. It shows live tables of everything YALLM has learned: your most-used words, learned corrections, phonetic patterns, and rejected suggestions.
-    - Each row has a delete button so you can remove individual entries you don't want the engine to keep.
     - Three new tuning sliders control the caps: **Vocabulary Cap** (how many words to track), **Correction Bias Cap** (how many correction pairs to store), and **Auto-learn Threshold** (how many times a word must appear before it's added automatically).
   - *Compatibility:*
     - **RP Prefix (by Zee/Songzee):** If you use the RP Prefix addon, Yapper now correctly prepends your prefix to the *first* post of a split message only. Previously the prefix would appear on every continuation chunk.
