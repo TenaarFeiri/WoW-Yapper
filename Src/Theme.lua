@@ -169,6 +169,71 @@ function Theme:ApplyToFrame(frame, name)
     return ok and res or false
 end
 
+--- Returns the name of the currently active theme, or nil.
+function Theme:GetCurrentName()
+    return self._current
+end
+
+--- Switch the active theme without marking it as the user's saved choice.
+--- Writes the theme's colour fields to the live config so the overlay updates,
+--- but does NOT set localConf._appliedTheme.  Use this for transient external
+--- overrides (e.g. the ElvUI bridge) that should not overwrite the user's
+--- saved theme preference.
+--- @param name string
+--- @return boolean
+function Theme:SetLiveTheme(name)
+    if type(name) ~= "string" or not self._registry[name] then return false end
+    self._current = name
+
+    pcall(function()
+        if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+            YapperTable.Utils:VerbosePrint("Theme:SetLiveTheme -> " .. tostring(name))
+        end
+    end)
+
+    -- Push the theme's colour fields into live config unconditionally (no
+    -- _themeOverrides check) so the external caller's colors always win.
+    pcall(function()
+        local localConf = _G.YapperLocalConf or {}
+        if type(localConf.EditBox) ~= "table" then localConf.EditBox = {} end
+        local theme = self._registry[name]
+        if type(theme) == "table" then
+            local function push(key, field)
+                if type(theme[field]) == "table" then
+                    localConf.EditBox[key] = {
+                        r = theme[field].r or 0,
+                        g = theme[field].g or 0,
+                        b = theme[field].b or 0,
+                        a = theme[field].a ~= nil and theme[field].a or 1,
+                    }
+                end
+            end
+            push("InputBg",    "inputBg")
+            push("LabelBg",    "labelBg")
+            push("TextColor",  "textColor")
+            push("BorderColor","borderColor")
+        end
+        _G.YapperLocalConf = localConf
+    end)
+
+    -- Apply to the live overlay.
+    if YapperTable and YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
+        pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
+    end
+
+    -- Refresh multiline frame if it is currently open.
+    if YapperTable and YapperTable.Multiline and YapperTable.Multiline.Active
+            and type(YapperTable.Multiline.ApplyTheme) == "function" then
+        pcall(function() YapperTable.Multiline:ApplyTheme() end)
+    end
+
+    if YapperTable.API then
+        YapperTable.API:Fire("THEME_CHANGED", name)
+    end
+
+    return true
+end
+
 -- Convenience aliases on the global Yapper table for external addons.
 function YapperTable:RegisterTheme(name, data) return Theme:RegisterTheme(name, data) end
 function YapperTable:SetTheme(name) return Theme:SetTheme(name) end
