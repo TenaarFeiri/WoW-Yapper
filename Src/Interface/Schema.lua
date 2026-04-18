@@ -84,6 +84,7 @@ local SETTING_TOOLTIPS              = {
     ["Spellcheck.UnderlineColor"] = "Change the colour of the standard spellcheck underline.",
     ["Spellcheck.HighlightColor"] = "Change the colour of the spellcheck highlight style.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
+    ["Spellcheck.SuggestionCacheSize"] = "How many unique word suggestion results to keep cached across the session. Avoids recalculating suggestions for the same misspelled word. Set to 0 to disable caching entirely (higher values use slightly more memory).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
     ["Spellcheck.YALLMFreqCap"] = "Maximum number of unique vocabulary words YALLM tracks. Older and less-used words are pruned first when this cap is hit.",
     ["Spellcheck.YALLMBiasCap"] = "Maximum number of typo→correction pairs stored by YALLM. Lower-utility pairs are pruned first.",
@@ -158,6 +159,7 @@ local FRIENDLY_LABELS               = {
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
     ["Spellcheck.MaxCandidates"] = "Max word candidates checked",
+    ["Spellcheck.SuggestionCacheSize"] = "Suggestion cache size",
     ["Spellcheck.YALLMFreqCap"] = "Vocabulary cap",
     ["Spellcheck.YALLMBiasCap"] = "Correction bias cap",
     ["Spellcheck.YALLMAutoThreshold"] = "Auto-learn threshold",
@@ -275,6 +277,7 @@ local CATEGORIES                    = {
             "Spellcheck.MinWordLength",
             "Spellcheck.MaxSuggestions",
             "Spellcheck.NgramKeyCapSize",
+            "Spellcheck.SuggestionCacheSize",
         },
         -- Bridges are appended by custom logic.
         custom = { "bridges", "spellcheckUserDict" },
