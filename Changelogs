@@ -1,3 +1,8 @@
+-- 2.0.4
+  - *Bugfixes:*
+    - Fixed an issue where Blizzard skin proxy mode made the multiline editor render transparently.
+    - Fixed an issue where spellcheck highlighting desynced from the text in the multiline editor when the text wrapped across multiple lines.
+
 -- 2.0.3
   - *Bugfixes:*
     - Fixed issue where the post queue would get stuck if you posted to Party, Instance or Raid Chat while you were a leader in one or more of these.
