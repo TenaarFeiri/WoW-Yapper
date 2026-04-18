@@ -12,6 +12,8 @@ Yapper supports a lightweight theme engine that allows the EditBox overlay to be
 | :--- | :--- |
 | `Theme:RegisterTheme(name, data)` | Registers a new theme table into the global registry. |
 | `Theme:SetTheme(name)` | Activates a theme. This copies basic colour values into the character config for immediate use. |
+| `Theme:GetCurrentName()` | Returns the name of the currently active theme, or `nil` if none is selected. |
+| `Theme:SetLiveTheme(name)` | Applies a theme's colour values immediately without marking it as the user's saved theme preference. |
 | `Theme:ApplyToFrame(frame, name)` | Applies specific font settings and executes the theme's `OnApply` hook. |
 
 ## Theme Schema
@@ -52,3 +54,6 @@ A special theme that uses `EditBox:AttachBlizzardSkinProxy` to clone the look of
 
 ## Theme Configuration
 When a theme is selected via `Theme:SetTheme`, its colour values are written to `YapperLocalConf.EditBox`. However, if the user has manually changed a colour using the Yapper Interface colour pickers, those manual overrides are preserved and will "block" the theme's default colours for that specific field.
+
+### Live theme overrides
+`Theme:SetLiveTheme(name)` applies a theme's colour values immediately for the current session, but does not set the user's saved theme preference. This is useful for transient external overrides such as bridge integrations that should not overwrite the user's normal theme choice.
