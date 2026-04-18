@@ -62,6 +62,7 @@ Yapper ranks candidates using a weighted multi-factor scoring system:
 
 - **Scan Windows**: Only scans ~2000 characters around the caret in long messages.
 - **Dynamic Capping**: Literal match searching is throttled at 1000 candidates for standard inputs to maintain 60fps.
+- **Suggestion Result Cache**: Recent suggestion lists are cached by normalized word, locale, user-dict revision, and max suggestion count, reducing repeated candidate scoring for the same misspelled token.
 - **Dictionary Doubling Prevention**: The engine explicitly detects pre-filled builder data to avoid redundant word insertions, preventing 2x memory spikes during dictionary reloads.
 
 ## Hidden/Advanced Settings
@@ -69,8 +70,11 @@ Yapper ranks candidates using a weighted multi-factor scoring system:
 These settings are not exposed in the UI but can be modified via command line or `YapperLocalConf`.
 
 - **N-gram Vocabulary Cap (`Spellcheck.NgramKeyCapSize`)**: The number of words indexed in the n-gram engine can be capped (default 0/uncapped) to limit memory overhead.
+- **Suggestion Cache Size (`Spellcheck.SuggestionCacheSize`)**: Controls how many distinct word suggestion results are kept in memory. Defaults to 50; set to 0 to disable.
 - **Lazy Phonetic Bucketing**: Categorization of large phonetic groups is capped at 5000 entries to prevent O(N) scaling hangs on massive sounding buckets.
 - **Linear Metadata Purge**: Metadata eviction uses a fast linear-scan approach instead of O(N log N) sorting, ensuring steady performance during long sessions.
+- **Suggestion Result Cache**: Recent suggestion lists are cached by normalized word, locale, user-dict revision, and max suggestion count. This avoids recomputing expensive `GetSuggestions()` results for repeated misspellings.
+- **Compound Split Detection**: Run-together words are now checked for exact two-word splits (for example, `I'msupposed` → `I'm supposed`) and those split corrections are surfaced before adaptive learning is applied.
 - **Fast Variant Rules**: Uses table-based prefix/suffix lookups for regional spelling differences (`or` vs `our`) to avoid `string.gsub` overhead in hot loops.
 - **Parented Measuring**: Measurement `FontString` widgets are parented to the Overlay frame to ensure perfect scale inheritance and coordinate parity with the EditBox.
 - **Cursor Idle Polling**: Text measurements are cached by cursor position, skipping redundant processing when the caret is stationary.

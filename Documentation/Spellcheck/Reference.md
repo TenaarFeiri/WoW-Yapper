@@ -52,7 +52,9 @@ The primary entry point for word ranking.
 3.  **N-gram Refinement**: Filters candidates based on bigram overlap.
 4.  **Edit Distance**: Computes Damerau-Levenshtein distance for the top ~300 candidates.
 5.  **Scoring**: Applies weighted bonuses for keyboard proximity, locale variants, and phonetic complexity.
-6.  **Adaptive Learning**: Injects personalised biases based on [YALLM](YALLM.md) frequency and correction history.
+6.  **Compound Split Detection**: Checks whether the typed token can be exactly split into two valid dictionary words and, if so, prepends an exact split suggestion.
+7.  **Adaptive Learning**: Injects personalised biases based on [YALLM](YALLM.md) frequency and correction history.
+8.  **Suggestion Cache Reuse**: Final suggestion lists are cached and reused for repeated requests on the same word, locale, and user-dict revision.
 
 **Weights Used**:
 - `editDistance`: 1.25
