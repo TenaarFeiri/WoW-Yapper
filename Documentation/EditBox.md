@@ -72,3 +72,6 @@ Yapper avoids the `SendChatMessage` taint introduced in WoW 12.0.0 by:
 
 ### The Blink Isolation
 To preserve the caret blink animation while spellcheck textures are active, Yapper uses a dedicated `UnderlineLayer` and detaches its measurement `FontString` from the UI parent to prevent layout invalidation loops.
+
+### Underline Geometry
+Underline and highlight textures are rendered using overlay-local coordinates and exact cursor/line-height measurements. This avoids visual drift when the text wraps to a new line or when UI scale changes affect the EditBox frame height.

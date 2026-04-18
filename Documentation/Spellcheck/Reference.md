@@ -98,6 +98,7 @@ Hooked to the EditBox's `OnTextChanged` script.
 Evaluates the visible text area and draws red underlines for misspellings.
 - **Scan Window**: Clamped to `SCAN_RADIUS` (default 1000 chars) around the cursor.
 - **Blink Isolation**: Textures are anchored to a dedicated layer to prevent cursor-blink resets.
+- **Exact Geometry**: Single-line underlines use the true cursor height for vertical placement, while multiline underlines are positioned using the measured full text prefix plus word-wrap boundaries. This keeps highlights aligned even when lines wrap or the overlay is scaled.
 
 ### `Spellcheck:ShowSuggestions()`
 Positions and renders the suggestion menu.

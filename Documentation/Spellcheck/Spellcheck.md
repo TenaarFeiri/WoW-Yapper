@@ -77,4 +77,5 @@ These settings are not exposed in the UI but can be modified via command line or
 - **Compound Split Detection**: Run-together words are now checked for exact two-word splits (for example, `I'msupposed` → `I'm supposed`) and those split corrections are surfaced before adaptive learning is applied.
 - **Fast Variant Rules**: Uses table-based prefix/suffix lookups for regional spelling differences (`or` vs `our`) to avoid `string.gsub` overhead in hot loops.
 - **Parented Measuring**: Measurement `FontString` widgets are parented to the Overlay frame to ensure perfect scale inheritance and coordinate parity with the EditBox.
+- **Exact Underline Placement**: Highlight and underline positions are now derived from the actual rendered cursor height and precise word-wrap boundaries, rather than from EditBox frame height heuristics. This keeps visual feedback aligned across UI scale changes and on wrapped multiline text.
 - **Cursor Idle Polling**: Text measurements are cached by cursor position, skipping redundant processing when the caret is stationary.
