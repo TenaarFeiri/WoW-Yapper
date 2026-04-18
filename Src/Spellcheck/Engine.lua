@@ -764,9 +764,13 @@ function Spellcheck:GetSuggestions(word)
     local first = lower:sub(1, 1)
     local maxCandidates = (type(self.GetMaxCandidates) == "function") and self:GetMaxCandidates() or 1000
 
-    -- Suggestion cache: reuse recent result when unchanged.
+    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount.
     self._suggestionCache = self._suggestionCache or {}
     local sc = self._suggestionCache
+    local cacheKey = lower .. "|" .. locale .. "|" .. tostring(userRev) .. "|" .. tostring(maxCount)
+    if sc[cacheKey] then
+        return sc[cacheKey]
+    end
 
     -- Base dict if this is a delta
     local base = dict.extends and self.Dictionaries[dict.extends]
@@ -935,12 +939,45 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    sc.word = lower
-    sc.dict = dict
-    sc.userRev = userRev
-    sc.locale = locale
-    sc.maxCandidates = maxCandidates
-    sc.result = final
+    -- ── Compound split detection ─────────────────────────────────────────
+    -- Check if the misspelled token is two valid dictionary words run together
+    -- (e.g. "I'msupposed" → "I'm supposed"). Exact splits only; YALLM is
+    -- intentionally bypassed for these entries since both halves are already
+    -- valid words and there is nothing for the learner to remember.
+    local minSplitLen = math_max(2, self:GetMinWordLength())
+    if lowerLen > minSplitLen * 2 then
+        local splitResults = {}
+        for i = minSplitLen, lowerLen - minSplitLen do
+            local left  = lower:sub(1, i)
+            local right = lower:sub(i + 1)
+            if self:IsWordCorrect(left) and self:IsWordCorrect(right) then
+                splitResults[#splitResults + 1] = {
+                    kind  = "split",
+                    value = word:sub(1, i) .. " " .. word:sub(i + 1),
+                }
+                if #splitResults >= 3 then break end
+            end
+        end
+        if #splitResults > 0 then
+            local nSplits = #splitResults
+            for i = #final, 1, -1 do
+                final[i + nSplits] = final[i]
+            end
+            for i, s in ipairs(splitResults) do
+                final[i] = s
+            end
+        end
+    end
+
+    local cacheCap = (type(self.GetSuggestionCacheSize) == "function") and self:GetSuggestionCacheSize() or 50
+    if cacheCap > 0 then
+        local count = 0
+        for _ in pairs(sc) do count = count + 1 end
+        if count >= cacheCap then
+            wipe(sc)
+        end
+        sc[cacheKey] = final
+    end
 
     return final
 end
@@ -1021,6 +1058,9 @@ function Spellcheck:FormatSuggestionLabel(entry, index)
     end
     if type(entry) ~= "table" then
         return index .. ". -"
+    end
+    if entry.kind == "split" then
+        return index .. ". Split: " .. (entry.value or "")
     end
     if entry.kind == "add" then
         return index .. ". Add \"" .. (entry.value or "") .. "\" to dictionary"

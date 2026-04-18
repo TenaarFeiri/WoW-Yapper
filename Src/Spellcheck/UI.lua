@@ -987,6 +987,42 @@ function Spellcheck:ApplySuggestion(index)
         self._lastUnderlinesText = nil
         self:ScheduleRefresh()
         return
+    elseif type(entry) == "table" and entry.kind == "split" then
+        -- Apply compound split as a direct text replacement.
+        -- YALLM recording is intentionally skipped: both halves are already
+        -- valid dictionary words, so there is nothing for the learner to store.
+        -- (The first RecordSelection call above receives entry.word = nil and
+        -- safely no-ops via YALLM's own empty-string guard.)
+        local splitReplacement = entry.value
+        if not splitReplacement then return end
+        local splitText  = self.EditBox and self.EditBox:GetText() or ""
+        local splitStart = self.ActiveRange.startPos
+        local splitEnd   = self.ActiveRange.endPos
+        if not splitStart or not splitEnd then return end
+        local splitBefore = splitText:sub(1, splitStart - 1)
+        local splitAfter  = splitText:sub(splitEnd + 1)
+        local splitNew    = splitBefore .. splitReplacement .. splitAfter
+        if YapperTable and YapperTable.History and self.EditBox then
+            YapperTable.History:AddSnapshot(self.EditBox, true)
+        end
+        self.EditBox:SetText(splitNew)
+        local splitCursor = #splitBefore + #splitReplacement
+        self.EditBox:SetCursorPosition(splitCursor)
+        local splitBoxRef = self.EditBox
+        C_Timer.After(0, function()
+            if splitBoxRef and splitBoxRef.SetFocus then splitBoxRef:SetFocus() end
+        end)
+        self._suppressNextChar = true
+        self._suppressChar = tostring(index)
+        self._expectedText = splitNew
+        self._expectedCursor = splitCursor
+        self:HideSuggestions()
+        self._textChangedFlag = true
+        if YapperTable.API then
+            YapperTable.API:Fire("SPELLCHECK_APPLIED", splitText:sub(splitStart, splitEnd), splitReplacement)
+        end
+        self:ScheduleRefresh()
+        return
     end
 
     local replacement = (type(entry) == "table") and (entry.value or entry.word) or entry
