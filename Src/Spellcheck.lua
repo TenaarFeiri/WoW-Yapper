@@ -491,6 +491,7 @@ function Spellcheck:AddUserWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
+    self._suggestionCache = {}
     if YapperTable.API then
         YapperTable.API:Fire("SPELLCHECK_WORD_ADDED", word, locale)
     end
@@ -513,6 +514,7 @@ function Spellcheck:IgnoreWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
+    self._suggestionCache = {}
     if YapperTable.API then
         YapperTable.API:Fire("SPELLCHECK_WORD_IGNORED", word, locale)
     end
@@ -526,6 +528,11 @@ end
 function Spellcheck:GetMaxCandidates()
     local cfg = self:GetConfig()
     return Clamp(tonumber(cfg.MaxCandidates) or 800, 50, 5000)
+end
+
+function Spellcheck:GetSuggestionCacheSize()
+    local cfg = self:GetConfig()
+    return Clamp(tonumber(cfg.SuggestionCacheSize) or 50, 0, 500)
 end
 
 function Spellcheck:GetReshuffleAttempts()
