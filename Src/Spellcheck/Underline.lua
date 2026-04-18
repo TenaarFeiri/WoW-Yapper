@@ -278,33 +278,50 @@ function Spellcheck:DrawUnderline(startPos, endPos, text, scrollOffset)
     -- Compute offsets from the UnderlineLayer (covers the Overlay) to the EditBox
     -- text baseline.  Anchoring here avoids touching the EditBox layout, which
     -- would reset the cursor blink timer on every keystroke.
-    local ebLeft   = self.EditBox:GetLeft()   or 0
-    local ovLeft   = self.Overlay:GetLeft()   or 0
-    local ebBottom = self.EditBox:GetBottom() or 0
-    local ovTop    = self.Overlay:GetTop()    or 0
-    local ebTop    = self.EditBox:GetTop()    or 0
-    local offsetX    = (ebLeft - ovLeft) + x
-    local offsetTopY = -(ovTop - ebTop)  -- negative: Y grows downward in SetPoint
+    local ebLeft = self.EditBox:GetLeft() or 0
+    local ovLeft = self.Overlay:GetLeft() or 0
+    local offsetX = (ebLeft - ovLeft) + x
+
+    -- Determine the visual line height.  OnCursorChanged gives us the cursor
+    -- height which equals the actual rendered line height, immune to any frame
+    -- resizing done by addons like ElvUI.  Fall back to the EditBox font size
+    -- (or a safe default) when cursor data is not yet available.
+    local lineH
+    if type(self._lastCursorH) == "number" and self._lastCursorH > 0 then
+        lineH = self._lastCursorH
+    else
+        local _, fontSize = self.EditBox:GetFont()
+        lineH = (type(fontSize) == "number" and fontSize > 0) and fontSize or 14
+    end
+
+    -- The EditBox is inset `pad` px inside the Overlay on every side (0 when
+    -- no border theme is active).  Single-line WoW EditBoxes vertically centre
+    -- their text, so the text occupies a `lineH`-tall band in the middle of the
+    -- EditBox.  Compute the top and bottom of that band in overlay-local Y
+    -- (negative = downward from TOPLEFT), independent of the EditBox height.
+    local activeTheme  = YapperTable.Theme and YapperTable.Theme:GetTheme()
+    local borderActive = activeTheme and activeTheme.border == true
+    local pad          = (borderActive and self.Overlay.BorderPad) or 0
+    local editBoxH     = self.EditBox:GetHeight() or (lineH + 2 * pad)
+    local textTopY     = -(pad + (editBoxH - lineH) / 2)   -- Y of text top from overlay TOPLEFT
+    local textBotY     = textTopY - lineH                   -- Y of text bottom
 
     local tex   = self:AcquireUnderline()
     local style = self:GetUnderlineStyle()
     local cfg   = self:GetConfig()
 
     if style == "highlight" then
-        local height = (self.EditBox:GetHeight() or 20) - 6
         local c = cfg.HighlightColor or { r = 1, g = 0.18, b = 0.18, a = 0.36 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
-        tex:SetSize(w, height)
+        tex:SetSize(w, lineH)
         tex:ClearAllPoints()
-        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, offsetTopY - 3)
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, textTopY)
     else
-        local ovBottom   = self.UnderlineLayer:GetBottom() or 0
-        local offsetBotY = ebBottom - ovBottom
         local c = cfg.UnderlineColor or { r = 1, g = 0.2, b = 0.2, a = 0.9 }
         tex:SetColorTexture(c.r, c.g, c.b, c.a)
         tex:SetSize(w, 2)
         tex:ClearAllPoints()
-        tex:SetPoint("BOTTOMLEFT", self.UnderlineLayer, "BOTTOMLEFT", offsetX, offsetBotY + 2)
+        tex:SetPoint("TOPLEFT", self.UnderlineLayer, "TOPLEFT", offsetX, textBotY - 1)
     end
 
     tex:Show()
@@ -378,13 +395,14 @@ function Spellcheck:SyncMLMeasureFont(boxWidth)
     fs:SetWidth(boxWidth)
 end
 
--- Measure where the END of `prefix` falls inside a word-wrapped box.
--- Returns: lineIndex (0-based), xOnLine (pixels from left), lineHeight.
+-- Measure where a `word` appended to `prefix` falls inside a word-wrapped box.
+-- Returns: yPixels (pixel distance from text-area top to the word's line),
+--          xOnLine (pixels from left), lineHeight.
 --
--- Uses binary search to find the start of the last visual line without
--- reimplementing WoW's word-wrap algorithm.  The search is O(log N) in
--- character count — typically ~10 SetText calls for a 1000-char prefix.
-function Spellcheck:MeasureMLPrefix(prefix, boxWidth)
+-- To correctly account for word-wrap, we must measure the prefix AND the word
+-- together.  If we only measure prefix, WoW might fit it on line N, but adding
+-- the word might force the word itself to line N+1.
+function Spellcheck:MeasureMLWord(prefix, word, boxWidth)
     self:EnsureMLMeasureFS()
     local fs = self.MLMeasureFS
     if not fs then return 0, 0, 14 end
@@ -393,66 +411,66 @@ function Spellcheck:MeasureMLPrefix(prefix, boxWidth)
     local lineHeight = fs:GetLineHeight() or 14
     if lineHeight <= 0 then lineHeight = 14 end
 
-    if not prefix or prefix == "" then
-        return 0, 0, lineHeight
-    end
+    local fullText = (prefix or "") .. (word or "")
+    if fullText == "" then return 0, 0, lineHeight end
 
-    -- Split on hard newlines FIRST.  FontString:GetStringHeight() collapses a
-    -- trailing "\n" and does not count it as an extra visual line, but the
-    -- EditBox always advances the cursor to a new line.  If we measured the
-    -- whole prefix in one call, lineIndex would be 0 when prefix ends with
-    -- "\n", placing every underline on line 0.  Processing paragraphs one at
-    -- a time makes hard-newline line counts correct regardless of trailing \n.
-    local segments = {}
-    for seg in (prefix .. "\n"):gmatch("([^\n]*)\n") do
-        segments[#segments + 1] = seg
-    end
+    -- 1. Y coordinate
+    -- Because fullText ends with our word (misspellings don't have trailing newlines),
+    -- GetStringHeight cleanly measures everything including embedded \n without collapsing.
+    fs:SetText(fullText)
+    local totalH = fs:GetStringHeight() or lineHeight
+    local yPixels = totalH - lineHeight
+    if yPixels < 0 then yPixels = 0 end
 
-    -- Accumulate visual-line counts for completed paragraphs (all but the last).
-    local lineIndex = 0
-    for i = 1, #segments - 1 do
-        local seg = segments[i]
-        if seg == "" then
-            lineIndex = lineIndex + 1  -- blank hard-newline → one empty visual line
-        else
-            fs:SetText(seg)
-            local h = fs:GetStringHeight() or lineHeight
-            lineIndex = lineIndex + math_max(1, math_floor(h / lineHeight + 0.5))
-        end
-    end
-
-    -- The last segment is the text after the final "\n" (or the whole prefix
-    -- when there are no "\n"s).  It may itself word-wrap.
-    local lastSeg = segments[#segments]
+    -- 2. X coordinate
+    -- The word is at the very end of the text. It must reside on the last
+    -- visual line of the final paragraph.
+    local lastPara = fullText:match("([^\n]*)$") or fullText
     local xOnLine = 0
 
-    if lastSeg ~= "" then
-        fs:SetText(lastSeg)
-        local h        = fs:GetStringHeight() or lineHeight
-        local segLines = math_max(1, math_floor(h / lineHeight + 0.5))
+    if lastPara ~= "" then
+        fs:SetText(lastPara)
+        local paraH = fs:GetStringHeight() or lineHeight
+        local paraLines = math_max(1, math_floor(paraH / lineHeight + 0.5))
 
-        if segLines == 1 then
-            -- No word-wrap: measure directly with single-line MeasureText.
-            xOnLine = self:MeasureText(lastSeg)
+        if paraLines == 1 then
+            -- Entire paragraph fits on one line.
+            local beforeWord = string_sub(lastPara, 1, #lastPara - #word)
+            xOnLine = self:MeasureText(beforeWord)
         else
-            -- Word-wrap within last segment: add the intermediate visual lines
-            -- and binary-search for the start of the last visual line.
-            lineIndex = lineIndex + segLines - 1
-            local lo, hi = 1, #lastSeg
+            -- Paragraph wraps. Binary search for the start of its last visual line.
+            local lo, hi = 1, #lastPara
             while lo < hi do
                 local mid = math_floor((lo + hi) / 2)
-                fs:SetText(string_sub(lastSeg, 1, mid))
+                fs:SetText(string_sub(lastPara, 1, mid))
                 local mh = fs:GetStringHeight() or lineHeight
                 local n  = math_max(1, math_floor(mh / lineHeight + 0.5))
-                if n < segLines then lo = mid + 1 else hi = mid end
+                if n < paraLines then lo = mid + 1 else hi = mid end
             end
-            -- Strip the leading space that word-wrap consumed at the line break.
-            local tail = string_sub(lastSeg, lo):match("^[ ]*(.*)$") or ""
-            xOnLine = self:MeasureText(tail)
+
+            -- Backtrack to the actual word-wrap boundary (a space).
+            local spaceIdx = string_sub(lastPara, 1, lo):match(".*()[ \t]")
+            local tailStart = lo
+            if spaceIdx then
+                fs:SetText(string_sub(lastPara, 1, spaceIdx))
+                local spaceH = fs:GetStringHeight() or lineHeight
+                local spaceLines = math_max(1, math_floor(spaceH / lineHeight + 0.5))
+                if spaceLines == paraLines - 1 then
+                    tailStart = spaceIdx + 1
+                end
+            end
+
+            local lastLineText = string_sub(lastPara, tailStart)
+            lastLineText = lastLineText:match("^[ ]*(.*)$") or ""
+
+            if #lastLineText >= #word then
+                local beforeWord = string_sub(lastLineText, 1, #lastLineText - #word)
+                xOnLine = self:MeasureText(beforeWord)
+            end
         end
     end
 
-    return lineIndex, xOnLine, lineHeight
+    return yPixels, xOnLine, lineHeight
 end
 
 -- Return the vertical scroll position of the multiline EditBox in pixels.
@@ -493,7 +511,7 @@ function Spellcheck:DrawUnderline_ML(startPos, endPos, text, vertScroll, boxWidt
 
     local prefix = string_sub(text, 1, startPos - 1)
     local word   = string_sub(text, startPos, endPos)
-    local lineIndex, xOnLine, lineHeight = self:MeasureMLPrefix(prefix, boxWidth)
+    local yPixels, xOnLine, lineHeight = self:MeasureMLWord(prefix, word, boxWidth)
     local w = self:MeasureText(word)
 
     -- Clip to right edge of this visual line.
@@ -505,8 +523,10 @@ function Spellcheck:DrawUnderline_ML(startPos, endPos, text, vertScroll, boxWidt
     if w <= 0 then return end
 
     -- Clip to vertical visibility (skip lines scrolled out of view).
+    -- yPixels is the pixel distance from text-area top to this line's top,
+    -- computed from GetStringHeight() accumulation (no lineCount*lineHeight drift).
     local ebHeight   = self.EditBox:GetHeight() or 200
-    local lineTop    = lineIndex * lineHeight - vertScroll
+    local lineTop    = yPixels - vertScroll
     local lineBottom = lineTop + lineHeight
     if lineBottom <= 0 or lineTop >= ebHeight then return end
 

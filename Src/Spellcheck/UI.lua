@@ -291,6 +291,13 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
         self._lastCursorVisX = x
     end
 
+    -- Capture cursor height (= line height ≈ font size). Used by DrawUnderline
+    -- to size highlights/underlines correctly regardless of the overlay height
+    -- (which can vary when addons like ElvUI resize the chat editbox).
+    if type(h) == "number" and h > 0 then
+        self._lastCursorH = h
+    end
+
     -- Early-exit guard: if neither the cursor position nor the text has changed
     -- since the last call, skip all work. This prevents redundant processing
     -- during rapid OnCursorChanged fires (e.g. holding an arrow key).
