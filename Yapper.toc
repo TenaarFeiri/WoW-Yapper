@@ -1,7 +1,7 @@
 ## Interface: 120001, 120005
 ## Title: Yapper
 ## Notes: Accessibility-centric and encounter-safe editbox replacement for your chat, incl. post splitting.
-## Version: 2.0.3-beta
+## Version: 2.0.4-beta
 ## Author: Sara Schulze Øverby
 ## IconTexture: 6624474
 ## Category: Chat
@@ -63,6 +63,7 @@ Src/Bridges/GopherBridge.lua
 Src/Bridges/TypingTrackerBridge.lua
 Src/Bridges/RPPrefixBridge.lua
 Src/Bridges/WIMBridge.lua
+Src/Bridges/ElvUIBridge.lua
 Src/Router.lua
 Src/Chunking.lua
 Src/Queue.lua
