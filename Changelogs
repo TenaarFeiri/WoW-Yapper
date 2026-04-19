@@ -1,3 +1,26 @@
+-- ***NEW FEATURES IN 2.0***
+- YALLM learning and ranking
+  - Added adaptive YALLM learning to track common words, manual corrections, and improve autocomplete relevance over time. (added in 2.0.1)
+  - Added selection bias, implicit backtrack learning, rejection feedback, phonetic pattern learning, and anti-contamination filters to make YALLM correction learning smarter and more robust. (added in 2.0.1)
+  - Added YALLM-based ranking so your most-used words surface first and accepted suggestions improve ranking automatically. (added in 2.0.2)
+  - Added YALLM apostrophe-prefix matching so typing `that'` still surfaces `that's`. (added in 2.0.2)
+- Autocomplete enhancements
+  - Added ghost-text predictive word completion with a muted caret preview and Tab acceptance. (added in 2.0.2)
+  - Added a tiered autocomplete cascade using YALLM vocabulary, custom added words, locale dictionary search, and base fallback. (added in 2.0.2)
+  - Added support for custom dictionary words as a second autocomplete source immediately after YALLM. (added in 2.0.2)
+  - Added capitalisation mirroring for autocomplete suggestions so casing matches the typed prefix. (added in 2.0.2)
+- Spellcheck improvements
+  - Added capitalised spellcheck suggestions so the suggestion popup mirrors the case of the misspelled word. (added in 2.0.2)
+  - Added suggestion pagination with up to six spellcheck suggestions per page and a `More Suggestions »` cycle. (added in 2.0.1)
+- Settings and UI
+  - Added an Adaptive Learning settings tab with live tables for learned words, corrections, phonetic patterns, and rejected suggestions. (added in 2.0.1)
+  - Added tuning sliders for Vocabulary Cap, Correction Bias Cap, and Auto-learn Threshold. (added in 2.0.1)
+  - Added a help page in the settings dialog with instructions for using Yapper's chat features. (added in 2.0.3)
+  - Added an icon gallery for inserting raid target icons via `{star`, `{circle`, etc. (added in 2.0.3)
+- Compatibility and API
+  - Added the public `_G.YapperAPI` addon API with filters, callbacks, readonly accessors, and structured `API_ERROR` reporting. (added in 2.0.1)
+  - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
+
 -- 2.0.4
   - *Bugfixes:*
     - Fixed an issue where Blizzard skin proxy mode made the multiline editor render transparently.
@@ -10,48 +33,12 @@
     - Fixed numerous visual bugs in the overlay, ghost text and the multiline editor.
     - Fixed minor alignment bugs in the settings dialog.
 
-  - *Additions:*
-    - Added a new help page to the settings dialog, which contains instructions for using Yapper's chat features.
-    - Yapper now includes an icon gallery for quickly inserting raid target icons into your messages. Type `{star`, `{circle`, etc. to open.
-
 -- 2.0.2
-  - *Autocomplete:*
-    - **Ghost-text Completion:** Predictive word completion is now live. As you type, a muted ghost preview appears after the caret showing the most likely completion. Press **Tab** to accept; any other key refines or dismisses it.
-    - **Tiered Data Cascade:** Suggestions resolve through four sources in priority order — your personal YALLM vocabulary (highest priority), custom added-words dictionary, primary locale dictionary (binary search, O(log N)), and base-dictionary fallback.
-    - **YALLM Integration:** Your most-used words surface first. Accepting a suggestion via Tab silently records usage so the ranking improves over time.
-    - **Dismissal Learning (negBias):** Typing away from a suggestion is counted as a soft rejection. Repeatedly dismissed suggestions are penalised in future rankings, up to a cap of −12 points.
-    - **Capitalisation Mirroring:** If your typed prefix starts with an uppercase letter (sentence-start or proper noun), the suggested completion is capitalised to match. Applies consistently across all tiers.
-    - **YALLM Prefix Matching:** YALLM frequency keys strip apostrophes (e.g. "that's" is stored as "thats"). Autocomplete now matches against both the raw and the cleaned prefix, so typing "that'" still surfaces "that's".
-    - **Custom Words:** Words you have added via "Add to dictionary" are now searched as a second autocomplete source, immediately after YALLM.
-  - *Spellcheck:*
-    - **Capitalised Suggestions:** The suggestion popup now mirrors the capitalisation of the misspelled word. Typing "Prefct" suggests "Perfect" rather than "perfect".
+  - *Bugfixes:*
     - **Multiline Underline Alignment:** Spellcheck highlight underlines in multiline mode were drawn 1 px too far right. Fixed.
-  - *Stability:*
     - **`math_min` crash fix:** Fixed a `nil value` error in `Autocomplete.lua` when the dismissal penalty code ran — `math_min` was used but not localised.
 
 -- 2.0.1
-  - *The Engine Now Learns:*
-    - **Adaptive Learning (YALLM):** Yapper now tracks your common words and manual corrections. Over time, the engine learns your vocabulary profile so the first suggestion is actually what you meant.
-    - **Selection Bias:** Manually overriding a suggestion (e.g. choosing "heart" over "hear") now sticks. The engine remembers your preference for future collisions.
-    - **Implicit Backtrack Learning:** If you dismiss a suggestion and retype the word yourself, the engine silently notices. It scores the lesson by how similar your correction was to the suggestion, so it learns more confidently from clear corrections than ambiguous ones.
-    - **Rejection Feedback:** Clicking "More Suggestions »" now counts as a soft rejection for the suggestions you skipped. The engine uses this to rank those words lower next time.
-    - **Phonetic Pattern Learning:** Corrections are now tracked by sound as well as spelling. If you consistently correct words that sound like "ther" to "there", the engine picks up the pattern across all similar collisions, not just that exact word.
-    - **Anti-Contamination:** Added common-sense filters to stop the dictionary from learning "keyboard smash" gibberish or accidental typos.
-  - *Suggestions UI:*
-    - **Suggestion Pagination:** When there are more than six suggestions, a "More Suggestions »" row appears at the bottom. Clicking it cycles to the next page; after the last page it wraps back to the top. Up to six suggestions are shown per page when browsing; six are always shown on the first page if the total fits.
-  - *New Settings — Adaptive Learning Tab:*
-    - A new "Adaptive Learning" tab has been added to Settings. It shows live tables of everything YALLM has learned: your most-used words, learned corrections, phonetic patterns, and rejected suggestions.
-    - Three new tuning sliders control the caps: **Vocabulary Cap** (how many words to track), **Correction Bias Cap** (how many correction pairs to store), and **Auto-learn Threshold** (how many times a word must appear before it's added automatically).
-  - *Compatibility:*
-    - **RP Prefix (by Zee/Songzee):** If you use the RP Prefix addon, Yapper now correctly prepends your prefix to the *first* post of a split message only. Previously the prefix would appear on every continuation chunk.
-  - *Public API for Addon Developers:*
-    - **YapperAPI:** Introduced `_G.YapperAPI`, a public, sandboxed API that lets other addons hook into Yapper without touching internals.
-    - **Filters (pre-hooks):** Register filters on `PRE_SEND`, `PRE_CHUNK`, or `PRE_SPELLCHECK` to inspect, modify, or cancel operations before they happen. Filters support priority ordering and explicit cancellation.
-    - **Callbacks (post-hooks):** Subscribe to events like `POST_SEND`, `CONFIG_CHANGED`, `EDITBOX_SHOW`, `EDITBOX_HIDE`, `EDITBOX_CHANNEL_CHANGED`, and `THEME_CHANGED` for fire-and-forget notifications.
-    - **Read-only Accessors:** `GetVersion()`, `GetCurrentTheme()`, `IsOverlayShown()`, and `GetConfig(path)` let external addons inspect Yapper's state without risk.
-    - **Error Reporting (API_ERROR):** External handler errors are caught, serialised, and emitted as `API_ERROR` callbacks so addon authors get structured, programmatic failure reports.
-    - **Owner-Targeted Delivery:** Errors are attributed to the addon that registered the failing handler and delivered preferentially to that addon's `API_ERROR` handlers, falling back to a broadcast if none exist.
-    - **Bridge Conversion:** RPPrefixBridge, TypingTrackerBridge, and GopherBridge now use the public API instead of reaching into Yapper internals.
   - *Structural Cleanup:*
     - **Monolith Split:** The three largest files — Interface.lua (4 100+ lines), Spellcheck.lua (3 300+ lines), and EditBox.lua (2 900+ lines) — have each been broken into focused sub-modules. Spellcheck now loads as 6 files, EditBox as 5, and Interface settings as several panel files.
     - **Spring Cleaning:** Purged a lot of legacy "orphaned" code and redundant N-gram relics that were just taking up space. The engine is leaner and faster.
