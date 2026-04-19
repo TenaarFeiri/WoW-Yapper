@@ -1,4 +1,4 @@
--- ***NEW FEATURES IN 2.0***
+# NEW FEATURES IN 2.0
 - Added a multiline editor, which supports editing long messages in a larger, resizable window with full Yapper features. Hit Shift-Enter to activate the editor for easier edits. (added in 2.0.1)
 - YALLM learning and ranking
   - Added adaptive YALLM learning to track common words, manual corrections, and improve autocomplete relevance over time. (added in 2.0.1)
