@@ -22,6 +22,7 @@
   - Added the public `_G.YapperAPI` addon API with filters, callbacks, readonly accessors, and structured `API_ERROR` reporting. (added in 2.0.1)
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
+## Patch notes
 -- 2.0.4
   - *Bugfixes:*
     - Fixed an issue where Blizzard skin proxy mode made the multiline editor render transparently.
