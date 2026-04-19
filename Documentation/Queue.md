@@ -32,6 +32,8 @@ Every chat type is assigned to a `POLICY_CLASS` which controls how the queue beh
 
 **Note on leader echo variants:** When sending to group channels the server may echo outgoing messages using a "_LEADER" variant if the sender is the group leader (for example, `CHAT_MSG_PARTY_LEADER` instead of `CHAT_MSG_PARTY`). The queue accepts either the leader or non-leader echo as a valid acknowledgement, preventing stalled deliveries when the sender is the leader.
 
+**Maintenance note:** Because Blizzard does not expose a comprehensive on-demand event list, this matching logic must be updated manually if group chat echo event names or payload formats change. The relevant code lives in `Src/Queue.lua`, especially `SEND_POLICIES.GROUP.ackEvent`, `ACK_SIBLING`, and `Queue:OnChatEvent()`. Focus updates on the group chat leader variants and any change to the sender GUID/text echo arguments.
+
 **Open World SAY/YELL require a hardware event** (Blizzard anti-spam protection for protected sends). Yapper shows a "Continue" button to satisfy this requirement.
 
 ## The Continuation Prompt
