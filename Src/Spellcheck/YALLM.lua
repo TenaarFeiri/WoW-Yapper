@@ -183,6 +183,7 @@ function YALLM:GetLocaleDB(locale)
     end
     if db.freqSorted ~= nil and type(db.freqSorted) ~= "table" then
         db.freqSorted = nil
+        db.freqSortedDirty = true
     end
     return db
 end

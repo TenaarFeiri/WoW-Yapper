@@ -72,11 +72,11 @@ print(string.format("\nTotal Time: %.3f s", total))
 print(string.format("Final Cache Count: %d", SC._suggestionCacheCount))
 
 local locale = SC:GetLocale()
-local userRevKey = false
+local noUserRev = false
 local nested = SC._suggestionCache["word1"]
     and SC._suggestionCache["word1"][locale]
-    and SC._suggestionCache["word1"][locale][userRevKey]
-    and SC._suggestionCache["word1"][locale][userRevKey][SC:GetMaxSuggestions()]
+    and SC._suggestionCache["word1"][locale][noUserRev]
+    and SC._suggestionCache["word1"][locale][noUserRev][SC:GetMaxSuggestions()]
 if nested then
     print("Nested cache shape verified: cache[word][locale][userRev][maxCount]")
 else
