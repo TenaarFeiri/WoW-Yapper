@@ -408,7 +408,7 @@ Binds to overlay (or multiline) editbox when available.
 - Fields:
   - `GhostFS`, `CurrentSugg`, `CurrentPrefix`, `PrefixText`, `Active`, `Enabled`, `_activeEditBox`, `_isMultiline` ([`../Src/Autocomplete.lua#L57-L64`](../Src/Autocomplete.lua#L57-L64)).
 - Methods:
-  - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `MeasureText`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua#L89-L757`](../Src/Autocomplete.lua#L89-L757)).
+  - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 
 ## History
 

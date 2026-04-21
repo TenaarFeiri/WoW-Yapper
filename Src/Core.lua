@@ -186,6 +186,7 @@ local DEFAULTS = {
         MaxWrongLetters    = 4,
         -- N-gram index (bigram) settings
         UseNgramIndex      = true,
+        NgramTopCandidates = 300,
         NgramN             = 2,
         NgramMaxPosting    = 200,
         -- Cap on unique bigram keys built during dictionary indexing.
