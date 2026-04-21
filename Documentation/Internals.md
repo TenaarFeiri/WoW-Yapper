@@ -4,6 +4,22 @@
 
 All sections below follow TOC load order from [`Yapper.toc`](../Yapper.toc).
 
+## Audit pass checklist (double-pass)
+
+This pass re-checked `Src/**/*.lua` function definitions and table-field assignments against this document. Covered module set:
+
+`Core`, `Utils`, `Error`, `Frame`, `EventFrames`, `Events`, `API`, `Spellcheck`, `Spellcheck.Dictionary`, `Spellcheck.Engine`, `Spellcheck.UI`, `Spellcheck.Underline`, `Spellcheck.YALLM`, `IconGallery`, `EditBox`, `EditBox.SkinProxy`, `EditBox.Overlay`, `EditBox.Handlers`, `EditBox.Hooks`, `GopherBridge`, `TypingTrackerBridge`, `RPPrefixBridge`, `WIMBridge`, `ElvUIBridge`, `Router`, `Chunking`, `Queue`, `Chat`, `Multiline`, `Autocomplete`, `History`, `Theme`, `Interface`, `Interface.Schema`, `Interface.Config`, `Interface.Window`, `Interface.Widgets`, `Interface.Pages`.
+
+## YapperTable root (`_G.Yapper`)
+
+Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
+
+- Description: global namespace alias for the addon-private table.
+- Fields:
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L205`](../Yapper.lua#L205)).
+- Methods:
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L200`](../Yapper.lua#L200)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+
 ## Core
 
 Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L110).
@@ -103,7 +119,9 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `LanguageEngines: table` family → engine ([`../Src/Spellcheck.lua#L38`](../Src/Spellcheck.lua#L38)).
   - `KnownLocales: string[]` ([`../Src/Spellcheck.lua#L39-L44`](../Src/Spellcheck.lua#L39-L44)).
   - `LocaleAddons: table` locale → addon name ([`../Src/Spellcheck.lua#L49-L55`](../Src/Spellcheck.lua#L49-L55)).
-  - UI/runtime state: `EditBox`, `Overlay`, `SuggestionFrame`, `HintFrame`, `UnderlinePool`, `Underlines`, `ActiveSuggestions`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L56-L75`](../Src/Spellcheck.lua#L56-L75)).
+  - UI/runtime state: `EditBox`, `Overlay`, `MeasureFS`, `UnderlinePool`, `Underlines`, `SuggestionFrame`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `HintFrame`, `_debounceTimer` ([`../Src/Spellcheck.lua#L56-L75`](../Src/Spellcheck.lua#L56-L75)).
+  - Dictionary/user state: `UserDictCache`, `_pendingLocaleLoads`, `DictionaryBuilders` ([`../Src/Spellcheck.lua#L69-L71`](../Src/Spellcheck.lua#L69-L71)).
+  - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
   - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
 - Methods:
   - `Spellcheck:Init(threads) → nil` ([`../Src/Spellcheck.lua#L187`](../Src/Spellcheck.lua#L187))
@@ -212,8 +230,10 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
 - Fields:
   - Runtime frames/state: `Overlay`, `OverlayEdit`, `ChannelLabel`, `LabelBg`, `OrigEditBox`, `ChatType`, `Language`, `Target`, `ChannelName` ([`../Src/EditBox.lua#L24-L36`](../Src/EditBox.lua#L24-L36)).
   - State tables: `HookedBoxes`, `LastUsed`, `ReplyQueue`, `_attrCache` ([`../Src/EditBox.lua#L30-L40`](../Src/EditBox.lua#L30-L40), [`../Src/EditBox.lua#L59`](../Src/EditBox.lua#L59)).
+  - History pointers: `HistoryIndex`, `HistoryCache` ([`../Src/EditBox.lua#L37-L38`](../Src/EditBox.lua#L37-L38)).
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
-  - Internal constants/closures exported for submodules (`_SLASH_MAP`, `_TAB_CYCLE`, etc.) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L342`](../Src/EditBox.lua#L329-L342)).
+  - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
+  - Internal helper exports: `IsWhisperSlashPrefill`, `ParseWhisperSlash`, `GetLastTellTargetInfo`, `SetFrameFillColour` ([`../Src/EditBox.lua#L339-L342`](../Src/EditBox.lua#L339-L342)).
 - Methods:
   - `ClearLockdownState`, `AddReplyTarget`, `NextReplyTarget`, `OpenBlizzardChat`, `SetOnSend`, `SetPreShowCheck` ([`../Src/EditBox.lua#L65-L350`](../Src/EditBox.lua#L65-L350)).
 - Invariants:
@@ -336,7 +356,7 @@ Initialised by `Chat:Init`; registers many chat confirm events.
 - Methods:
   - `Init`, `Reset`, `IsOpenWorld`, `IsCommunityChannelEntry`, `ClassifyEntry`, `GetPolicy`, `GetConfirmEventForEntry`, `TrackPendingAck`, `GetActivePolicySnapshot`, `ClearPendingAck`, `Enqueue`, `Flush`, `RequiresHardwareEvent`, `SendNext`, `BeginEntry`, `HandleAck`, `AssumeAck`, `RawSend`, `Complete`, `OnChatEvent`, `OnOpenChat`, `TryContinue`, `ResetStallTimer`, `CancelStallTimer`, `OnStallTimeout`, `CreateContinueFrame`, `ShowContinuePrompt`, `HideContinuePrompt`, `EnableEscapeCancel`, `DisableEscapeCancel`, `Cancel` ([`../Src/Queue.lua#L185-L758`](../Src/Queue.lua#L185-L758)).
 - Events registered:
-  - `CHAT_MSG_*` confirm events listed in `ALL_CONFIRM_EVENTS`.
+  - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
 - Callbacks fired:
   - `QUEUE_STALL`, `QUEUE_COMPLETE`.
