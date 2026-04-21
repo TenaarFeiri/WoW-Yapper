@@ -4,7 +4,7 @@
 
 All sections below follow TOC load order from [`Yapper.toc`](../Yapper.toc).
 
-## Audit pass checklist (double-pass)
+## Second-pass audit checklist
 
 This pass re-checked `Src/**/*.lua` function definitions and table-field assignments against this document. Covered module set:
 
@@ -124,7 +124,7 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `LanguageEngines: table` family → engine ([`../Src/Spellcheck.lua#L38`](../Src/Spellcheck.lua#L38)).
   - `KnownLocales: string[]` ([`../Src/Spellcheck.lua#L39-L44`](../Src/Spellcheck.lua#L39-L44)).
   - `LocaleAddons: table` locale → addon name ([`../Src/Spellcheck.lua#L49-L55`](../Src/Spellcheck.lua#L49-L55)).
-  - Frame references: `EditBox`, `Overlay`, `MeasureFS`, `SuggestionFrame`, `HintFrame` ([`../Src/Spellcheck.lua#L56-L68`](../Src/Spellcheck.lua#L56-L68)).
+  - Frame references: `EditBox`, `Overlay`, `MeasureFS`, `SuggestionFrame`, `HintFrame` ([`../Src/Spellcheck.lua#L56-L67`](../Src/Spellcheck.lua#L56-L67)).
   - Underline/suggestion state: `UnderlinePool`, `Underlines`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L59-L68`](../Src/Spellcheck.lua#L59-L68)).
   - Dictionary/user state: `UserDictCache`, `_pendingLocaleLoads`, `DictionaryBuilders` ([`../Src/Spellcheck.lua#L69-L71`](../Src/Spellcheck.lua#L69-L71)).
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
