@@ -162,7 +162,7 @@ function YALLM:GetLocaleDB(locale)
     if not self.db[loc] then
         self.db[loc] = {
             freq = {},    -- word -> { c, t }
-            freqSorted = {}, -- derived sorted array of cleaned keys from freq
+            freqSorted = {}, -- derived sorted array of cleaned keys from freq (alphabetical order)
             freqSortedDirty = false, -- true when freq has changed and index must rebuild
             bias = {},    -- typo:correction -> { c, t, u }
             auto = {},    -- word -> { c, t }

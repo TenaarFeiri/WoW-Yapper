@@ -377,8 +377,16 @@ function Autocomplete:GetSuggestion(prefix, broad)
 
 			if cleanPrefixLen >= MIN_PREFIX_LEN and cleanPrefix ~= lowerPrefix then
 				local cleanStartIdx = BinarySearchFloor(freqSorted, cleanPrefix, true)
-				CollectPrefixMatches(freqSorted, cleanPrefix, cleanPrefixLen, cleanStartIdx, limit, candidates, true,
-					seen)
+				CollectPrefixMatches(
+					freqSorted,
+					cleanPrefix,
+					cleanPrefixLen,
+					cleanStartIdx,
+					limit,
+					candidates,
+					true,
+					seen
+				)
 			end
 
 			local bestWord = nil

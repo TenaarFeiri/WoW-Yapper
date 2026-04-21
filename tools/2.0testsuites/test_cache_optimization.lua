@@ -72,7 +72,7 @@ print(string.format("\nTotal Time: %.3f s", total))
 print(string.format("Final Cache Count: %d", SC._suggestionCacheCount))
 
 local locale = SC:GetLocale()
-local noUserRev = false
+local noUserRev = "__nil_user_rev__"
 local nested = SC._suggestionCache["word1"]
     and SC._suggestionCache["word1"][locale]
     and SC._suggestionCache["word1"][locale][noUserRev]
