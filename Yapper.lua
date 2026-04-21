@@ -5,7 +5,6 @@
 local YapperName, YapperTable = ...
 
 -- Localise Lua globals for performance
-local math_max    = math.max
 local string_format = string.format
 local type   = type
 local pairs  = pairs
@@ -137,15 +136,13 @@ local function OnAddonLoaded(addonName)
         end
     end
 
-    local cfg = YapperTable.Config or {}
-
     -- Register launcher at startup (Addon Compartment preferred, fallbacks inside Interface).
     if YapperTable.Interface and YapperTable.Interface.CreateLauncher then
         YapperTable.Interface:CreateLauncher()
     end
 
     if YapperTable.Spellcheck and YapperTable.Spellcheck.Init then
-        YapperTable.Spellcheck:Init(math_max(1, cfg.SpellcheckThreads or 1))
+        YapperTable.Spellcheck:Init(1)
     end
 
     -- Initialise persistent history store.

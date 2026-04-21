@@ -120,8 +120,6 @@ local SETTING_TOOLTIPS              = {
     "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
     ["EditBox.UseBlizzardSkinProxy"] =
     "When enabled, Yapper temporarily snaps Blizzard's editbox backdrop/skin frame around the overlay so external chat-skin addons can style it.",
-    ["EditBox.BlizzardSkinProxyPad"] =
-    "Extra padding (in pixels) around the borrowed Blizzard skin frame when wrapped around Yapper's overlay.",
     ["CHANNEL.HEADER"] =
     "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
     ["CHANNEL.MASTER"] = "One selected channel can act as a colour source.",
@@ -129,8 +127,6 @@ local SETTING_TOOLTIPS              = {
     ["CHANNEL.RESET_ALL"] = "Restore all channel colours to defaults.",
     ["System.DEBUG"] = "Enables debug output. Warning: this is very spammy!",
     ["System.VERBOSE"] = "Yapper will announce when it does something unusual — a less spammy alternative to Debug.",
-    ["System.RUN_ALL_PATCHES"] =
-    "Placeholder for a future patching framework that will let other addons integrate more easily with Yapper. Currently does nothing.",
     ["System.EnableGopherBridge"] =
     "Toggle integration with Gopher (CrossRP compatibility). |cFFFF4444Disabling this WHILE using a Gopher-powered addon like CrossRP is a BAD idea and will cause stalls and chat problems.|r",
     ["System.EnableTypingTrackerBridge"] =
@@ -193,7 +189,6 @@ local FRIENDLY_LABELS               = {
     ["EditBox.AutocompleteEnabled"] = "Autocomplete (ghost text)",
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
-    ["EditBox.BlizzardSkinProxyPad"] = "Skin proxy padding",
     ["EditBox.StorytellerAutoExpand"] = "Automatic expansion",
     ["EditBox.StorytellerShowHint"] = "Show storyteller mode hint",
     ["System.StorytellerSlideSpeed"] = "Animation duration",
@@ -274,13 +269,11 @@ local CATEGORIES                    = {
             -- System
             "System.DEBUG",
             "System.VERBOSE",
-            "System.RUN_ALL_PATCHES",
             -- Chat mechanics
             "Chat.MAX_HISTORY_LINES",
             -- EditBox advanced
             "EditBox.FontFace",
             "EditBox.MinHeight",
-            "EditBox.BlizzardSkinProxyPad",
             -- Spellcheck advanced
             "Spellcheck.MinWordLength",
             "Spellcheck.MaxSuggestions",
@@ -354,7 +347,6 @@ function Interface:BuildRenderSchema()
             or full == "EditBox._multilineHintShown"
             or full == "FrameSettings.MouseWheelStepRate"
             or full == "FrameSettings.MainWindowPosition"
-            or full == "FrameSettings.SettingsViewMode"
             or full == "FrameSettings.UIFontOffset"
             or full == "EditBox.FontPad"
             or full == "Chat.STALL_TIMEOUT"

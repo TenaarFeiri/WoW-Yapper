@@ -10,10 +10,6 @@ local EditBox        = YapperTable.EditBox
 
 -- Re-localise shared helpers from hub.
 local SLASH_MAP            = EditBox._SLASH_MAP
-local TAB_CYCLE            = EditBox._TAB_CYCLE
-local GROUP_CHAT_TYPES     = EditBox._GROUP_CHAT_TYPES
-local IsWhisperSlashPrefill = EditBox.IsWhisperSlashPrefill
-local ParseWhisperSlash    = EditBox.ParseWhisperSlash
 local GetLastTellTargetInfo = EditBox.GetLastTellTargetInfo
 
 -- Resolve from Overlay.lua (loaded before us).
@@ -25,7 +21,6 @@ local function SetUserBypassingYapper(v) EditBox._SetUserBypassingYapper(v) end
 
 -- Re-localise Lua globals.
 local type       = type
-local pairs      = pairs
 local tostring   = tostring
 local tonumber   = tonumber
 local strmatch   = string.match
