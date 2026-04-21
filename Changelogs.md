@@ -23,6 +23,16 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.1
+  - *Performance:*
+    - **Faster autocomplete on every keystroke:** Rebuilt the personal-vocabulary (YALLM) lookup used for ghost-text predictions. Yapper previously scanned your entire learned vocabulary (up to 2,000 words) on every character typed. It now binary-searches a sorted index, so autocomplete stays smooth even when your YALLM is full and you're a fast typist.
+  - *Bug Fixes:*
+    - **"Maximum chat history lines" setting now actually works.** The slider in the Advanced settings page was wired to a default constant rather than the configured value, so adjusting it did nothing — Yapper always kept 50 lines. It now respects your setting.
+    - **API error reporting (developers only):** Fixed two latent error paths in `_G.YapperAPI` that would have thrown "attempt to call nil" if a third-party addon ever registered more than 50 filters or callbacks on the same hook. The cap has never been hit in practice, but the error handler itself is no longer broken.
+
+-- 2.1.0
+  - *Major Features:*
+
 -- 2.1.0
   - *Major Features:*
     - **Global Settings Profiles:** Added support for account-wide settings. Enable "Use Global Profile" in General settings to sync your preferences across all characters via the account-wide `YapperDB`.
