@@ -39,7 +39,7 @@ local math_min    = math.min
 local math_abs    = math.abs
 local table_insert = table.insert
 
-local CARET_VIEWPORT_PADDING     = 4
+local CARET_VIEWPORT_PADDING     = 8
 local AUTO_SCROLL_SUPPRESSION_SECS = 1.5
 
 -- ---------------------------------------------------------------------------
@@ -223,8 +223,8 @@ function Multiline:CreateFrame()
 		if viewH <= 0 then return end
 
 		local padding = CARET_VIEWPORT_PADDING
-		local caretTop = -(y + h)
-		local caretBottom = -y
+		local caretTop = -y
+		local caretBottom = -y + h
 
 		local newScroll = view
 		if caretBottom > (view + viewH - padding) then
