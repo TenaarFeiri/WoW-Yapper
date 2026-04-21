@@ -190,6 +190,26 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 local WHATS_NEW = {
+    ["2.1.0"] = {
+        {
+            title = "Global Settings Profiles",
+            body  = "You can now sync your settings across all characters! Enable "
+                 .. "|cFF33FF99Use Global Profile|r in General settings to save your "
+                 .. "preferences and appearance to the account-wide |cFF33FF99YapperDB|r.",
+        },
+        {
+            title = "Memory Optimizations",
+            body  = "Dictionaries are now separate Load-on-Demand addons. This "
+                 .. "significantly reduces memory usage for players who only use "
+                 .. "one language or prefer to disable spellchecking entirely.",
+        },
+        {
+            title = "Focus Stability",
+            body  = "Completely refactored the editbox focus engine to resolve "
+                 .. "recursive crashes during chat transitions. Typing and "
+                 .. "switching channels is now more robust than ever.",
+        },
+    },
     ["2.0.3"] = {
         {
             title = "Spellchecking",
