@@ -946,8 +946,8 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
     UIDropDownMenu_SetText(dd, tostring(current))
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
-        local locales = { "enUS", "enGB" }
         local spell = YapperTable and YapperTable.Spellcheck
+        local locales = spell and spell.KnownLocales or { "enUS", "enGB" }
         for _, locale in ipairs(locales) do
             local info = UIDropDownMenu_CreateInfo()
             local available = spell and spell.IsLocaleAvailable and spell:IsLocaleAvailable(locale)
@@ -956,7 +956,7 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
 
             if not available then
                 if canLoad then
-                    labelText = locale .. " (load addon)"
+                    labelText = locale .. " (installed)"
                 else
                     labelText = locale .. " (addon missing)"
                 end
@@ -983,6 +983,7 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
                 current = locale
                 Interface:SetLocalPath(path, locale)
                 UIDropDownMenu_SetText(frame, locale)
+                StaticPopup_Show("YAPPER_LOCALE_CHANGE_RELOAD")
             end
             UIDropDownMenu_AddButton(info, level)
         end
