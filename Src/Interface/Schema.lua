@@ -141,6 +141,10 @@ local SETTING_TOOLTIPS              = {
     "If automatic expansion is off, Yapper can show a subtle glow and a reminder text (once per session) to let you know you can trigger multi-line mode manually with your bind.",
     ["System.StorytellerSlideSpeed"] =
     "How fast the chat box should slide and expand when entering storyteller mode. Lower values are snappier.",
+    ["System.UseGlobalProfile"] =
+    "When enabled, changes made in the settings UI are saved to the account-wide 'Global' profile. Other characters with this enabled will see your changes instantly.",
+    ["BUTTON.PUSH_TO_GLOBAL"] = "Push local settings to Global",
+    ["TOOLTIP.PUSH_TO_GLOBAL"] = "Copies all of this character's overrides into the Global profile. Use this to quickly set up your global layout based on this character.",
 }
 
 -- UI-only aliases to not scare the normies.
@@ -193,6 +197,7 @@ local FRIENDLY_LABELS               = {
     ["EditBox.StorytellerAutoExpand"] = "Automatic expansion",
     ["EditBox.StorytellerShowHint"] = "Show storyteller mode hint",
     ["System.StorytellerSlideSpeed"] = "Animation duration",
+    ["System.UseGlobalProfile"] = "Use Global Profile",
 }
 
 -- ---------------------------------------------------------------------------
@@ -210,6 +215,8 @@ local CATEGORIES                    = {
             -- Minimap button
             "FrameSettings.EnableMinimapButton",
             "FrameSettings.MinimapButtonOffset",
+            -- Global profile
+            "System.UseGlobalProfile",
             -- Spellcheck
             "Spellcheck.Enabled",
             "Spellcheck.Locale",
@@ -232,6 +239,7 @@ local CATEGORIES                    = {
             "Chat.USE_DELINEATORS",
             "Chat.DELINEATOR",
         },
+        custom = { "globalSync" },
     },
     {
         id     = "appearance",
