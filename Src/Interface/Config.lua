@@ -111,7 +111,23 @@ function Interface:SetLocalPath(path, value)
         }
     end
 
-    local root = self:GetLocalConfigRoot()
+    local localConf = self:GetLocalConfigRoot()
+    local targetRoot = localConf
+    local isGlobal = localConf.System and localConf.System.UseGlobalProfile == true
+
+    -- Exceptions: certain settings should ALWAYS stay character-local.
+    local fullPath = JoinPath(path)
+    if fullPath == "System.UseGlobalProfile"
+        or fullPath:match("^FrameSettings%.MainWindowPosition")
+        or fullPath:match("^System%._")
+        or fullPath == "System.SettingsHaveChanged" then
+        isGlobal = false
+    end
+
+    if isGlobal then
+        targetRoot = _G.YapperDB or localConf
+    end
+
     local syncedChatDelineator = nil
     local syncedChatPrefix = nil
 
@@ -127,16 +143,23 @@ function Interface:SetLocalPath(path, value)
             syncedChatPrefix = marker .. " "
         end
 
-        if path[2] == "DELINEATOR" then
-            normalizedValue = syncedChatDelineator
-        else
-            normalizedValue = syncedChatPrefix
-        end
+        local dKey = (path[2] == "DELINEATOR") and syncedChatDelineator or syncedChatPrefix
+        normalizedValue = dKey
 
-        SetPathValue(root, { "Chat", "DELINEATOR" }, syncedChatDelineator)
-        SetPathValue(root, { "Chat", "PREFIX" }, syncedChatPrefix)
+        SetPathValue(targetRoot, { "Chat", "DELINEATOR" }, syncedChatDelineator)
+        SetPathValue(targetRoot, { "Chat", "PREFIX" }, syncedChatPrefix)
+
+        if isGlobal then
+            -- Clear local overrides so inheritance takes over.
+            SetPathValue(localConf, { "Chat", "DELINEATOR" }, nil)
+            SetPathValue(localConf, { "Chat", "PREFIX" }, nil)
+        end
     else
-        SetPathValue(root, path, normalizedValue)
+        SetPathValue(targetRoot, path, normalizedValue)
+        if isGlobal then
+            -- Clear local overrides so inheritance takes over.
+            SetPathValue(localConf, path, nil)
+        end
     end
 
     -- If the user is explicitly editing a top-level EditBox colour, mark it
@@ -145,18 +168,27 @@ function Interface:SetLocalPath(path, value)
         and #path >= 2
         and path[1] == "EditBox"
         and COLOUR_KEYS[path[2]] then
-        if type(root._themeOverrides) ~= "table" then root._themeOverrides = {} end
-        root._themeOverrides[path[2]] = true
-        _G.YapperLocalConf = root
+        if type(localConf._themeOverrides) ~= "table" then localConf._themeOverrides = {} end
+        localConf._themeOverrides[path[2]] = true
+        _G.YapperLocalConf = localConf
     end
 
-    if type(YapperTable.Config) == "table" and YapperTable.Config ~= root then
+    if type(YapperTable.Config) == "table" and YapperTable.Config ~= targetRoot then
         if syncedChatDelineator and syncedChatPrefix then
             SetPathValue(YapperTable.Config, { "Chat", "DELINEATOR" }, syncedChatDelineator)
             SetPathValue(YapperTable.Config, { "Chat", "PREFIX" }, syncedChatPrefix)
         else
             SetPathValue(YapperTable.Config, path, normalizedValue)
         end
+    end
+    
+    -- Special case for Global Profile toggle itself: trigger a UI refresh notice
+    -- if it looks weird, but otherwise just update the live state.
+    if fullPath == "System.UseGlobalProfile" then
+        if YapperTable.Utils then
+            YapperTable.Utils:Print("Global Profile " .. (normalizedValue and "Enabled" or "Disabled") .. ". Refreshing UI...")
+        end
+        self:BuildConfigUI()
     end
 
     self:SetSettingsChanged(true)
