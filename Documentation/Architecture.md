@@ -53,25 +53,25 @@ Yapper.lua
 
 ```mermaid
 flowchart TD
-    A[Yapper.toc load order] --> B[Yapper.lua loaded last]
-    B --> C[Yapper = YapperTable]
-    C --> D[EventFrames:Init]
-    D --> E[Register ADDON_LOADED handler]
-    D --> F[Register PLAYER_ENTERING_WORLD handler]
+    A["TOC load order"] --> B["Load Yapper.lua last"]
+    B --> C["Bind Yapper alias to YapperTable"]
+    C --> D["Init event frames"]
+    D --> E["Register ADDON_LOADED handler"]
+    D --> F["Register PLAYER_ENTERING_WORLD handler"]
 
-    E --> G[ADDON_LOADED for Yapper]
-    G --> G1[Core:InitSavedVars]
-    G --> G2[Interface:InitPopups]
-    G --> G3[Theme:SetTheme(saved)]
-    G --> G4[Interface:CreateLauncher]
-    G --> G5[Spellcheck:Init]
-    G --> G6[History:InitDB]
+    E --> G["Handle ADDON_LOADED for Yapper"]
+    G --> G1["Init saved variables"]
+    G --> G2["Init interface popups"]
+    G --> G3["Apply saved theme"]
+    G --> G4["Create launcher"]
+    G --> G5["Init spellcheck"]
+    G --> G6["Init history database"]
 
-    F --> H[PLAYER_ENTERING_WORLD]
-    H --> H1[Interface:PurgeRenderCache]
-    H --> H2[EditBox:HookAllChatFrames]
-    H --> H3[Chat:Init]
-    H --> H4[History:HookOverlayEditBox]
+    F --> H["Handle PLAYER_ENTERING_WORLD"]
+    H --> H1["Purge interface render cache"]
+    H --> H2["Hook all chat frames"]
+    H --> H3["Init chat pipeline"]
+    H --> H4["Hook history to overlay editbox"]
 ```
 
 Code anchors:
@@ -105,20 +105,20 @@ User input / WoW chat events
 
 ```mermaid
 flowchart LR
-    U[User presses Enter] --> E[EditBox overlay handler]
-    E --> C[Chat:OnSend]
-    C --> F1[API PRE_SEND filter]
-    C -->|long text| CH[Chunking:Split]
-    CH --> F2[API PRE_CHUNK filter]
-    CH --> Q[Queue:Enqueue/Flush]
-    C -->|short text| D[Chat:DirectSend]
+    U["User presses Enter"] --> E["Run editbox overlay handler"]
+    E --> C["Run Chat.OnSend"]
+    C --> F1["Run PRE_SEND filters"]
+    C -->|Long message| CH["Chunk message text"]
+    CH --> F2["Run PRE_CHUNK filters"]
+    CH --> Q["Queue enqueue and flush"]
+    C -->|Short message| D["Run direct send path"]
     Q --> D
-    D --> F3[API PRE_DELIVER filter]
-    D --> R[Router:Send]
-    R --> W1[SendChatMessage]
-    R --> W2[BNSendWhisper]
-    R --> W3[C_Club.SendMessage]
-    D --> CB[API POST_SEND callback]
+    D --> F3["Run PRE_DELIVER filters"]
+    D --> R["Resolve and route send API"]
+    R --> W1["SendChatMessage"]
+    R --> W2["BNSendWhisper"]
+    R --> W3["C Club SendMessage"]
+    D --> CB["Fire POST_SEND callback"]
 ```
 
 Bridge integration points:
@@ -133,13 +133,13 @@ Bridge integration points:
 
 ```mermaid
 flowchart TD
-    B1[Blizzard ChatFrameUtil.OpenChat/ActivateChat] --> B2[Blizzard EditBox:Show]
-    B2 --> H[HookBlizzardEditBox Show hook]
-    H -->|allowed| YS[EditBox:Show]
-    YS --> O1[CreateOverlay]
-    YS --> O2[SetupOverlayScripts]
-    YS --> O3[Focus handoff to OverlayEdit]
-    H --> B3[Hide Blizzard editbox on deferred timer]
+    B1["Blizzard OpenChat or ActivateChat"] --> B2["Blizzard editbox show"]
+    B2 --> H["Run HookBlizzardEditBox show hook"]
+    H -->|Allowed| YS["Show Yapper overlay"]
+    YS --> O1["Create overlay frame"]
+    YS --> O2["Install overlay scripts"]
+    YS --> O3["Hand focus to overlay editbox"]
+    H --> B3["Hide Blizzard editbox via deferred timer"]
 ```
 
 Reentrancy note (issue #21 fix):
@@ -150,14 +150,78 @@ Reentrancy note (issue #21 fix):
 
 ```mermaid
 flowchart LR
-    T[OnTextChanged / OnCursorChanged] --> D[ScheduleRefresh debounce]
-    D --> R[Rebuild]
-    R --> C[CollectMisspellings]
-    C --> DL[Dictionary set/phonetics lookups]
-    C --> EN[Engine scoring + edit distance]
-    EN --> S[Suggestions frame state]
-    S --> U[Underline redraw + hint]
+    T["Text or cursor changed"] --> D["Debounce refresh"]
+    D --> R["Rebuild spellcheck state"]
+    R --> C["Collect misspellings"]
+    C --> DL["Run dictionary and phonetic lookups"]
+    C --> EN["Run scoring and edit distance"]
+    EN --> S["Update suggestion frame state"]
+    S --> U["Redraw underlines and hint"]
 ```
+
+## Detailed subsystem: YALLM learning model
+
+YALLM (`Src/Spellcheck/YALLM.lua`) is a per-locale adaptive layer that adjusts ranking and auto-learns persistent words.
+
+### Storage model
+
+Stored in `_G.YapperDB.SpellcheckLearned[locale]` with on-init migration for legacy flat data:
+
+- `freq[word] = { c, t }` user usage count and last-seen timestamp.
+- `bias["typo:correction"] = { c, t, u }` direct correction preferences and utility weight.
+- `phBias["phoneticHash:correction"] = { c, t }` generalized phonetic correction memory.
+- `negBias["typo:word"] = { c, t, u }` rejected suggestion penalties.
+- `auto[word] = { c, t }` repeated uncorrected words pending auto-promotion.
+- `total` tracked unique vocabulary size for frequency-cap enforcement.
+
+Code anchors: [`Src/Spellcheck/YALLM.lua#L60-L100`](../Src/Spellcheck/YALLM.lua#L60-L100).
+
+### Learning signals
+
+- Outgoing sends call `RecordUsage` and `RecordIgnored` from the chat path.
+- Explicit suggestion acceptance calls `RecordSelection`.
+- Implicit correction (manual retyping over misspelling trace) calls `RecordImplicitCorrection`.
+- Rejected candidates (e.g. "More..." path) call `RecordRejection`.
+
+Code anchors:
+
+- Send-path learning: [`Src/Chat.lua#L199-L215`](../Src/Chat.lua#L199-L215)
+- Implicit correction trigger: [`Src/Spellcheck/Engine.lua#L236-L238`](../Src/Spellcheck/Engine.lua#L236-L238)
+- Suggestion/rejection hooks: [`Src/Spellcheck/UI.lua#L869-L962`](../Src/Spellcheck/UI.lua#L869-L962)
+
+### Ranking impact in candidate scoring
+
+`Engine:GetSuggestions` calls `YALLM:GetBonus(candidate, typo, typoPhHash, locale)` and adds the returned score adjustment to base candidate score.
+
+Current bonus components (negative = better rank, positive = penalty):
+
+- Frequency bonus (`freqBonus`) once a word has enough repeated usage.
+- Direct typo→correction bias bonus (`biasBonus`) scaled by repetition.
+- Phonetic-pattern bias bonus (`phBonus`) scaled by repetition.
+- Rejection penalty (`negBias`) to demote repeatedly rejected options.
+
+Code anchors:
+
+- YALLM score composition: [`Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419)
+- Engine integration point: [`Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)
+
+### Guardrails and maintenance
+
+- `IsSaneWord` blocks noisy learning inputs (very short/long tokens, keyboard smash patterns, invalid consonant clusters, optional n-gram sanity).
+- Config-backed caps:
+  - `YALLMFreqCap`
+  - `YALLMBiasCap`
+  - `YALLMAutoThreshold`
+- `Prune(tableName, limit)` keeps the highest relevance entries using `count * utility / age`.
+- `Reset(locale?)` clears learned state globally or per locale.
+- Auto-promotion emits `YALLM_WORD_LEARNED` after adding a word into user dictionary.
+
+Code anchors:
+
+- Word sanity checks: [`Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147)
+- Cap accessors and defaults: [`Src/Spellcheck/YALLM.lua#L38-L54`](../Src/Spellcheck/YALLM.lua#L38-L54), [`Src/Core.lua#L209-L212`](../Src/Core.lua#L209-L212)
+- Pruning/reset: [`Src/Spellcheck/YALLM.lua#L427-L478`](../Src/Spellcheck/YALLM.lua#L427-L478)
+- Auto-learn event emission: [`Src/Spellcheck/YALLM.lua#L357-L370`](../Src/Spellcheck/YALLM.lua#L357-L370), [`Src/API.lua#L183-L185`](../Src/API.lua#L183-L185)
 
 Code anchors:
 

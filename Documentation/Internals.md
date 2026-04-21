@@ -213,8 +213,24 @@ Initialised from `Spellcheck:Init` when present.
 - Description: Adaptive learning model for frequency/bias and auto-promote.
 - Fields:
   - `Spellcheck.YALLM: table` ([`../Src/Spellcheck/YALLM.lua#L8`](../Src/Spellcheck/YALLM.lua#L8)).
+- Locale store shape (`_G.YapperDB.SpellcheckLearned[locale]`):
+  - `freq[word] = { c, t }`
+  - `bias["typo:correction"] = { c, t, u }`
+  - `phBias["phoneticHash:correction"] = { c, t }`
+  - `negBias["typo:word"] = { c, t, u }`
+  - `auto[word] = { c, t }`
+  - `total: number`
+  ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
   - `GetFreqCap`, `GetBiasCap`, `GetAutoThreshold`, `Init`, `GetLocaleDB`, `IsSaneWord`, `RecordUsage`, `RecordSelection`, `RecordImplicitCorrection`, `RecordRejection`, `RecordIgnored`, `GetBonus`, `Prune`, `Reset`, `GetDataSummary`, `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L38-L540`](../Src/Spellcheck/YALLM.lua#L38-L540)).
+- Score model:
+  - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
+- Learning entry points:
+  - `Chat:DirectSend` records usage and ignored-word counts ([`../Src/Chat.lua#L199-L215`](../Src/Chat.lua#L199-L215)).
+  - `Spellcheck.UI` records explicit suggestion picks/rejections ([`../Src/Spellcheck/UI.lua#L869-L962`](../Src/Spellcheck/UI.lua#L869-L962)).
+  - `Spellcheck.Engine` records implicit corrections from retyped trace words ([`../Src/Spellcheck/Engine.lua#L236-L238`](../Src/Spellcheck/Engine.lua#L236-L238)).
+- Invariants / safeguards:
+  - `IsSaneWord` gates noisy tokens before learning; pruning preserves highest relevance entries by count/utility/recency score; caps/thresholds are clamped from config (`YALLMFreqCap`, `YALLMBiasCap`, `YALLMAutoThreshold`) ([`../Src/Spellcheck/YALLM.lua#L38-L54`](../Src/Spellcheck/YALLM.lua#L38-L54), [`../Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147), [`../Src/Spellcheck/YALLM.lua#L427-L468`](../Src/Spellcheck/YALLM.lua#L427-L468), [`../Src/Core.lua#L209-L212`](../Src/Core.lua#L209-L212)).
 - Callbacks fired:
   - `YALLM_WORD_LEARNED`.
 
