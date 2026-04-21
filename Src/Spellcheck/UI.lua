@@ -216,6 +216,7 @@ function Spellcheck:UnloadAllDictionaries(purgeNow)
     end
 
     -- Clear caches
+    self:ClearSuggestionCache()
     self.UserDictCache = {}
     
     -- Hidden internal suggestion state

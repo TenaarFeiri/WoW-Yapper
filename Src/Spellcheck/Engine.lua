@@ -828,6 +828,7 @@ function Spellcheck:GetSuggestions(word)
 
     -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount.
     self._suggestionCache = self._suggestionCache or {}
+    self._suggestionCacheCount = self._suggestionCacheCount or 0
     local sc = self._suggestionCache
     local cacheKey = lower .. "|" .. locale .. "|" .. tostring(userRev) .. "|" .. tostring(maxCount)
     if sc[cacheKey] then
@@ -1032,14 +1033,13 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    local cacheCap = (type(self.GetSuggestionCacheSize) == "function") and self:GetSuggestionCacheSize() or 50
+    local cacheCap = (type(self.GetSuggestionCacheSize) == "function") and self:GetSuggestionCacheSize() or 5000
     if cacheCap > 0 then
-        local count = 0
-        for _ in pairs(sc) do count = count + 1 end
-        if count >= cacheCap then
-            wipe(sc)
+        if self._suggestionCacheCount >= cacheCap then
+            self:ClearSuggestionCache()
         end
         sc[cacheKey] = final
+        self._suggestionCacheCount = (self._suggestionCacheCount or 0) + 1
     end
 
     return final

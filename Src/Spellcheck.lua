@@ -215,7 +215,7 @@ function Spellcheck:_RegisterLanguageEngine(familyId, engine)
     self.LanguageEngines[familyId] = engine
 
     -- Invalidate any cached suggestions — phonetic rules may have changed.
-    self._suggestionCache = {}
+    self:ClearSuggestionCache()
     return true
 end
 
@@ -521,7 +521,7 @@ function Spellcheck:AddUserWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
-    self._suggestionCache = {}
+    self:ClearSuggestionCache()
     if YapperTable.API then
         YapperTable.API:Fire("SPELLCHECK_WORD_ADDED", word, locale)
     end
@@ -544,10 +544,16 @@ function Spellcheck:IgnoreWord(locale, word)
         end
     end
     self:TouchUserDict(dict)
-    self._suggestionCache = {}
+    self:ClearSuggestionCache()
     if YapperTable.API then
         YapperTable.API:Fire("SPELLCHECK_WORD_IGNORED", word, locale)
     end
+end
+
+--- Completely invalidates the suggestion cache and resets the O(1) counter.
+function Spellcheck:ClearSuggestionCache()
+    self._suggestionCache = {}
+    self._suggestionCacheCount = 0
 end
 
 function Spellcheck:GetMaxSuggestions()
