@@ -33,18 +33,13 @@
 
 -- 2.1.0
   - *Major Features:*
-
--- 2.1.0
-  - *Major Features:*
     - **Global Settings Profiles:** Added support for account-wide settings. Enable "Use Global Profile" in General settings to sync your preferences across all characters via the account-wide `YapperDB`.
     - **Global Sync Tool:** Added a "Push to Global" button to easily migrate your current character's setup to the new account default.
   - *Structural & Memory Optimizations:*
-    - **LOD Dictionaries:** Dictionary locales (English, German, etc.) have been moved to their own Load-on-Demand (LOD) addons. This significantly reduces the base memory footprint of Yapper for users who don't use the spellchecker or only use specific locales.
-    - **German Support:** Initial release of the German dictionary locale.
+    - **LOD Dictionaries:** Dictionary locales have been moved to their own Load-on-Demand (LOD) addons. This significantly reduces the base memory footprint of Yapper for users who don't use the spellchecker or only use specific locales.
   - *Stability & Bug Fixes:*
     - **Focus Stability (Issue #21):** Refactored the EditBox focus engine with a triple-layered defense (deferred focus, re-entry guards, and multiline parity) to resolve C stack overflow crashes during chat transitions.
     - **Spellcheck UI:** Added an in-game warning and helpful CurseForge link when enabling spellcheck without any dictionaries installed.
-    - **pkgmeta:** Updated package metadata to support the new LOD dictionary structure.
 
 -- 2.0.4a
   - *Bridge Fixes*
