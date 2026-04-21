@@ -339,7 +339,8 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
     -- may already include or omit spacing).  Treat the marker as an
     -- opaque UTF-8 string and add spacing here to ensure consistent
     -- behaviour when building chunks.
-    local markerSource = delineator or cfg.DELINEATOR or cfg.PREFIX or ""
+    -- Use the public API to fetch the marker (eat our own dogfood).
+    local markerSource = delineator or (YapperAPI and YapperAPI:GetDelineator()) or ""
     local marker = NormaliseMarker(markerSource)
     if marker == "" then
         delineator = ""
@@ -530,8 +531,7 @@ end
 
 --- Returns the delineation markers currently in use.
 function Chunking:GetDelineators()
-    local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
-    local marker = NormaliseMarker(cfg.DELINEATOR or cfg.PREFIX)
+    local marker = NormaliseMarker(YapperAPI and YapperAPI:GetDelineator())
     if marker == "" then
         return "", ""
     end

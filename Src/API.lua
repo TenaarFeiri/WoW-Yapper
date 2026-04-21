@@ -221,6 +221,7 @@
     YapperAPI:GetCurrentTheme()     → theme name (string) or nil
     YapperAPI:IsOverlayShown()      → boolean
     YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR"
+    YapperAPI:GetDelineator()       → string|nil (marker used for chunking)
 
     Theme helpers:
 
@@ -729,6 +730,16 @@ function YapperAPI:GetConfig(path)
     end
 
     return cfg
+end
+
+--- SPECIFICALLY for chat-tracking addons like Eavesdropper,
+--- get the delineator from the config.
+--- We also use this API in-program so we will know quickly
+--- if we move it and break it.
+function YapperAPI:GetDelineator()
+    local chat = YapperTable.Config and YapperTable.Config.Chat
+    if type(chat) ~= "table" then return nil end
+    return chat.DELINEATOR or chat.PREFIX
 end
 
 -- ===== SPELLCHECK ACCESSORS ================================================

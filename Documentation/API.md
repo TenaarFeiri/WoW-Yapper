@@ -12,8 +12,8 @@ Source of truth: [`Src/API.lua`](../Src/API.lua).
 
 Register/unregister:
 
-- `YapperAPI:RegisterFilter(hookPoint: string, callback: function, priority?: number) → handle|nil` ([`#L556`](../Src/API.lua#L556))
-- `YapperAPI:UnregisterFilter(handle: number) → nil` ([`#L609`](../Src/API.lua#L609))
+- `YapperAPI:RegisterFilter(hookPoint: string, callback: function, priority?: number) → handle|nil` ([`#L557`](../Src/API.lua#L557))
+- `YapperAPI:UnregisterFilter(handle: number) → nil` ([`#L610`](../Src/API.lua#L610))
 
 ### `PRE_EDITBOX_SHOW`
 
@@ -50,8 +50,8 @@ Register/unregister:
 
 Register/unregister:
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L627`](../Src/API.lua#L627))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L668`](../Src/API.lua#L668))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L628`](../Src/API.lua#L628))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L669`](../Src/API.lua#L669))
 
 ### Event list
 
@@ -84,50 +84,51 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 
 ### Registration / lifecycle
 
-- `YapperAPI:GetVersion() → string` ([`#L683`](../Src/API.lua#L683))
-- `YapperAPI:GetCurrentTheme() → string|nil` ([`#L691`](../Src/API.lua#L691))
-- `YapperAPI:IsOverlayShown() → boolean` ([`#L702`](../Src/API.lua#L702))
-- `YapperAPI:GetConfig(path: string) → any` ([`#L712`](../Src/API.lua#L712))
+- `YapperAPI:GetVersion() → string` ([`#L684`](../Src/API.lua#L684))
+- `YapperAPI:GetCurrentTheme() → string|nil` ([`#L692`](../Src/API.lua#L692))
+- `YapperAPI:IsOverlayShown() → boolean` ([`#L703`](../Src/API.lua#L703))
+- `YapperAPI:GetConfig(path: string) → any` ([`#L713`](../Src/API.lua#L713))
+- `YapperAPI:GetDelineator() → string|nil` ([`#L739`](../Src/API.lua#L739))
 
 ### Spellcheck helpers
 
-- `YapperAPI:IsSpellcheckEnabled() → boolean` ([`#L737`](../Src/API.lua#L737))
-- `YapperAPI:CheckWord(word: string) → boolean` ([`#L746`](../Src/API.lua#L746))
-- `YapperAPI:GetSuggestions(word: string) → string[]|nil` ([`#L756`](../Src/API.lua#L756))
-- `YapperAPI:GetSpellcheckLocale() → string|nil` ([`#L777`](../Src/API.lua#L777))
-- `YapperAPI:AddToDictionary(word: string) → boolean` ([`#L787`](../Src/API.lua#L787))
-- `YapperAPI:IgnoreWord(word: string) → boolean` ([`#L800`](../Src/API.lua#L800))
+- `YapperAPI:IsSpellcheckEnabled() → boolean` ([`#L748`](../Src/API.lua#L748))
+- `YapperAPI:CheckWord(word: string) → boolean` ([`#L757`](../Src/API.lua#L757))
+- `YapperAPI:GetSuggestions(word: string) → string[]|nil` ([`#L767`](../Src/API.lua#L767))
+- `YapperAPI:GetSpellcheckLocale() → string|nil` ([`#L788`](../Src/API.lua#L788))
+- `YapperAPI:AddToDictionary(word: string) → boolean` ([`#L798`](../Src/API.lua#L798))
+- `YapperAPI:IgnoreWord(word: string) → boolean` ([`#L811`](../Src/API.lua#L811))
 
 ### Dictionary / language engine
 
-- `YapperAPI:RegisterDictionary(locale: string, data: table) → boolean` ([`#L817`](../Src/API.lua#L817))
-- `YapperAPI:RegisterLanguageEngine(familyId: string, engine: table) → boolean` ([`#L834`](../Src/API.lua#L834))
-- `YapperAPI:IsLanguageEngineRegistered(familyId: string) → boolean` ([`#L848`](../Src/API.lua#L848))
-- `YapperAPI:RegisterLocaleAddon(locale: string, addonName: string) → boolean` ([`#L859`](../Src/API.lua#L859))
+- `YapperAPI:RegisterDictionary(locale: string, data: table) → boolean` ([`#L828`](../Src/API.lua#L828))
+- `YapperAPI:RegisterLanguageEngine(familyId: string, engine: table) → boolean` ([`#L845`](../Src/API.lua#L845))
+- `YapperAPI:IsLanguageEngineRegistered(familyId: string) → boolean` ([`#L859`](../Src/API.lua#L859))
+- `YapperAPI:RegisterLocaleAddon(locale: string, addonName: string) → boolean` ([`#L870`](../Src/API.lua#L870))
 
 ### Queue
 
-- `YapperAPI:GetQueueState() → { active, stalled, chatType, policyClass, pending, inFlight }` ([`#L880`](../Src/API.lua#L880))
-- `YapperAPI:CancelQueue() → number` ([`#L893`](../Src/API.lua#L893))
-- `YapperAPI:ResolvePost(handle: number) → boolean` ([`#L1058`](../Src/API.lua#L1058))
+- `YapperAPI:GetQueueState() → { active, stalled, chatType, policyClass, pending, inFlight }` ([`#L891`](../Src/API.lua#L891))
+- `YapperAPI:CancelQueue() → number` ([`#L904`](../Src/API.lua#L904))
+- `YapperAPI:ResolvePost(handle: number) → boolean` ([`#L1069`](../Src/API.lua#L1069))
 
 ### Theme
 
-- `YapperAPI:RegisterTheme(name: string, data: table) → boolean` ([`#L909`](../Src/API.lua#L909))
-- `YapperAPI:SetTheme(name: string) → boolean` ([`#L919`](../Src/API.lua#L919))
-- `YapperAPI:GetRegisteredThemes() → string[]` ([`#L927`](../Src/API.lua#L927))
-- `YapperAPI:GetTheme(name?: string) → table|nil` ([`#L935`](../Src/API.lua#L935))
+- `YapperAPI:RegisterTheme(name: string, data: table) → boolean` ([`#L920`](../Src/API.lua#L920))
+- `YapperAPI:SetTheme(name: string) → boolean` ([`#L930`](../Src/API.lua#L930))
+- `YapperAPI:GetRegisteredThemes() → string[]` ([`#L938`](../Src/API.lua#L938))
+- `YapperAPI:GetTheme(name?: string) → table|nil` ([`#L946`](../Src/API.lua#L946))
 
 ### Utility wrappers
 
-- `YapperAPI:IsChatLockdown() → boolean` ([`#L948`](../Src/API.lua#L948))
-- `YapperAPI:IsSecret(value: any) → boolean` ([`#L961`](../Src/API.lua#L961))
-- `YapperAPI:GetChatParent() → Frame` ([`#L971`](../Src/API.lua#L971))
-- `YapperAPI:MakeFullscreenAware(frame: Frame) → nil` ([`#L981`](../Src/API.lua#L981))
+- `YapperAPI:IsChatLockdown() → boolean` ([`#L959`](../Src/API.lua#L959))
+- `YapperAPI:IsSecret(value: any) → boolean` ([`#L972`](../Src/API.lua#L972))
+- `YapperAPI:GetChatParent() → Frame` ([`#L982`](../Src/API.lua#L982))
+- `YapperAPI:MakeFullscreenAware(frame: Frame) → nil` ([`#L992`](../Src/API.lua#L992))
 
 ### Icon gallery
 
-- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`#L1085`](../Src/API.lua#L1085))
-- `YapperAPI:HideIconGallery() → nil` ([`#L1093`](../Src/API.lua#L1093))
-- `YapperAPI:IsIconGalleryShown() → boolean` ([`#L1099`](../Src/API.lua#L1099))
-- `YapperAPI:GetRaidIconData() → table[]` ([`#L1106`](../Src/API.lua#L1106))
+- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`#L1096`](../Src/API.lua#L1096))
+- `YapperAPI:HideIconGallery() → nil` ([`#L1104`](../Src/API.lua#L1104))
+- `YapperAPI:IsIconGalleryShown() → boolean` ([`#L1110`](../Src/API.lua#L1110))
+- `YapperAPI:GetRaidIconData() → table[]` ([`#L1117`](../Src/API.lua#L1117))
