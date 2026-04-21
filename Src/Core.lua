@@ -336,15 +336,28 @@ local function GetHistoryVersion(tbl)
 end
 
 --- Recursively wire `child` tables to inherit from `parent` via metatables.
+--- Strips any stale metatable on `child` before recursing and uses raw access
+--- while walking, to avoid accidental self-referential __index chains.
 local function InheritDefaults(child, parent)
+    -- Defensive no-op for invalid inputs and accidental self-link attempts.
+    if type(child) ~= "table" or type(parent) ~= "table" then return end
+    if child == parent then return end
+
+    -- Remove stale inheritance first so prior __index links cannot influence
+    -- the raw child table shape we build below.
+    setmetatable(child, nil)
+
     for key, parentVal in pairs(parent) do
         if type(parentVal) == "table" then
-            if type(child[key]) ~= "table" then
-                child[key] = {}
+            local raw = rawget(child, key)
+            if type(raw) ~= "table" then
+                raw = {}
+                rawset(child, key, raw)
             end
-            InheritDefaults(child[key], parentVal)
+            InheritDefaults(raw, parentVal)
         end
     end
+
     setmetatable(child, { __index = parent })
 end
 
@@ -553,6 +566,7 @@ function YapperTable.Core:PromoteCharacterToGlobal()
         if type(localConf[category]) ~= "table" then
             localConf[category] = {}
         else
+            setmetatable(localConf[category], nil)
             wipe(localConf[category])
         end
     end
@@ -560,6 +574,7 @@ function YapperTable.Core:PromoteCharacterToGlobal()
     if type(localConf.FrameSettings) ~= "table" then
         localConf.FrameSettings = {}
     else
+        setmetatable(localConf.FrameSettings, nil)
         for key in pairs(localConf.FrameSettings) do
             if not FRAME_SETTINGS_LOCAL_ONLY_KEYS[key] then
                 localConf.FrameSettings[key] = nil
@@ -569,7 +584,10 @@ function YapperTable.Core:PromoteCharacterToGlobal()
 
     if type(localConf.System) ~= "table" then
         localConf.System = {}
+    else
+        setmetatable(localConf.System, nil)
     end
+    -- Intentionally clear only global-sync keys; preserve local-only system keys.
     for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
         localConf.System[key] = nil
     end
@@ -606,6 +624,8 @@ function YapperTable.Core:PushToGlobal()
         local settings = localConf[category]
         if type(settings) ~= "table" then return end
         if type(globalDB[category]) ~= "table" then globalDB[category] = {} end
+
+        setmetatable(settings, nil)
 
         for k, v in pairs(settings) do
             if not (skipKeys and skipKeys[k]) then
