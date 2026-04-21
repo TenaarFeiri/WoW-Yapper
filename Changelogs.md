@@ -23,6 +23,11 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.2
+  - *Bug Fixes:*
+    - **Global Profile inheritance fixed end-to-end:** Enabling "Use Global Profile" now correctly clears character-local overrides for syncable categories so account-wide values are immediately applied (including appearance/theme colours) without requiring a reload.
+    - **Push to Global now includes sync-safe System settings and deep-copies values:** Theme choice and other global-safe system options now migrate correctly, with local-only values like `FrameSettings.MainWindowPosition` staying character-specific.
+
 -- 2.1.1
   - *Performance:*
     - **Faster autocomplete on every keystroke:** Rebuilt the personal-vocabulary (YALLM) lookup used for ghost-text predictions. Yapper previously scanned your entire learned vocabulary (up to 2,000 words) on every character typed. It now binary-searches a sorted index, so autocomplete stays smooth even when your YALLM is full and you're a fast typist.

@@ -122,9 +122,11 @@ function ElvUIBridge:Activate()
 
     -- Snapshot current state so we can restore it on deactivation.
     local localConf = _G.YapperLocalConf or {}
-    local editCfg   = localConf.EditBox or {}
+    local useGlobal = localConf.System and localConf.System.UseGlobalProfile == true and type(_G.YapperDB) == "table"
+    local profileRoot = useGlobal and _G.YapperDB or localConf
+    local editCfg   = (type(profileRoot) == "table" and profileRoot.EditBox) or {}
     self._savedThemeName    = th._current
-    self._savedAppliedTheme = localConf._appliedTheme
+    self._savedAppliedTheme = (type(profileRoot) == "table" and profileRoot._appliedTheme) or nil
     self._savedColors       = SnapshotColors(editCfg)
 
     -- Register (or update) the ElvUI theme with current colours.
@@ -156,15 +158,23 @@ function ElvUIBridge:Deactivate()
     self.active = false
 
     local th        = YapperTable.Theme
-    local localConf = _G.YapperLocalConf
+    local localConf = _G.YapperLocalConf or {}
+    local useGlobal = localConf.System and localConf.System.UseGlobalProfile == true and type(_G.YapperDB) == "table"
+    local targetRoot = useGlobal and _G.YapperDB or localConf
 
     -- Restore config colours from the snapshot.
-    if localConf and type(self._savedColors) == "table" then
-        if type(localConf.EditBox) ~= "table" then localConf.EditBox = {} end
+    if type(targetRoot) == "table" and type(self._savedColors) == "table" then
+        if type(targetRoot.EditBox) ~= "table" then targetRoot.EditBox = {} end
         for key, val in pairs(self._savedColors) do
-            localConf.EditBox[key] = val
+            targetRoot.EditBox[key] = val and { r = val.r, g = val.g, b = val.b, a = val.a } or nil
+            if useGlobal and type(localConf.EditBox) == "table" then
+                localConf.EditBox[key] = nil
+            end
         end
-        localConf._appliedTheme = self._savedAppliedTheme
+        targetRoot._appliedTheme = self._savedAppliedTheme
+        if useGlobal then
+            localConf._appliedTheme = nil
+        end
         _G.YapperLocalConf = localConf
     end
 
