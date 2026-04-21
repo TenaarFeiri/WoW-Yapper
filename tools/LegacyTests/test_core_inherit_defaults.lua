@@ -34,6 +34,7 @@ local function assert_not_self_index(tbl, label)
 end
 
 local function assert_no_stale_profile_subtable_mts(localConf, label)
+    -- Keep in sync with Core profile roots mutated during Push/Promote flows.
     local roots = { "EditBox", "Chat", "Spellcheck", "FrameSettings", "System" }
     for _, key in ipairs(roots) do
         if type(localConf[key]) == "table" then

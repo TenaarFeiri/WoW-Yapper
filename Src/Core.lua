@@ -587,6 +587,7 @@ function YapperTable.Core:PromoteCharacterToGlobal()
     else
         setmetatable(localConf.System, nil)
     end
+    -- Intentionally clear only global-sync keys; preserve local-only system keys.
     for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
         localConf.System[key] = nil
     end
