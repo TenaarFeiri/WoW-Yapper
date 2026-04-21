@@ -329,6 +329,34 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     cursor:Pad(10)
 end
 
+function Interface:CreateGlobalSyncControls(parent, cursor)
+    local y = cursor:Y()
+    local localConf = self:GetLocalConfigRoot()
+    local isGlobal = localConf.System and localConf.System.UseGlobalProfile == true
+
+    if not isGlobal then
+        local pushBtn = self:AcquireWidget("PushToGlobalButton", parent, "UIPanelButtonTemplate", "Button")
+        pushBtn:SetSize(200, 24)
+        pushBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, y)
+        pushBtn:SetText(self:GetTooltip("BUTTON.PUSH_TO_GLOBAL") or "Push to Global")
+        pushBtn:SetScript("OnClick", function()
+            if YapperTable.Core and YapperTable.Core.PushToGlobal then
+                YapperTable.Core:PushToGlobal()
+                -- Refresh UI to show the now-global values (inherited via metatable)
+                self:BuildConfigUI()
+            end
+        end)
+        self:AttachTooltip(pushBtn, self:GetTooltip("TOOLTIP.PUSH_TO_GLOBAL"))
+        self:AddControl(pushBtn)
+        cursor:Advance(30)
+    else
+        local fs = self:CreateLabel(parent, "Using Global Profile: Settings changed here affect all characters.",
+            LAYOUT.WINDOW_PADDING, y, 400, nil, "GameFontNormalSmall")
+        fs:SetTextColor(0.4, 1.0, 0.4, 1) -- Greenish
+        cursor:Advance(20)
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- YALLM Learning Page
 -- ---------------------------------------------------------------------------
