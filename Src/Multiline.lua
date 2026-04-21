@@ -51,6 +51,7 @@ Multiline.Active      = false -- true while the expanded editor is shown
 Multiline.ChatType    = nil   -- current channel type (SAY, YELL, …)
 Multiline.Language    = nil   -- language index
 Multiline.Target      = nil   -- whisper / channel target
+Multiline._autoScrollSuppressedUntil = 0
 
 -- ---------------------------------------------------------------------------
 -- Label helpers
@@ -204,6 +205,45 @@ function Multiline:CreateFrame()
 	end)
 	sf:SetScrollChild(edit)
 	self.EditBox = edit
+
+	-- Keep the caret in view while typing/navigating in multiline mode.
+	-- Cursor y from Blizzard is a negative offset from the EditBox's top.
+	edit:HookScript("OnCursorChanged", function(_, x, y, w, h)
+		if not y or not h or h <= 0 then return end
+		if GetTime() < (Multiline._autoScrollSuppressedUntil or 0) then return end
+
+		local scroll = Multiline.ScrollFrame
+		if not scroll or not scroll.GetVerticalScroll then return end
+
+		local view = scroll:GetVerticalScroll() or 0
+		local viewH = scroll:GetHeight() or 0
+		if viewH <= 0 then return end
+
+		local padding = 4
+		local caretTop = -(y + h)
+		local caretBottom = -y
+
+		local newScroll = view
+		if caretBottom > (view + viewH - padding) then
+			newScroll = caretBottom - viewH + padding
+		elseif caretTop < (view + padding) then
+			newScroll = caretTop - padding
+		end
+
+		if newScroll ~= view then
+			local maxScroll = scroll:GetVerticalScrollRange() or 0
+			newScroll = math_max(0, math_min(newScroll, maxScroll))
+			scroll:SetVerticalScroll(newScroll)
+			if scroll.ScrollBar and scroll.ScrollBar.SetValue then
+				scroll.ScrollBar:SetValue(newScroll)
+			end
+		end
+	end)
+
+	-- Respect user wheel scrolling briefly before resuming caret tracking.
+	sf:HookScript("OnMouseWheel", function()
+		Multiline._autoScrollSuppressedUntil = GetTime() + 1.5
+	end)
 
 	-- Enter sends; Shift+Enter inserts a literal newline (multi-line default).
 	edit:SetScript("OnEnterPressed", function(box)
@@ -995,4 +1035,3 @@ function Multiline:ApplyTheme()
 		if f._yapperShadowLayer then f._yapperShadowLayer:Hide() end
 	end
 end
-
