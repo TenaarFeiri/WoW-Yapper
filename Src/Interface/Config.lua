@@ -45,6 +45,33 @@ function Interface:GetDefaultsRoot()
     return nil
 end
 
+--- Reset all configuration settings to their default values.
+--- Intentionally preserves learned dictionary data (YALLM) and chat history.
+function Interface:ResetAllSettings()
+    -- Clear per-character overrides entirely.
+    _G.YapperLocalConf = {}
+
+    -- Clear configuration keys from account-wide storage while keeping
+    -- the learned data (YALLM) and interface cache container intact.
+    if type(_G.YapperDB) == "table" then
+        _G.YapperDB.EditBox    = nil
+        _G.YapperDB.System     = nil
+        _G.YapperDB.Spellcheck = nil
+    end
+
+    -- Re-run the Core initialisation to re-seed tables with defaults
+    -- and rebuild the metatable inheritance chains.
+    if YapperTable.Core and YapperTable.Core.InitSavedVars then
+        YapperTable.Core:InitSavedVars()
+    end
+
+    -- Clear the UI render cache so the options menu reflects the new state.
+    self:PurgeRenderCache()
+
+    -- Mark settings as changed so any active UI elements know to refresh.
+    self:SetSettingsChanged(true)
+end
+
 function Interface:GetRenderCacheContainer()
     if type(_G.YapperDB) ~= "table" then
         _G.YapperDB = {}
