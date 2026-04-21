@@ -563,7 +563,7 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
     end
 
     if #filters[hookPoint] >= MAX_FILTERS_PER_HOOK then
-        _report("FILTER", hookPoint, nil, "registration cap reached (" .. MAX_FILTERS_PER_HOOK .. " filters)")
+        _report_api_error("FILTER", hookPoint, nil, "registration cap reached (" .. MAX_FILTERS_PER_HOOK .. " filters)")
         return nil
     end
 
@@ -634,7 +634,7 @@ function YapperAPI:RegisterCallback(event, callback)
     end
 
     if #callbacks[event] >= MAX_CALLBACKS_PER_EVT then
-        _report("CALLBACK", event, nil, "registration cap reached (" .. MAX_CALLBACKS_PER_EVT .. " callbacks)")
+        _report_api_error("CALLBACK", event, nil, "registration cap reached (" .. MAX_CALLBACKS_PER_EVT .. " callbacks)")
         return nil
     end
 

@@ -255,9 +255,6 @@
       using Gopher, like CrossRP.
     - Implemented a fix for Prat's sticky channels.
 
-    TODO:
-            - Improve the posting queue to make it more robust and at the very least match Gopher's verification.
-
 -- 0.8b
     * Added some cleanup functions for extra memory management.
     * Patched a memory leak. You will see memory rise during active usage, but it should peak at a reasonable level and
