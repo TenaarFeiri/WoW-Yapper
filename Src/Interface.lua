@@ -8,6 +8,9 @@ YapperTable.Interface         = Interface
 Interface.MouseWheelStepRate  = YapperTable.Config.FrameSettings.MouseWheelStepRate or 30
 Interface.IsVisible           = false
 
+-- CurseForge link for dictionary downloads.
+Interface.DICTIONARY_DOWNLOAD_URL = "https://www.curseforge.com/wow/addons/yapper-dictionaries"
+
 -- Localise Lua globals for performance
 local math_floor              = math.floor
 local math_rad                = math.rad
@@ -401,6 +404,32 @@ function Interface:InitPopups()
             whileDead = true,
             hideOnEscape = true,
             preferredIndex = 3,
+        }
+    end
+
+    if not StaticPopupDialogs["YAPPER_DICTS_MISSING_LINK"] then
+        StaticPopupDialogs["YAPPER_DICTS_MISSING_LINK"] = {
+            text = "|cFFFF4444No Dictionaries Found|r\n\nYou need to download at least one language dictionary to use the spellchecker. Please download them from CurseForge and reload your UI afterwards.\n\nCopy the link below:",
+            button1 = "Close",
+            hasEditBox = 1,
+            maxLetters = 255,
+            OnShow = function(selfFrame)
+                local eb = selfFrame.editBox
+                if eb then
+                    eb:SetText(Interface.DICTIONARY_DOWNLOAD_URL)
+                    eb:SetFocus()
+                    eb:HighlightText()
+                end
+            end,
+            EditBoxOnEnterPressed = function(selfFrame)
+                selfFrame:GetParent():Hide()
+            end,
+            EditBoxOnEscapePressed = function(selfFrame)
+                selfFrame:GetParent():Hide()
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
         }
     end
 end

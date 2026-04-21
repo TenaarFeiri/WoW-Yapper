@@ -379,6 +379,18 @@ function Spellcheck:HasLocaleAddon(locale)
     return false
 end
 
+function Spellcheck:HasAnyDictionary()
+    if self.Dictionaries and next(self.Dictionaries) then return true end
+    if self.KnownLocales then
+        for _, locale in ipairs(self.KnownLocales) do
+            if self:HasLocaleAddon(locale) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function Spellcheck:IsLocaleAvailable(locale)
     if type(locale) ~= "string" or locale == "" then return false end
     if self.Dictionaries and self.Dictionaries[locale] then return true end
