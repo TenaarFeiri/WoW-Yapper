@@ -485,8 +485,6 @@ local function BuildInputMeta(self, lower)
     return bag, bigrams
 end
 
-local CACHE_NIL_USER_REV = {}
-
 local function CtxGetMeta(ctx, candidate)
     return ctx.self:GetMeta(ctx.dict, candidate)
 end
@@ -838,7 +836,7 @@ function Spellcheck:GetSuggestions(word)
     self._suggestionCache = self._suggestionCache or {}
     self._suggestionCacheCount = self._suggestionCacheCount or 0
     local sc = self._suggestionCache
-    local userRevKey = (userRev == nil) and CACHE_NIL_USER_REV or userRev
+    local userRevKey = (userRev == nil) and false or userRev
     local byWord = sc[lower]
     if byWord then
         local byLocale = byWord[locale]

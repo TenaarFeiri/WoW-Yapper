@@ -318,7 +318,7 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
     if not self._pendingCursorUpdate then
         self._pendingCursorUpdate = true
         C_Timer.After(0, function()
-            self._pendingCursorUpdate = false
+            self._pendingCursorUpdate = nil
             self:UpdateUnderlines()
         end)
     end

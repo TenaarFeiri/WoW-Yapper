@@ -261,9 +261,7 @@ function YALLM:RecordUsage(text, locale)
                 end
                 db.freq[w] = { c = 1, t = now }
                 db.total = db.total + 1
-                if db.freqSortedDirty then
-                    -- lazy rebuild on demand
-                else
+                if not db.freqSortedDirty then
                     if type(db.freqSorted) ~= "table" then
                         db.freqSorted = {}
                     end
