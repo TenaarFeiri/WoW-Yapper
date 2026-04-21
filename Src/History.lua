@@ -9,14 +9,14 @@ local History                 = {}
 YapperTable.History           = History
 
 -- Localise Lua globals for performance
-local table_remove  = table.remove
-local math_abs      = math.abs
-local type     = type
-local pairs    = pairs
-local ipairs   = ipairs
-local tostring = tostring
-local tonumber = tonumber
-local GetTime  = GetTime
+local table_remove            = table.remove
+local math_abs                = math.abs
+local type                    = type
+local pairs                   = pairs
+local ipairs                  = ipairs
+local tostring                = tostring
+local tonumber                = tonumber
+local GetTime                 = GetTime
 
 -- ---------------------------------------------------------------------------
 -- Configuration
@@ -26,7 +26,7 @@ local CHAT_HISTORY_SIZE       = 50 -- Max persistent sent messages
 local SNAPSHOT_THRESHOLD      = 20 -- Min character delta for auto-snapshot
 
 local CURRENT_VERSION         = tonumber((YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.VERSION)) or
-1.0
+    1.0
 
 -- Per-editbox undo buffers (keyed by name string).
 local UndoBuffers             = {}
@@ -51,7 +51,7 @@ end
 -- ---------------------------------------------------------------------------
 local HISTORY_DEFAULTS = {
     VERSION = CURRENT_VERSION,
-    chatHistory = {},     -- Flat array of sent strings, newest last.
+    chatHistory = {},      -- Flat array of sent strings, newest last.
     draft = {
         text      = nil,   -- The raw draft text
         chatType  = nil,   -- Chat type when draft was taken.
@@ -187,8 +187,8 @@ end
 function History:SaveDraft(editBox, isMultiline)
     if not editBox then return end
     local text = editBox:GetText() or ""
-    
-    -- Bail if empty or just whitespace. We don't want a "zombie" spacebar 
+
+    -- Bail if empty or just whitespace. We don't want a "zombie" spacebar
     -- click to overwrite a previously saved multi-sentence draft.
     local trimmed = text:match("^%s*(.-)%s*$") or ""
     if trimmed == "" then return end
@@ -197,7 +197,7 @@ function History:SaveDraft(editBox, isMultiline)
     draft.text = text
 
     if isMultiline then
-        local ml = YapperTable.Multiline
+        local ml        = YapperTable.Multiline
         draft.chatType  = ml and ml.ChatType
         draft.target    = ml and ml.Target
         draft.multiline = true
@@ -210,6 +210,7 @@ function History:SaveDraft(editBox, isMultiline)
 end
 
 --- Return the saved draft if dirty.
+---@diagnostic disable-next-line: undefined-doc-name
 --- @return string?, string?, string?, boolean?  text, chatType, target, multiline
 function History:GetDraft()
     local draft = self:GetDraftStore()
@@ -236,8 +237,8 @@ function History:ClearDraft(editBox)
     -- Cleanup any pending snapshot timers if the box is provided.
     if editBox then
         self:CancelPauseTimer(editBox)
-        
-        -- Reset the "LastText" comparison so the next message's first 
+
+        -- Reset the "LastText" comparison so the next message's first
         -- character isn't compared against the end of the previous message.
         local name = editBox.GetName and editBox:GetName()
         if name then LastText[name] = "" end
@@ -390,14 +391,14 @@ function History:HookOverlayEditBox()
 
         local function IsWordBoundaryByte(b)
             -- Whitespace (Space, Tab, Enter) or Punctuation (. , ! ? : ;)
-            return b == 32 or b == 9 or b == 10 or b == 13 
+            return b == 32 or b == 9 or b == 10 or b == 13
                 or b == 46 or b == 44 or b == 33 or b == 63 or b == 58 or b == 59
         end
 
-        local textLast            = (#text > 0) and text:byte(#text) or nil
-        local lastLast            = (#last > 0) and last:byte(#last) or nil
-        local insertedBoundary    = (#text > #last) and IsWordBoundaryByte(textLast)
-        local removedBoundary     = (#text < #last) and IsWordBoundaryByte(lastLast)
+        local textLast         = (#text > 0) and text:byte(#text) or nil
+        local lastLast         = (#last > 0) and last:byte(#last) or nil
+        local insertedBoundary = (#text > #last) and IsWordBoundaryByte(textLast)
+        local removedBoundary  = (#text < #last) and IsWordBoundaryByte(lastLast)
 
         -- Undo snapshot on word boundaries using PRE-change text,
         -- otherwise snapshot on large deltas.

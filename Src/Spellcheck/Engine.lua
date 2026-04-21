@@ -5,40 +5,74 @@
     scoring), Damerau-Levenshtein edit distance, and label formatting.
 ]]
 
-local _, YapperTable = ...
-local Spellcheck     = YapperTable.Spellcheck
+local _, YapperTable  = ...
+local Spellcheck      = YapperTable.Spellcheck
 
 -- Re-localise shared helpers from hub.
-local Clamp            = Spellcheck.Clamp
-local NormaliseWord    = Spellcheck.NormaliseWord
-local NormaliseVowels  = Spellcheck.NormaliseVowels
-local SuggestionKey    = Spellcheck.SuggestionKey
-local IsWordByte       = Spellcheck.IsWordByte
-local IsWordStartByte  = Spellcheck.IsWordStartByte
-local SCORE_WEIGHTS    = Spellcheck._SCORE_WEIGHTS
-local RAID_ICONS       = Spellcheck._RAID_ICONS
+local Clamp           = Spellcheck.Clamp
+local NormaliseWord   = Spellcheck.NormaliseWord
+local NormaliseVowels = Spellcheck.NormaliseVowels  -- built-in fallback
+local SuggestionKey   = Spellcheck.SuggestionKey
+local IsWordByte      = Spellcheck.IsWordByte
+local IsWordStartByte = Spellcheck.IsWordStartByte
+local SCORE_WEIGHTS   = Spellcheck._SCORE_WEIGHTS
+local RAID_ICONS      = Spellcheck._RAID_ICONS
 
 -- Re-localise Lua globals.
-local type         = type
-local pairs        = pairs
-local ipairs       = ipairs
-local tostring     = tostring
-local tonumber     = tonumber
-local math_abs     = math.abs
-local math_min     = math.min
-local math_max     = math.max
-local math_floor   = math.floor
-local math_huge    = math.huge
-local table_insert = table.insert
-local table_sort   = table.sort
-local string_sub   = string.sub
-local string_byte  = string.byte
-local string_lower = string.lower
-local string_gsub  = string.gsub
-local string_upper = string.upper
-local string_match = string.match
-local string_char  = string.char
-local string_format = string.format
+local type            = type
+local pairs           = pairs
+local ipairs          = ipairs
+local tostring        = tostring
+local tonumber        = tonumber
+local math_abs        = math.abs
+local math_min        = math.min
+local math_max        = math.max
+local math_floor      = math.floor
+local math_huge       = math.huge
+local table_insert    = table.insert
+local table_sort      = table.sort
+local string_sub      = string.sub
+local string_byte     = string.byte
+local string_lower    = string.lower
+local string_gsub     = string.gsub
+local string_upper    = string.upper
+local string_match    = string.match
+local string_char     = string.char
+local string_format   = string.format
+
+-- ---------------------------------------------------------------------------
+-- Engine accessor helper
+-- ---------------------------------------------------------------------------
+-- Returns the active language engine if one is registered for the current
+-- locale's family, otherwise a synthetic table that delegates to the
+-- built-in English helpers so all call-sites can be written uniformly.
+local VARIANT_RULES   = {
+    { "or",  "our" }, { "our", "or" },
+    { "ize", "ise" }, { "ise", "ize" },
+    { "er", "re" }, { "re", "er" },
+    { "og", "ogue" }, { "ogue", "og" },
+    { "l", "ll" }, { "ll", "l" },
+}
+
+local _builtinEngine
+local function GetEngineFor(self)
+    local eng = self:GetActiveEngine()
+    if eng then return eng end
+
+    -- Lazily build the built-in fallback once.
+    if not _builtinEngine then
+        _builtinEngine = {
+            GetPhoneticHash = function(w) return string_upper(w) end, -- Simple fallback
+            NormaliseVowels = NormaliseVowels,
+            HasVariantRules = true,
+            VariantRules    = VARIANT_RULES,
+            ScoreWeights    = nil,
+            KBLayouts       = nil,
+        }
+    end
+    return _builtinEngine
+end
+
 
 function Spellcheck:CollectMisspellings(text, dict)
     -- PRE_SPELLCHECK filter: external addons can strip custom markup etc.
@@ -355,10 +389,12 @@ local function GatherUserCandidates(self, locale)
 end
 
 --- Collect n-gram-scored candidates when the n-gram index is enabled.
-local function GatherNgramCandidates(dict, base, lower, lowerLen)
+local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
     local hits = {}
     local n = lowerLen < 5 and 2 or 3
-    local norm = NormaliseVowels(lower)
+    -- Use the engine's NormaliseVowels if it has one, otherwise the built-in.
+    local normVowels = (engine and engine.NormaliseVowels) or NormaliseVowels
+    local norm = normVowels(lower)
 
     local function addHits(node, wordsTable)
         if not node then return end
@@ -407,9 +443,9 @@ local function GatherNgramCandidates(dict, base, lower, lowerLen)
 end
 
 --- Collect phonetically similar candidates via the phonetic index.
-local function GatherPhoneticCandidates(dict, lower)
+local function GatherPhoneticCandidates(dict, lower, engine)
     local out = {}
-    local phoneticHash = Spellcheck.GetPhoneticHash(lower)
+    local phoneticHash = engine:GetPhoneticHash(lower)
     if phoneticHash == "" then return out, phoneticHash end
     local matches = dict.phonetics and dict.phonetics[phoneticHash]
     if matches then
@@ -425,7 +461,9 @@ end
 --- Build input-word metadata (letter bag + bigrams) into reusable scratch tables.
 local function BuildInputMeta(self, lower)
     local bag = self._scratchBag
-    if not bag then bag = {}; self._scratchBag = bag end
+    if not bag then
+        bag = {}; self._scratchBag = bag
+    end
     for k in pairs(bag) do bag[k] = nil end
     for i = 1, #lower do
         local ch = string_byte(lower, i)
@@ -433,7 +471,9 @@ local function BuildInputMeta(self, lower)
     end
 
     local bigrams = self._scratchBigrams
-    if not bigrams then bigrams = {}; self._scratchBigrams = bigrams end
+    if not bigrams then
+        bigrams = {}; self._scratchBigrams = bigrams
+    end
     for k in pairs(bigrams) do bigrams[k] = nil end
     if #lower >= 2 then
         for i = 1, (#lower - 1) do
@@ -447,46 +487,56 @@ end
 --- Pre-compute a scoring context table that is shared across all candidates.
 --- This avoids re-fetching config values and rebuilding lookup structures
 --- inside the per-candidate scoring loop.
-local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale)
-    local lowerLen = #lower
-    local maxWrong = self:GetMaxWrongLetters() or 4
-    local lHasApostrophe = lower:find("'", 1, true)
-    local lFlat = lHasApostrophe and string_gsub(lower, "'", "") or lower
-    local isVariantLocale = (locale == "enGB" or locale == "enUS")
-    local kbDist = self:GetKBDistTable()
+local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale, engine)
+    local lowerLen        = #lower
+    local maxWrong        = self:GetMaxWrongLetters() or 4
+    local lHasApostrophe  = lower:find("'", 1, true)
+    local lFlat           = lHasApostrophe and string_gsub(lower, "'", "") or lower
+    local isVariantLocale = (engine and engine.HasVariantRules) == true
+    local variantRules    = (engine and engine.VariantRules) or {}
+
+    -- Keyboard layout: prefer the engine's layouts, fall back to built-in.
+    local kbLayouts       = (engine and engine.KBLayouts) or Spellcheck._KB_LAYOUTS
+
+    -- Score weights: start from the built-in base and overlay engine overrides.
+    local weights         = SCORE_WEIGHTS
+    if engine and type(engine.ScoreWeights) == "table" then
+        weights = {}
+        for k, v in pairs(SCORE_WEIGHTS) do weights[k] = v end
+        for k, v in pairs(engine.ScoreWeights) do weights[k] = v end
+    end
 
     -- Pre-convert input word to byte array for proximity scan (reuse buffer)
     local lowerBytes = self._kbLowerBytes
-    if not lowerBytes then lowerBytes = {}; self._kbLowerBytes = lowerBytes end
+    if not lowerBytes then
+        lowerBytes = {}; self._kbLowerBytes = lowerBytes
+    end
     for i = 1, lowerLen do lowerBytes[i] = string_byte(lower, i) end
 
     return {
-        dict           = dict,
-        lower          = lower,
-        lowerLen       = lowerLen,
-        maxWrong       = maxWrong,
-        lHasApostrophe = lHasApostrophe,
-        lFlat          = lFlat,
+        dict            = dict,
+        lower           = lower,
+        lowerLen        = lowerLen,
+        maxWrong        = maxWrong,
+        lHasApostrophe  = lHasApostrophe,
+        lFlat           = lFlat,
         isVariantLocale = isVariantLocale,
-        kbDist         = kbDist,
-        lowerBytes     = lowerBytes,
-        inputBag       = inputBag,
-        inputBigrams   = inputBigrams,
-        phoneticHash   = phoneticHash,
-        YALLM          = self.YALLM,
+        variantRules    = variantRules,
+        kbLayouts       = kbLayouts,
+        weights         = weights,
+        lowerBytes      = lowerBytes,
+        inputBag        = inputBag,
+        inputBigrams    = inputBigrams,
+        phoneticHash    = phoneticHash,
+        YALLM           = self.YALLM,
         -- closures that need self
-        GetMeta        = function(candidate) return self:GetMeta(dict, candidate) end,
+        GetMeta         = function(candidate) return self:GetMeta(dict, candidate) end,
         EditDistance    = function(a, b, max) return self:EditDistance(a, b, max) end,
     }
 end
 
-local VARIANT_RULES = {
-    { "or",  "our" }, { "our", "or" },
-    { "ize", "ise" }, { "ise", "ize" },
-    { "er", "re" }, { "re", "er" },
-    { "og", "ogue" }, { "ogue", "og" },
-    { "l", "ll" }, { "ll", "l" },
-}
+-- The fallback VARIANT_RULES was moved to the top of the file to
+-- correctly populate _builtinEngine on first use.
 
 local function CommonPrefixLen(a, b)
     local len = math_min(#a, #b)
@@ -525,8 +575,8 @@ end
 local function LocaleVariantBonus(ctx, candidate)
     if not ctx.isVariantLocale then return 0 end
     local input = ctx.lower
-    for i = 1, #VARIANT_RULES do
-        local r = VARIANT_RULES[i]
+    for i = 1, #ctx.variantRules do
+        local r = ctx.variantRules[i]
         if input:find(r[1], 1, true) then
             if string_gsub(input, r[1], r[2]) == candidate then
                 return (i <= 2) and 5.0 or 3.5
@@ -545,30 +595,31 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     local prefix = CommonPrefixLen(lower, candidate)
     local bagScore = LetterBagScore(ctx, candidate)
     local bigramScore = BigramOverlap(ctx, candidate)
+    local W = ctx.weights
 
     local longerPenalty = 0
     if candidateLen > lowerLen then
         local over = (candidateLen - lowerLen)
         local factor = 1 + ((bagScore / math_max(1, ctx.maxWrong)) * 0.5)
-        longerPenalty = over * SCORE_WEIGHTS.longerPenalty * factor
+        longerPenalty = over * W.longerPenalty * factor
     end
 
     local score = dist
-        + (lenDiff * SCORE_WEIGHTS.lenDiff)
+        + (lenDiff * W.lenDiff)
         + longerPenalty
-        - (prefix * SCORE_WEIGHTS.prefix)
-        + (bagScore * SCORE_WEIGHTS.letterBag)
-        - (bigramScore * SCORE_WEIGHTS.bigram)
+        - (prefix * W.prefix)
+        + (bagScore * W.letterBag)
+        - (bigramScore * W.bigram)
         - (isPhonetic and 7.0 or 0)
 
     -- First-Character Anchor Bias
     if string_byte(candidate, 1) == string_byte(lower, 1) then
-        score = score - SCORE_WEIGHTS.firstCharBias
+        score = score - W.firstCharBias
     end
 
     -- Vowel-Neutral Match Bonus
     if NormaliseVowels(candidate) == NormaliseVowels(lower) then
-        score = score - SCORE_WEIGHTS.vowelBonus
+        score = score - W.vowelBonus
     end
 
     -- Phonetic Complexity Bonus
@@ -595,16 +646,20 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     if variantBonus > 0 then score = score - variantBonus end
 
     -- Keyboard proximity bonus
-    if dist <= 2 and lenDiff <= 1 and ctx.kbDist then
+    if dist <= 2 and lenDiff <= 1 and ctx.kbLayouts then
+        -- Build or reuse the KB distance table for this context's layout.
+        local layout    = Spellcheck:GetKeyboardLayout()
+        local layouts   = ctx.kbLayouts
+        local kbDist    = Spellcheck:_GetKBDistFromLayouts(layouts, layout)
         local proxScore = 0
         local proxCount = 0
-        local scanLen = math_min(lowerLen, candidateLen)
+        local scanLen   = math_min(lowerLen, candidateLen)
         for i = 1, scanLen do
             local lb = ctx.lowerBytes[i]
             local cb = string_byte(candidate, i)
             if lb ~= cb then
                 if lb >= 97 and lb <= 122 and cb >= 97 and cb <= 122 then
-                    local kd = ctx.kbDist[(lb - 97) * 26 + (cb - 97) + 1]
+                    local kd = kbDist[(lb - 97) * 26 + (cb - 97) + 1]
                     if kd < 1.5 then
                         proxScore = proxScore + (1.5 - kd)
                         proxCount = proxCount + 1
@@ -613,7 +668,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
             end
         end
         if proxCount > 0 then
-            score = score - (proxScore * SCORE_WEIGHTS.kbProximity)
+            score = score - (proxScore * W.kbProximity)
         end
     end
 
@@ -621,14 +676,14 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     local maxDist = (lowerLen <= 4) and 2 or 3
     if candidateLen == lowerLen then
         if bagScore <= ctx.maxWrong then
-            score = score - (SCORE_WEIGHTS.lenDiff * 1.5)
+            score = score - (W.lenDiff * 1.5)
         else
             score = score + ((bagScore - ctx.maxWrong) * 0.5)
         end
     elseif lenDiff == 1 and dist == 1 then
         if ctx.isVariantLocale then
             if bagScore <= (ctx.maxWrong + 1) then
-                score = score - (SCORE_WEIGHTS.lenDiff * 1.0)
+                score = score - (W.lenDiff * 1.0)
             end
         end
     end
@@ -657,8 +712,8 @@ local function InjectLocaleVariants(ctx, out, seenCandidates)
             end
         end
     end
-    for i = 1, #VARIANT_RULES do
-        inject(VARIANT_RULES[i][1], VARIANT_RULES[i][2])
+    for i = 1, #ctx.variantRules do
+        inject(ctx.variantRules[i][1], ctx.variantRules[i][2])
     end
 end
 
@@ -707,7 +762,9 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
     local alphSeen = {}
     local alphaList = {}
     for _, ch in ipairs(alph) do
-        if not alphSeen[ch] then alphSeen[ch] = true; alphaList[#alphaList + 1] = ch end
+        if not alphSeen[ch] then
+            alphSeen[ch] = true; alphaList[#alphaList + 1] = ch
+        end
     end
     for i = 1, #lower do
         if #variants >= attempts then break end
@@ -764,6 +821,9 @@ function Spellcheck:GetSuggestions(word)
     local first = lower:sub(1, 1)
     local maxCandidates = (type(self.GetMaxCandidates) == "function") and self:GetMaxCandidates() or 1000
 
+    -- Resolve the active language engine once for this suggestion pass.
+    local engine = GetEngineFor(self)
+
     -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount.
     self._suggestionCache = self._suggestionCache or {}
     local sc = self._suggestionCache
@@ -773,17 +833,18 @@ function Spellcheck:GetSuggestions(word)
     end
 
     -- Base dict if this is a delta
-    local base = dict.extends and self.Dictionaries[dict.extends]
+    local base                             = dict.extends and self.Dictionaries[dict.extends]
 
     -- ── Gather candidate lists ───────────────────────────────────────
-    local prefixCandidates = GatherPrefixCandidates(dict, base, first)
-    local addedCandidates  = GatherUserCandidates(self, locale)
+    local prefixCandidates                 = GatherPrefixCandidates(dict, base, first)
+    local addedCandidates                  = GatherUserCandidates(self, locale)
 
-    local useNgram = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck
+    local useNgram                         = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck
         and YapperTable.Config.Spellcheck.UseNgramIndex) or false
-    local ngramCandidates = useNgram and GatherNgramCandidates(dict, base, lower, lowerLen) or nil
+    local ngramCandidates                  = useNgram and GatherNgramCandidates(dict, base, lower, lowerLen, engine) or
+    nil
 
-    local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower)
+    local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
         self:Notify("Spellcheck:GetSuggestions word='" .. tostring(word) ..
@@ -793,7 +854,7 @@ function Spellcheck:GetSuggestions(word)
 
     -- ── Build scoring context ────────────────────────────────────────
     local inputBag, inputBigrams = BuildInputMeta(self, lower)
-    local ctx = MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale)
+    local ctx = MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale, engine)
 
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
     local out = {}
@@ -848,8 +909,8 @@ function Spellcheck:GetSuggestions(word)
         aborted = tryCandidates(phoneticCandidates, true)
     end
 
-    -- 3. Direct locale variant injection
-    if locale == "enGB" or locale == "enUS" then
+    -- 3. Direct locale variant injection (only when the active engine has variant rules)
+    if ctx.isVariantLocale then
         InjectLocaleVariants(ctx, out, seenCandidates)
     end
 

@@ -73,6 +73,13 @@ function Spellcheck:RegisterDictionary(locale, data)
         return
     end
 
+    -- If the data bundle includes an engine registration, wire it up now so
+    -- that GetActiveEngine() returns the correct engine even before the dict
+    -- is fully indexed (important for async loading of large base dicts).
+    if type(data.engine) == "table" and type(data.languageFamily) == "string" then
+        self:_RegisterLanguageEngine(data.languageFamily, data.engine)
+    end
+
     local words = data.words or {}
 
     -- Cancel any in-progress async load for this locale (e.g. locale switch)
@@ -119,18 +126,19 @@ function Spellcheck:RegisterDictionary(locale, data)
     -- so CollectMisspellings can start using words as they arrive.
     if not existing then
         self.Dictionaries[locale] = {
-            locale = locale,
-            words = outWords,
-            set = set,
-            index = index,
-            ngramIndex2 = ngramIndex2,
-            ngramIndex3 = ngramIndex3,
-            phonetics = phonetics,
-            isDelta = data.extends and true or false,
-            extends = data.extends,
-            _metaCache = {},
+            locale         = locale,
+            languageFamily = data.languageFamily or nil,
+            words          = outWords,
+            set            = set,
+            index          = index,
+            ngramIndex2    = ngramIndex2,
+            ngramIndex3    = ngramIndex3,
+            phonetics      = phonetics,
+            isDelta        = data.extends and true or false,
+            extends        = data.extends,
+            _metaCache     = {},
             _metaUsageTimer = 0,
-            _metaCacheSize = 0,
+            _metaCacheSize  = 0,
         }
     end
 

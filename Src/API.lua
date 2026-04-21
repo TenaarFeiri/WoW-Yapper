@@ -4,7 +4,7 @@
 ===========================================================================
     Full documentation are available on GitHub: https://github.com/TenaarFeiri/WoW-Yapper/tree/main/Documentation
     This will always be up to date.
-    I am always looking for new opportunities to expand the API, so if you have need 
+    I am always looking for new opportunities to expand the API, so if you have need
     for a hook point that doesn't exist yet, please open an issue or PR on the Yapper repository.
     Alternatively, you can DM me on GitHub, CurseForge (Symphicat), or send me an email at symphicat@gmail.com
 
@@ -290,6 +290,37 @@
     YapperAPI:AddToDictionary(word) → boolean (true if added)
     YapperAPI:IgnoreWord(word)      → boolean (true if ignored)
 
+    Dictionary / engine registration (for LOD dictionary addons):
+
+    YapperAPI:RegisterDictionary(locale, data)
+      Register a dictionary for the given locale (e.g. "enBase", "enGB").
+      `data` accepts the same fields as the internal RegisterDictionary call:
+        • words          — array of canonical word strings
+        • phonetics      — table { [phoneticHash] = { wordId, … } }
+        • extends        — string locale this dict inherits from (delta dicts)
+        • isDelta        — bool (inferred from extends; can be set explicitly)
+        • languageFamily — string family id, e.g. "en". Links this dict to a
+                           registered language engine.
+        • engine         — optional table (see RegisterLanguageEngine). When
+                           present, the engine is registered atomically with
+                           the dict so ordering does not matter.
+      Returns true on success, false on invalid arguments.
+
+    YapperAPI:RegisterLanguageEngine(familyId, engine)
+      Register a language engine for a locale family.
+      `familyId` — short string identifier, e.g. "en", "de", "fr".
+      `engine`   — table with the following fields:
+        • GetPhoneticHash(word) → string   (REQUIRED)
+          Must produce the same hash keys used in the dict's phonetics table.
+        • NormaliseVowels(word) → string   (optional; falls back to built-in)
+        • HasVariantRules — bool           (optional; enables variant swaps)
+        • VariantRules    — array of {from, to} pairs  (optional)
+        • ScoreWeights    — partial table  (optional; overlays built-in weights)
+        • KBLayouts       — table          (optional; same schema as built-in KB_LAYOUTS)
+      Returns true on success, false on invalid / missing GetPhoneticHash.
+
+    YapperAPI:IsLanguageEngineRegistered(familyId) → boolean
+
     Post delegation:
 
     YapperAPI:ResolvePost(handle)   → boolean (true if the claim was valid and resolved)
@@ -345,20 +376,20 @@ local YapperName, YapperTable = ...
 -- ---------------------------------------------------------------------------
 -- Internal state
 -- ---------------------------------------------------------------------------
-local API = {}
-YapperTable.API = API
+local API                     = {}
+YapperTable.API               = API
 
-local filters   = {}   -- [hookPoint] = sorted array of {cb, priority, handle}
-local callbacks = {}   -- [event]     = array of {cb, handle}
-local handleSeq = 0    -- monotonic handle counter
+local filters                 = {} -- [hookPoint] = sorted array of {cb, priority, handle}
+local callbacks               = {} -- [event]     = array of {cb, handle}
+local handleSeq               = 0  -- monotonic handle counter
 
-local type   = type
-local pairs  = pairs
-local ipairs = ipairs
-local pcall  = pcall
-local table_insert = table.insert
-local table_sort   = table.sort
-local table_remove = table.remove
+local type                    = type
+local pairs                   = pairs
+local ipairs                  = ipairs
+local pcall                   = pcall
+local table_insert            = table.insert
+local table_sort              = table.sort
+local table_remove            = table.remove
 
 -- ===== Debug / error helpers ==============================================================
 local function _truncate_string(s, max)
@@ -400,10 +431,11 @@ local function _serialize_value(val, depth, seen)
         for k, v in pairs(val) do
             n = n + 1
             if n > 12 then
-                parts[#parts+1] = "..."
+                parts[#parts + 1] = "..."
                 break
             end
-            parts[#parts+1] = "[" .. _serialize_value(k, depth - 1, seen) .. "]=" .. _serialize_value(v, depth - 1, seen)
+            parts[#parts + 1] = "[" ..
+                _serialize_value(k, depth - 1, seen) .. "]=" .. _serialize_value(v, depth - 1, seen)
         end
         seen[val] = nil
         return "{" .. table.concat(parts, ", ") .. "}"
@@ -416,7 +448,7 @@ local function _format_args(...)
     if n == 0 then return "" end
     local parts = {}
     for i = 1, n do
-        parts[#parts+1] = _serialize_value(select(i, ...), 2)
+        parts[#parts + 1] = _serialize_value(select(i, ...), 2)
     end
     return table.concat(parts, ", ")
 end
@@ -505,10 +537,10 @@ end
 -- ---------------------------------------------------------------------------
 -- Public object (sandbox)
 -- ---------------------------------------------------------------------------
-local YapperAPI = {
-    _version = "1.1",   -- API version, independent of addon version
+local YapperAPI             = {
+    _version = "1.1", -- API version, independent of addon version
 }
-_G.YapperAPI = YapperAPI
+_G.YapperAPI                = YapperAPI
 
 -- Per-hook / per-event registration cap to prevent runaway leaks.
 local MAX_FILTERS_PER_HOOK  = 50
@@ -520,7 +552,7 @@ local MAX_CALLBACKS_PER_EVT = 50
 --- @param hookPoint string  The hook name (e.g. "PRE_SEND").
 --- @param callback function  Receives a payload table, must return it or false.
 --- @param priority number|nil  Lower fires first; default 10.
---- @return number handle  Pass to UnregisterFilter to remove.
+--- @return number|nil handle  Pass to UnregisterFilter to remove.
 function YapperAPI:RegisterFilter(hookPoint, callback, priority)
     if type(hookPoint) ~= "string" or type(callback) ~= "function" then
         return nil
@@ -591,7 +623,7 @@ end
 --- Register a callback for an event.
 --- @param event string  The event name (e.g. "POST_SEND").
 --- @param callback function  Receives event-specific arguments.
---- @return number handle  Pass to UnregisterCallback to remove.
+--- @return number|nil handle  Pass to UnregisterCallback to remove.
 function YapperAPI:RegisterCallback(event, callback)
     if type(event) ~= "string" or type(callback) ~= "function" then
         return nil
@@ -776,6 +808,50 @@ function YapperAPI:IgnoreWord(word)
     return true
 end
 
+--- Register a dictionary via the public API.
+--- `locale` — the locale key, e.g. "enBase", "enGB", "enUS".
+--- `data`   — table with the same fields accepted by the internal
+---             RegisterDictionary call (words, phonetics, extends, etc.).
+---             See the header doc comment for the full field list.
+--- Returns true if accepted, false on invalid arguments.
+function YapperAPI:RegisterDictionary(locale, data)
+    if type(locale) ~= "string" or locale == "" then return false end
+    if type(data) ~= "table" then return false end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.RegisterDictionary then return false end
+    local ok, err = pcall(sc.RegisterDictionary, sc, locale, data)
+    if not ok then
+        _report_api_error("RegisterDictionary", locale, nil, err, { locale = locale })
+        return false
+    end
+    return true
+end
+
+--- Register a language engine for a locale family.
+--- `familyId` — short string id, e.g. "en", "de", "fr".
+--- `engine`   — table; GetPhoneticHash is the only required field.
+--- Returns true on success, false on invalid arguments.
+function YapperAPI:RegisterLanguageEngine(familyId, engine)
+    if type(familyId) ~= "string" or familyId == "" then return false end
+    if type(engine) ~= "table" then return false end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc._RegisterLanguageEngine then return false end
+    local ok, result = pcall(sc._RegisterLanguageEngine, sc, familyId, engine)
+    if not ok then
+        _report_api_error("RegisterLanguageEngine", familyId, nil, result, { familyId = familyId })
+        return false
+    end
+    return result == true
+end
+
+--- Returns true if a language engine for `familyId` is registered.
+function YapperAPI:IsLanguageEngineRegistered(familyId)
+    if type(familyId) ~= "string" then return false end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.LanguageEngines then return false end
+    return sc.LanguageEngines[familyId] ~= nil
+end
+
 --- Returns a snapshot of the current delivery queue state.
 --- Fields: active (bool), stalled (bool), chatType (string|nil),
 --- policyClass (string|nil), pending (int), inFlight (int).
@@ -785,7 +861,7 @@ function YapperAPI:GetQueueState()
         return { active = false, stalled = false, pending = 0, inFlight = 0 }
     end
     local snap = q:GetActivePolicySnapshot()
-    snap.expectedAckEvent = nil  -- internal event name; not part of the public contract
+    snap.expectedAckEvent = nil -- internal event name; not part of the public contract
     return snap
 end
 
@@ -890,11 +966,11 @@ end
 
 -- ===== POST DELEGATION =====================================================
 
-local DELEGATION_TIMEOUT = 5   -- seconds
+local DELEGATION_TIMEOUT = 5 -- seconds
 
 -- Active claims: claimHandle → { text, chatType, language, target, owner, timer }
-local activeClaims = {}
-local claimSeq     = 0
+local activeClaims       = {}
+local claimSeq           = 0
 
 --- Internal: create a delegation claim when a PRE_DELIVER filter cancels.
 --- Returns the claim handle.

@@ -34,12 +34,21 @@ local tostring = tostring
 local tonumber = tonumber
 local select = select
 
-Spellcheck.Dictionaries = {}
+Spellcheck.Dictionaries    = {}
+Spellcheck.LanguageEngines = {} -- [familyId] = engine table
 Spellcheck.KnownLocales = {
     "enUS",
     "enGB",
 }
-Spellcheck.LocaleAddons = {}
+-- LOD addon names for each locale. enBase is the shared English base that
+-- both enGB and enUS depend on; it is pre-loaded whenever the user's locale
+-- is any English variant. Non-English addon names are left empty for now
+-- and will be populated as those addons are written.
+Spellcheck.LocaleAddons = {
+    enBase = "Yapper_Dict_en",
+    enGB   = "Yapper_Dict_enGB",
+    enUS   = "Yapper_Dict_enUS",
+}
 Spellcheck.EditBox = nil
 Spellcheck.Overlay = nil
 Spellcheck.MeasureFS = nil
@@ -186,6 +195,46 @@ function Spellcheck:Init(threads)
     self:ApplyState()
 end
 
+-- ---------------------------------------------------------------------------
+-- Language Engine Registry
+-- ---------------------------------------------------------------------------
+
+--- Internal: register a language engine for a given family id.
+--- Called by API:RegisterLanguageEngine (the public surface).
+--- engine must be a table; GetPhoneticHash is the only required field.
+--- @param familyId string e.g. "en", "de"
+--- @param engine   table  the engine data table
+--- @return boolean true if accepted
+function Spellcheck:_RegisterLanguageEngine(familyId, engine)
+    if type(familyId) ~= "string" or familyId == "" then return false end
+    if type(engine) ~= "table" then return false end
+    if type(engine.GetPhoneticHash) ~= "function" then return false end
+
+    self.LanguageEngines = self.LanguageEngines or {}
+    self.LanguageEngines[familyId] = engine
+
+    -- Invalidate any cached suggestions — phonetic rules may have changed.
+    self._suggestionCache = {}
+    return true
+end
+
+--- Return the language engine registered for the current locale's family,
+--- or nil if no external engine is registered for it.
+--- Callers must fall back to the built-in English helpers when nil is returned.
+function Spellcheck:GetActiveEngine()
+    local locale = self:GetLocale()
+    local dict   = self.Dictionaries and self.Dictionaries[locale]
+    local family = dict and dict.languageFamily
+    if not family then return nil end
+    return (self.LanguageEngines and self.LanguageEngines[family]) or nil
+end
+
+--- Return the engine for an explicit family id, or nil.
+function Spellcheck:GetEngine(familyId)
+    if type(familyId) ~= "string" then return nil end
+    return (self.LanguageEngines and self.LanguageEngines[familyId]) or nil
+end
+
 local function BuildKBDistTable(layoutName)
     local coords = KB_LAYOUTS[layoutName] or KB_LAYOUTS.QWERTY
     local tbl = {}
@@ -261,44 +310,7 @@ local function IsWordStartByte(byte)
     return (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) or (byte == 123)
 end
 
--- Exact parity with generate_phonetic_dict.py
-function Spellcheck.GetPhoneticHash(word)
-    local hash = string_upper(word)
-    -- Strip non-alphabetic characters (including apostrophes)
-    hash = string_gsub(hash, "[^%a]", "")
 
-    -- Strip duplicate adjacent letters (e.g., "LL" -> "L")
-    hash = string_gsub(hash, "(%a)%1", "%1")
-
-    -- Silent/Variable groups
-    hash = string_gsub(hash, "GHT", "T")
-    hash = string_gsub(hash, "PH", "F")
-    hash = string_gsub(hash, "KN", "N")
-    hash = string_gsub(hash, "GN", "N")
-    hash = string_gsub(hash, "WR", "R")
-    hash = string_gsub(hash, "CH", "K")
-    hash = string_gsub(hash, "SH", "X")
-    hash = string_gsub(hash, "C", "K")
-    hash = string_gsub(hash, "Q", "K")
-    hash = string_gsub(hash, "X", "KS")
-    hash = string_gsub(hash, "Z", "S")
-
-    -- GH at the end of word often sounds like F (laugh, enough)
-    if string_sub(hash, -2) == "GH" then
-        hash = string_sub(hash, 1, -3) .. "F"
-    else
-        hash = string_gsub(hash, "GH", "") -- Silent GH (night, through)
-    end
-
-    if hash == "" then return "" end
-
-    -- Keep the first letter, strip vowels from the rest
-    local firstChar = string_sub(hash, 1, 1)
-    local rest = string_sub(hash, 2)
-    rest = string_gsub(rest, "[AEIOUY]", "")
-
-    return firstChar .. rest
-end
 
 -- Number of words to process per frame tick during async dictionary loading.
 -- Configurable for devs; higher = faster loading but more per-frame cost.
@@ -578,15 +590,59 @@ function Spellcheck:GetKBDistTable()
     return _kbDistTable
 end
 
+-- Cache for engine-provided layout tables, keyed by layout name.
+local _engineKBCache = {}
+
+--- Build (and cache) a KB distance table from an arbitrary layouts table.
+--- Used by Engine.lua when a registered language engine provides its own
+--- KBLayouts; otherwise falls back to the built-in GetKBDistTable path.
+--- @param layouts table  A KB_LAYOUTS-shaped table { layoutName = { char = {x,y} } }
+--- @param layoutName string  e.g. "QWERTY"
+--- @return table  676-entry distance lookup
+function Spellcheck:_GetKBDistFromLayouts(layouts, layoutName)
+    if not layouts or type(layouts) ~= "table" then
+        return self:GetKBDistTable()
+    end
+    local key = tostring(layouts) .. "|" .. tostring(layoutName)
+    if _engineKBCache[key] then
+        return _engineKBCache[key]
+    end
+    -- Temporarily point the builder at the engine's layout table.
+    local coords = layouts[layoutName] or layouts["QWERTY"]
+    if not coords then
+        return self:GetKBDistTable()
+    end
+    -- Inline build (same logic as BuildKBDistTable but reading from coords directly).
+    local tbl = {}
+    local string_char = string.char
+    for i = 1, 676 do tbl[i] = 99 end
+    for ch1 = 97, 122 do
+        local c1 = coords[string_char(ch1)]
+        if c1 then
+            for ch2 = 97, 122 do
+                local c2 = coords[string_char(ch2)]
+                if c2 then
+                    local dx = c1[1] - c2[1]
+                    local dy = c1[2] - c2[2]
+                    local d = (dx * dx + dy * dy) ^ 0.5
+                    tbl[(ch1 - 97) * 26 + (ch2 - 97) + 1] = d
+                end
+            end
+        end
+    end
+    _engineKBCache[key] = tbl
+    return tbl
+end
+
 -- Export shared locals for sub-files to re-localise.
-Spellcheck._SCORE_WEIGHTS     = SCORE_WEIGHTS
+Spellcheck._SCORE_WEIGHTS       = SCORE_WEIGHTS
 Spellcheck._MAX_SUGGESTION_ROWS = MAX_SUGGESTION_ROWS
-Spellcheck._RAID_ICONS        = RAID_ICONS
-Spellcheck._KB_LAYOUTS        = KB_LAYOUTS
-Spellcheck._DICT_CHUNK_SIZE   = DICT_CHUNK_SIZE or 2000
-Spellcheck.Clamp              = Clamp
-Spellcheck.NormaliseWord      = NormaliseWord
-Spellcheck.NormaliseVowels    = NormaliseVowels
-Spellcheck.SuggestionKey      = SuggestionKey
-Spellcheck.IsWordByte         = IsWordByte
-Spellcheck.IsWordStartByte    = IsWordStartByte
+Spellcheck._RAID_ICONS          = RAID_ICONS
+Spellcheck._KB_LAYOUTS          = KB_LAYOUTS  -- built-in fallback; LOD engines may override per-family
+Spellcheck._DICT_CHUNK_SIZE     = DICT_CHUNK_SIZE or 2000
+Spellcheck.Clamp                = Clamp
+Spellcheck.NormaliseWord        = NormaliseWord
+Spellcheck.NormaliseVowels      = NormaliseVowels  -- built-in fallback; LOD engines may override
+Spellcheck.SuggestionKey        = SuggestionKey
+Spellcheck.IsWordByte           = IsWordByte
+Spellcheck.IsWordStartByte      = IsWordStartByte

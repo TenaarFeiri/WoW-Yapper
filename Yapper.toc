@@ -30,9 +30,7 @@ Src/API.lua
 
 Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
-Src/Spellcheck/Dicts/enBase.lua
-Src/Spellcheck/Dicts/enUS.lua
-Src/Spellcheck/Dicts/enGB.lua
+# English dicts moved to LOD addons: Dictionaries/Yapper_Dict_en, Yapper_Dict_enGB, Yapper_Dict_enUS
 Src/Spellcheck/YALLM.lua
 Src/Spellcheck/UI.lua
 Src/Spellcheck/Underline.lua

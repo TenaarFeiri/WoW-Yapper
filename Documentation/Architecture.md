@@ -43,6 +43,7 @@ graph TD
 5.  **Spellchecker (`Spellcheck.lua`)**
     - Real-time background spellcheck with custom dictionaries.
     - Dynamically renders underlines and highlights without breaking EditBox focus.
+    - Load-on-Demand (LOD) dictionary architecture using separate locale addons (e.g., `Yapper_Dict_enBase`) registered dynamically via `YapperAPI`.
 
 6.  **Public API (`API.lua`)**
     - Exposes `_G.YapperAPI` with filters (PRE_SEND, PRE_CHUNK, PRE_DELIVER, PRE_EDITBOX_SHOW, PRE_SPELLCHECK) and callbacks (POST_SEND, EDITBOX_SHOW, CONFIG_CHANGED, ICON_GALLERY_SELECT, etc.) for third-party addon integration.

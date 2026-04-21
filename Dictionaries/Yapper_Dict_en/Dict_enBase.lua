@@ -1,8 +1,7 @@
 -- Generated Yapper Dictionary
 -- Locale: enBase
-
-local _, YapperTable = ...
-if not YapperTable or not YapperTable.Spellcheck then return end
+-- This file is part of the LOD addon for this locale.
+-- Registration is via YapperAPI; do NOT require YapperTable directly.
 
 local function getWords_0()
     return {
@@ -79925,10 +79924,11 @@ local function getPhonetics_5()
     }
 end
 
-YapperTable.Spellcheck:RegisterDictionary("enBase", function()
+YapperAPI:RegisterDictionary("enBase", (function()
     local d = {
-        words = {},
-        phonetics = {},
+        languageFamily = "en",
+        words          = {},
+        phonetics      = {},
     }
     local tinsert = table.insert
     for _, w in ipairs(getWords_0()) do tinsert(d.words, w) end
@@ -79947,4 +79947,4 @@ YapperTable.Spellcheck:RegisterDictionary("enBase", function()
     for h, m in pairs(getPhonetics_4()) do d.phonetics[h] = m end
     for h, m in pairs(getPhonetics_5()) do d.phonetics[h] = m end
     return d
-end)
+end)())
