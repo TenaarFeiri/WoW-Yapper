@@ -305,20 +305,24 @@ Interface.IsAnchorPoint       = IsAnchorPoint
 function Interface:InitPopups()
     if not StaticPopupDialogs["YAPPER_CONFIRM_RESET_LEARNING"] then
         StaticPopupDialogs["YAPPER_CONFIRM_RESET_LEARNING"] = {
-            text =
-            "Are you sure you want to permanently erase all learned typing patterns, bias corrections, and word frequencies?",
-            button1 = "Yes, Reset",
+            text = "Are you sure you want to delete all learned vocabulary and correction patterns for %s? This cannot be undone.",
+            button1 = "Reset",
             button2 = "Cancel",
-            OnAccept = function()
-                local yallm = YapperTable and YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+            OnAccept = function(selfFrame, locale)
+                local sc = YapperTable and YapperTable.Spellcheck
+                local yallm = sc and sc.YALLM
                 if yallm and yallm.Reset then
-                    yallm:Reset()
-                    Interface:BuildConfigUI() -- Refresh
+                    local resetLocale = (locale ~= "All") and locale or nil
+                    yallm:Reset(resetLocale)
+                    if Interface.MainWindowFrame and Interface.MainWindowFrame:IsShown() then
+                        Interface:RefreshActivePage()
+                    end
                 end
             end,
             timeout = 0,
             whileDead = true,
             hideOnEscape = true,
+            preferredIndex = 3,
         }
     end
 
@@ -360,25 +364,6 @@ function Interface:InitPopups()
         }
     end
 
-    if not StaticPopupDialogs["YAPPER_YALLM_RESET_CONFIRM"] then
-        StaticPopupDialogs["YAPPER_YALLM_RESET_CONFIRM"] = {
-            text = "Reset all YALLM adaptive learning data? This will clear your vocabulary trends and bias history.",
-            button1 = "Yes",
-            button2 = "No",
-            OnAccept = function()
-                local yallm = YapperTable and YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
-                if yallm and yallm.Reset then
-                    yallm:Reset()
-                    if Interface.MainWindowFrame and Interface.MainWindowFrame:IsShown() then
-                        Interface:RefreshActivePage()
-                    end
-                end
-            end,
-            timeout = 0,
-            whileDead = true,
-            hideOnEscape = true,
-        }
-    end
 
     if not StaticPopupDialogs["YAPPER_RPPREFIX_LOCKDOWN_WARNING"] then
         StaticPopupDialogs["YAPPER_RPPREFIX_LOCKDOWN_WARNING"] = {

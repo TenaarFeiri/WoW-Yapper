@@ -852,6 +852,28 @@ function YapperAPI:IsLanguageEngineRegistered(familyId)
     return sc.LanguageEngines[familyId] ~= nil
 end
 
+--- Map a Load-On-Demand addon to a specific locale so Yapper knows what to load
+--- when tracking dictionaries for that region.
+--- `locale` — e.g. "ptBR", "esES"
+--- `addonName` — e.g. "Yapper_Dict_pt"
+function YapperAPI:RegisterLocaleAddon(locale, addonName)
+    if type(locale) ~= "string" or locale == "" then return false end
+    if type(addonName) ~= "string" or addonName == "" then return false end
+
+    local sc = YapperTable.Spellcheck
+    if not sc then return false end
+
+    sc.LocaleAddons = sc.LocaleAddons or {}
+    sc.LocaleAddons[locale] = addonName
+
+    -- If a dictionary for this locale was requested before the mapping existed,
+    -- or if the user is currently using this locale, try to ensure it again.
+    if sc.GetLocale and sc:GetLocale() == locale then
+        sc:EnsureLocale(locale)
+    end
+    return true
+end
+
 --- Returns a snapshot of the current delivery queue state.
 --- Fields: active (bool), stalled (bool), chatType (string|nil),
 --- policyClass (string|nil), pending (int), inFlight (int).

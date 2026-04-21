@@ -48,6 +48,7 @@ Spellcheck.LocaleAddons = {
     enBase = "Yapper_Dict_en",
     enGB   = "Yapper_Dict_enGB",
     enUS   = "Yapper_Dict_enUS",
+    deDE   = "Yapper_Dict_deDE",
 }
 Spellcheck.EditBox = nil
 Spellcheck.Overlay = nil
@@ -442,7 +443,24 @@ function Spellcheck:GetUserDictStore()
     if type(_G.YapperDB) ~= "table" then return nil end
     if type(_G.YapperDB.Spellcheck) ~= "table" then _G.YapperDB.Spellcheck = {} end
     if type(_G.YapperDB.Spellcheck.Dict) ~= "table" then _G.YapperDB.Spellcheck.Dict = {} end
-    return _G.YapperDB.Spellcheck.Dict
+    
+    local store = _G.YapperDB.Spellcheck.Dict
+
+    -- Legacy Migration: If flat AddedWords or IgnoredWords exist, move to enBASE partition.
+    if store.AddedWords or store.IgnoredWords then
+        if not store["enBASE"] then
+            store["enBASE"] = {
+                AddedWords = store.AddedWords or {},
+                IgnoredWords = store.IgnoredWords or {},
+                _rev = store._rev or 0,
+            }
+        end
+        store.AddedWords = nil
+        store.IgnoredWords = nil
+        store._rev = nil
+    end
+
+    return store
 end
 
 function Spellcheck:GetUserDict(locale)

@@ -59,8 +59,35 @@ end
 
 function YALLM:Init()
     if not _G.YapperDB then return end
+    
+    -- Structure: _G.YapperDB.SpellcheckLearned[locale] = { freq = {}, bias = {}, ... }
     if not _G.YapperDB.SpellcheckLearned then
-        _G.YapperDB.SpellcheckLearned = {
+        _G.YapperDB.SpellcheckLearned = {}
+    end
+    
+    -- Migration: If the table itself contains 'freq', it's a legacy flat DB. 
+    -- Move it to 'enBASE' as a safe default.
+    local legacy = _G.YapperDB.SpellcheckLearned
+    if legacy.freq and type(legacy.freq) == "table" then
+        local oldCopy = {}
+        for k, v in pairs(legacy) do
+            oldCopy[k] = v
+            legacy[k] = nil -- Clear root key
+        end
+        legacy["enBASE"] = oldCopy
+        if YapperTable.Utils then
+            YapperTable.Utils:Print("info", "YALLM: Migrated legacy flat database to 'enBASE' partition.")
+        end
+    end
+
+    self.db = _G.YapperDB.SpellcheckLearned
+end
+
+function YALLM:GetLocaleDB(locale)
+    if not self.db then return nil end
+    local loc = locale or "enBASE"
+    if not self.db[loc] then
+        self.db[loc] = {
             freq = {},    -- word -> { c, t }
             bias = {},    -- typo:correction -> { c, t, u }
             auto = {},    -- word -> { c, t }
@@ -69,22 +96,9 @@ function YALLM:Init()
             total = 0,    -- total unique words tracked
         }
     end
-    self.db = _G.YapperDB.SpellcheckLearned
-
-    -- Migration: Convert legacy numeric entries to table format
-    local now = time()
-    local tablesToMigrate = { "freq", "bias", "auto", "phBias", "negBias" }
-    for _, tableName in ipairs(tablesToMigrate) do
-        local tbl = self.db[tableName]
-        if tbl then
-            for k, v in pairs(tbl) do
-                if type(v) == "number" then
-                    tbl[k] = { c = v, t = now, u = 1 }
-                end
-            end
-        end
-    end
+    return self.db[loc]
 end
+
 
 -- ---------------------------------------------------------------------------
 -- Tracking Logic
@@ -133,23 +147,24 @@ function YALLM:IsSaneWord(word)
 end
 
 --- Record usage frequency of words in a message
-function YALLM:RecordUsage(text)
-    if not self.db then return end
+function YALLM:RecordUsage(text, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return end
     local now = time()
 
     -- Fast-split into words (alphanumeric only)
     for word in text:gmatch("[%w']+") do
-        if self:IsSaneWord(word) then
+        if self:IsSaneWord(word, locale) then
             local w = Clean(word)
-            if not self.db.freq[w] then
+            if not db.freq[w] then
                 -- Handle Capacity (Weighted LRU Eviction)
-                if self.db.total >= self:GetFreqCap() then
-                    self:Prune("freq", self:GetFreqCap())
+                if db.total >= self:GetFreqCap() then
+                    self:Prune("freq", self:GetFreqCap(), locale)
                 end
-                self.db.freq[w] = { c = 1, t = now }
-                self.db.total = self.db.total + 1
+                db.freq[w] = { c = 1, t = now }
+                db.total = db.total + 1
             else
-                local entry = self.db.freq[w]
+                local entry = db.freq[w]
                 entry.c = entry.c + 1
                 entry.t = now
             end
@@ -157,13 +172,11 @@ function YALLM:RecordUsage(text)
     end
 end
 
+
 --- Record when a user picks a specific suggestion for a typo.
---- utilityGain may be:
----   true        -> 0.5  (backward-compat shorthand for "full boost")
----   false / nil -> 0    (no growth)
----   number      -> that exact increment applied to 'u' on each recording
-function YALLM:RecordSelection(typo, correction, utilityGain)
-    if not self.db then return end
+function YALLM:RecordSelection(typo, correction, utilityGain, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return end
     local c = Clean(correction)
     local t = Clean(typo)
 
@@ -184,16 +197,16 @@ function YALLM:RecordSelection(typo, correction, utilityGain)
 
     -- 1. Exact Bias
     local key = t .. ":" .. c
-    if not self.db.bias[key] then
+    if not db.bias[key] then
         -- Handle Capacity
         local count = 0
-        for _ in pairs(self.db.bias) do count = count + 1 end
+        for _ in pairs(db.bias) do count = count + 1 end
         if count >= self:GetBiasCap() then
-            self:Prune("bias", self:GetBiasCap())
+            self:Prune("bias", self:GetBiasCap(), locale)
         end
-        self.db.bias[key] = { c = 1, t = now, u = 1 + gain }
+        db.bias[key] = { c = 1, t = now, u = 1 + gain }
     else
-        local entry = self.db.bias[key]
+        local entry = db.bias[key]
         entry.c = entry.c + 1
         entry.t = now
         if gain > 0 then entry.u = math_min((entry.u or 1) + gain, 5.0) end
@@ -205,10 +218,10 @@ function YALLM:RecordSelection(typo, correction, utilityGain)
         local ph = sc.GetPhoneticHash(t)
         if ph and ph ~= "" then
             local phKey = ph .. ":" .. c
-            if not self.db.phBias[phKey] then
-                self.db.phBias[phKey] = { c = 1, t = now }
+            if not db.phBias[phKey] then
+                db.phBias[phKey] = { c = 1, t = now }
             else
-                local entry = self.db.phBias[phKey]
+                local entry = db.phBias[phKey]
                 entry.c = entry.c + 1
                 entry.t = now
             end
@@ -216,11 +229,14 @@ function YALLM:RecordSelection(typo, correction, utilityGain)
     end
 end
 
+
 --- Record a correction that was made by the user manually retyping (implicit backtrack).
 --- Determines the appropriate learning strength based on whether the correction was
 --- already a known candidate and how phonetically/textually close it is to the typo.
-function YALLM:RecordImplicitCorrection(typo, correction, candidates)
-    if not self.db then return end
+function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return end
+
 
     local t = Clean(typo)
     local c = Clean(correction)
@@ -286,18 +302,21 @@ function YALLM:RecordImplicitCorrection(typo, correction, candidates)
         end
     end
 
-    self:RecordSelection(typo, correction, utilityGain)
+    self:RecordSelection(typo, correction, utilityGain, locale)
 
     -- Only penalise shown candidates if the correction wasn't among them,
     -- so we don't double-penalise words the user actually wanted.
     if not inCandidates and type(candidates) == "table" then
-        self:RecordRejection(typo, candidates)
+        self:RecordRejection(typo, candidates, locale)
     end
 end
 
+
 --- Record when a user rejects a list of suggestions by clicking "More"
-function YALLM:RecordRejection(typo, candidates)
-    if not self.db or not typo or type(candidates) ~= "table" then return end
+function YALLM:RecordRejection(typo, candidates, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db or not typo or type(candidates) ~= "table" then return end
+
     local t = Clean(typo)
     local now = time()
 
@@ -306,10 +325,10 @@ function YALLM:RecordRejection(typo, candidates)
         if word then
             -- Clean the candidate word before key construction to ensure consistent matching
             local key = t .. ":" .. Clean(word)
-            if not self.db.negBias[key] then
-                self.db.negBias[key] = { c = 1, t = now, u = 1.0 }
+            if not db.negBias[key] then
+                db.negBias[key] = { c = 1, t = now, u = 1.0 }
             else
-                local entry = self.db.negBias[key]
+                local entry = db.negBias[key]
                 entry.c = entry.c + 1
                 entry.t = now
                 entry.u = math_min((entry.u or 1.0) + 0.2, 5.0)
@@ -318,75 +337,79 @@ function YALLM:RecordRejection(typo, candidates)
     end
 end
 
---- Record when a user sends a word that is currently flagged as a typo
-function YALLM:RecordIgnored(word)
-    if not self.db then return end
-    if not self:IsSaneWord(word) then return end
+
+--- Record high-repetition typos for auto-learning
+function YALLM:RecordIgnored(word, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return end
+    if not self:IsSaneWord(word, locale) then return end
 
     local w = Clean(word)
     local now = time()
-    if not self.db.auto[w] then
-        self.db.auto[w] = { c = 1, t = now }
+    if not db.auto[w] then
+        db.auto[w] = { c = 1, t = now }
     else
-        local entry = self.db.auto[w]
+        local entry = db.auto[w]
         entry.c = entry.c + 1
         entry.t = now
     end
 
-    if self.db.auto[w].c >= self:GetAutoThreshold() then
+    if db.auto[w].c >= self:GetAutoThreshold() then
         -- Auto-promote to user dictionary
         local Spellcheck = YapperTable.Spellcheck
         if Spellcheck and Spellcheck.AddUserWord then
-            local locale = Spellcheck:GetLocale()
-            Spellcheck:AddUserWord(locale, word)
-            self.db.auto[w] = nil -- Reset now that it's in the dict
+            local loc = locale or Spellcheck:GetLocale()
+            Spellcheck:AddUserWord(loc, word)
+            db.auto[w] = nil -- Reset now that it's in the dict
             if YapperTable.Utils then
-                YapperTable.Utils:Print("info", "YALLM: Learned new word '" .. word .. "' after persistent usage.")
+                YapperTable.Utils:Print("info", "YALLM: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
             end
             -- Notify external addons about the auto-learned word.
             if YapperTable.API then
-                YapperTable.API:Fire("YALLM_WORD_LEARNED", word, locale)
+                YapperTable.API:Fire("YALLM_WORD_LEARNED", word, loc)
             end
         end
     end
 end
+
 
 -- ---------------------------------------------------------------------------
 -- Scoring Logic
 -- ---------------------------------------------------------------------------
 
 --- Return the combined score bonus for a candidate using a pre-computed phonetic hash.
-function YALLM:GetBonus(cand, typo, typoPhHash)
-    if not self.db then return 0 end
+function YALLM:GetBonus(cand, typo, typoPhHash, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return 0 end
     local c = Clean(cand)
     local t = Clean(typo)
     local bonus = 0
 
     -- 1. Frequency Bonus
-    local freqEntry = self.db.freq[c]
+    local freqEntry = db.freq[c]
     if freqEntry and freqEntry.c > 5 then
         bonus = bonus + WEIGHTS.freqBonus
     end
 
     -- 2. Bias Bonus
     local key = t .. ":" .. c
-    local biasEntry = self.db.bias[key]
+    local biasEntry = db.bias[key]
     if biasEntry then
         bonus = bonus + (WEIGHTS.biasBonus * math_min(biasEntry.c, 5))
     end
 
     -- 3. Phonetic Pattern Bonus (Optimized: use passed-down hash)
-    if typoPhHash and self.db.phBias then
+    if typoPhHash and db.phBias then
         local phKey = typoPhHash .. ":" .. c
-        local phEntry = self.db.phBias[phKey]
+        local phEntry = db.phBias[phKey]
         if phEntry then
             bonus = bonus + (WEIGHTS.phBonus * math_min(phEntry.c, 5))
         end
     end
 
     -- 4. Rejection Penalty
-    if self.db.negBias then
-        local negEntry = self.db.negBias[key]
+    if db.negBias then
+        local negEntry = db.negBias[key]
         if negEntry then
             bonus = bonus + (WEIGHTS.negBias * math_min(negEntry.c, 5))
         end
@@ -395,14 +418,17 @@ function YALLM:GetBonus(cand, typo, typoPhHash)
     return bonus
 end
 
+
 -- ---------------------------------------------------------------------------
 -- Maintenance
 -- ---------------------------------------------------------------------------
 
 --- Systematic pruning of a learning table
-function YALLM:Prune(tableName, limit)
-    local tbl = self.db[tableName]
+function YALLM:Prune(tableName, limit, locale)
+    local db = self:GetLocaleDB(locale)
+    local tbl = db and db[tableName]
     if not tbl then return end
+
 
     local keys = {}
     for k in pairs(tbl) do table_insert(keys, k) end
@@ -436,13 +462,18 @@ function YALLM:Prune(tableName, limit)
         local k = keys[i]
         tbl[k] = nil
         if tableName == "freq" then
-            self.db.total = math_max(0, self.db.total - 1)
+            db.total = math_max(0, db.total - 1)
         end
     end
 end
 
-function YALLM:Reset()
-    _G.YapperDB.SpellcheckLearned = nil
+
+function YALLM:Reset(locale)
+    if not locale then
+        _G.YapperDB.SpellcheckLearned = nil
+    elseif _G.YapperDB.SpellcheckLearned then
+        _G.YapperDB.SpellcheckLearned[locale] = nil
+    end
     self:Init()
 end
 
@@ -450,17 +481,19 @@ end
 -- UI Helpers
 -- ---------------------------------------------------------------------------
 
-function YALLM:GetDataSummary()
-    if not self.db then return nil end
+function YALLM:GetDataSummary(locale)
+    locale = locale or (YapperTable.Spellcheck and YapperTable.Spellcheck:GetLocale())
+    local db = self:GetLocaleDB(locale)
+    if not db then return nil end
 
     local freqList = {}
-    for word, entry in pairs(self.db.freq) do
+    for word, entry in pairs(db.freq) do
         table_insert(freqList, { word = word, count = entry.c, last = entry.t })
     end
     table_sort(freqList, function(a, b) return a.count > b.count end)
 
     local biasList = {}
-    for key, entry in pairs(self.db.bias) do
+    for key, entry in pairs(db.bias) do
         local typo, correction = key:match("^(.-):(.+)$")
         if typo and correction then
             table_insert(biasList,
@@ -470,20 +503,20 @@ function YALLM:GetDataSummary()
     table_sort(biasList, function(a, b) return a.count > b.count end)
 
     local autoList = {}
-    for word, entry in pairs(self.db.auto) do
+    for word, entry in pairs(db.auto) do
         table_insert(autoList, { word = word, count = entry.c, last = entry.t })
     end
     table_sort(autoList, function(a, b) return a.count > b.count end)
 
     local phList = {}
-    for key, entry in pairs(self.db.phBias or {}) do
+    for key, entry in pairs(db.phBias or {}) do
         local hash, corr = key:match("([^:]+):(.+)")
         table_insert(phList, { hash = hash, correction = corr, count = entry.c, last = entry.t })
     end
     table_sort(phList, function(a, b) return a.count > b.count end)
 
     local negList = {}
-    for key, entry in pairs(self.db.negBias or {}) do
+    for key, entry in pairs(db.negBias or {}) do
         local typo, word = key:match("^(.-):(.+)$")
         if typo and word then
             table_insert(negList, { typo = typo, word = word, count = entry.c, last = entry.t, utility = entry.u })
@@ -497,22 +530,25 @@ function YALLM:GetDataSummary()
         phBias    = phList,
         negBias   = negList,
         auto      = autoList,
-        total     = self.db.total,
+        total     = db.total,
         cap       = self:GetFreqCap(),
         threshold = self:GetAutoThreshold(),
     }
 end
 
-function YALLM:ClearSpecificUsage(usageType, key)
-    if not self.db then return end
-    if usageType == "freq" and self.db.freq[key] then
-        self.db.freq[key] = nil
-        self.db.total = math_max(0, self.db.total - 1)
-    elseif usageType == "bias" and self.db.bias[key] then
-        self.db.bias[key] = nil
-    elseif usageType == "auto" and self.db.auto[key] then
-        self.db.auto[key] = nil
-    elseif usageType == "phBias" and self.db.phBias[key] then
-        self.db.phBias[key] = nil
+
+function YALLM:ClearSpecificUsage(usageType, key, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return end
+    if usageType == "freq" and db.freq[key] then
+        db.freq[key] = nil
+        db.total = math_max(0, db.total - 1)
+    elseif usageType == "bias" and db.bias[key] then
+        db.bias[key] = nil
+    elseif usageType == "auto" and db.auto[key] then
+        db.auto[key] = nil
+    elseif usageType == "phBias" and db.phBias[key] then
+        db.phBias[key] = nil
     end
 end
+

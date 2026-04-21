@@ -234,7 +234,8 @@ function Spellcheck:ResolveImplicitTrace(force)
             -- IsSaneWord guards against keyboard-smash or junk.
             if self:IsWordCorrect(currentWord) then
                 if self.YALLM and self.YALLM.RecordImplicitCorrection then
-                    self.YALLM:RecordImplicitCorrection(trace.word, currentWord, trace.suggestions)
+                    local locale = self:GetLocale()
+                    self.YALLM:RecordImplicitCorrection(trace.word, currentWord, trace.suggestions, locale)
                 end
             end
         end
@@ -445,7 +446,7 @@ end
 --- Collect phonetically similar candidates via the phonetic index.
 local function GatherPhoneticCandidates(dict, lower, engine)
     local out = {}
-    local phoneticHash = engine:GetPhoneticHash(lower)
+    local phoneticHash = engine.GetPhoneticHash(lower)
     if phoneticHash == "" then return out, phoneticHash end
     local matches = dict.phonetics and dict.phonetics[phoneticHash]
     if matches then
@@ -528,6 +529,7 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
         inputBag        = inputBag,
         inputBigrams    = inputBigrams,
         phoneticHash    = phoneticHash,
+        locale          = locale,
         YALLM           = self.YALLM,
         -- closures that need self
         GetMeta         = function(candidate) return self:GetMeta(dict, candidate) end,
@@ -691,7 +693,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     -- Personalised learning bonus
     local baseScore = score
     if ctx.YALLM and ctx.YALLM.GetBonus then
-        score = score + ctx.YALLM:GetBonus(candidate, lower, ctx.phoneticHash)
+        score = score + ctx.YALLM:GetBonus(candidate, lower, ctx.phoneticHash, ctx.locale)
     end
 
     out[#out + 1] = { word = candidate, dist = dist, score = score, baseScore = baseScore, bag = bagScore }

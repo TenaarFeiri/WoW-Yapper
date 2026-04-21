@@ -199,18 +199,19 @@ end
 function Chat:DirectSend(msg, chatType, language, target)
     -- Record outgoing message for adaptive learning
     if YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM then
-        local YALLM = YapperTable.Spellcheck.YALLM
-        YALLM:RecordUsage(msg)
+        local sc = YapperTable.Spellcheck
+        local YALLM = sc.YALLM
+        local locale = sc:GetLocale()
+        YALLM:RecordUsage(msg, locale)
         
         -- Check for "ignored" misspellings in the outgoing message
-        local sc = YapperTable.Spellcheck
         local dict = sc:GetDictionary()
         if dict then
             local typos = sc:CollectMisspellings(msg, dict)
             if typos then
                 for _, item in ipairs(typos) do
                     local word = msg:sub(item.startPos, item.endPos)
-                    YALLM:RecordIgnored(word)
+                    YALLM:RecordIgnored(word, locale)
                 end
             end
         end

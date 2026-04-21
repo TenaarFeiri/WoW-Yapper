@@ -823,7 +823,9 @@ function Spellcheck:ShowSuggestions()
                 row:Show()
                 visibleRows = i
                 if hasMore then
+                    -- TODO: Localization required for German and other locales.
                     row._fs:SetText("|cffbbbbbb" .. i .. ". More Suggestions »|r")
+                    row.OnClick = self.UI_OnMoreClick
                 else
                     row._fs:SetText("|cffbbbbbb" .. i .. ". « Back to Top|r")
                 end
@@ -869,7 +871,8 @@ function Spellcheck:NextSuggestionsPage()
         for i = offset + 1, math_min(offset + 5, #self.ActiveSuggestions) do
             table_insert(rejected, self.ActiveSuggestions[i])
         end
-        self.YALLM:RecordRejection(self.ActiveWord, rejected)
+        local locale = self:GetLocale()
+        self.YALLM:RecordRejection(self.ActiveWord, rejected, locale)
     end
 
     local total = #self.ActiveSuggestions
@@ -953,10 +956,9 @@ function Spellcheck:ApplySuggestion(index)
 
     -- Selection Bias Tracking
     if self.YALLM and self.YALLM.RecordSelection then
-        local text = self.EditBox:GetText() or ""
-        local startPos, endPos = self.ActiveRange.startPos, self.ActiveRange.endPos
-        local original = text:sub(startPos, endPos)
-        self.YALLM:RecordSelection(original, entry.word, isUseful)
+        local locale = self:GetLocale()
+        local selectedVal = entry.value or entry.word
+        self.YALLM:RecordSelection(original, selectedVal, isUseful, locale)
     end
 
     -- Mark that a suggestion was just applied so higher-level Enter

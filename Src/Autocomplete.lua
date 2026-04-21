@@ -345,18 +345,16 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local lowerPrefix = string_lower(prefix)
 
 	-- Fetch negBias once for use by ScoreCandidate across all tiers.
-	local yallmNeg = (YapperTable.Spellcheck
-		and YapperTable.Spellcheck.YALLM
-		and YapperTable.Spellcheck.YALLM.db
-		and YapperTable.Spellcheck.YALLM.db.negBias) or nil
+	local sc = YapperTable.Spellcheck
+	local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
+	local yallm = sc and sc.YALLM
+	local yallmDB = yallm and yallm:GetLocaleDB(locale)
+	local yallmNeg = yallmDB and yallmDB.negBias or nil
 
 	-- Tier 1: personal lexicon (YALLM) — exact prefix scan.
-	-- YALLM keys are Clean(word) = lowercased with punctuation stripped, so
-	-- "that's" is stored as "thats". We match against both the raw prefix and
-	-- the cleaned prefix so either typing style resolves correctly.
-	local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
-	local yallmFreq = yallm and yallm.db and yallm.db.freq or nil
+	local yallmFreq = yallmDB and yallmDB.freq or nil
 	local cleanPrefix = lowerPrefix:gsub("[%p%c%s]", "")
+
 
 	if yallmFreq then
 		local prefixLen      = string_len(lowerPrefix)
@@ -609,10 +607,12 @@ function Autocomplete:OnTextChanged(editBox)
 	-- valid word so we don't pollute negBias with partial-word noise.
 	if isDirChange then
 		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
-		if yallm and yallm.db and yallm.RecordRejection then
+		if yallm and yallm.RecordRejection then
 			-- RecordRejection expects a typo and a list of candidate objects.
 			-- Use the prefix as the "typo" and the suggestion as the only candidate.
-			yallm:RecordRejection(self.CurrentPrefix, { self.CurrentSugg })
+			local sc = YapperTable.Spellcheck
+			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
+			yallm:RecordRejection(self.CurrentPrefix, { self.CurrentSugg }, locale)
 		end
 	end
 
@@ -626,10 +626,12 @@ function Autocomplete:OnTextChanged(editBox)
 	then
 		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
 		if yallm then
-			if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg) end
+			local sc = YapperTable.Spellcheck
+			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
+			if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg, locale) end
 			-- Moderate bias: the user preferred this exact spelling.
 			if yallm.RecordSelection then
-				yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.15)
+				yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.15, locale)
 			end
 		end
 	end
@@ -676,11 +678,13 @@ function Autocomplete:OnTabPressed(editBox)
 
 	-- Record the acceptance in YALLM: strong bias signal (prefix→suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
-	local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+	local sc = YapperTable.Spellcheck
+	local yallm = sc and sc.YALLM
 	if yallm then
-		if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg) end
+		local locale = sc.GetLocale and sc:GetLocale() or "enBASE"
+		if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg, locale) end
 		if yallm.RecordSelection then
-			yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.5)
+			yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.5, locale)
 		end
 	end
 

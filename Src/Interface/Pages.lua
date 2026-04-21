@@ -366,13 +366,14 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
         return
     end
 
-    local data = yallm:GetDataSummary()
+    local locale = sc:GetLocale()
+    local data = yallm:GetDataSummary(locale)
     if not data then return end
 
     -- Title: Adaptive Learning (YALLM) - in yellow
     local titleFs = self:CreateLabel(
         parent,
-        "Adaptive Learning (YALLM)",
+        string_format("Adaptive Learning (YALLM) - %s", locale or "Global"),
         LAYOUT.WINDOW_PADDING,
         cursor:Y(),
         400,
@@ -592,11 +593,11 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
 
     -- Reset Button
     local resetAllBtn = self:AcquireWidget("YALLMResetAll", parent, "UIPanelButtonTemplate", "Button")
-    resetAllBtn:SetSize(160, 24)
+    resetAllBtn:SetSize(180, 24)
     resetAllBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 10, cursor:Y() - 2)
-    resetAllBtn:SetText("Reset All Learning")
+    resetAllBtn:SetText(string_format("Reset %s Learning", locale or "All"))
     resetAllBtn:SetScript("OnClick", function()
-        StaticPopup_Show("YAPPER_CONFIRM_RESET_LEARNING")
+        StaticPopup_Show("YAPPER_CONFIRM_RESET_LEARNING", locale or "All")
     end)
     self:AddControl(resetAllBtn)
     cursor:Advance(30)

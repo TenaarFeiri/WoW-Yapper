@@ -1,0 +1,10 @@
+## Interface: 120001, 120005
+## Title: Yapper Dictionary — Deutsch
+## Notes: German language engine and dictionary for Yapper.
+## Version: 1.0.0
+## Author: Sara Schulze Øverby
+## Dependencies: Yapper
+## LoadOnDemand: 1
+
+Engine.lua
+Dict_deDE.lua
