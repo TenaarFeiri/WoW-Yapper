@@ -478,6 +478,11 @@ end
 --- @param key string       The setting key
 --- @param value any        The new value
 function YapperTable.Core:SaveSetting(category, key, value)
+    local iface = YapperTable.Interface
+    if iface and type(iface.SetLocalPath) == "function" then
+        return iface:SetLocalPath({ category, key }, value)
+    end
+
     local localConf = _G.YapperLocalConf
     local globalDB  = _G.YapperDB
 
@@ -504,26 +509,147 @@ function YapperTable.Core:SaveSetting(category, key, value)
     end
 end
 
---- Shallow copy character settings into the global DB.
+local SYSTEM_GLOBAL_SYNC_KEYS = {
+    ActiveTheme = true,
+    StorytellerSlideSpeed = true,
+    EnableGopherBridge = true,
+    EnableTypingTrackerBridge = true,
+    DEBUG = true,
+    VERBOSE = true,
+}
+
+local FRAME_SETTINGS_LOCAL_ONLY_KEYS = {
+    MainWindowPosition = true,
+}
+
+local function RefreshProfileVisuals()
+    if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
+        pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
+    end
+    if YapperTable.Multiline and YapperTable.Multiline.Active
+            and type(YapperTable.Multiline.ApplyTheme) == "function" then
+        pcall(function() YapperTable.Multiline:ApplyTheme() end)
+    end
+    if YapperTable.Interface then
+        if type(YapperTable.Interface.ApplyMinimapButtonVisibility) == "function" then
+            pcall(function() YapperTable.Interface:ApplyMinimapButtonVisibility() end)
+        end
+        if type(YapperTable.Interface.PositionMinimapButton) == "function" then
+            pcall(function() YapperTable.Interface:PositionMinimapButton() end)
+        end
+        if type(YapperTable.Interface.SetDirty) == "function" then
+            YapperTable.Interface:SetDirty(true)
+        end
+    end
+end
+
+function YapperTable.Core:PromoteCharacterToGlobal()
+    local localConf = _G.YapperLocalConf
+    local globalDB  = _G.YapperDB
+    if type(localConf) ~= "table" or type(globalDB) ~= "table" then return end
+
+    local categories = { "EditBox", "Chat", "Spellcheck" }
+    for _, category in ipairs(categories) do
+        if type(localConf[category]) ~= "table" then
+            localConf[category] = {}
+        else
+            wipe(localConf[category])
+        end
+    end
+
+    if type(localConf.FrameSettings) ~= "table" then
+        localConf.FrameSettings = {}
+    else
+        for key in pairs(localConf.FrameSettings) do
+            if not FRAME_SETTINGS_LOCAL_ONLY_KEYS[key] then
+                localConf.FrameSettings[key] = nil
+            end
+        end
+    end
+
+    if type(localConf.System) ~= "table" then
+        localConf.System = {}
+    end
+    for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
+        localConf.System[key] = nil
+    end
+
+    localConf._themeOverrides = nil
+    localConf._appliedTheme = nil
+
+    InheritDefaults(localConf, globalDB)
+
+    local activeTheme = type(globalDB.System) == "table" and globalDB.System.ActiveTheme or nil
+    if type(activeTheme) == "string"
+            and YapperTable.Theme
+            and type(YapperTable.Theme.SetTheme) == "function" then
+        pcall(function() YapperTable.Theme:SetTheme(activeTheme) end)
+    end
+
+    RefreshProfileVisuals()
+end
+
+--- Copy character settings into the global DB.
 function YapperTable.Core:PushToGlobal()
     local localConf = _G.YapperLocalConf
     local globalDB  = _G.YapperDB
     if not localConf or not globalDB then return end
 
-    for category, settings in pairs(localConf) do
-        -- Skip system/history/internal trackers
-        if category ~= "System" and category ~= "LastUsed" and category ~= "VERSION" then
-            if type(settings) == "table" then
-                if not globalDB[category] then globalDB[category] = {} end
-                for k, v in pairs(settings) do
-                    globalDB[category][k] = v
+    if type(localConf.System) == "table" and localConf.System.UseGlobalProfile == true then
+        if YapperTable.Utils then
+            YapperTable.Utils:Print("Already using Global Profile; no local overrides were pushed.")
+        end
+        return
+    end
+
+    local function pushCategory(category, skipKeys)
+        local settings = localConf[category]
+        if type(settings) ~= "table" then return end
+        if type(globalDB[category]) ~= "table" then globalDB[category] = {} end
+
+        for k, v in pairs(settings) do
+            if not (skipKeys and skipKeys[k]) then
+                globalDB[category][k] = DeepCopy(v)
+            end
+        end
+
+        if skipKeys then
+            for key in pairs(settings) do
+                if not skipKeys[key] then
+                    settings[key] = nil
                 end
-                -- After pushing, we can wipe the local overrides so inheritance takes over.
-                -- Use wipe() to preserve the metatable reference!
-                wipe(settings)
+            end
+        else
+            wipe(settings)
+        end
+    end
+
+    pushCategory("EditBox")
+    pushCategory("Chat")
+    pushCategory("Spellcheck")
+    pushCategory("FrameSettings", FRAME_SETTINGS_LOCAL_ONLY_KEYS)
+
+    if type(localConf.System) == "table" then
+        if type(globalDB.System) ~= "table" then globalDB.System = {} end
+        for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
+            if localConf.System[key] ~= nil then
+                globalDB.System[key] = DeepCopy(localConf.System[key])
+                localConf.System[key] = nil
             end
         end
     end
+
+    if type(localConf._themeOverrides) == "table" then
+        globalDB._themeOverrides = DeepCopy(localConf._themeOverrides)
+        localConf._themeOverrides = nil
+    end
+    if localConf._appliedTheme ~= nil then
+        globalDB._appliedTheme = DeepCopy(localConf._appliedTheme)
+        localConf._appliedTheme = nil
+    end
+
+    InheritDefaults(localConf, globalDB)
+    RefreshProfileVisuals()
 
     if YapperTable.Utils then
         YapperTable.Utils:Print("Character settings pushed to Global Profile.")

@@ -140,6 +140,7 @@ function Interface:SetLocalPath(path, value)
 
     local localConf = self:GetLocalConfigRoot()
     local targetRoot = localConf
+    local wasGlobal = localConf.System and localConf.System.UseGlobalProfile == true
     local isGlobal = localConf.System and localConf.System.UseGlobalProfile == true
 
     -- Exceptions: certain settings should ALWAYS stay character-local.
@@ -195,8 +196,12 @@ function Interface:SetLocalPath(path, value)
         and #path >= 2
         and path[1] == "EditBox"
         and COLOUR_KEYS[path[2]] then
-        if type(localConf._themeOverrides) ~= "table" then localConf._themeOverrides = {} end
-        localConf._themeOverrides[path[2]] = true
+        local overrideRoot = isGlobal and (_G.YapperDB or localConf) or localConf
+        if type(overrideRoot._themeOverrides) ~= "table" then overrideRoot._themeOverrides = {} end
+        overrideRoot._themeOverrides[path[2]] = true
+        if isGlobal and type(localConf._themeOverrides) == "table" then
+            localConf._themeOverrides[path[2]] = nil
+        end
         _G.YapperLocalConf = localConf
     end
 
@@ -212,6 +217,11 @@ function Interface:SetLocalPath(path, value)
     -- Special case for Global Profile toggle itself: trigger a UI refresh notice
     -- if it looks weird, but otherwise just update the live state.
     if fullPath == "System.UseGlobalProfile" then
+        if normalizedValue == true and not wasGlobal
+            and YapperTable.Core
+            and type(YapperTable.Core.PromoteCharacterToGlobal) == "function" then
+            YapperTable.Core:PromoteCharacterToGlobal()
+        end
         if YapperTable.Utils then
             YapperTable.Utils:Print("Global Profile " .. (normalizedValue and "Enabled" or "Disabled") .. ". Refreshing UI...")
         end

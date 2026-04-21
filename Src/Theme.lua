@@ -54,18 +54,24 @@ function Theme:SetTheme(name)
     pcall(function()
         local localConf = _G.YapperLocalConf or {}
         if type(localConf.EditBox) ~= "table" then localConf.EditBox = {} end
-        if type(localConf._themeOverrides) ~= "table" then localConf._themeOverrides = {} end
+        local useGlobal = localConf.System and localConf.System.UseGlobalProfile == true and type(_G.YapperDB) == "table"
+        local targetRoot = useGlobal and _G.YapperDB or localConf
+        if type(targetRoot.EditBox) ~= "table" then targetRoot.EditBox = {} end
+        if type(targetRoot._themeOverrides) ~= "table" then targetRoot._themeOverrides = {} end
         local theme = self._registry[name]
         if type(theme) == "table" then
             local function applyIfNotOverridden(key, themeField)
-                if localConf._themeOverrides[key] == true then return end
+                if targetRoot._themeOverrides[key] == true then return end
                 if type(theme[themeField]) == "table" then
-                    localConf.EditBox[key] = {
+                    targetRoot.EditBox[key] = {
                         r = theme[themeField].r or 1,
                         g = theme[themeField].g or 1,
                         b = theme[themeField].b or 1,
                         a = theme[themeField].a ~= nil and theme[themeField].a or 1,
                     }
+                    if useGlobal and type(localConf.EditBox) == "table" then
+                        localConf.EditBox[key] = nil
+                    end
                 end
             end
             applyIfNotOverridden("InputBg", "inputBg")
@@ -73,7 +79,10 @@ function Theme:SetTheme(name)
             applyIfNotOverridden("TextColor", "textColor")
             applyIfNotOverridden("BorderColor", "borderColor")
             -- Remember which theme we last applied programmatically.
-            localConf._appliedTheme = name
+            targetRoot._appliedTheme = name
+            if useGlobal then
+                localConf._appliedTheme = nil
+            end
             _G.YapperLocalConf = localConf
         end
     end)
