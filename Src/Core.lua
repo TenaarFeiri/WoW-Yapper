@@ -336,15 +336,25 @@ local function GetHistoryVersion(tbl)
 end
 
 --- Recursively wire `child` tables to inherit from `parent` via metatables.
+--- Strips any stale metatable on `child` before recursing and uses raw access
+--- while walking, to avoid accidental self-referential __index chains.
 local function InheritDefaults(child, parent)
+    if type(child) ~= "table" or type(parent) ~= "table" then return end
+    if child == parent then return end
+
+    setmetatable(child, nil)
+
     for key, parentVal in pairs(parent) do
         if type(parentVal) == "table" then
-            if type(child[key]) ~= "table" then
-                child[key] = {}
+            local raw = rawget(child, key)
+            if type(raw) ~= "table" then
+                raw = {}
+                rawset(child, key, raw)
             end
-            InheritDefaults(child[key], parentVal)
+            InheritDefaults(raw, parentVal)
         end
     end
+
     setmetatable(child, { __index = parent })
 end
 
