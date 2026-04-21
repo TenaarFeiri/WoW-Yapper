@@ -1,11 +1,23 @@
 package-as: Yapper
 
+# Split the bundled locale addons out of Yapper/Dictionaries/ into
+# sibling addons at Interface/AddOns/ level so each one is installable
+# (and disable-able) independently via the game's AddOn list.
+#
+# LHS is the path inside the staging dir (.release/<package-as>/...),
+# which always starts with "Yapper/" because `package-as: Yapper`.
+# RHS is the final folder name at the root of the packaged zip.
 move-folders:
-    Dictionaries/Yapper_Dict_en: Yapper_Dict_en
-    Dictionaries/Yapper_Dict_enAU: Yapper_Dict_enAU
-    Dictionaries/Yapper_Dict_enGB: Yapper_Dict_enGB
-    Dictionaries/Yapper_Dict_enUS: Yapper_Dict_enUS
+    Yapper/Dictionaries/Yapper_Dict_en:   Yapper_Dict_en
+    Yapper/Dictionaries/Yapper_Dict_enAU: Yapper_Dict_enAU
+    Yapper/Dictionaries/Yapper_Dict_enGB: Yapper_Dict_enGB
+    Yapper/Dictionaries/Yapper_Dict_enUS: Yapper_Dict_enUS
 
 ignore:
-    - Dictionaries/Yapper_Dict_deDE
-    - Dictionaries
+    # deDE isn't shipping yet — drop it from the build.
+    - Yapper/Dictionaries/Yapper_Dict_deDE
+    # Dev-only junk:
+    - tools
+    - Documentation
+    - .vscode
+    - .WoW-Yapper-workspace
