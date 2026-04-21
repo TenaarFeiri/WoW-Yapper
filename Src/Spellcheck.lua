@@ -39,6 +39,8 @@ Spellcheck.LanguageEngines = {} -- [familyId] = engine table
 Spellcheck.KnownLocales = {
     "enUS",
     "enGB",
+    "enAU",
+    "deDE",
 }
 -- LOD addon names for each locale. enBase is the shared English base that
 -- both enGB and enUS depend on; it is pre-loaded whenever the user's locale
@@ -48,6 +50,7 @@ Spellcheck.LocaleAddons = {
     enBase = "Yapper_Dict_en",
     enGB   = "Yapper_Dict_enGB",
     enUS   = "Yapper_Dict_enUS",
+    enAU   = "Yapper_Dict_enAU",
     deDE   = "Yapper_Dict_deDE",
 }
 Spellcheck.EditBox = nil
