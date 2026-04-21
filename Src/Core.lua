@@ -566,6 +566,7 @@ function YapperTable.Core:PromoteCharacterToGlobal()
         if type(localConf[category]) ~= "table" then
             localConf[category] = {}
         else
+            setmetatable(localConf[category], nil)
             wipe(localConf[category])
         end
     end
@@ -573,6 +574,7 @@ function YapperTable.Core:PromoteCharacterToGlobal()
     if type(localConf.FrameSettings) ~= "table" then
         localConf.FrameSettings = {}
     else
+        setmetatable(localConf.FrameSettings, nil)
         for key in pairs(localConf.FrameSettings) do
             if not FRAME_SETTINGS_LOCAL_ONLY_KEYS[key] then
                 localConf.FrameSettings[key] = nil
@@ -582,6 +584,8 @@ function YapperTable.Core:PromoteCharacterToGlobal()
 
     if type(localConf.System) ~= "table" then
         localConf.System = {}
+    else
+        setmetatable(localConf.System, nil)
     end
     for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
         localConf.System[key] = nil
@@ -619,6 +623,8 @@ function YapperTable.Core:PushToGlobal()
         local settings = localConf[category]
         if type(settings) ~= "table" then return end
         if type(globalDB[category]) ~= "table" then globalDB[category] = {} end
+
+        setmetatable(settings, nil)
 
         for k, v in pairs(settings) do
             if not (skipKeys and skipKeys[k]) then
