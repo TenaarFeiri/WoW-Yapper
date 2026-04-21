@@ -485,6 +485,16 @@ local function BuildInputMeta(self, lower)
     return bag, bigrams
 end
 
+local CACHE_NIL_USER_REV = {}
+
+local function CtxGetMeta(ctx, candidate)
+    return ctx.self:GetMeta(ctx.dict, candidate)
+end
+
+local function CtxEditDistance(ctx, a, b, max)
+    return ctx.self:EditDistance(a, b, max)
+end
+
 --- Pre-compute a scoring context table that is shared across all candidates.
 --- This avoids re-fetching config values and rebuilding lookup structures
 --- inside the per-candidate scoring loop.
@@ -531,9 +541,7 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
         phoneticHash    = phoneticHash,
         locale          = locale,
         YALLM           = self.YALLM,
-        -- closures that need self
-        GetMeta         = function(candidate) return self:GetMeta(dict, candidate) end,
-        EditDistance    = function(a, b, max) return self:EditDistance(a, b, max) end,
+        self            = self,
     }
 end
 
@@ -549,7 +557,7 @@ local function CommonPrefixLen(a, b)
 end
 
 local function LetterBagScore(ctx, candidate)
-    local meta = ctx.GetMeta(candidate)
+    local meta = CtxGetMeta(ctx, candidate)
     if not meta or not meta.bag then return 999 end
     local score = 0
     for ch, cnt in pairs(meta.bag) do
@@ -564,7 +572,7 @@ local function LetterBagScore(ctx, candidate)
 end
 
 local function BigramOverlap(ctx, candidate)
-    local meta = ctx.GetMeta(candidate)
+    local meta = CtxGetMeta(ctx, candidate)
     if not meta or not meta.bigrams then return 0 end
     local count = 0
     for g, cnt in pairs(meta.bigrams) do
@@ -636,7 +644,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
         if cFlat == ctx.lFlat then
             score = score - 1.5
         else
-            local flatDist = ctx.EditDistance(ctx.lFlat, cFlat, 3)
+            local flatDist = CtxEditDistance(ctx, ctx.lFlat, cFlat, 3)
             if flatDist and flatDist < dist then
                 score = score - ((dist - flatDist) * 0.8)
             end
@@ -708,7 +716,7 @@ local function InjectLocaleVariants(ctx, out, seenCandidates)
         local varWord = string_gsub(lower, variantSub, candSub)
         if varWord ~= lower and dict.set[varWord] and not seenCandidates[varWord] then
             seenCandidates[varWord] = true
-            local dist = ctx.EditDistance(lower, varWord, maxDist)
+            local dist = CtxEditDistance(ctx, lower, varWord, maxDist)
             if dist and dist <= maxDist then
                 ScoreCandidate(ctx, out, varWord, dist, false)
             end
@@ -781,7 +789,7 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
         if dict.set[var] and not seenCandidates[var] then
             seenCandidates[var] = true
             checks = checks + 1
-            local dist = ctx.EditDistance(lower, var, maxDist)
+            local dist = CtxEditDistance(ctx, lower, var, maxDist)
             if dist and dist <= maxDist then
                 ScoreCandidate(ctx, out, var, dist, false)
             end
@@ -830,9 +838,16 @@ function Spellcheck:GetSuggestions(word)
     self._suggestionCache = self._suggestionCache or {}
     self._suggestionCacheCount = self._suggestionCacheCount or 0
     local sc = self._suggestionCache
-    local cacheKey = lower .. "|" .. locale .. "|" .. tostring(userRev) .. "|" .. tostring(maxCount)
-    if sc[cacheKey] then
-        return sc[cacheKey]
+    local userRevKey = (userRev == nil) and CACHE_NIL_USER_REV or userRev
+    local byWord = sc[lower]
+    if byWord then
+        local byLocale = byWord[locale]
+        if byLocale then
+            local byRev = byLocale[userRevKey]
+            if byRev and byRev[maxCount] then
+                return byRev[maxCount]
+            end
+        end
     end
 
     -- Base dict if this is a delta
@@ -1037,9 +1052,28 @@ function Spellcheck:GetSuggestions(word)
     if cacheCap > 0 then
         if self._suggestionCacheCount >= cacheCap then
             self:ClearSuggestionCache()
+            sc = self._suggestionCache
+            byWord = nil
         end
-        sc[cacheKey] = final
-        self._suggestionCacheCount = (self._suggestionCacheCount or 0) + 1
+        byWord = byWord or sc[lower]
+        if not byWord then
+            byWord = {}
+            sc[lower] = byWord
+        end
+        local byLocale = byWord[locale]
+        if not byLocale then
+            byLocale = {}
+            byWord[locale] = byLocale
+        end
+        local byRev = byLocale[userRevKey]
+        if not byRev then
+            byRev = {}
+            byLocale[userRevKey] = byRev
+        end
+        if byRev[maxCount] == nil then
+            self._suggestionCacheCount = (self._suggestionCacheCount or 0) + 1
+        end
+        byRev[maxCount] = final
     end
 
     return final

@@ -315,10 +315,10 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
 
     -- Defer underline refresh to the next frame so we don't interfere
     -- with the EditBox's native cursor rendering during this callback.
-    if not self._cursorRefreshPending then
-        self._cursorRefreshPending = true
+    if not self._pendingCursorUpdate then
+        self._pendingCursorUpdate = true
         C_Timer.After(0, function()
-            self._cursorRefreshPending = nil
+            self._pendingCursorUpdate = false
             self:UpdateUnderlines()
         end)
     end
@@ -1085,4 +1085,3 @@ function Spellcheck:ApplySuggestion(index)
 
     self:ScheduleRefresh()
 end
-

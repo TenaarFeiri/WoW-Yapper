@@ -71,6 +71,18 @@ local total = os.clock() - start
 print(string.format("\nTotal Time: %.3f s", total))
 print(string.format("Final Cache Count: %d", SC._suggestionCacheCount))
 
+local locale = SC:GetLocale()
+local userRevKey = false
+local nested = SC._suggestionCache["word1"]
+    and SC._suggestionCache["word1"][locale]
+    and SC._suggestionCache["word1"][locale][userRevKey]
+    and SC._suggestionCache["word1"][locale][userRevKey][SC:GetMaxSuggestions()]
+if nested then
+    print("Nested cache shape verified: cache[word][locale][userRev][maxCount]")
+else
+    print("WARNING: Nested cache shape missing expected entry for word1")
+end
+
 if total < 5 then -- 100,000 suggestions (misses) should be fast if O(1)
     print("\nSUCCESS: Management remains O(1) even at high entry counts.")
 else

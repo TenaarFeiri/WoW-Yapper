@@ -31,6 +31,79 @@ local math_floor = math.floor
 local table_insert = table.insert
 local table_sort = table.sort
 
+local function IsDebugEnabled()
+    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
+end
+
+local function VerifyFreqIndex(db)
+    if not IsDebugEnabled() then return end
+    if type(db) ~= "table" or type(db.freq) ~= "table" then return end
+    if type(db.freqSorted) ~= "table" then
+        error("YALLM freqSorted invariant failed: missing sorted index")
+    end
+
+    local seen = {}
+    local count = 0
+    local prev = nil
+    for i = 1, #db.freqSorted do
+        local w = db.freqSorted[i]
+        if type(w) ~= "string" or w == "" then
+            error("YALLM freqSorted invariant failed: invalid word at index " .. tostring(i))
+        end
+        if prev and w < prev then
+            error("YALLM freqSorted invariant failed: non-monotonic order")
+        end
+        if not db.freq[w] then
+            error("YALLM freqSorted invariant failed: index contains missing freq key '" .. tostring(w) .. "'")
+        end
+        if seen[w] then
+            error("YALLM freqSorted invariant failed: duplicate key '" .. tostring(w) .. "'")
+        end
+        seen[w] = true
+        prev = w
+        count = count + 1
+    end
+
+    local freqCount = 0
+    for word in pairs(db.freq) do
+        freqCount = freqCount + 1
+        if not seen[word] then
+            error("YALLM freqSorted invariant failed: missing key '" .. tostring(word) .. "'")
+        end
+    end
+    if freqCount ~= count then
+        error("YALLM freqSorted invariant failed: cardinality mismatch")
+    end
+end
+
+local function RebuildFreqSorted(db)
+    local sorted = {}
+    for word in pairs(db.freq or {}) do
+        sorted[#sorted + 1] = word
+    end
+    table_sort(sorted)
+    db.freqSorted = sorted
+    db.freqSortedDirty = false
+    VerifyFreqIndex(db)
+    return sorted
+end
+
+local function InsertSortedWord(sorted, word)
+    local lo, hi = 1, #sorted
+    while lo <= hi do
+        local mid = math_floor((lo + hi) / 2)
+        local v = sorted[mid]
+        if v == word then
+            return
+        elseif v < word then
+            lo = mid + 1
+        else
+            hi = mid - 1
+        end
+    end
+    table_insert(sorted, lo, word)
+end
+
 -- ---------------------------------------------------------------------------
 -- Config-driven cap accessors
 -- ---------------------------------------------------------------------------
@@ -89,6 +162,8 @@ function YALLM:GetLocaleDB(locale)
     if not self.db[loc] then
         self.db[loc] = {
             freq = {},    -- word -> { c, t }
+            freqSorted = {}, -- derived sorted array of cleaned keys from freq
+            freqSortedDirty = false, -- true when freq has changed and index must rebuild
             bias = {},    -- typo:correction -> { c, t, u }
             auto = {},    -- word -> { c, t }
             phBias = {},  -- PhoneticHash(typo):correction -> { c, t }
@@ -96,7 +171,30 @@ function YALLM:GetLocaleDB(locale)
             total = 0,    -- total unique words tracked
         }
     end
-    return self.db[loc]
+    local db = self.db[loc]
+    if type(db.freq) ~= "table" then db.freq = {} end
+    if db.total == nil then
+        local count = 0
+        for _ in pairs(db.freq) do count = count + 1 end
+        db.total = count
+    end
+    if db.freqSortedDirty == nil then
+        db.freqSortedDirty = true
+    end
+    if db.freqSorted ~= nil and type(db.freqSorted) ~= "table" then
+        db.freqSorted = nil
+    end
+    return db
+end
+
+function YALLM:EnsureFreqSorted(locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return nil end
+    if db.freqSortedDirty or type(db.freqSorted) ~= "table" then
+        return RebuildFreqSorted(db)
+    end
+    VerifyFreqIndex(db)
+    return db.freqSorted
 end
 
 -- ---------------------------------------------------------------------------
@@ -163,6 +261,15 @@ function YALLM:RecordUsage(text, locale)
                 end
                 db.freq[w] = { c = 1, t = now }
                 db.total = db.total + 1
+                if db.freqSortedDirty then
+                    -- lazy rebuild on demand
+                else
+                    if type(db.freqSorted) ~= "table" then
+                        db.freqSorted = {}
+                    end
+                    InsertSortedWord(db.freqSorted, w)
+                    VerifyFreqIndex(db)
+                end
             else
                 local entry = db.freq[w]
                 entry.c = entry.c + 1
@@ -478,6 +585,10 @@ function YALLM:Prune(tableName, limit, locale)
             db.total = math_max(0, db.total - 1)
         end
     end
+
+    if tableName == "freq" then
+        RebuildFreqSorted(db)
+    end
 end
 
 function YALLM:Reset(locale)
@@ -586,6 +697,7 @@ function YALLM:ClearSpecificUsage(usageType, key, locale)
     if usageType == "freq" and db.freq[key] then
         db.freq[key] = nil
         db.total = math_max(0, db.total - 1)
+        db.freqSortedDirty = true
     elseif usageType == "bias" and db.bias[key] then
         db.bias[key] = nil
     elseif usageType == "auto" and db.auto[key] then
