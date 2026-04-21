@@ -607,6 +607,11 @@ function Interface:BuildConfigUI()
         end
     end
 
+    -- Global sync.
+    if customSet["globalSync"] then
+        self:CreateGlobalSyncControls(frame.ContentFrame, cursor)
+    end
+
     -- Queue diagnostics.
     if customSet["queueDiagnostics"] then
         self:CreateQueueDiagnostics(frame.ContentFrame, cursor)
