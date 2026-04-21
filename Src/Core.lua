@@ -25,11 +25,6 @@ local DEFAULTS = {
         -- I'm not very original...
         FRAME_ID_PARENT           = "PARENT_FRAME",
 
-        -- RUN_ALL_PATCHES is a setup for a future feature where developers are given
-        -- a framework they can write their own patches for Yapper in their addons.
-        -- Rather than, you know, digging through the guts of everything.
-        RUN_ALL_PATCHES           = true,
-
         -- If settings have changed, reparse and recache our interface schema.
         ["SettingsHaveChanged"]   = false,
 
@@ -61,7 +56,6 @@ local DEFAULTS = {
     -- for things like scrolling and moving the window.
     ["FrameSettings"] = {
         ["MouseWheelStepRate"] = 30,
-        ["SettingsViewMode"] = "basic",
         ["UIFontOffset"] = 0,
         ["EnableMinimapButton"] = true,
         ["MinimapButtonOffset"] = 0,
@@ -158,7 +152,6 @@ local DEFAULTS = {
         -- Tier 1 integration: keep the Blizzard editbox alive (text invisible)
         -- so its native skin/backdrop wraps the Yapper overlay while typing.
         UseBlizzardSkinProxy  = true,
-        BlizzardSkinProxyPad  = 0,
 
         -- Sticky channel: remember last-used channel across opens.
         -- Group channels (Party/Instance/Raid) stay sticky even when StickyChannel
@@ -194,6 +187,8 @@ local DEFAULTS = {
         -- N-gram index (bigram) settings
         UseNgramIndex      = true,
         NgramTopCandidates = 300,
+        NgramN             = 2,
+        NgramMaxPosting    = 200,
         -- Cap on unique bigram keys built during dictionary indexing.
         -- More keys = better suggestion recall but higher memory cost (~10MB+ extra).
         -- Set to 0 for uncapped (maximum accuracy, no memory limit).

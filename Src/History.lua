@@ -154,7 +154,12 @@ function History:AddChatHistory(text, chatType, target)
         target = target
     }
 
-    while #h > CHAT_HISTORY_SIZE do
+    local cfg = YapperTable.Config
+    local cap = tonumber(cfg and cfg.Chat and cfg.Chat.MAX_HISTORY_LINES) or CHAT_HISTORY_SIZE
+    if cap < 1 then
+        cap = CHAT_HISTORY_SIZE
+    end
+    while #h > cap do
         table_remove(h, 1)
     end
 end

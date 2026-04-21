@@ -4,17 +4,6 @@
 
 All sections below follow TOC load order from [`Yapper.toc`](../Yapper.toc).
 
-## Second-pass audit checklist
-
-This pass re-checked `Src/**/*.lua` function definitions and table-field assignments against this document. Covered module set:
-
-- `Core`, `Utils`, `Error`, `Frame`, `EventFrames`, `Events`, `API`
-- `Spellcheck`, `Spellcheck.Dictionary`, `Spellcheck.Engine`, `Spellcheck.UI`, `Spellcheck.Underline`, `Spellcheck.YALLM`
-- `IconGallery`, `EditBox`, `EditBox.SkinProxy`, `EditBox.Overlay`, `EditBox.Handlers`, `EditBox.Hooks`
-- `GopherBridge`, `TypingTrackerBridge`, `RPPrefixBridge`, `WIMBridge`, `ElvUIBridge`
-- `Router`, `Chunking`, `Queue`, `Chat`, `Multiline`, `Autocomplete`, `History`, `Theme`
-- `Interface`, `Interface.Schema`, `Interface.Config`, `Interface.Window`, `Interface.Widgets`, `Interface.Pages`
-
 ## YapperTable root (`_G.Yapper`)
 
 Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).

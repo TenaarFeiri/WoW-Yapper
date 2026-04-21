@@ -16,7 +16,7 @@
 		suggestion; any other key dismisses or refines it.
 
 	Performance:
-		YALLM tier scans ≤2000 entries (linear, sub-ms).
+		YALLM tier uses binary search over a sorted personal-frequency index.
 		Dictionary tier uses binary search on the alphabetically sorted
 		`dict.words` array — ~17 iterations for 130k words ($O(\log N)$).
 
@@ -141,12 +141,15 @@ end
 --- is >= `lowerPrefix`.  Returns #words+1 if all entries are smaller.
 ---@param words       table   Sorted string array.
 ---@param lowerPrefix string  Already-lowercased prefix.
+---@param valuesAreLower boolean|nil  When true, values are already lowercase.
 ---@return number
-local function BinarySearchFloor(words, lowerPrefix)
+local function BinarySearchFloor(words, lowerPrefix, valuesAreLower)
 	local lo, hi = 1, #words
 	while lo < hi do
 		local mid = math_floor((lo + hi) / 2)
-		if string_lower(words[mid]) < lowerPrefix then
+		local probe = words[mid]
+		local lowerProbe = valuesAreLower and probe or string_lower(probe)
+		if lowerProbe < lowerPrefix then
 			lo = mid + 1
 		else
 			hi = mid
@@ -163,14 +166,17 @@ end
 ---@param startIdx    number
 ---@param limit       number
 ---@param out         table   Append results here as {word, isExact=bool}.
-local function CollectPrefixMatches(words, lowerPrefix, prefixLen, startIdx, limit, out)
+---@param valuesAreLower boolean|nil  When true, values are already lowercase.
+---@param seen        table|nil  Optional set used to dedupe collected words.
+local function CollectPrefixMatches(words, lowerPrefix, prefixLen, startIdx, limit, out, valuesAreLower, seen)
 	local count = 0
 	for i = startIdx, #words do
 		if count >= limit then break end
 		local w  = words[i]
-		local lw = string_lower(w)
+		local lw = valuesAreLower and w or string_lower(w)
 		if string_sub(lw, 1, prefixLen) ~= lowerPrefix then break end
-		if string_len(w) > prefixLen then
+		if string_len(w) > prefixLen and (not seen or not seen[w]) then
+			if seen then seen[w] = true end
 			out[#out + 1] = w
 			count = count + 1
 		end
@@ -295,7 +301,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yall
 
 	-- Collect candidates from the sorted prefix range.
 	local candidates = {}
-	local startIdx   = BinarySearchFloor(words, lowerPrefix)
+	local startIdx   = BinarySearchFloor(words, lowerPrefix, false)
 	CollectPrefixMatches(words, lowerPrefix, prefixLen, startIdx, scanLimit, candidates)
 
 	-- For medium/long prefixes, broaden with phonetic neighbours.
@@ -355,29 +361,47 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local yallmFreq = yallmDB and yallmDB.freq or nil
 	local cleanPrefix = lowerPrefix:gsub("[%p%c%s]", "")
 
-
 	if yallmFreq then
+		local freqSorted = yallm and yallm.EnsureFreqSorted and yallm:EnsureFreqSorted(locale)
 		local prefixLen      = string_len(lowerPrefix)
 		local cleanPrefixLen = string_len(cleanPrefix)
-		local bestWord   = nil
-		local bestScore  = -math_huge
-		for word, entry in pairs(yallmFreq) do
-			local wordLen = string_len(word)
-			-- Match on the stored (cleaned) key against both prefix forms.
-			local matches = (wordLen > prefixLen
-					and string_lower(string_sub(word, 1, prefixLen)) == lowerPrefix)
-				or (cleanPrefixLen >= MIN_PREFIX_LEN and wordLen > cleanPrefixLen
-					and string_lower(string_sub(word, 1, cleanPrefixLen)) == cleanPrefix)
-			if matches then
+		if freqSorted and #freqSorted > 0 then
+			local candidates = {}
+			local seen = {}
+			local limit = #freqSorted
+
+			if prefixLen >= MIN_PREFIX_LEN then
+				local startIdx = BinarySearchFloor(freqSorted, lowerPrefix, true)
+				CollectPrefixMatches(freqSorted, lowerPrefix, prefixLen, startIdx, limit, candidates, true, seen)
+			end
+
+			if cleanPrefixLen >= MIN_PREFIX_LEN and cleanPrefix ~= lowerPrefix then
+				local cleanStartIdx = BinarySearchFloor(freqSorted, cleanPrefix, true)
+				CollectPrefixMatches(
+					freqSorted,
+					cleanPrefix,
+					cleanPrefixLen,
+					cleanStartIdx,
+					limit,
+					candidates,
+					true,
+					seen
+				)
+			end
+
+			local bestWord = nil
+			local bestScore = -math_huge
+			for _, word in ipairs(candidates) do
+				local entry = yallmFreq[word]
 				local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
 				if freq > bestScore then
 					bestScore = freq
-					bestWord  = word
+					bestWord = word
 				end
 			end
-		end
-		if bestWord then
-			return prefixIsCapital and CapFirst(bestWord) or bestWord
+			if bestWord then
+				return prefixIsCapital and CapFirst(bestWord) or bestWord
+			end
 		end
 	end
 
