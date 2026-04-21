@@ -116,7 +116,8 @@ function YALLM:IsSaneWord(word)
     if #w < 2 or #w > 40 then return false end
 
     -- 1. Linguistic Cluster Check (7+ consecutive consonants)
-    if w:match("[^aeiouy]{7,}") then return false end
+    -- Lua patterns don't support {n,} quantifiers, so we use repetition.
+    if w:match("[^aeiouy][^aeiouy][^aeiouy][^aeiouy][^aeiouy][^aeiouy][^aeiouy]") then return false end
 
     -- 2. Keyboard Smash Check (3+ identical consecutive characters)
     if w:match("(.)%1%1") then return false end
@@ -199,10 +200,13 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
     local key = t .. ":" .. c
     if not db.bias[key] then
         -- Handle Capacity
-        local count = 0
-        for _ in pairs(db.bias) do count = count + 1 end
-        if count >= self:GetBiasCap() then
+        db.biasCount = (db.biasCount or 0) + 1
+        if db.biasCount >= self:GetBiasCap() then
             self:Prune("bias", self:GetBiasCap(), locale)
+            -- Recalculate count after pruning
+            local count = 0
+            for _ in pairs(db.bias) do count = count + 1 end
+            db.biasCount = count
         end
         db.bias[key] = { c = 1, t = now, u = 1 + gain }
     else
@@ -219,6 +223,14 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
         if ph and ph ~= "" then
             local phKey = ph .. ":" .. c
             if not db.phBias[phKey] then
+                -- Handle Capacity (Shared cap with bias for now)
+                db.phBiasCount = (db.phBiasCount or 0) + 1
+                if db.phBiasCount >= self:GetBiasCap() then
+                    self:Prune("phBias", self:GetBiasCap(), locale)
+                    local count = 0
+                    for _ in pairs(db.phBias) do count = count + 1 end
+                    db.phBiasCount = count
+                end
                 db.phBias[phKey] = { c = 1, t = now }
             else
                 local entry = db.phBias[phKey]
@@ -387,15 +399,20 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
 
     -- 1. Frequency Bonus
     local freqEntry = db.freq[c]
-    if freqEntry and freqEntry.c > 5 then
-        bonus = bonus + WEIGHTS.freqBonus
+    if freqEntry and freqEntry.c > 2 then
+        -- Use logarithmic scaling so common words get a better proportional boost
+        local logBonus = math_min(math.log(freqEntry.c) / 2, 3.0)
+        bonus = bonus + (WEIGHTS.freqBonus * logBonus)
     end
 
     -- 2. Bias Bonus
     local key = t .. ":" .. c
     local biasEntry = db.bias[key]
     if biasEntry then
-        bonus = bonus + (WEIGHTS.biasBonus * math_min(biasEntry.c, 5))
+        -- Cap selection bias so it provides a strong boost (±10.0) without 
+        -- indefinitely pinning candidates regardless of intent.
+        local cappedBias = math_min(biasEntry.c, 2)
+        bonus = bonus + (WEIGHTS.biasBonus * cappedBias)
     end
 
     -- 3. Phonetic Pattern Bonus (Optimized: use passed-down hash)
@@ -403,7 +420,9 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
         local phKey = typoPhHash .. ":" .. c
         local phEntry = db.phBias[phKey]
         if phEntry then
-            bonus = bonus + (WEIGHTS.phBonus * math_min(phEntry.c, 5))
+            -- Moderate boost (±6.0) for generalized phonetic learning
+            local cappedPh = math_min(phEntry.c, 2)
+            bonus = bonus + (WEIGHTS.phBonus * cappedPh)
         end
     end
 
@@ -534,6 +553,38 @@ function YALLM:GetDataSummary(locale)
         cap       = self:GetFreqCap(),
         threshold = self:GetAutoThreshold(),
     }
+end
+
+--- Export current learned data for a locale as a text block.
+function YALLM:Export(locale)
+    local db = self:GetLocaleDB(locale)
+    if not db then return "No data for " .. tostring(locale) end
+
+    local out = {}
+    table_insert(out, "Yapper YALLM Export - " .. tostring(locale))
+    table_insert(out, "------------------------------------------")
+    
+    local fCount = 0
+    for _ in pairs(db.freq) do fCount = fCount + 1 end
+    table_insert(out, string_format("Vocabulary (freq): %d words", fCount))
+
+    local bCount = 0
+    for _ in pairs(db.bias) do bCount = bCount + 1 end
+    table_insert(out, string_format("Selection Bias:    %d pairs", bCount))
+
+    local phCount = 0
+    for _ in pairs(db.phBias) do phCount = phCount + 1 end
+    table_insert(out, string_format("Phonetic Patterns: %d patterns", phCount))
+
+    table_insert(out, "------------------------------------------")
+    table_insert(out, "Top Frequency Words:")
+    local data = self:GetData(locale)
+    for i = 1, math_min(10, #data.freq) do
+        local entry = data.freq[i]
+        table_insert(out, string_format("  %s (%d usage)", entry.word, entry.count))
+    end
+
+    return table.concat(out, "\n")
 end
 
 

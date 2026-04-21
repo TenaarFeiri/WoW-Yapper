@@ -256,13 +256,14 @@ function Spellcheck:RegisterDictionary(locale, data)
         -- On cancellation: nil all large upvalue references so this closure
         -- doesn't pin the old tables for an extra GC cycle after cancel.
         if loader.cancelled then
-            words       = nil
-            outWords    = nil
-            set         = nil
-            index       = nil
-            ngramIndex  = nil
-            phonetics   = nil
-            processWord = nil
+            words        = nil
+            outWords     = nil
+            set          = nil
+            index        = nil
+            ngramIndex2  = nil
+            ngramIndex3  = nil
+            phonetics    = nil
+            processWord  = nil
             return
         end
 

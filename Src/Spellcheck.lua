@@ -416,13 +416,13 @@ function Spellcheck:GetMeta(dict, word)
     local cap = tonumber(cfg.MetaCacheMax) or 20000
     if dict._metaCacheSize > cap then
         local purge = math_min(2000, cap)
-        self:EvictOldestMeta(dict, purge)
+        self:EvictRandomMeta(dict, purge)
     end
 
     return meta
 end
 
-function Spellcheck:EvictOldestMeta(dict, count)
+function Spellcheck:EvictRandomMeta(dict, count)
     if type(dict) ~= "table" or type(dict._metaCache) ~= "table" then return end
 
     -- Fast random-ish eviction: just purge the first 'count' entries we find
@@ -438,7 +438,7 @@ function Spellcheck:EvictOldestMeta(dict, count)
     dict._metaCacheSize = math_max(0, (dict._metaCacheSize or 0) - removed)
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify("Spellcheck:EvictOldestMeta purged " .. tostring(removed) .. " entries.")
+        self:Notify("Spellcheck:EvictRandomMeta purged " .. tostring(removed) .. " entries.")
     end
 end
 

@@ -98,7 +98,19 @@ SlashCmdList["YAPPER"] = function(msg)
         return
     end
 
-    YapperTable.Utils:Print("info", "Usage: /yapper [toggle|open|close|help|?]")
+    if input == "export" then
+        local sc = YapperTable.Spellcheck
+        if sc and sc.YALLM and sc.YALLM.Export then
+            local locale = sc:GetLocale()
+            local report = sc.YALLM:Export(locale)
+            print(report)
+        else
+            YapperTable.Utils:Print("warn", "YALLM module unavailable.")
+        end
+        return
+    end
+
+    YapperTable.Utils:Print("info", "Usage: /yapper [toggle|open|close|export|help|?]")
 end
 
 -- 2. ADDON_LOADED — access SavedVariables.
