@@ -23,6 +23,11 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.3
+  - *API & Architecture:*
+    - **Internal Dogfooding:** Re-wired the message chunking module to consume the public `GetDelineator` API. This ensures that any architectural changes to configuration paths are immediately validated by the core splitting engine.
+    - **Documentation:** Backfilled `GetDelineator` into the API documentation and updated all method anchors to reflect recent code shifts.
+
 -- 2.1.2
   - *Bug Fixes:*
     - **Global Profile inheritance fixed end-to-end:** Enabling "Use Global Profile" now correctly clears character-local overrides for syncable categories so account-wide values are immediately applied (including appearance/theme colours) without requiring a reload.

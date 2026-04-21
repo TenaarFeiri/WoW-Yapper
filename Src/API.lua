@@ -539,7 +539,7 @@ end
 -- Public object (sandbox)
 -- ---------------------------------------------------------------------------
 local YapperAPI             = {
-    _version = "1.1", -- API version, independent of addon version
+    _version = "1.2", -- API version, independent of addon version
 }
 _G.YapperAPI                = YapperAPI
 
