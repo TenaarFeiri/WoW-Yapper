@@ -339,9 +339,12 @@ end
 --- Strips any stale metatable on `child` before recursing and uses raw access
 --- while walking, to avoid accidental self-referential __index chains.
 local function InheritDefaults(child, parent)
+    -- Defensive no-op for invalid inputs and accidental self-link attempts.
     if type(child) ~= "table" or type(parent) ~= "table" then return end
     if child == parent then return end
 
+    -- Remove stale inheritance first so prior __index links cannot influence
+    -- the raw child table shape we build below.
     setmetatable(child, nil)
 
     for key, parentVal in pairs(parent) do

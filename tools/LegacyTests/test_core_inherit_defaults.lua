@@ -22,12 +22,14 @@ end
 local function assert_no_dict_self_loop(globalDB, label)
     local dict = globalDB.Spellcheck.Dict
     assert_ok(label .. " (dict exists)", type(dict) == "table")
-    assert_ok(label .. " (dict metatable is nil)", getmetatable(dict) == nil)
+    local mt = getmetatable(dict)
+    assert_ok(label .. " (global Spellcheck.Dict has no metatable)", mt == nil)
     local ok, value = pcall(function() return dict.AddedWords end)
     assert_ok(label .. " (missing key read does not error)", ok and value == nil)
 end
 
 local YapperTable = {}
+-- Run from repository root so relative module paths resolve.
 local core_loader = assert(loadfile("Src/Core.lua"))
 core_loader("Yapper", YapperTable)
 local Core = YapperTable.Core
