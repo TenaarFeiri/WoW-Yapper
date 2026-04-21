@@ -39,6 +39,9 @@ local math_min    = math.min
 local math_abs    = math.abs
 local table_insert = table.insert
 
+local CARET_VIEWPORT_PADDING     = 4
+local AUTO_SCROLL_SUPPRESSION_SECS = 1.5
+
 -- ---------------------------------------------------------------------------
 -- State
 -- ---------------------------------------------------------------------------
@@ -219,7 +222,7 @@ function Multiline:CreateFrame()
 		local viewH = scroll:GetHeight() or 0
 		if viewH <= 0 then return end
 
-		local padding = 4
+		local padding = CARET_VIEWPORT_PADDING
 		local caretTop = -(y + h)
 		local caretBottom = -y
 
@@ -242,7 +245,7 @@ function Multiline:CreateFrame()
 
 	-- Respect user wheel scrolling briefly before resuming caret tracking.
 	sf:HookScript("OnMouseWheel", function()
-		Multiline._autoScrollSuppressedUntil = GetTime() + 1.5
+		Multiline._autoScrollSuppressedUntil = GetTime() + AUTO_SCROLL_SUPPRESSION_SECS
 	end)
 
 	-- Enter sends; Shift+Enter inserts a literal newline (multi-line default).
