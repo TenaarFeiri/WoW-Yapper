@@ -1011,7 +1011,16 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
                 current = locale
                 Interface:SetLocalPath(path, locale)
                 UIDropDownMenu_SetText(frame, locale)
-                StaticPopup_Show("YAPPER_LOCALE_CHANGE_RELOAD")
+
+                -- Only prompt for a reload if spellcheck is actually enabled AND a
+                -- previous dictionary is resident in memory that would benefit from
+                -- being purged. Otherwise, silently accept the new locale.
+                local shouldPrompt =
+                    spell and spell.IsEnabled and spell:IsEnabled()
+                    and spell.Dictionaries and next(spell.Dictionaries) ~= nil
+                if shouldPrompt then
+                    StaticPopup_Show("YAPPER_LOCALE_CHANGE_RELOAD")
+                end
             end
             UIDropDownMenu_AddButton(info, level)
         end

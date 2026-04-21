@@ -364,18 +364,31 @@ end
 function Spellcheck:HasLocaleAddon(locale)
     local addon = self:GetLocaleAddon(locale)
     if not addon then return false end
-    
-    -- API wrapper for Dragonflight+ (10.0) consistency.
+
     local getInfo = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
     if getInfo then
-        local name = getInfo(addon)
-        return name ~= nil
+        -- Blizzard's GetAddOnInfo echoes the queried name back even when
+        -- the addon isn't on disk; the authoritative signals are `loadable`
+        -- and `reason`. An uninstalled addon reports reason="MISSING".
+        local name, _, _, loadable, reason = getInfo(addon)
+        if not name then return false end
+        if reason == "MISSING" or reason == "MISSING_DEPENDENCY" then
+            return false
+        end
+        -- DISABLED / INSECURE / DEMAND_LOADED / BANNED / INTERFACE_VERSION
+        -- all still mean the addon is on disk; treat them as "present"
+        -- except BANNED (which the client will refuse to load).
+        if reason == "BANNED" then return false end
+        return loadable == true
+            or reason == "DISABLED"
+            or reason == "INSECURE"
+            or reason == "DEMAND_LOADED"
+            or reason == nil
     end
-    
-    -- Fallback: check if it happens to even be loaded.
+
+    -- Pre-Dragonflight fallback (very old clients).
     local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
     if isLoaded and isLoaded(addon) then return true end
-    
     return false
 end
 
@@ -433,23 +446,30 @@ function Spellcheck:EnsureLocale(locale)
     end
 
     local addon = self:GetLocaleAddon(locale)
+
+    -- Addon expected but not on disk: fail quietly. Callers upstream
+    -- already treat a false return as "locale unavailable"; we must not
+    -- call LoadAddOn here because it will surface a MISSING error every
+    -- time GetDictionary() is reached (e.g. on login when the user's
+    -- saved locale points at an LOD addon they haven't installed).
     if addon and not self:HasLocaleAddon(locale) then
         return false
     end
+
     if addon then
         if C_AddOns and C_AddOns.LoadAddOn then
             local loaded, reason = C_AddOns.LoadAddOn(addon)
             if loaded == false then
-                if self.Notify then
+                -- Only notify on real failures (corrupt, banned, etc.).
+                -- MISSING is handled by the early-return above.
+                if reason ~= "MISSING" and self.Notify then
                     self:Notify("Yapper: failed to load " .. addon .. " (" .. tostring(reason) .. ").")
                 end
                 return false
             end
         elseif LoadAddOn then
             local loaded = LoadAddOn(addon)
-            if loaded == false then
-                return false
-            end
+            if loaded == false then return false end
         end
     end
 
