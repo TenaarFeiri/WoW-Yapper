@@ -364,11 +364,18 @@ end
 function Spellcheck:HasLocaleAddon(locale)
     local addon = self:GetLocaleAddon(locale)
     if not addon then return false end
-    if IsAddOnLoaded and IsAddOnLoaded(addon) then return true end
-    if GetAddOnInfo then
-        local name = GetAddOnInfo(addon)
+    
+    -- API wrapper for Dragonflight+ (10.0) consistency.
+    local getInfo = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
+    if getInfo then
+        local name = getInfo(addon)
         return name ~= nil
     end
+    
+    -- Fallback: check if it happens to even be loaded.
+    local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+    if isLoaded and isLoaded(addon) then return true end
+    
     return false
 end
 
@@ -391,9 +398,13 @@ function Spellcheck:CanLoadLocale(locale)
     if not addon then
         return self:IsLocaleAvailable(locale)
     end
-    if IsAddOnLoaded and IsAddOnLoaded(addon) then
+    
+    local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+    if isLoaded and isLoaded(addon) then
         return true
     end
+    
+    -- If it's not loaded, we can still load it if the addon exists on disk.
     return self:HasLocaleAddon(locale)
 end
 
