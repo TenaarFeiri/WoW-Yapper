@@ -73,7 +73,12 @@ function EditBox:Show(origEditBox)
     local ml = YapperTable and YapperTable.Multiline
     if ml and ml.Active then
         if ml.EditBox and ml.EditBox.SetFocus then
-            ml.EditBox:SetFocus()
+            local mlb = ml.EditBox
+            C_Timer.After(0, function()
+                if ml.Active and mlb and mlb.SetFocus then
+                    mlb:SetFocus()
+                end
+            end)
         end
         return
     end
@@ -1112,46 +1117,55 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     end
 
     hooksecurefunc(blizzEditBox, "Show", function(eb)
-        local ebName = eb:GetName()
-        if self._suppressNextShowFor == ebName then
-            self._suppressNextShowFor = nil
-            return
-        end
+        if self._inBlizzShowHook then return end
+        self._inBlizzShowHook = true
 
-        if UserBypassingYapper() then
-            if not BypassEditBox() then
-                SetBypassEditBox(ebName)
-            end
-            if BypassEditBox() == ebName then
-                SetUserBypassingYapper(false)
+        local ok, err = pcall(function()
+            local ebName = eb:GetName()
+            if self._suppressNextShowFor == ebName then
+                self._suppressNextShowFor = nil
                 return
             end
-        end
 
-        -- While bypass session is active for this editbox, never overlay it.
-        if BypassEditBox() and BypassEditBox() == ebName then
-            return
-        end
-
-        if self.Overlay and self.Overlay:IsShown() then
-            -- Overlay already visible — suppress Blizzard's editbox and
-            -- reclaim focus if the overlay was in unfocused (game-passthrough)
-            -- mode. The Enter keypress that triggered Blizzard's Show is
-            -- consumed here; it never reaches our OnEnterPressed.
-            if self._overlayUnfocused and self.OverlayEdit then
-                self.OverlayEdit:SetFocus()
+            if UserBypassingYapper() then
+                if not BypassEditBox() then
+                    SetBypassEditBox(ebName)
+                end
+                if BypassEditBox() == ebName then
+                    SetUserBypassingYapper(false)
+                    return
+                end
             end
-            C_Timer.After(0, function()
-                if eb and eb.Hide and eb:IsShown() then eb:Hide() end
-            end)
-            return
-        end
 
-        -- If the user Escaped out of a BNet whisper, don't re-open ours.
-        if self._bnetDismissed then
-            self._bnetDismissed = false
-            return
-        end
+            -- While bypass session is active for this editbox, never overlay it.
+            if BypassEditBox() and BypassEditBox() == ebName then
+                return
+            end
+
+            if self.Overlay and self.Overlay:IsShown() then
+                -- Overlay already visible — suppress Blizzard's editbox and
+                -- reclaim focus if the overlay was in unfocused (game-passthrough)
+                -- mode. The Enter keypress that triggered Blizzard's Show is
+                -- consumed here; it never reaches our OnEnterPressed.
+                if self._overlayUnfocused and self.OverlayEdit then
+                    C_Timer.After(0, function()
+                        if self.Overlay and self.Overlay:IsShown() and self._overlayUnfocused and self.OverlayEdit then
+                            self.OverlayEdit:SetFocus()
+                        end
+                    end)
+                end
+                C_Timer.After(0, function()
+                    if eb and eb.Hide and eb:IsShown() then eb:Hide() end
+                end)
+                
+                return
+            end
+
+            -- If the user Escaped out of a BNet whisper, don't re-open ours.
+            if self._bnetDismissed then
+                self._bnetDismissed = false
+                return
+            end
 
         -- In lockdown Blizzard's untainted box can still send; leave it alone.
         -- In DEBUG mode, we only bypass Yapper if the handoff has actually occurred.
@@ -1248,23 +1262,24 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end
         end
 
-        -- Fix for tab-switching causing overlay to activate.
-        -- Defer one frame so we can check HasFocus; only overlay
-        -- when the user actually pressed Enter to chat.
-        C_Timer.After(0, function()
-            if not eb or not eb:IsShown() then return end
-            if not eb.HasFocus or not eb:HasFocus() then return end
-            if self.Overlay and self.Overlay:IsShown() then return end
-
-            self:Show(eb)
-
-            -- Hide Blizzard's editbox next frame.
             C_Timer.After(0, function()
-                if eb and eb.IsShown and eb:IsShown() and eb.Hide then
-                    eb:Hide()
-                end
+                if not eb or not eb:IsShown() then return end
+                if not eb.HasFocus or not eb:HasFocus() then return end
+                if self.Overlay and self.Overlay:IsShown() then return end
+
+                self:Show(eb)
+
+                -- Hide Blizzard's editbox next frame.
+                C_Timer.After(0, function()
+                    if eb and eb.IsShown and eb:IsShown() and eb.Hide then
+                        eb:Hide()
+                    end
+                end)
             end)
         end)
+
+        self._inBlizzShowHook = false
+        if not ok then error(err) end
     end)
 
     -- Track when the user Escapes out of a BNet whisper so we don't
