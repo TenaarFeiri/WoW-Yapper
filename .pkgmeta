@@ -1,10 +1,11 @@
 package-as: Yapper
 
 move-folders:
-    Yapper/Dictionaries/Yapper_Dict_en: Yapper_Dict_en
-    Yapper/Dictionaries/Yapper_Dict_enAU: Yapper_Dict_enAU
-    Yapper/Dictionaries/Yapper_Dict_enGB: Yapper_Dict_enGB
-    Yapper/Dictionaries/Yapper_Dict_enUS: Yapper_Dict_enUS
+    Dictionaries/Yapper_Dict_en: Yapper_Dict_en
+    Dictionaries/Yapper_Dict_enAU: Yapper_Dict_enAU
+    Dictionaries/Yapper_Dict_enGB: Yapper_Dict_enGB
+    Dictionaries/Yapper_Dict_enUS: Yapper_Dict_enUS
 
 ignore:
     - Dictionaries/Yapper_Dict_deDE
+    - Dictionaries
