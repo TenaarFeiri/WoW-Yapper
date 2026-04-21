@@ -8,7 +8,12 @@ All sections below follow TOC load order from [`Yapper.toc`](../Yapper.toc).
 
 This pass re-checked `Src/**/*.lua` function definitions and table-field assignments against this document. Covered module set:
 
-`Core`, `Utils`, `Error`, `Frame`, `EventFrames`, `Events`, `API`, `Spellcheck`, `Spellcheck.Dictionary`, `Spellcheck.Engine`, `Spellcheck.UI`, `Spellcheck.Underline`, `Spellcheck.YALLM`, `IconGallery`, `EditBox`, `EditBox.SkinProxy`, `EditBox.Overlay`, `EditBox.Handlers`, `EditBox.Hooks`, `GopherBridge`, `TypingTrackerBridge`, `RPPrefixBridge`, `WIMBridge`, `ElvUIBridge`, `Router`, `Chunking`, `Queue`, `Chat`, `Multiline`, `Autocomplete`, `History`, `Theme`, `Interface`, `Interface.Schema`, `Interface.Config`, `Interface.Window`, `Interface.Widgets`, `Interface.Pages`.
+- `Core`, `Utils`, `Error`, `Frame`, `EventFrames`, `Events`, `API`
+- `Spellcheck`, `Spellcheck.Dictionary`, `Spellcheck.Engine`, `Spellcheck.UI`, `Spellcheck.Underline`, `Spellcheck.YALLM`
+- `IconGallery`, `EditBox`, `EditBox.SkinProxy`, `EditBox.Overlay`, `EditBox.Handlers`, `EditBox.Hooks`
+- `GopherBridge`, `TypingTrackerBridge`, `RPPrefixBridge`, `WIMBridge`, `ElvUIBridge`
+- `Router`, `Chunking`, `Queue`, `Chat`, `Multiline`, `Autocomplete`, `History`, `Theme`
+- `Interface`, `Interface.Schema`, `Interface.Config`, `Interface.Window`, `Interface.Widgets`, `Interface.Pages`
 
 ## YapperTable root (`_G.Yapper`)
 
@@ -119,7 +124,8 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `LanguageEngines: table` family → engine ([`../Src/Spellcheck.lua#L38`](../Src/Spellcheck.lua#L38)).
   - `KnownLocales: string[]` ([`../Src/Spellcheck.lua#L39-L44`](../Src/Spellcheck.lua#L39-L44)).
   - `LocaleAddons: table` locale → addon name ([`../Src/Spellcheck.lua#L49-L55`](../Src/Spellcheck.lua#L49-L55)).
-  - UI/runtime state: `EditBox`, `Overlay`, `MeasureFS`, `UnderlinePool`, `Underlines`, `SuggestionFrame`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `HintFrame`, `_debounceTimer` ([`../Src/Spellcheck.lua#L56-L75`](../Src/Spellcheck.lua#L56-L75)).
+  - Frame references: `EditBox`, `Overlay`, `MeasureFS`, `SuggestionFrame`, `HintFrame` ([`../Src/Spellcheck.lua#L56-L68`](../Src/Spellcheck.lua#L56-L68)).
+  - Underline/suggestion state: `UnderlinePool`, `Underlines`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L59-L68`](../Src/Spellcheck.lua#L59-L68)).
   - Dictionary/user state: `UserDictCache`, `_pendingLocaleLoads`, `DictionaryBuilders` ([`../Src/Spellcheck.lua#L69-L71`](../Src/Spellcheck.lua#L69-L71)).
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
   - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
