@@ -489,18 +489,6 @@ function Autocomplete:_InstallCursorHook(editBox)
 	self._hookedOrigScript = existing  -- may be nil (no prior script)
 end
 
---- Returns the pixel width of `text` using the EditBox's current font.
----@param text string
----@return number
-function Autocomplete:MeasureText(text)
-	local mfs = self.MeasureFS
-	if not mfs then return 0 end
-	mfs:SetText(text or "")
-	local w = mfs:GetStringWidth()
-	mfs:SetText("")
-	return w or 0
-end
-
 --- Position the ghost-text FontString immediately after the caret.
 --- Uses the x coordinate from OnCursorChanged, which is frame-relative
 --- and already accounts for horizontal scroll — no measurement needed.

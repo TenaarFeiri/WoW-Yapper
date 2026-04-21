@@ -193,8 +193,6 @@ local DEFAULTS = {
         MaxWrongLetters    = 4,
         -- N-gram index (bigram) settings
         UseNgramIndex      = true,
-        NgramN             = 2,
-        NgramMaxPosting    = 200,
         NgramTopCandidates = 300,
         -- Cap on unique bigram keys built during dictionary indexing.
         -- More keys = better suggestion recall but higher memory cost (~10MB+ extra).
