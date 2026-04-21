@@ -29,6 +29,7 @@
   - *Bug Fixes:*
     - **"Maximum chat history lines" setting now actually works.** The slider in the Advanced settings page was wired to a default constant rather than the configured value, so adjusting it did nothing — Yapper always kept 50 lines. It now respects your setting.
     - **API error reporting (developers only):** Fixed two latent error paths in `_G.YapperAPI` that would have thrown "attempt to call nil" if a third-party addon ever registered more than 50 filters or callbacks on the same hook. The cap has never been hit in practice, but the error handler itself is no longer broken.
+    - **Multiline Autoscroll:** Fixed an issue where the multiline editor would not automatically scroll down when you breached the bottom of the view.
 
 -- 2.1.0
   - *Major Features:*
