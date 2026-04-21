@@ -40,6 +40,10 @@ local DEFAULTS = {
         -- Default active theme name (registered by `Src/Theme.lua`).
         ActiveTheme               = "Yapper Default",
 
+        -- Global Settings: when true, changes are saved to the account-wide YapperDB
+        -- instead of character-specific YapperLocalConf.
+        UseGlobalProfile          = false,
+
         -- Storyteller animation duration
         StorytellerSlideSpeed     = 0.3,
 
@@ -474,4 +478,61 @@ function YapperTable.Core:SetVerbose(bool)
     end
     YapperTable.Config.System.VERBOSE = bool
     YapperTable.Utils:Print("Verbose mode " .. (bool and "enabled." or "disabled."))
+end
+
+--- Centralised setting saver that handles Global/Local redirection.
+--- @param category string  The category name (e.g. "EditBox", "System")
+--- @param key string       The setting key
+--- @param value any        The new value
+function YapperTable.Core:SaveSetting(category, key, value)
+    local localConf = _G.YapperLocalConf
+    local globalDB  = _G.YapperDB
+
+    if not localConf or not globalDB then return end
+
+    if localConf.System and localConf.System.UseGlobalProfile == true then
+        -- Writing to Global Profile
+        if not globalDB[category] then globalDB[category] = {} end
+        globalDB[category][key] = value
+
+        -- Nil out the local override so the character falls back to the global value.
+        if localConf[category] then
+            localConf[category][key] = nil
+        end
+    else
+        -- Writing to Character Local
+        if not localConf[category] then localConf[category] = {} end
+        localConf[category][key] = value
+    end
+
+    -- Trigger a refresh for components listening for setting changes.
+    if YapperTable.Config and YapperTable.Config.System then
+        YapperTable.Config.System.SettingsHaveChanged = true
+    end
+end
+
+--- Shallow copy character settings into the global DB.
+function YapperTable.Core:PushToGlobal()
+    local localConf = _G.YapperLocalConf
+    local globalDB  = _G.YapperDB
+    if not localConf or not globalDB then return end
+
+    for category, settings in pairs(localConf) do
+        -- Skip system/history/internal trackers
+        if category ~= "System" and category ~= "LastUsed" and category ~= "VERSION" then
+            if type(settings) == "table" then
+                if not globalDB[category] then globalDB[category] = {} end
+                for k, v in pairs(settings) do
+                    globalDB[category][k] = v
+                end
+                -- After pushing, we can wipe the local overrides so inheritance takes over.
+                -- Use wipe() to preserve the metatable reference!
+                wipe(settings)
+            end
+        end
+    end
+
+    if YapperTable.Utils then
+        YapperTable.Utils:Print("Character settings pushed to Global Profile.")
+    end
 end
