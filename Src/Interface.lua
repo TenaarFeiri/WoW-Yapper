@@ -388,6 +388,21 @@ function Interface:InitPopups()
             hideOnEscape = false,
         }
     end
+
+    if not StaticPopupDialogs["YAPPER_LOCALE_CHANGE_RELOAD"] then
+        StaticPopupDialogs["YAPPER_LOCALE_CHANGE_RELOAD"] = {
+            text = "Spellcheck locale changed. Would you like to reload the UI now to fully unload the previous dictionary from memory? (Recommended for performance)",
+            button1 = "Reload UI",
+            button2 = "Continue Playing",
+            OnAccept = function()
+                ReloadUI()
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
+    end
 end
 
 -- ---------------------------------------------------------------------------
