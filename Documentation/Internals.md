@@ -22,14 +22,16 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 - Fields:
   - `Yapper.Config: table` live config root ([`../Src/Core.lua#L268`](../Src/Core.lua#L268)).
 - Methods:
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L359`](../Src/Core.lua#L359)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L466`](../Src/Core.lua#L466))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L470`](../Src/Core.lua#L470))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L474`](../Src/Core.lua#L474))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L487`](../Src/Core.lua#L487)) — marks `SettingsHaveChanged`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L515`](../Src/Core.lua#L515)) — copies local overrides to account profile.
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L352`](../Src/Core.lua#L352)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L609`](../Src/Core.lua#L609))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L613`](../Src/Core.lua#L613))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L617`](../Src/Core.lua#L617))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L480`](../Src/Core.lua#L480)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L546`](../Src/Core.lua#L546)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L593`](../Src/Core.lua#L593)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
+  - Metatable chain must remain intact for local fallback/inheritance logic.
 
 ## Utils
 
@@ -306,7 +308,7 @@ Initialised by `Chat:Init`.
 
 Initialised by `Chat:Init` (state refresh), then driven by overlay callbacks.
 
-- Description: Signals external typing tracker addon.
+- Description: Signals external typing tracker addon.  Correctly snapshots/restores configuration from the active profile root (global or per-character) during activation/deactivation.
 - Methods:
   - `UpdateState`, `OnOverlayFocusGained`, `OnOverlayFocusLost`, `OnOverlaySent`, `OnChannelChanged` ([`../Src/Bridges/TypingTrackerBridge.lua#L276-L327`](../Src/Bridges/TypingTrackerBridge.lua#L276-L327)).
 
@@ -334,7 +336,7 @@ Syncs theme colours based on ElvUI state when enabled.
 - Fields:
   - `active: boolean` ([`../Src/Bridges/ElvUIBridge.lua#L107`](../Src/Bridges/ElvUIBridge.lua#L107)).
 - Methods:
-  - `Activate`, `Deactivate`, `RefreshColors`, `Sync` ([`../Src/Bridges/ElvUIBridge.lua#L112-L225`](../Src/Bridges/ElvUIBridge.lua#L112-L225)).
+  - `Activate`, `Deactivate`, `RefreshColors`, `Sync` ([`../Src/Bridges/ElvUIBridge.lua#L112-L225`](../Src/Bridges/ElvUIBridge.lua#L112-L225)).  Profile-aware: snapshots from and restores to `targetRoot` based on the character's `UseGlobalProfile` state.
 
 ## Router
 
@@ -428,7 +430,8 @@ Loaded with defaults; active theme restored on `ADDON_LOADED`.
 - Fields:
   - `_registry`, `_current` *private by convention; do not rely on* ([`../Src/Theme.lua#L16-L17`](../Src/Theme.lua#L16-L17)).
 - Methods:
-  - `RegisterTheme`, `GetTheme`, `GetRegisteredNames`, `SetTheme`, `ApplyToFrame`, `GetCurrentName`, `SetLiveTheme` ([`../Src/Theme.lua#L24-L184`](../Src/Theme.lua#L24-L184)).
+  - `RegisterTheme`, `GetTheme`, `GetRegisteredNames`, `SetTheme`, `ApplyToFrame`, `GetCurrentName`, `SetLiveTheme` ([`../Src/Theme.lua#L24-L193`](../Src/Theme.lua#L24-L193)).
+  - `SetTheme` logic switches between `_G.YapperDB` and `_G.YapperLocalConf` as the root for `_appliedTheme` based on `UseGlobalProfile`.
   - Global wrappers on root table: `Yapper:RegisterTheme`, `Yapper:SetTheme`, `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L238-L240`](../Src/Theme.lua#L238-L240)).
 - Callbacks fired:
   - `THEME_CHANGED`.
@@ -452,9 +455,9 @@ Build-time render schema module used by window/UI builders.
 
 - Description: Settings schema composition and category metadata.
 - Fields:
-  - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L506-L514)).
+  - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L514)).
 - Methods:
-  - `BuildRenderSchema`, `GetRenderSchema`, `RefreshRenderSchema`, `OnWindowClosed` ([`../Src/Interface/Schema.lua#L337-L499`](../Src/Interface/Schema.lua#L337-L499)).
+  - `BuildRenderSchema`, `GetRenderSchema`, `RefreshRenderSchema`, `OnWindowClosed` ([`../Src/Interface/Schema.lua#L337-L499`](../Src/Interface/Schema.lua#L499)).
 
 ## Interface.Config
 
@@ -462,10 +465,9 @@ Handles config reads/writes and side-effect fan-out.
 
 - Description: Config root/path helpers, sanitisation, minimap controls.
 - Methods:
-  - `GetLocalConfigRoot`, `GetDefaultsRoot`, `GetRenderCacheContainer`, `PurgeRenderCache`, `SetDirty`, `IsDirty`, `SetSettingsChanged`, `GetConfigPath`, `GetDefaultPath`, `UpdateOverrideTextColorCheckboxState`, `SetLocalPath`, `GetLauncherTooltipLines`, `GetMinimapButtonSettings`, `GetMinimapButtonOffset`, `PositionMinimapButton`, `UpdateMinimapButtonAngleFromCursor`, `ApplyMinimapButtonVisibility`, `IsPathDisabledByTheme`, `GetFriendlyLabel`, `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L34-L396`](../Src/Interface/Config.lua#L34-L396)).
-- Callbacks fired:
-  - `CONFIG_CHANGED`.
+  - `GetLocalConfigRoot`, `GetDefaultsRoot`, `GetRenderCacheContainer`, `PurgeRenderCache`, `SetDirty`, `IsDirty`, `SetSettingsChanged`, `GetConfigPath`, `GetDefaultPath`, `UpdateOverrideTextColorCheckboxState`, `SetLocalPath`, `GetLauncherTooltipLines`, `GetMinimapButtonSettings`, `GetMinimapButtonOffset`, `PositionMinimapButton`, `UpdateMinimapButtonAngleFromCursor`, `ApplyMinimapButtonVisibility`, `IsPathDisabledByTheme`, `GetFriendlyLabel`, `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L34-L440`](../Src/Interface/Config.lua#L440)).
 - Non-obvious rationale migrated from old docs:
+  - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
 
 ## Interface.Window
