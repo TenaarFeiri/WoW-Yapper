@@ -36,18 +36,43 @@ local function GetRPName(unitName)
     return unitName
 end
 
+local function GetNeighborhoodGUID()
+    if not C_Housing or not C_Housing.GetCurrentNeighborhoodGUID then
+        return nil
+    end
+    local guid = C_Housing.GetCurrentNeighborhoodGUID()
+    return (guid ~= "") and guid or nil
+end
+
 local function GetZoneID()
-    -- Use map ID as ZoneID (matches TT logic usually, or fallback)
-    return C_Map.GetBestMapForUnit("player")
+    -- Normal outdoor/interior maps
+    local zoneID = C_Map.GetBestMapForUnit("player")
+    if zoneID then return zoneID end
+
+    -- Fallback: housing interior
+    local inInstance, instanceType = IsInInstance()
+    if inInstance and instanceType == "interior" then
+        if C_Housing and C_Housing.GetCurrentNeighborhoodGUID and C_Housing.GetUIMapIDForNeighborhood then
+            local neighborhoodGUID = C_Housing.GetCurrentNeighborhoodGUID()
+            if neighborhoodGUID and neighborhoodGUID ~= "" then
+                local uiMapID = C_Housing.GetUIMapIDForNeighborhood(neighborhoodGUID)
+                if uiMapID and uiMapID > 0 then
+                    return uiMapID
+                end
+            end
+        end
+    end
+
+    return nil
 end
 
 local function GetCoords(mapID)
-    if not mapID then return nil, nil end
+    if not mapID then return 0, 0 end
     local pos = C_Map.GetPlayerMapPosition(mapID, "player")
     if pos then
         return pos:GetXY()
     end
-    return nil, nil
+    return 0, 0
 end
 
 local function SendSignal(isTyping, chatType)
@@ -73,17 +98,11 @@ local function SendSignal(isTyping, chatType)
 
     -- where are we on the map
     local x, y = GetCoords(zoneID)
-    if not x or not y then
-        YapperTable.Utils:DebugPrint("TypingTrackerBridge: No Coords found for Zone " .. zoneID)
-        return
-    end
+    -- Neighborhood GUID for housing
+    local neighborhood = GetNeighborhoodGUID() or ""
 
     local isTypingNum  = isTyping and 1 or 0
     local isGroup      = (IsInGroup() or IsInRaid()) and 1 or 0
-    local neighborhood = "" -- Look, we're not doing housing. This is an
-    -- experimental, hacky integration for an addon
-    -- that was never designed to integrate.
-    -- Not gonna tackle more than I need to, to make it work.
 
     -- Format: guid,name,rpname,guild,isTyping,chatType,zoneID,x,y,isGroup,neighborhood
     local msg          = string_format("%s,%s,%s,%s,%d,%s,%d,%f,%f,%d,%s",
@@ -132,7 +151,7 @@ local function SendSignal(isTyping, chatType)
         local channelID = GetChannelName(channelName)
 
         if channelID and channelID > 0 then
-            TTAddon:SendCommMessage(COMM_PREFIX, msg, "CHANNEL", tostring(channelID))
+            TTAddon:SendCommMessage(COMM_PREFIX, msg, "CHANNEL", channelID)
             YapperTable.Utils:DebugPrint("TypingTrackerBridge: Sent (Public) -> " .. msg)
         else
             -- If we aren't in the channel (maybe TT failed to join?), we can't send publicly.
@@ -209,13 +228,16 @@ local function SignalNotTyping()
     if wasTyping then
         YapperTable.Utils:DebugPrint("TypingTrackerBridge: SignalNotTyping")
         Bridge._isTyping = false
+
+        -- Send one final "Not Typing" signal to the last used channel
+        -- to ensure group members/nearby players see us stop immediately.
+        local stopChatType = lastChatType or "SAY"
+        SendSignal(false, stopChatType)
+
         lastChatType = nil
 
         -- Stop ticker
         StopTicker()
-
-        -- Send one final "Not Typing" signal
-        SendSignal(false, "SAY") -- Channel matters less for stopping
     end
 end
 
@@ -236,10 +258,15 @@ local function SignalChannelChanged(newChatType)
     YapperTable.Utils:DebugPrint("TypingTrackerBridge: Channel switch " ..
         (lastChatType or "nil") .. " -> " .. newChatType)
 
+    local prevChatType = lastChatType
     lastChatType = newChatType
 
-    -- If we were already typing, send an update immediately
+    -- If we were already typing, we MUST clear the old channel indicator
+    -- and start the new one immediately.
     if Bridge._isTyping then
+        if prevChatType then
+            SendSignal(false, prevChatType)
+        end
         SendSignal(true, newChatType)
     end
 end
