@@ -1,0 +1,9 @@
+## Interface: 120001, 120005
+## Title: Yapper Dictionary — English (US)
+## Notes: American English regional dictionary for Yapper.
+## Version: 1.0.0
+## Author: Sara Schulze Øverby
+## Dependencies: Yapper, Yapper_Dict_en
+## LoadOnDemand: 1
+
+Dict_enUS.lua
