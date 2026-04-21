@@ -8,9 +8,9 @@ local YALLM = {}
 YapperTable.Spellcheck.YALLM = YALLM -- Hook into internal table
 
 -- Tuning Constants (used as fallbacks when config is not yet available)
-local FREQ_CAP       = 2000  -- Max unique words to track
-local AUTO_THRESHOLD = 10    -- Times sent before auto-added to dict
-local MAX_BIAS_PAIRS = 500   -- Max Typo -> Selection pairs to track
+local FREQ_CAP = 2000      -- Max unique words to track
+local AUTO_THRESHOLD = 10  -- Times sent before auto-added to dict
+local MAX_BIAS_PAIRS = 500 -- Max Typo -> Selection pairs to track
 local WEIGHTS = {
     freqBonus = -2.5,      -- High usage = lower score (better)
     biasBonus = -5.0,      -- Past selection = significantly lower score
@@ -59,13 +59,13 @@ end
 
 function YALLM:Init()
     if not _G.YapperDB then return end
-    
+
     -- Structure: _G.YapperDB.SpellcheckLearned[locale] = { freq = {}, bias = {}, ... }
     if not _G.YapperDB.SpellcheckLearned then
         _G.YapperDB.SpellcheckLearned = {}
     end
-    
-    -- Migration: If the table itself contains 'freq', it's a legacy flat DB. 
+
+    -- Migration: If the table itself contains 'freq', it's a legacy flat DB.
     -- Move it to 'enBASE' as a safe default.
     local legacy = _G.YapperDB.SpellcheckLearned
     if legacy.freq and type(legacy.freq) == "table" then
@@ -98,7 +98,6 @@ function YALLM:GetLocaleDB(locale)
     end
     return self.db[loc]
 end
-
 
 -- ---------------------------------------------------------------------------
 -- Tracking Logic
@@ -173,7 +172,6 @@ function YALLM:RecordUsage(text, locale)
     end
 end
 
-
 --- Record when a user picks a specific suggestion for a typo.
 function YALLM:RecordSelection(typo, correction, utilityGain, locale)
     local db = self:GetLocaleDB(locale)
@@ -240,7 +238,6 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
         end
     end
 end
-
 
 --- Record a correction that was made by the user manually retyping (implicit backtrack).
 --- Determines the appropriate learning strength based on whether the correction was
@@ -323,7 +320,6 @@ function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
     end
 end
 
-
 --- Record when a user rejects a list of suggestions by clicking "More"
 function YALLM:RecordRejection(typo, candidates, locale)
     local db = self:GetLocaleDB(locale)
@@ -349,7 +345,6 @@ function YALLM:RecordRejection(typo, candidates, locale)
     end
 end
 
-
 --- Record high-repetition typos for auto-learning
 function YALLM:RecordIgnored(word, locale)
     local db = self:GetLocaleDB(locale)
@@ -374,7 +369,8 @@ function YALLM:RecordIgnored(word, locale)
             Spellcheck:AddUserWord(loc, word)
             db.auto[w] = nil -- Reset now that it's in the dict
             if YapperTable.Utils then
-                YapperTable.Utils:Print("info", "YALLM: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
+                YapperTable.Utils:Print("info",
+                    "YALLM: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
             end
             -- Notify external addons about the auto-learned word.
             if YapperTable.API then
@@ -383,7 +379,6 @@ function YALLM:RecordIgnored(word, locale)
         end
     end
 end
-
 
 -- ---------------------------------------------------------------------------
 -- Scoring Logic
@@ -409,7 +404,7 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
     local key = t .. ":" .. c
     local biasEntry = db.bias[key]
     if biasEntry then
-        -- Cap selection bias so it provides a strong boost (±10.0) without 
+        -- Cap selection bias so it provides a strong boost (±10.0) without
         -- indefinitely pinning candidates regardless of intent.
         local cappedBias = math_min(biasEntry.c, 2)
         bonus = bonus + (WEIGHTS.biasBonus * cappedBias)
@@ -436,7 +431,6 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
 
     return bonus
 end
-
 
 -- ---------------------------------------------------------------------------
 -- Maintenance
@@ -485,7 +479,6 @@ function YALLM:Prune(tableName, limit, locale)
         end
     end
 end
-
 
 function YALLM:Reset(locale)
     if not locale then
@@ -563,7 +556,7 @@ function YALLM:Export(locale)
     local out = {}
     table_insert(out, "Yapper YALLM Export - " .. tostring(locale))
     table_insert(out, "------------------------------------------")
-    
+
     local fCount = 0
     for _ in pairs(db.freq) do fCount = fCount + 1 end
     table_insert(out, string_format("Vocabulary (freq): %d words", fCount))
@@ -578,7 +571,7 @@ function YALLM:Export(locale)
 
     table_insert(out, "------------------------------------------")
     table_insert(out, "Top Frequency Words:")
-    local data = self:GetData(locale)
+    local data = self:GetDataSummary(locale)
     for i = 1, math_min(10, #data.freq) do
         local entry = data.freq[i]
         table_insert(out, string_format("  %s (%d usage)", entry.word, entry.count))
@@ -586,7 +579,6 @@ function YALLM:Export(locale)
 
     return table.concat(out, "\n")
 end
-
 
 function YALLM:ClearSpecificUsage(usageType, key, locale)
     local db = self:GetLocaleDB(locale)
@@ -602,4 +594,3 @@ function YALLM:ClearSpecificUsage(usageType, key, locale)
         db.phBias[key] = nil
     end
 end
-
