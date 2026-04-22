@@ -13,9 +13,9 @@ local AUTO_THRESHOLD = 10  -- Times sent before auto-added to dict
 local MAX_BIAS_PAIRS = 500 -- Max Typo -> Selection pairs to track
 local WEIGHTS = {
     freqBonus = -2.5,      -- High usage = lower score (better)
-    biasBonus = -5.0,      -- Past selection = significantly lower score
-    phBonus = -3.0,        -- Phonetic pattern match = moderate score bonus
-    negBias = 2.0,         -- Twice rejected (More...) = penalty (higher score)
+    biasBonus = -8.0,      -- Past selection = significantly lower score (Increased from -5.0)
+    phBonus = -4.0,        -- Phonetic pattern match = moderate score bonus (Increased from -3.0)
+    negBias = 3.0,         -- Twice rejected (More...) = penalty (higher score)
 }
 
 -- Localise globals
@@ -335,11 +335,12 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
                     for _ in pairs(db.phBias) do count = count + 1 end
                     db.phBiasCount = count
                 end
-                db.phBias[phKey] = { c = 1, t = now }
+                db.phBias[phKey] = { c = 1, t = now, u = 1 + gain }
             else
                 local entry = db.phBias[phKey]
                 entry.c = entry.c + 1
                 entry.t = now
+                if gain > 0 then entry.u = math_min((entry.u or 1) + gain, 5.0) end
             end
         end
     end
@@ -387,32 +388,41 @@ function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
             -- Same phonetic fingerprint despite different spelling: clear correction.
             utilityGain = 0.3
         else
-            -- Fall back to raw edit distance for a cheap sanity gate.
-            -- We compute a simple character-level distance without the full
-            -- EditDistance function to avoid a hard dependency on Spellcheck internals.
-            local lenDiff = math_abs(#t - #c)
-            -- Treat words more than 40% different in length as "too different".
-            local maxLen = math_max(#t, #c)
-            if maxLen == 0 or lenDiff / maxLen > 0.4 then
-                -- Too different: silently skip rather than pollute bias with noise.
-                return
-            end
-            -- Small shared prefix is a lightweight similarity proxy.
-            local sharedPrefix = 0
-            for i = 1, math_min(#t, #c) do
-                if t:sub(i, i) ~= c:sub(i, i) then break end
-                sharedPrefix = sharedPrefix + 1
-            end
-            local similarity = sharedPrefix / maxLen
-            if similarity >= 0.4 then
-                -- Reasonably close — moderate signal that grows with repetition.
-                utilityGain = 0.15
-            elseif similarity >= 0.2 then
-                -- Vaguely related — weak initial signal, still grows slowly.
-                utilityGain = 0.05
+            -- Fall back to similarity heuristics.
+            local sc = YapperTable.Spellcheck
+            local dist = (sc and type(sc.EditDistance) == "function") and sc:EditDistance(t, c, 2) or 3
+            
+            if dist <= 1 then
+                -- Direct transposition or single char edit: very strong signal.
+                utilityGain = 0.4
+            elseif dist <= 2 then
+                -- Close edit: strong signal.
+                utilityGain = 0.25
             else
-                -- Effectively unrelated — skip.
-                return
+                -- Not a close edit, check shared prefix/suffix as a last resort.
+                local maxLen = math_max(#t, #c)
+                local shared = 0
+                -- Shared Prefix
+                for i = 1, math_min(#t, #c) do
+                    if t:sub(i, i) ~= c:sub(i, i) then break end
+                    shared = shared + 1
+                end
+                -- Shared Suffix
+                for i = 0, math_min(#t, #c) - 1 do
+                    if i >= shared then -- Don't double count if they overlap
+                        if t:sub(#t - i, #t - i) ~= c:sub(#c - i, #c - i) then break end
+                        shared = shared + 1
+                    end
+                end
+
+                local similarity = shared / maxLen
+                if similarity >= 0.4 then
+                    utilityGain = 0.15
+                elseif similarity >= 0.2 then
+                    utilityGain = 0.05
+                else
+                    return
+                end
             end
         end
     end
@@ -510,20 +520,22 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
     local key = t .. ":" .. c
     local biasEntry = db.bias[key]
     if biasEntry then
-        -- Cap selection bias so it provides a strong boost (±10.0) without
-        -- indefinitely pinning candidates regardless of intent.
-        local cappedBias = math_min(biasEntry.c, 2)
-        bonus = bonus + (WEIGHTS.biasBonus * cappedBias)
+        -- Factor in the utility (certainty) of the correction.
+        -- If the user explicitly chose this, the utility is higher (up to 5.0).
+        local utility = math_max(biasEntry.u or 1.0, 1.0)
+        local cappedBias = math_min(biasEntry.c, 3) -- Slightly higher cap for count
+        bonus = bonus + (WEIGHTS.biasBonus * cappedBias * utility)
     end
-
+    
     -- 3. Phonetic Pattern Bonus (Optimized: use passed-down hash)
     if typoPhHash and db.phBias then
         local phKey = typoPhHash .. ":" .. c
         local phEntry = db.phBias[phKey]
         if phEntry then
-            -- Moderate boost (±6.0) for generalized phonetic learning
+            -- Generalized phonetic learning
+            local utility = math_max(phEntry.u or 1.0, 1.0)
             local cappedPh = math_min(phEntry.c, 2)
-            bonus = bonus + (WEIGHTS.phBonus * cappedPh)
+            bonus = bonus + (WEIGHTS.phBonus * cappedPh * utility)
         end
     end
 
