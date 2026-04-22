@@ -235,6 +235,13 @@ function Router:Send(msg, chatType, language, target)
     if not msg or msg == "" then return false end
     chatType = chatType or "SAY"
 
+    -- Pre-resolve BN targets before any bridge handoff so Gopher receives a
+    -- numeric ID even when the caller holds a name/battle tag string.
+    if chatType == "BN_WHISPER" and target and not tonumber(target) then
+        local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
+        target = bnetAccountID or presenceID or target
+    end
+
     -- ── GopherBridge path ────────────────────────────────────────────
     local bridge = YapperTable.GopherBridge
     if bridge and bridge:IsActive() then
