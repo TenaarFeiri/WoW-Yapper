@@ -23,6 +23,10 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.7
+  - *Chat Fixes*
+    - Language should now persist correctly when selected, in all of Yapper's modes.
+
 -- 2.1.6
   - *Bug Fixes:*
     - Spellcheck: fixed English variant dictionaries (enUS/enGB/enAU) reporting every word as misspelled when the base dictionary was not pre-loaded or was purged during a locale switch.
@@ -37,6 +41,7 @@
   - *Bug Fixes:*
     - **BNet whispers:** Fixed target resolution when Gopher is active so name-based BN targets are resolved before bridge handoff.
     - **WIM compatibility:** Tightened overlay suppression to require actual WIM editbox focus, preventing non-whisper opens from being suppressed when a WIM window is only open in the background.
+    - Tightened up the whisper pipeline a little to try and squash a stall.
 
 -- 2.1.4
   - *Bug Fixes:*
