@@ -13,7 +13,7 @@ YapperTable.Core = {}
 local DEFAULTS = {
     System = {
         -- Schema version for SavedVariables migration; bump only when data structure changes.
-        VERSION                   = 1.2,
+        VERSION                   = 2.1,
 
         -- VERBOSE and DEBUG are largely for debugging.
         -- VERBOSE is for general debugging messages, or just declaring certain actions.
@@ -178,32 +178,32 @@ local DEFAULTS = {
     },
 
     Spellcheck = {
-        Enabled            = false,
-        Locale             = "enGB",
-        MaxSuggestions     = 4,
-        MaxCandidates      = 800,
-        ReshuffleAttempts  = 3,
-        MaxWrongLetters    = 4,
+        Enabled             = false,
+        Locale              = "enGB",
+        MaxSuggestions      = 4,
+        MaxCandidates       = 800,
+        ReshuffleAttempts   = 3,
+        MaxWrongLetters     = 4,
         -- N-gram index (bigram) settings
-        UseNgramIndex      = true,
-        NgramTopCandidates = 300,
-        NgramN             = 2,
-        NgramMaxPosting    = 200,
+        UseNgramIndex       = true,
+        NgramTopCandidates  = 300,
+        NgramN              = 2,
+        NgramMaxPosting     = 200,
         -- Cap on unique bigram keys built during dictionary indexing.
         -- More keys = better suggestion recall but higher memory cost (~10MB+ extra).
         -- Set to 0 for uncapped (maximum accuracy, no memory limit).
-        NgramKeyCapSize    = 0,
-        MinWordLength      = 2,
-        UnderlineStyle     = "line",
-        UnderlineColor     = { r = 1.0, g = 0.2, b = 0.2, a = 0.9 },
-        HighlightColor     = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
-        KeyboardLayout     = "QWERTY",
-        Dict               = {},
+        NgramKeyCapSize     = 0,
+        MinWordLength       = 2,
+        UnderlineStyle      = "line",
+        UnderlineColor      = { r = 1.0, g = 0.2, b = 0.2, a = 0.9 },
+        HighlightColor      = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
+        KeyboardLayout      = "QWERTY",
+        Dict                = {},
         -- YALLM adaptive learning data caps
-        YALLMFreqCap        = 2000,  -- Max unique vocabulary words tracked
-        YALLMBiasCap        = 500,   -- Max typo→correction pairs stored
-        YALLMAutoThreshold  = 10,    -- Times a word must be sent before auto-adding to dictionary
-        SuggestionCacheSize = 50,    -- Max unique word suggestion results cached per session (0 = disabled)
+        YALLMFreqCap        = 2000, -- Max unique vocabulary words tracked
+        YALLMBiasCap        = 500,  -- Max typo→correction pairs stored
+        YALLMAutoThreshold  = 10,   -- Times a word must be sent before auto-adding to dictionary
+        SuggestionCacheSize = 50,   -- Max unique word suggestion results cached per session (0 = disabled)
     },
 }
 
@@ -556,7 +556,7 @@ local function RefreshProfileVisuals()
         pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
     end
     if YapperTable.Multiline and YapperTable.Multiline.Active
-            and type(YapperTable.Multiline.ApplyTheme) == "function" then
+        and type(YapperTable.Multiline.ApplyTheme) == "function" then
         pcall(function() YapperTable.Multiline:ApplyTheme() end)
     end
     if YapperTable.Interface then
@@ -587,7 +587,7 @@ function YapperTable.Core:PromoteCharacterToGlobal()
             localConf[category] = {}
         else
             setmetatable(localConf[category], nil)
-            
+
             if type(localConf._Stash[category]) ~= "table" then
                 localConf._Stash[category] = {}
             end
@@ -628,11 +628,11 @@ function YapperTable.Core:PromoteCharacterToGlobal()
     else
         setmetatable(localConf.System, nil)
     end
-    
+
     if type(localConf._Stash.System) ~= "table" then
         localConf._Stash.System = {}
     end
-    
+
     -- Intentionally clear only global-sync keys; preserve local-only system keys.
     for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
         if localConf.System[key] ~= nil then
@@ -648,8 +648,8 @@ function YapperTable.Core:PromoteCharacterToGlobal()
 
     local activeTheme = type(globalDB.System) == "table" and globalDB.System.ActiveTheme or nil
     if type(activeTheme) == "string"
-            and YapperTable.Theme
-            and type(YapperTable.Theme.SetTheme) == "function" then
+        and YapperTable.Theme
+        and type(YapperTable.Theme.SetTheme) == "function" then
         pcall(function() YapperTable.Theme:SetTheme(activeTheme) end)
     end
 

@@ -781,7 +781,8 @@ function Spellcheck:ShowSuggestions()
 
     -- Snapshot ActiveSuggestions so ResolveImplicitTrace can record rejections
     -- if the user bypasses all suggestions and manually retypes the word.
-    if self.ActiveWord and self.ActiveRange then
+    -- Only snapshot once per word — don't overwrite mid-edit or the original typo is lost.
+    if self.ActiveWord and self.ActiveRange and not self._implicitTrace then
         self._implicitTrace = {
             word        = self.ActiveWord,
             startPos    = self.ActiveRange.startPos,

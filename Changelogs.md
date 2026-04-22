@@ -27,6 +27,11 @@
   - *Bug Fixes:*
     - Spellcheck: fixed English variant dictionaries (enUS/enGB/enAU) reporting every word as misspelled when the base dictionary was not pre-loaded or was purged during a locale switch.
     - Spellcheck: `PurgeOtherDictionaries` now protects any dictionary currently serving as a base for another loaded dictionary, preventing destruction of the `enBase` chain during variant switches.
+    - Fixed issue where Yapper could not remember config between global and local profiles.
+    - Fixed issues where languages did not (re)load properly when changing profiles (in cases where you had a different language active for different profiles)
+
+  - *Tweaking*
+    - Tweaked YALLM's numbers.
 
 -- 2.1.5
   - *Bug Fixes:*

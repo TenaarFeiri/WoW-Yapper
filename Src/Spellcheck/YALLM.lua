@@ -298,6 +298,10 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
         gain = 0
     end
 
+    if IsDebugEnabled() then
+        YapperTable.Utils:Print("debug", string.format("YALLM: RecordSelection typo='%s' corr='%s' gain=%.2f", typo, correction, gain))
+    end
+
     local now = time()
 
     -- 1. Exact Bias
@@ -319,6 +323,9 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
         entry.t = now
         if gain > 0 then entry.u = math_min((entry.u or 1) + gain, 5.0) end
     end
+
+    -- Bump revision so the suggestion cache knows to recompute scores.
+    db._rev = (db._rev or 0) + 1
 
     -- 2. Phonetic Pattern Bias (Generalized Learning)
     local sc = YapperTable.Spellcheck
@@ -389,15 +396,19 @@ function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
             utilityGain = 0.3
         else
             -- Fall back to similarity heuristics.
+            -- Use a slightly higher maxDist for learning (3) so we capture more manual corrections.
             local sc = YapperTable.Spellcheck
-            local dist = (sc and type(sc.EditDistance) == "function") and sc:EditDistance(t, c, 2) or 3
+            local dist = (sc and type(sc.EditDistance) == "function") and sc:EditDistance(t, c, 3) or 4
             
             if dist <= 1 then
                 -- Direct transposition or single char edit: very strong signal.
-                utilityGain = 0.4
+                utilityGain = 0.5
             elseif dist <= 2 then
                 -- Close edit: strong signal.
-                utilityGain = 0.25
+                utilityGain = 0.35
+            elseif dist <= 3 then
+                -- Moderate edit.
+                utilityGain = 0.2
             else
                 -- Not a close edit, check shared prefix/suffix as a last resort.
                 local maxLen = math_max(#t, #c)

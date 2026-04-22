@@ -358,19 +358,25 @@ end
 -- ===== Suggestion helpers ===================
 
 --- Collect prefix-indexed candidates from a dictionary (and its base if delta).
+--- Interleaves base and delta so a large delta shard cannot starve base words.
 local function GatherPrefixCandidates(dict, base, firstChar)
     local out = {}
-    local function add(d)
-        local src = d.index and d.index[firstChar]
-        if src then
-            for _, v in ipairs(src) do
-                if #out >= 2000 then break end
-                out[#out + 1] = v
-            end
+    local dictSrc  = dict.index and dict.index[firstChar]
+    local baseSrc  = base      and base.index and base.index[firstChar]
+    local di, bi   = 1, 1
+    local cap      = 2000
+
+    -- Round-robin interleave: 1 delta, 1 base per pass until both exhausted or cap hit.
+    while #out < cap do
+        local added = false
+        if dictSrc and di <= #dictSrc then
+            out[#out + 1] = dictSrc[di]; di = di + 1; added = true
         end
+        if baseSrc and bi <= #baseSrc and #out < cap then
+            out[#out + 1] = baseSrc[bi]; bi = bi + 1; added = true
+        end
+        if not added then break end
     end
-    add(dict)
-    if base then add(base) end
     return out
 end
 
@@ -598,6 +604,11 @@ end
 
 --- Score a single candidate and append to the output list if it passes.
 local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
+    if (candidate == "butt" or candidate == "btut") and ctx.YALLM and ctx.YALLM.IsSaneWord then
+        YapperTable.Utils:Print("debug", string.format("Engine: Scoring candidate '%s' for input '%s' (dist=%s, isPhonetic=%s)", 
+            candidate, ctx.lower, tostring(dist), tostring(isPhonetic)))
+    end
+
     local lower = ctx.lower
     local lowerLen = ctx.lowerLen
     local candidateLen = #candidate
@@ -834,20 +845,17 @@ function Spellcheck:GetSuggestions(word)
     -- Resolve the active language engine once for this suggestion pass.
     local engine = GetEngineFor(self)
 
-    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount.
+    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount+yallmRev.
     self._suggestionCache = self._suggestionCache or {}
     self._suggestionCacheCount = self._suggestionCacheCount or 0
     local sc = self._suggestionCache
     local userRevKey = (userRev == nil) and NIL_USER_REV_KEY or userRev
-    local byWord = sc[lower]
-    if byWord then
-        local byLocale = byWord[locale]
-        if byLocale then
-            local byRev = byLocale[userRevKey]
-            if byRev and byRev[maxCount] then
-                return byRev[maxCount]
-            end
-        end
+    -- Include YALLM db revision so learning writes invalidate cached scores.
+    local yallmDb = self.YALLM and self.YALLM:GetLocaleDB(locale)
+    local yallmRev = (yallmDb and yallmDb._rev) or 0
+    local cacheKey = lower .. "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yallmRev)
+    if sc[cacheKey] then
+        return sc[cacheKey]
     end
 
     -- Base dict if this is a delta
@@ -893,6 +901,13 @@ function Spellcheck:GetSuggestions(word)
             if #out >= 100 then return true end
             if not seenCandidates[candidate] then
                 seenCandidates[candidate] = true
+                
+                -- TRACING: Catch "butt" before any filters
+                if (candidate == "butt" or candidate == "btut") and ctx.YALLM and ctx.YALLM.IsSaneWord then
+                    YapperTable.Utils:Print("debug", string.format("Engine: Found '%s' in candidate shard (isPhonetic=%s)", 
+                        candidate, tostring(isPhonetic)))
+                end
+
                 if not (ignoredSet and ignoredSet[candidate]) then
                     local lenDiff = math_abs(#candidate - lowerLen)
                     local isUserWord = addedSet and addedSet[candidate]
@@ -1053,27 +1068,11 @@ function Spellcheck:GetSuggestions(word)
         if self._suggestionCacheCount >= cacheCap then
             self:ClearSuggestionCache()
             sc = self._suggestionCache
-            byWord = nil
         end
-        byWord = byWord or sc[lower]
-        if not byWord then
-            byWord = {}
-            sc[lower] = byWord
-        end
-        local byLocale = byWord[locale]
-        if not byLocale then
-            byLocale = {}
-            byWord[locale] = byLocale
-        end
-        local byRev = byLocale[userRevKey]
-        if not byRev then
-            byRev = {}
-            byLocale[userRevKey] = byRev
-        end
-        if byRev[maxCount] == nil then
+        if sc[cacheKey] == nil then
             self._suggestionCacheCount = (self._suggestionCacheCount or 0) + 1
         end
-        byRev[maxCount] = final
+        sc[cacheKey] = final
     end
 
     return final
