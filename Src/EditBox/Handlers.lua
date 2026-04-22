@@ -203,7 +203,6 @@ function EditBox:SetupOverlayScripts()
 
             self.ChatType = ct
             self.Target   = nil
-            self.Language = nil
             updatingText  = true
             box:SetText(rest2 or "")
             updatingText = false
