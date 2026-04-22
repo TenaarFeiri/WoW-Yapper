@@ -3,7 +3,7 @@
 ## Notes: Australian English regional dictionary for Yapper.
 ## Version: 1.0.0
 ## Author: Sara Schulze Øverby
-## Dependencies: Yapper, Yapper_Dict_en
+## Dependencies: Yapper
 ## LoadOnDemand: 1
 
 Dict_enAU.lua

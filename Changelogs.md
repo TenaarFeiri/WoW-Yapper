@@ -23,6 +23,10 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.3a
+  - *Bug Fixes:*
+    - **Dictionary Loading:** Fixed TOC load order issues which was preventing dictionaries from showing up under Yapper.
+
 -- 2.1.3
   - *API & Architecture:*
     - **Internal Dogfooding:** Re-wired the message chunking module to consume the public `GetDelineator` API. This ensures that any architectural changes to configuration paths are immediately validated by the core splitting engine.
