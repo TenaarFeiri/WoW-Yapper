@@ -460,6 +460,7 @@ function Spellcheck:EnsureLocale(locale)
 
     if addon then
         if C_AddOns and C_AddOns.LoadAddOn then
+            local isLoaded = C_AddOns.IsAddOnLoaded(addon)
             local loaded, reason = C_AddOns.LoadAddOn(addon)
             if loaded == false then
                 -- Only notify on real failures (corrupt, banned, etc.).
@@ -468,10 +469,22 @@ function Spellcheck:EnsureLocale(locale)
                     self:Notify("Yapper: failed to load " .. addon .. " (" .. tostring(reason) .. ").")
                 end
                 return false
+            elseif isLoaded and not self:IsLocaleAvailable(locale) then
+                if self.Notify then
+                    self:Notify("Yapper: The dictionary for " .. locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
+                end
+                return false
             end
         elseif LoadAddOn then
+            local isLoaded = IsAddOnLoaded(addon)
             local loaded = LoadAddOn(addon)
             if loaded == false then return false end
+            if isLoaded and not self:IsLocaleAvailable(locale) then
+                if self.Notify then
+                    self:Notify("Yapper: The dictionary for " .. locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
+                end
+                return false
+            end
         end
     end
 

@@ -460,6 +460,22 @@ function YapperTable.Core:InitSavedVars()
     _G.YapperLocalHistory.VERSION = currentVersion
 end
 
+--- Update the inheritance chain of the active local configuration.
+--- Called when the user toggles the Global Profile on or off.
+function YapperTable.Core:RefreshInheritance()
+    local localConf = _G.YapperLocalConf
+    local globalDB  = _G.YapperDB
+    if not localConf or not globalDB then return end
+
+    local useGlobal = localConf.System and localConf.System.UseGlobalProfile == true
+
+    if useGlobal then
+        InheritDefaults(localConf, globalDB)
+    else
+        InheritDefaults(localConf, DEFAULTS)
+    end
+end
+
 -- Remove duplicate entries from common SavedVariables lists (user-invoked maintenance).
 -- NOTE: The RemoveSavedDuplicates maintenance routine was intentionally removed.
 -- If maintenance functionality is desired in future, reintroduce here with
@@ -567,7 +583,15 @@ function YapperTable.Core:PromoteCharacterToGlobal()
             localConf[category] = {}
         else
             setmetatable(localConf[category], nil)
-            wipe(localConf[category])
+            if category == "Spellcheck" then
+                for k in pairs(localConf[category]) do
+                    if k ~= "Dict" then
+                        localConf[category][k] = nil
+                    end
+                end
+            else
+                wipe(localConf[category])
+            end
         end
     end
 

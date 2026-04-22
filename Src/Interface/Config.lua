@@ -222,6 +222,12 @@ function Interface:SetLocalPath(path, value)
             and type(YapperTable.Core.PromoteCharacterToGlobal) == "function" then
             YapperTable.Core:PromoteCharacterToGlobal()
         end
+        if YapperTable.Core and type(YapperTable.Core.RefreshInheritance) == "function" then
+            YapperTable.Core:RefreshInheritance()
+        end
+        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnConfigChanged) == "function" then
+            YapperTable.Spellcheck:OnConfigChanged()
+        end
         if YapperTable.Utils then
             YapperTable.Utils:Print("Global Profile " .. (normalizedValue and "Enabled" or "Disabled") .. ". Refreshing UI...")
         end
