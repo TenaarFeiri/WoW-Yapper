@@ -23,6 +23,11 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.6
+  - *Bug Fixes:*
+    - Spellcheck: fixed English variant dictionaries (enUS/enGB/enAU) reporting every word as misspelled when the base dictionary was not pre-loaded or was purged during a locale switch.
+    - Spellcheck: `PurgeOtherDictionaries` now protects any dictionary currently serving as a base for another loaded dictionary, preventing destruction of the `enBase` chain during variant switches.
+
 -- 2.1.5
   - *Bug Fixes:*
     - **BNet whispers:** Fixed target resolution when Gopher is active so name-based BN targets are resolved before bridge handoff.
