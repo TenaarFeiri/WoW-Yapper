@@ -23,6 +23,11 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.4
+  - *Bug Fixes:*
+    - **Overlay language stickiness:** Fixed editbox reopen language selection so sticky `LastUsed.language` is no longer overridden by Blizzard's auto-reseeded default language on non-target opens.
+    - **Slash chat mode language retention:** Fixed `/s`-family chat mode switches (`/s`, `/y`, `/p`, `/ra`, `/g`, `/i`, `/o`, `/rw`, `/e`, `/em`, `/me`, `/emote`) no longer clearing the selected language.
+
 -- 2.1.3a
   - *Bug Fixes:*
     - **Dictionary Loading:** Fixed TOC load order issues which was preventing dictionaries from showing up under Yapper.

@@ -144,18 +144,18 @@ function EditBox:Show(origEditBox)
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
     if blizzHasTarget and not self._lockdown.savedDraft then
         self.ChatType = blizzType
-        self.Language = blizzLang or nil
+        self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target   = blizzTell or blizzChan or nil
     elseif (self.LastUsed and self.LastUsed.chatType) and not self._lockdown.savedDraft then
         self.ChatType = self.LastUsed.chatType
-        self.Language = blizzLang or self.LastUsed.language or nil
+        self.Language = (self.LastUsed and self.LastUsed.language) or blizzLang or nil
         self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
     else
         self.ChatType = (self.LastUsed and self.LastUsed.chatType)
             or blizzType
             or "SAY"
-        self.Language = blizzLang
-            or (self.LastUsed and self.LastUsed.language)
+        self.Language = (self.LastUsed and self.LastUsed.language)
+            or blizzLang
             or nil
         self.Target   = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
