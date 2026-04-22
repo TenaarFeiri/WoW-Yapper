@@ -104,10 +104,11 @@ function Spellcheck:RegisterDictionary(locale, data)
     if data.extends then
         local base = self.Dictionaries[data.extends]
         if not base then
-            -- Base is not yet loaded — demand-load it synchronously now.
-            -- This is safe: the builder is cheap, and the chunked async indexer
-            -- will handle the base's word processing in the background.
-            self:LoadDictionary(data.extends)
+            -- Base is not yet loaded — use EnsureLocale so the LOD addon
+            -- containing the base builder is actually loaded first.
+            -- A plain LoadDictionary call can no-op when the addon has not
+            -- registered DictionaryBuilders[data.extends] yet.
+            self:EnsureLocale(data.extends)
             base = self.Dictionaries[data.extends]
         end
         if base then

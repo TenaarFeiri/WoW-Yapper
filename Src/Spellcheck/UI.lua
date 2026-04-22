@@ -161,15 +161,34 @@ function Spellcheck:UnbindMultiline()
 end
 
 function Spellcheck:PurgeOtherDictionaries(keepLocale)
+    -- Build the set of locales currently serving as bases for loaded
+    -- delta dictionaries.
+    local activeBases = {}
+    if self.Dictionaries then
+        for _, dict in pairs(self.Dictionaries) do
+            if type(dict) == "table" and dict.extends then
+                activeBases[dict.extends] = true
+            end
+        end
+    end
+
     -- Identify and protect the base dictionary if the keepLocale depends on it.
     local keepBase = nil
-    if self.Dictionaries and self.Dictionaries[keepLocale] then
+    local keepLoaded = self.Dictionaries and self.Dictionaries[keepLocale]
+    if keepLoaded then
         keepBase = self.Dictionaries[keepLocale].extends
     end
 
+    -- If the target locale isn't loaded yet, protect currently-active bases
+    -- until EnsureLocale() finishes the locale switch.
+    local protectActiveBases = not keepLoaded
+
     if self.Dictionaries then
         for locale, dict in pairs(self.Dictionaries) do
-            if locale ~= keepLocale and locale ~= keepBase then
+            if locale ~= keepLocale
+                and locale ~= keepBase
+                and not (protectActiveBases and activeBases[locale])
+            then
                 -- Scrub internal tables first to reduce capacity before nil-ing
                 dict.words = { "." }
                 dict.set = {}
@@ -183,7 +202,10 @@ function Spellcheck:PurgeOtherDictionaries(keepLocale)
     end
     if self._asyncLoaders then
         for locale, loader in pairs(self._asyncLoaders) do
-            if locale ~= keepLocale and locale ~= keepBase then
+            if locale ~= keepLocale
+                and locale ~= keepBase
+                and not (protectActiveBases and activeBases[locale])
+            then
                 loader.cancelled = true
                 self._asyncLoaders[locale] = nil
             end
