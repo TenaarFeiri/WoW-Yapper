@@ -577,20 +577,33 @@ function YapperTable.Core:PromoteCharacterToGlobal()
     local globalDB  = _G.YapperDB
     if type(localConf) ~= "table" or type(globalDB) ~= "table" then return end
 
+    if type(localConf._Stash) ~= "table" then
+        localConf._Stash = {}
+    end
+
     local categories = { "EditBox", "Chat", "Spellcheck" }
     for _, category in ipairs(categories) do
         if type(localConf[category]) ~= "table" then
             localConf[category] = {}
         else
             setmetatable(localConf[category], nil)
+            
+            if type(localConf._Stash[category]) ~= "table" then
+                localConf._Stash[category] = {}
+            end
+
             if category == "Spellcheck" then
-                for k in pairs(localConf[category]) do
+                for k, v in pairs(localConf[category]) do
                     if k ~= "Dict" then
+                        localConf._Stash[category][k] = v
                         localConf[category][k] = nil
                     end
                 end
             else
-                wipe(localConf[category])
+                for k, v in pairs(localConf[category]) do
+                    localConf._Stash[category][k] = v
+                    localConf[category][k] = nil
+                end
             end
         end
     end
@@ -599,8 +612,12 @@ function YapperTable.Core:PromoteCharacterToGlobal()
         localConf.FrameSettings = {}
     else
         setmetatable(localConf.FrameSettings, nil)
-        for key in pairs(localConf.FrameSettings) do
+        if type(localConf._Stash.FrameSettings) ~= "table" then
+            localConf._Stash.FrameSettings = {}
+        end
+        for key, v in pairs(localConf.FrameSettings) do
             if not FRAME_SETTINGS_LOCAL_ONLY_KEYS[key] then
+                localConf._Stash.FrameSettings[key] = v
                 localConf.FrameSettings[key] = nil
             end
         end
@@ -611,15 +628,23 @@ function YapperTable.Core:PromoteCharacterToGlobal()
     else
         setmetatable(localConf.System, nil)
     end
+    
+    if type(localConf._Stash.System) ~= "table" then
+        localConf._Stash.System = {}
+    end
+    
     -- Intentionally clear only global-sync keys; preserve local-only system keys.
     for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
-        localConf.System[key] = nil
+        if localConf.System[key] ~= nil then
+            localConf._Stash.System[key] = localConf.System[key]
+            localConf.System[key] = nil
+        end
     end
 
     localConf._themeOverrides = nil
     localConf._appliedTheme = nil
 
-    InheritDefaults(localConf, globalDB)
+    self:RefreshInheritance()
 
     local activeTheme = type(globalDB.System) == "table" and globalDB.System.ActiveTheme or nil
     if type(activeTheme) == "string"
@@ -628,6 +653,27 @@ function YapperTable.Core:PromoteCharacterToGlobal()
         pcall(function() YapperTable.Theme:SetTheme(activeTheme) end)
     end
 
+    RefreshProfileVisuals()
+end
+
+--- Unpack stashed local settings when switching away from Global Profile.
+function YapperTable.Core:DemoteGlobalToCharacter()
+    local localConf = _G.YapperLocalConf
+    if type(localConf) ~= "table" then return end
+
+    if type(localConf._Stash) == "table" then
+        for category, stashTable in pairs(localConf._Stash) do
+            if type(localConf[category]) ~= "table" then
+                localConf[category] = {}
+            end
+            for k, v in pairs(stashTable) do
+                localConf[category][k] = v
+            end
+        end
+        localConf._Stash = nil
+    end
+
+    self:RefreshInheritance()
     RefreshProfileVisuals()
 end
 

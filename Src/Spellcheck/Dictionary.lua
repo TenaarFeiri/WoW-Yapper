@@ -470,9 +470,6 @@ function Spellcheck:EnsureLocale(locale)
                 end
                 return false
             elseif isLoaded and not self:IsLocaleAvailable(locale) then
-                if self.Notify then
-                    self:Notify("Yapper: The dictionary for " .. locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
-                end
                 return false
             end
         elseif LoadAddOn then
@@ -480,9 +477,6 @@ function Spellcheck:EnsureLocale(locale)
             local loaded = LoadAddOn(addon)
             if loaded == false then return false end
             if isLoaded and not self:IsLocaleAvailable(locale) then
-                if self.Notify then
-                    self:Notify("Yapper: The dictionary for " .. locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
-                end
                 return false
             end
         end

@@ -221,6 +221,10 @@ function Interface:SetLocalPath(path, value)
             and YapperTable.Core
             and type(YapperTable.Core.PromoteCharacterToGlobal) == "function" then
             YapperTable.Core:PromoteCharacterToGlobal()
+        elseif normalizedValue == false and wasGlobal
+            and YapperTable.Core
+            and type(YapperTable.Core.DemoteGlobalToCharacter) == "function" then
+            YapperTable.Core:DemoteGlobalToCharacter()
         end
         if YapperTable.Core and type(YapperTable.Core.RefreshInheritance) == "function" then
             YapperTable.Core:RefreshInheritance()

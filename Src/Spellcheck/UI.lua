@@ -264,8 +264,15 @@ function Spellcheck:ApplyState(enabled, locale)
         if self.YALLM and self.YALLM.Init then
             self.YALLM:Init()
         end
-        self:PurgeOtherDictionaries(locale)
         if not self:EnsureLocale(locale) then
+            -- If the addon is loaded but the locale is unavailable, it was purged.
+            local addon = self:GetLocaleAddon(locale)
+            if addon and (C_AddOns and C_AddOns.IsAddOnLoaded(addon) or IsAddOnLoaded(addon)) 
+               and not self:IsLocaleAvailable(locale) then
+                if self.Notify then
+                    self:Notify("Yapper: The dictionary for " .. locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
+                end
+            end
             return false
         end
     else
