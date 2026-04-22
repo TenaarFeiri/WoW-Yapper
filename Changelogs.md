@@ -23,6 +23,11 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.5
+  - *Bug Fixes:*
+    - **BNet whispers:** Fixed target resolution when Gopher is active so name-based BN targets are resolved before bridge handoff.
+    - **WIM compatibility:** Tightened overlay suppression to require actual WIM editbox focus, preventing non-whisper opens from being suppressed when a WIM window is only open in the background.
+
 -- 2.1.4
   - *Bug Fixes:*
     - **Overlay language stickiness:** Fixed editbox reopen language selection so sticky `LastUsed.language` is no longer overridden by Blizzard's auto-reseeded default language on non-target opens.

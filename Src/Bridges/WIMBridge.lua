@@ -30,11 +30,11 @@ function Bridge:IsFocusActive()
 	local focus = wim.EditBoxInFocus
 	if not focus then return false end
 
-	local isShown   = focus.IsShown   and focus:IsShown()
-	local isVisible = focus.IsVisible and focus:IsVisible()
 	local hasFocus  = focus.HasFocus  and focus:HasFocus()
+	if not hasFocus then return false end
 
-	return (isShown == true) or (isVisible == true) or (hasFocus == true)
+	local isShown   = focus.IsShown   and focus:IsShown()
+	return hasFocus == true and isShown == true
 end
 
 --- Check whether the WIM addon is loaded in the environment.
