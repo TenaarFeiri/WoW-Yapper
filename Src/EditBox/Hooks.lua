@@ -113,6 +113,9 @@ function EditBox:Show(origEditBox)
     local blizzTell                  = cache.tellTarget
     local blizzChan                  = cache.channelTarget
     local blizzLang                  = cache.language or (origEditBox and origEditBox.languageID)
+    if not blizzLang and origEditBox and type(origEditBox.GetLanguageID) == "function" then
+        blizzLang = origEditBox:GetLanguageID()
+    end
     local blizzText                  = origEditBox and origEditBox.GetText and origEditBox:GetText()
 
     -- One-shot BN guard expiry: if we open normally a couple times without
@@ -148,14 +151,14 @@ function EditBox:Show(origEditBox)
         self.Target   = blizzTell or blizzChan or nil
     elseif (self.LastUsed and self.LastUsed.chatType) and not self._lockdown.savedDraft then
         self.ChatType = self.LastUsed.chatType
-        self.Language = (self.LastUsed and self.LastUsed.language) or blizzLang or nil
+        self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
     else
         self.ChatType = (self.LastUsed and self.LastUsed.chatType)
             or blizzType
             or "SAY"
-        self.Language = (self.LastUsed and self.LastUsed.language)
-            or blizzLang
+        self.Language = blizzLang
+            or (self.LastUsed and self.LastUsed.language)
             or nil
         self.Target   = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
@@ -1105,12 +1108,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
     end)
 
-    -- Mirror language changes made via the chat menu button (SetGameLanguage
-    -- stores on .languageID)
+    -- Mirror language changes made via the chat menu button.
+    -- Character language is treated as character-global; if changed on one
+    -- editbox, apply it to the sticky LastUsed state for all future opens.
     if blizzEditBox.SetGameLanguage then
         hooksecurefunc(blizzEditBox, "SetGameLanguage", function(eb, language, languageId)
-            if self.OrigEditBox == eb then
-                self.Language = languageId or language or nil
+            self.Language = languageId or language or nil
+            if self.LastUsed then
                 self.LastUsed.language = self.Language
             end
         end)
@@ -1316,6 +1320,12 @@ end
 
 --- Hook all NUM_CHAT_WINDOWS editboxes.  Call once on init.
 function EditBox:HookAllChatFrames()
+    -- Link runtime LastUsed to the persistent config table.
+    local cfg = YapperTable.Config and YapperTable.Config.EditBox
+    if cfg and cfg.LastUsed then
+        self.LastUsed = cfg.LastUsed
+    end
+
     for i = 1, (NUM_CHAT_WINDOWS or 10) do
         local eb = _G["ChatFrame" .. i .. "EditBox"]
         if eb then

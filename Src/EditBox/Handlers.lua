@@ -401,11 +401,17 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
+        local lang = self.Language
+        if not lang then
+            -- Fallback to sticky choice or character default.
+            lang = (self.LastUsed and self.LastUsed.language) or (GetDefaultLanguage and GetDefaultLanguage())
+        end
+
         if self.OnSend then
-            self.OnSend(trimmed, self.ChatType or "SAY", self.Language, self.Target)
+            self.OnSend(trimmed, self.ChatType or "SAY", lang, self.Target)
         else
             if C_ChatInfo and C_ChatInfo.SendChatMessage then
-                C_ChatInfo.SendChatMessage(trimmed, self.ChatType or "SAY", self.Language, self.Target)
+                C_ChatInfo.SendChatMessage(trimmed, self.ChatType or "SAY", lang, self.Target)
             end
         end
 

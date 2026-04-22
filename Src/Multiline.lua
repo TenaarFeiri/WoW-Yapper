@@ -776,6 +776,11 @@ function Multiline:Submit()
 	-- chatType/language/target may be updated by the filter payload.
 	local chatType = self.ChatType
 	local language = self.Language
+	if not language then
+		-- Fallback to sticky choice or character default.
+		local eb = YapperTable.EditBox
+		language = (eb and eb.LastUsed and eb.LastUsed.language) or (GetDefaultLanguage and GetDefaultLanguage())
+	end
 	local target   = self.Target
 
 	local API = YapperTable.API

@@ -175,6 +175,14 @@ local DEFAULTS = {
         -- Autocomplete (ghost text): on by default but only active when
         -- Spellcheck.Enabled is also true (depends on dictionary data).
         AutocompleteEnabled   = true,
+
+        -- Sticky state: tracks the last-used channel, target, and language.
+        -- Persisted per-character in YapperLocalConf.
+        LastUsed = {
+            chatType = "SAY",
+            target   = nil,
+            language = nil,
+        },
     },
 
     Spellcheck = {
