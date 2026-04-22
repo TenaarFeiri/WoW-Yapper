@@ -10,16 +10,12 @@ Licence: [https://opensource.org/license/mit](https://opensource.org/license/mit
 
 ### Why does Yapper use so much memory?
 
-Short answer: the spellcheck dictionary.
+Short answer: Spellchecking.
 
-Yapper ships with full English dictionaries (US and UK) stored as plain Lua tables so the spellchecker can run entirely in-game without external files. Those tables account for roughly **~58 MB** of the addon's memory footprint. The remaining **~21+ MB** covers everything else — the UI, the edit box overlay, the chunker, settings, adaptive learning data, and all of Yapper's runtime state. Because english dictionaries are included by default and there's no way to load them without adding them to TOC (thus loading them into memory even if they aren't used), they account for most of that passive usage.
+Longer answer: Without spellchecking enabled, Yapper should sit comfortably in the <2MB range, but for optimisation's sake, spellchecking trades memory for speed. Its dictionaries use a lot of precomputed data to stop Yapper needing to do a lot of background work while you're typing, which generates better spellchecking suggestions for you BUT uses more memory than, say, WoW-Misspelled.
+This is a deliberate trade-off, as memory is in far greater supply than CPU capacity, and you will much quicker feel high CPU usage than high memory usage. Even so, potentially a few hundred megabytes on larger dictionaries should still be manageable for a computer that's capable of running WoW. The memory usage is fine, the problems happen if Yapper starts lagging your game, which it goes to great lengths to avoid.
 
-This is a conscious trade-off: keeping the dictionary in memory means instant lookups with zero disk I/O, which matters when we're checking every word you type in real time. WoW's Lua environment doesn't give addons access to the filesystem, so there's no way to lazy-load or stream dictionary entries from disk the way a desktop spellchecker would.
-
-Furthermore, Yapper is overall designed to be CPU-efficient, and utilises caches and numerous optimisation tweaks which trade memory for speed, both in spellchecking and other areas of the addon.
-
-If memory is a concern, you can disable the spellchecker entirely in Yapper's settings — this prevents the dictionaries from loading and drops usage down to roughly the ~21 MB baseline.
-
+----------------
 Yapper WAS meant to be a simple, no-interface no-options works-out-of-the-box stand-in/replacement for 
 addons like EmoteSplitter. It has since exploded in scope thanks to patch 12.0.0 but I'm taking up the challenge, I guess.
 It's my first addon and my first foray into Lua!
