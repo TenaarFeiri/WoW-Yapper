@@ -561,6 +561,44 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
     return bonus
 end
 
+--- Returns a list of candidate words that have been learned as corrections for the given typo.
+function YALLM:GetBiasTargets(typo, locale)
+    local db = self:GetLocaleDB(locale)
+    if not db or not db.bias then return nil end
+    local t = Clean(typo)
+    if t == "" then return nil end
+
+    local targets = {}
+    -- Pattern match for "typo:*" in the bias table.
+    -- While iterating the whole bias table is O(N), N is capped at 500, so it's very fast.
+    local prefix = t .. ":"
+    for key, _ in pairs(db.bias) do
+        if string.sub(key, 1, #prefix) == prefix then
+            local correction = string.sub(key, #prefix + 1)
+            if correction ~= "" then
+                targets[#targets + 1] = correction
+            end
+        end
+    end
+
+    -- Also check phonetic bias targets
+    local sc = YapperTable.Spellcheck
+    local ph = sc and sc.GetPhoneticHash and sc.GetPhoneticHash(t)
+    if ph and ph ~= "" and db.phBias then
+        local phPrefix = ph .. ":"
+        for key, _ in pairs(db.phBias) do
+            if string.sub(key, 1, #phPrefix) == phPrefix then
+                local correction = string.sub(key, #phPrefix + 1)
+                if correction ~= "" then
+                    targets[#targets + 1] = correction
+                end
+            end
+        end
+    end
+
+    return #targets > 0 and targets or nil
+end
+
 -- ---------------------------------------------------------------------------
 -- Maintenance
 -- ---------------------------------------------------------------------------

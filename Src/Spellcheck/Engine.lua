@@ -364,7 +364,7 @@ local function GatherPrefixCandidates(dict, base, firstChar)
     local dictSrc  = dict.index and dict.index[firstChar]
     local baseSrc  = base      and base.index and base.index[firstChar]
     local di, bi   = 1, 1
-    local cap      = 2000
+    local cap      = 5000
 
     -- Round-robin interleave: 1 delta, 1 base per pass until both exhausted or cap hit.
     while #out < cap do
@@ -604,10 +604,6 @@ end
 
 --- Score a single candidate and append to the output list if it passes.
 local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
-    if (candidate == "butt" or candidate == "btut") and ctx.YALLM and ctx.YALLM.IsSaneWord then
-        YapperTable.Utils:Print("debug", string.format("Engine: Scoring candidate '%s' for input '%s' (dist=%s, isPhonetic=%s)", 
-            candidate, ctx.lower, tostring(dist), tostring(isPhonetic)))
-    end
 
     local lower = ctx.lower
     local lowerLen = ctx.lowerLen
@@ -872,10 +868,23 @@ function Spellcheck:GetSuggestions(word)
 
     local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
+    -- ── YALLM Bias Injection ─────────────────────────────────────────
+    -- If YALLM has learned specific corrections for this typo, inject them 
+    -- directly into the pool to ensure they aren't starved by shard caps.
+    local learnedCandidates = {}
+    if self.YALLM and self.YALLM.GetBiasTargets then
+        local targets = self.YALLM:GetBiasTargets(lower, locale)
+        if targets then
+            for _, t in ipairs(targets) do
+                table.insert(learnedCandidates, t)
+            end
+        end
+    end
+
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        self:Notify("Spellcheck:GetSuggestions word='" .. tostring(word) ..
-            "' lower='" .. tostring(lower) .. "' locale='" .. tostring(locale) ..
-            "' prefixCandidates=" .. tostring(#prefixCandidates))
+        self:Notify(string_format(
+            "Spellcheck:GetSuggestions word='%s' lower='%s' prefCands=%d learnedCands=%d",
+            tostring(word), tostring(lower), #prefixCandidates, #learnedCandidates))
     end
 
     -- ── Build scoring context ────────────────────────────────────────
@@ -901,12 +910,6 @@ function Spellcheck:GetSuggestions(word)
             if #out >= 100 then return true end
             if not seenCandidates[candidate] then
                 seenCandidates[candidate] = true
-                
-                -- TRACING: Catch "butt" before any filters
-                if (candidate == "butt" or candidate == "btut") and ctx.YALLM and ctx.YALLM.IsSaneWord then
-                    YapperTable.Utils:Print("debug", string.format("Engine: Found '%s' in candidate shard (isPhonetic=%s)", 
-                        candidate, tostring(isPhonetic)))
-                end
 
                 if not (ignoredSet and ignoredSet[candidate]) then
                     local lenDiff = math_abs(#candidate - lowerLen)
@@ -932,9 +935,12 @@ function Spellcheck:GetSuggestions(word)
 
     local aborted = false
 
-    -- 1. User-added words (unconditional, before array caps)
-    if addedCandidates and #addedCandidates > 0 then
-        aborted = tryCandidates(addedCandidates)
+    -- 1. User-added words and YALLM-learned bias targets (highest priority)
+    if (addedCandidates and #addedCandidates > 0) or (#learnedCandidates > 0) then
+        if addedCandidates then aborted = tryCandidates(addedCandidates) end
+        if not aborted and #learnedCandidates > 0 then
+            aborted = tryCandidates(learnedCandidates)
+        end
     end
 
     -- 2. Phonetic candidates (high priority)
