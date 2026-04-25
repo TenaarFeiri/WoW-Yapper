@@ -30,6 +30,7 @@ local math_abs = math.abs
 local math_floor = math.floor
 local table_insert = table.insert
 local table_sort = table.sort
+local string_format = string.format
 
 local function IsDebugEnabled()
     return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
