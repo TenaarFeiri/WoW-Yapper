@@ -215,8 +215,10 @@ function History:SaveDraft(editBox, isMultiline)
 end
 
 --- Return the saved draft if dirty.
----@diagnostic disable-next-line: undefined-doc-name
---- @return string?, string?, string?, boolean?  text, chatType, target, multiline
+--- @return string? text
+--- @return string? chatType
+--- @return string? target
+--- @return boolean? multiline
 function History:GetDraft()
     local draft = self:GetDraftStore()
     if not draft.dirty or not draft.text or draft.text == "" then
