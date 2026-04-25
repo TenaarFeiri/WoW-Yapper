@@ -93,6 +93,9 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 - `YapperAPI:GetState() → string` ([`#L747`](../Src/API.lua#L747))
 - `YapperAPI:IsState(state: string) → boolean` ([`#L756`](../Src/API.lua#L756))
 - `YapperAPI:GetStates() → string[]` ([`#L766`](../Src/API.lua#L766))
+- `YapperAPI:GetStateLogs() → table` ([`#L1243`](../Src/API.lua#L1243)) — returns the full circular buffer of state transitions (max 200 entries).
+- `YapperAPI:GetStateLog(index: number) → table|nil` ([`#L1238`](../Src/API.lua#L1238)) — returns a specific transition entry from the history.
+- `YapperAPI:GetStateLogCount() → number` ([`#L1233`](../Src/API.lua#L1233)) — returns the current number of transitions stored in the buffer.
 
 ### Spellcheck helpers
 
