@@ -104,19 +104,21 @@ def extract_comment_info(lua_path, line_no):
     
     summary = "No description provided."
     params = []
-    returns = "nil"
+    return_list = []
     
     for line in comment_lines:
         if line.startswith("@param"):
-            # Extract param name
-            m = re.search(r'@param\s+([a-zA-Z0-9_]+)', line)
+            # Extract param name (usually the first word)
+            m = re.search(r'@param\s+([a-zA-Z0-9_?]+)', line)
             if m: params.append(m.group(1))
         elif line.startswith("@return"):
-            m = re.search(r'@return\s+([a-zA-Z0-9_ |]+)', line)
-            if m: returns = m.group(1).strip()
+            # Extract type (usually the first word)
+            m = re.search(r'@return\s+([a-zA-Z0-9_? |/]+)', line)
+            if m: return_list.append(m.group(1).strip())
         elif not line.startswith("@") and summary == "No description provided." and line:
             summary = line
             
+    returns = ", ".join(return_list) if return_list else "nil"
     signature = f"({', '.join(params)}) \u2192 {returns}"
     return summary, signature
 
@@ -158,7 +160,7 @@ def inject_to_doc(md_filename, section_header, table, func, lua_rel_path, line_n
 
     # Insert the new method
     # Use British English spelling
-    new_entry = f"  - [TODO] `{table}:{func}{signature}`: {summary} ([`../Src/{lua_rel_path}#L{line_no}`](../Src/{lua_rel_path}#L{line_no}))\n"
+    new_entry = f"  - [NEW] `{table}:{func}{signature}`: {summary} ([`../Src/{lua_rel_path}#L{line_no}`](../Src/{lua_rel_path}#L{line_no}))\n"
     lines.insert(target_idx, new_entry)
     
     with open(md_path, 'w', encoding='utf-8') as f:
