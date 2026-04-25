@@ -328,6 +328,18 @@ function Multiline:CreateFrame()
 		if YapperTable.History then
 			YapperTable.History:AddSnapshot(box, true)
 		end
+
+		-- If focus is lost (e.g. clicked game world), stop typing signals.
+		if State and State:IsMultiline() then
+			State:ToIdle()
+		end
+	end)
+
+	edit:HookScript("OnEditFocusGained", function(box)
+		-- Resume typing signals when clicking back in.
+		if State and State:IsIdle() then
+			State:ToMultiline()
+		end
 	end)
 
 	-- Mirror the overlay's OnChar suppression: after a suggestion hotkey

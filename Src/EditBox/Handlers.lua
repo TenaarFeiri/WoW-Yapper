@@ -589,14 +589,22 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.Spellcheck then
             YapperTable.Spellcheck:UpdateHint()
         end
-        -- SetPropagateKeyboardInput removal: SetAutoFocus(false) allows
-        -- native WASD fallback when focus is lost without triggering combat errors.
+
+        -- If focus is lost (e.g. clicked game world), stop typing signals.
+        if State and State:IsEditing() then
+            State:ToIdle()
+        end
     end)
 
     edit:HookScript("OnEditFocusGained", function(box)
         self._overlayUnfocused = false
         if YapperTable.Spellcheck then
             YapperTable.Spellcheck:UpdateHint()
+        end
+
+        -- Resume typing signals when clicking back in.
+        if State and State:IsIdle() then
+            State:ToEditing()
         end
     end)
 

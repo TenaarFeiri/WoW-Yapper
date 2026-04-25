@@ -1296,6 +1296,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 target   = filterTarget,
             })
             if result == false then
+                -- If we are suppressing the overlay open (e.g. WIM taking focus),
+                -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                if State and not State:IsIdle() then
+                    State:ToIdle()
+                end
                 return
             end
         end

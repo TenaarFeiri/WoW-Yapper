@@ -456,7 +456,7 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
   - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L861`](`../Src/EditBox/Hooks.lua#L861`))
   - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L936`](`../Src/EditBox/Hooks.lua#L936`))
   - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1003`](`../Src/EditBox/Hooks.lua#L1003`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1356`](`../Src/EditBox/Hooks.lua#L1356`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1361`](`../Src/EditBox/Hooks.lua#L1361`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -642,13 +642,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L103`](`../Src/Multiline.lua#L103`))
   - `CreateFrame` ([`../Src/Multiline.lua#L136`](`../Src/Multiline.lua#L136`))
-  - `Enter` ([`../Src/Multiline.lua#L492`](`../Src/Multiline.lua#L492`))
-  - `Exit` ([`../Src/Multiline.lua#L602`](`../Src/Multiline.lua#L602`))
-  - `Submit` ([`../Src/Multiline.lua#L718`](`../Src/Multiline.lua#L718`))
-  - `Cancel` ([`../Src/Multiline.lua#L852`](`../Src/Multiline.lua#L852`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L878`](`../Src/Multiline.lua#L878`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L865`](`../Src/Multiline.lua#L865`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L887`](`../Src/Multiline.lua#L887`))
+  - `Enter` ([`../Src/Multiline.lua#L504`](`../Src/Multiline.lua#L504`))
+  - `Exit` ([`../Src/Multiline.lua#L614`](`../Src/Multiline.lua#L614`))
+  - `Submit` ([`../Src/Multiline.lua#L730`](`../Src/Multiline.lua#L730`))
+  - `Cancel` ([`../Src/Multiline.lua#L864`](`../Src/Multiline.lua#L864`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L890`](`../Src/Multiline.lua#L890`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L877`](`../Src/Multiline.lua#L877`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L899`](`../Src/Multiline.lua#L899`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
