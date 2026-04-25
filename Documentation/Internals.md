@@ -637,20 +637,20 @@ Initialised on `ADDON_LOADED`; hooks overlay on `PLAYER_ENTERING_WORLD`.
 
 - Description: Persistent chat history, draft store, undo/redo snapshots.
 - Methods:
+  - `History:SaveDraft(editBox, isMultiline) → nil`: Save a draft from any EditBox (overlay or multiline). ([`../Src/History.lua#L192`](../Src/History.lua#L192))
+  - `History:GetDraft() → string? text, string? chatType, string? target, boolean? multiline`: Return the saved draft if dirty. ([`../Src/History.lua#L222`](../Src/History.lua#L222))
   - `InitDB` ([`../Src/History.lua#L69`](`../Src/History.lua#L69`))
   - `SaveDB` ([`../Src/History.lua#L110`](`../Src/History.lua#L110`))
   - `AddChatHistory` ([`../Src/History.lua#L131`](`../Src/History.lua#L131`))
   - `GetChatHistory` ([`../Src/History.lua#L168`](`../Src/History.lua#L168`))
   - `GetDraftStore` ([`../Src/History.lua#L179`](`../Src/History.lua#L179`))
-  - `SaveDraft` ([`../Src/History.lua#L192`](`../Src/History.lua#L192`))
-  - `GetDraft` ([`../Src/History.lua#L220`](`../Src/History.lua#L220`))
-  - `MarkDirty` ([`../Src/History.lua#L229`](`../Src/History.lua#L229`))
-  - `ClearDraft` ([`../Src/History.lua#L234`](`../Src/History.lua#L234`))
-  - `CancelPauseTimer` ([`../Src/History.lua#L254`](`../Src/History.lua#L254`))
-  - `AddSnapshot` ([`../Src/History.lua#L284`](`../Src/History.lua#L284`))
-  - `Undo` ([`../Src/History.lua#L328`](`../Src/History.lua#L328`))
-  - `Redo` ([`../Src/History.lua#L344`](`../Src/History.lua#L344`))
-  - `HookOverlayEditBox` ([`../Src/History.lua#L372`](`../Src/History.lua#L372`))
+  - `MarkDirty` ([`../Src/History.lua#L231`](`../Src/History.lua#L231`))
+  - `ClearDraft` ([`../Src/History.lua#L236`](`../Src/History.lua#L236`))
+  - `CancelPauseTimer` ([`../Src/History.lua#L256`](`../Src/History.lua#L256`))
+  - `AddSnapshot` ([`../Src/History.lua#L286`](`../Src/History.lua#L286`))
+  - `Undo` ([`../Src/History.lua#L330`](`../Src/History.lua#L330`))
+  - `Redo` ([`../Src/History.lua#L346`](`../Src/History.lua#L346`))
+  - `HookOverlayEditBox` ([`../Src/History.lua#L374`](`../Src/History.lua#L374`))
 - Global state touched:
   - `_G.YapperLocalHistory`.
 
