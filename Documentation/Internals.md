@@ -582,7 +582,7 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L40`](../Src/Chat.lua#L40))
   - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L85`](../Src/Chat.lua#L85))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L199`](../Src/Chat.lua#L199))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L205`](../Src/Chat.lua#L205))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:
@@ -739,11 +739,11 @@ Handles config reads/writes and side-effect fan-out.
   - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L316`](`../Src/Interface/Config.lua#L316`))
   - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L329`](`../Src/Interface/Config.lua#L329`))
   - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L333`](`../Src/Interface/Config.lua#L333`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L345`](`../Src/Interface/Config.lua#L345`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L362`](`../Src/Interface/Config.lua#L362`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L389`](`../Src/Interface/Config.lua#L389`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L414`](`../Src/Interface/Config.lua#L414`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L443`](`../Src/Interface/Config.lua#L443`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L349`](`../Src/Interface/Config.lua#L349`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L402`](`../Src/Interface/Config.lua#L402`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L427`](`../Src/Interface/Config.lua#L427`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L456`](`../Src/Interface/Config.lua#L456`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
