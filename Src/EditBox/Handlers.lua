@@ -750,9 +750,3 @@ function EditBox:ResetLockdownIdleTimer()
     end)
 end
 
--- ---------------------------------------------------------------------------
--- Show / Hide
--- ---------------------------------------------------------------------------
-
---- Present the overlay in place of a Blizzard editbox.
---- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.

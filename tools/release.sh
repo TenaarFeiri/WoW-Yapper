@@ -8,6 +8,10 @@ out=.release/Yapper-"$version".zip
 
 echo "Building Yapper v$version..."
 
+# 0. Sync documentation before release
+echo "Syncing documentation..."
+./tools/sync.sh
+
 # Clean start
 rm -rf .release
 mkdir -p "$stage/Yapper"

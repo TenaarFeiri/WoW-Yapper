@@ -49,6 +49,13 @@ local math_floor = math.floor
 local strmatch   = string.match
 local strlower   = string.lower
 
+
+-- ---------------------------------------------------------------------------
+-- Show / Hide
+-- ---------------------------------------------------------------------------
+
+--- Present the overlay in place of a Blizzard editbox.
+--- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.
 function EditBox:Show(origEditBox)
     -- Don't want to open the overlay while UI is hidden, *unless* we're
     -- inside the housing editor; that mode purposely hides UIParent but we

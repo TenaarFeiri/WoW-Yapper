@@ -138,7 +138,7 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L363`](../Src/Spellcheck.lua#L363))
   - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L371`](../Src/Spellcheck.lua#L371))
   - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L381`](../Src/Spellcheck.lua#L381))
-  - `Spellcheck:EvictOldestMeta(dict, count) → nil` ([`../Src/Spellcheck.lua#L2`](../Src/Spellcheck.lua#L2))
+  [MISSING] - `Spellcheck:EvictOldestMeta(dict, count) → nil` ([`../Src/Spellcheck.lua#L2`](../Src/Spellcheck.lua#L2))
   - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L445`](../Src/Spellcheck.lua#L445))
   - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L469`](../Src/Spellcheck.lua#L469))
   - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L480`](../Src/Spellcheck.lua#L480))
@@ -407,19 +407,19 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 
 - Description: Show/hide lifecycle, handoff, hook glue, open guards.
 - Methods:
-  - `Show` ([`../Src/EditBox/Hooks.lua#L52`](`../Src/EditBox/Hooks.lua#L52`))
-  - `Hide` ([`../Src/EditBox/Hooks.lua#L361`](`../Src/EditBox/Hooks.lua#L361`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L405`](`../Src/EditBox/Hooks.lua#L405`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L443`](`../Src/EditBox/Hooks.lua#L443`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L537`](`../Src/EditBox/Hooks.lua#L537`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L706`](`../Src/EditBox/Hooks.lua#L706`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L744`](`../Src/EditBox/Hooks.lua#L744`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L792`](`../Src/EditBox/Hooks.lua#L792`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L814`](`../Src/EditBox/Hooks.lua#L814`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L839`](`../Src/EditBox/Hooks.lua#L839`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L914`](`../Src/EditBox/Hooks.lua#L914`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L981`](`../Src/EditBox/Hooks.lua#L981`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1334`](`../Src/EditBox/Hooks.lua#L1334`))
+  - `Show` ([`../Src/EditBox/Hooks.lua#L59`](`../Src/EditBox/Hooks.lua#L59`))
+  - `Hide` ([`../Src/EditBox/Hooks.lua#L368`](`../Src/EditBox/Hooks.lua#L368`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L412`](`../Src/EditBox/Hooks.lua#L412`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L450`](`../Src/EditBox/Hooks.lua#L450`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L544`](`../Src/EditBox/Hooks.lua#L544`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L713`](`../Src/EditBox/Hooks.lua#L713`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L751`](`../Src/EditBox/Hooks.lua#L751`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L799`](`../Src/EditBox/Hooks.lua#L799`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L821`](`../Src/EditBox/Hooks.lua#L821`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L846`](`../Src/EditBox/Hooks.lua#L846`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L921`](`../Src/EditBox/Hooks.lua#L921`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L988`](`../Src/EditBox/Hooks.lua#L988`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1341`](`../Src/EditBox/Hooks.lua#L1341`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:

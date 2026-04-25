@@ -71,15 +71,13 @@ def find_line_in_file(file_path, search_term):
         
         for pattern in patterns:
             for i, line in enumerate(lines, 1):
-                # Skip comments if we're not on the fallback pattern
-                if pattern != patterns[-1]:
-                    # Basic check for Lua comments
-                    stripped = line.strip()
-                    if stripped.startswith("--") or stripped.startswith("]]"):
-                        continue
-                    if "--" in line:
-                        # Only check part before comment
-                        line = line.split("--")[0]
+                # Skip comments
+                stripped = line.strip()
+                if stripped.startswith("--") or stripped.startswith("]]"):
+                    continue
+                if "--" in line:
+                    # Only check part before comment
+                    line = line.split("--")[0]
 
                 if pattern.search(line):
                     return i
@@ -229,12 +227,43 @@ if __name__ == "__main__":
             lua_path = os.path.normpath(os.path.join(DOCS_DIR, url_path.split('#')[0]))
             new_line_no = find_line_in_file(lua_path, search_term)
             
-            if new_line_no and str(new_line_no) != old_line_no:
-                # Replace #LNNN with #LNewNNN
-                new_link = full_match.replace(f"#L{old_line_no}", f"#L{new_line_no}")
-                new_content = new_content[:match.start()] + new_link + new_content[match.end():]
-                total_changes += 1
-                print(f"[{filename}] Updated {search_term} -> L{new_line_no} (was L{old_line_no})")
+            if new_line_no:
+                # Symbol found. Check if we need to remove [MISSING] flag
+                curr_line_start = new_content.rfind('\n', 0, match.start()) + 1
+                curr_line_end = new_content.find('\n', match.end())
+                if curr_line_end == -1: curr_line_end = len(new_content)
+                curr_line_text = new_content[curr_line_start:curr_line_end]
+                
+                if "[MISSING]" in curr_line_text:
+                    restored_line = curr_line_text.replace("[MISSING] ", "")
+                    new_content = new_content[:curr_line_start] + restored_line + new_content[curr_line_end:]
+                    # Update indices for replacement (though length change is constant)
+                    shift = len("[MISSING] ")
+                    current_match_start = match.start() - shift
+                    current_match_end = match.end() - shift
+                else:
+                    current_match_start = match.start()
+                    current_match_end = match.end()
+
+                if str(new_line_no) != old_line_no:
+                    # Replace #LNNN with #LNewNNN
+                    new_link = full_match.replace(f"#L{old_line_no}", f"#L{new_line_no}")
+                    new_content = new_content[:current_match_start] + new_link + new_content[current_match_end:]
+                    total_changes += 1
+                    print(f"[{filename}] Updated {search_term} -> L{new_line_no} (was L{old_line_no})")
+            else:
+                # Symbol missing! Flag it in the text if not already flagged
+                curr_line_start = new_content.rfind('\n', 0, match.start()) + 1
+                curr_line_end = new_content.find('\n', match.end())
+                if curr_line_end == -1: curr_line_end = len(new_content)
+                
+                curr_line_text = new_content[curr_line_start:curr_line_end]
+                if "[MISSING]" not in curr_line_text:
+                    # Maintain indentation
+                    indent = curr_line_text[:len(curr_line_text) - len(curr_line_text.lstrip())]
+                    flagged_line = indent + "[MISSING] " + curr_line_text.lstrip()
+                    new_content = new_content[:curr_line_start] + flagged_line + new_content[curr_line_end:]
+                    print(f"[{filename}] FLAG MISSING: {search_term} (last seen L{old_line_no})")
 
         if new_content != content:
             with open(md_path, 'w', encoding='utf-8') as f:
