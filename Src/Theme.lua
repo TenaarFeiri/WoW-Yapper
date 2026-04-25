@@ -11,6 +11,7 @@ local YapperName, YapperTable = ...
 
 local Theme = {}
 YapperTable.Theme = Theme
+local State = YapperTable.State
 
 -- Registry of themes: name -> theme table
 Theme._registry = {}
@@ -232,7 +233,7 @@ function Theme:SetLiveTheme(name)
     end
 
     -- Refresh multiline frame if it is currently open.
-    if YapperTable and YapperTable.Multiline and YapperTable.Multiline.Active
+    if YapperTable and YapperTable.Multiline and State and State:IsMultiline()
             and type(YapperTable.Multiline.ApplyTheme) == "function" then
         pcall(function() YapperTable.Multiline:ApplyTheme() end)
     end

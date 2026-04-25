@@ -407,9 +407,9 @@ function EditBox:Hide()
         end)
     end
 
-    -- Transition to IDLE state, but only if we're not currently in LOCKDOWN
-    -- or transitioning into MULTILINE mode.
-    if State and not (State:IsLockdown() or State:IsMultiline()) then
+    -- Transition to IDLE state, but only if we're not busy (sending, stalled, lockdown)
+    -- or in multiline mode.
+    if State and not (State:IsBusy() or State:IsMultiline()) then
         State:ToIdle()
     end
 

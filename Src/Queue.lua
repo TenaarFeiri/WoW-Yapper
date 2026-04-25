@@ -7,10 +7,12 @@
     for hardware input and when to auto-continue until throttled.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local Queue = {}
 YapperTable.Queue = Queue
+
+-- Re-localise state machine for internal guards
 local State = YapperTable.State
 
 -- Localise Lua globals for performance
@@ -158,7 +160,6 @@ local ALL_CONFIRM_EVENTS = {
 
 -- State.
 Queue.Entries       = {}
-Queue.Active        = false
 Queue.PlayerGUID    = nil
 
 
@@ -204,7 +205,6 @@ end
 
 function Queue:Reset()
     self.Entries       = {}
-    self.Active        = false
     self.PendingEntry  = nil
     self:ClearPendingAck()
     self.NeedsContinue = false
@@ -329,7 +329,7 @@ function Queue:GetActivePolicySnapshot()
     local head = self.PendingEntry or self.Entries[1]
     local policy, policyClass = self:GetPolicy(head)
     return {
-        active   = self.Active == true,
+        active   = State:IsSending(),
         stalled  = self.NeedsContinue == true,
         chatType = head and head.type or nil,
         policyClass = policyClass,
@@ -364,9 +364,10 @@ end
 --- Start sending.  Requires hardware input only when policy mandates it.
 function Queue:Flush(inHardwareEvent)
     if #self.Entries == 0 then return end
-    if self.Active then return end
+    if State:IsSending() then return end
+    -- Transition to SENDING state.
+    State:ToSending()
 
-    self.Active   = true
     local policy = self:GetPolicy(self.Entries[1])
     if not policy then
         self:Reset()
@@ -435,7 +436,7 @@ function Queue:BeginEntry(entry)
         end
         if policy and policy.autoUntilThrottle then
             C_Timer.After(self.StallTimeout, function()
-                if self.Active and self.PendingEntry == entry then
+                if State:IsSending() and self.PendingEntry == entry then
                     self:AssumeAck()
                 end
             end)
@@ -502,7 +503,7 @@ end
 -- ===========================================================================
 
 function Queue:OnChatEvent(event, ...)
-    if not self.Active then return end
+    if not State:IsSending() then return end
     if YapperTable.Utils and YapperTable.Utils.IsChatLockdown
         and YapperTable.Utils:IsChatLockdown() then
         return
@@ -568,7 +569,7 @@ function Queue:TryContinue()
     -- Without this there's a race window between OnOpenChat dispatching
     -- the next chunk (NeedsContinue=false) and the stall timer firing
     -- 1.5s later, during which the overlay can sneak open.
-    if self.Active and self.PendingEntry then
+    if State:IsSending() and self.PendingEntry then
         return true
     end
     return false
@@ -580,7 +581,7 @@ end
 
 function Queue:ResetStallTimer(entry)
     self:CancelStallTimer()
-    if not self.Active then return end
+    if not State:IsSending() then return end
 
     -- Community channels have higher latency; use policy multiplier.
     local timeout = self.StallTimeout
@@ -604,7 +605,7 @@ function Queue:CancelStallTimer()
 end
 
 function Queue:OnStallTimeout()
-    if not self.Active then return end
+    if not State:IsSending() then return end
 
     if not self.PendingEntry then return end
     local entry        = self.PendingEntry

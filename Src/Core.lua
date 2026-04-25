@@ -6,6 +6,7 @@
 local YapperName, YapperTable = ...
 
 YapperTable.Core = {}
+local State      = YapperTable.State
 
 -- ---------------------------------------------------------------------------
 -- Centralised configuration (hardcoded defaults)
@@ -608,7 +609,7 @@ local function RefreshProfileVisuals()
     if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
         pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
     end
-    if YapperTable.Multiline and YapperTable.Multiline.Active
+    if YapperTable.Multiline and State and State:IsMultiline()
         and type(YapperTable.Multiline.ApplyTheme) == "function" then
         pcall(function() YapperTable.Multiline:ApplyTheme() end)
     end

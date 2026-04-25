@@ -61,6 +61,9 @@ local HISTORY_DEFAULTS = {
     },
 }
 
+-- Re-localise state machine for internal guards
+local State                   = YapperTable.State
+
 -- ---------------------------------------------------------------------------
 -- Init / save
 -- ---------------------------------------------------------------------------
@@ -110,7 +113,7 @@ end
 function History:SaveDB()
     -- Mark dirty if either the overlay or the multiline editor is still open.
     local ml = YapperTable.Multiline
-    if ml and ml.Active and ml.EditBox then
+    if ml and State:IsMultiline() and ml.EditBox then
         self:SaveDraft(ml.EditBox, true)
         self:MarkDirty(true)
     elseif YapperTable.EditBox and YapperTable.EditBox.Overlay

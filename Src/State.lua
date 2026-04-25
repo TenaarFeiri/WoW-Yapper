@@ -177,7 +177,14 @@ end
 --- Helper: is the addon busy (sending, stalled, or in lockdown)?
 --- @return boolean
 function State:IsBusy()
-    return self:IsSending() or self:IsStalled() or self:IsLockdown()
+    local busy = self:IsSending() or self:IsStalled() or self:IsLockdown()
+    
+    -- Also check external delivery pipelines (GopherBridge)
+    if not busy and YapperTable.GopherBridge and type(YapperTable.GopherBridge.IsBusy) == "function" then
+        busy = YapperTable.GopherBridge:IsBusy()
+    end
+    
+    return busy
 end
 
 -- ---------------------------------------------------------------------------

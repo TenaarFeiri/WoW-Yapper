@@ -28,6 +28,9 @@ local _, YapperTable = ...
 local ElvUIBridge        = {}
 YapperTable.ElvUIBridge  = ElvUIBridge
 
+-- Re-localise state machine for internal guards
+local State         = YapperTable.State
+
 -- Re-localise Lua globals.
 local type   = type
 local pcall  = pcall
@@ -189,7 +192,7 @@ function ElvUIBridge:Deactivate()
     end
 
     -- Refresh multiline frame if it is currently open.
-    if YapperTable.Multiline and YapperTable.Multiline.Active
+    if YapperTable.Multiline and State:IsMultiline()
             and type(YapperTable.Multiline.ApplyTheme) == "function" then
         pcall(function() YapperTable.Multiline:ApplyTheme() end)
     end

@@ -3,27 +3,24 @@
 	Expanded multi-line editor frame for storyteller-mode posts.
 
 	When the user's text exceeds the single-line overlay or they trigger the
-	toggle keybind, Yapper smoothly transitions from the slim chat-bar overlay
-	into a larger, resizable editing surface.  The multi-line frame is a
-	standalone ScrollingEditBox that lives above (or replaces) the single-line
-	overlay and feeds its final text back through Chat:OnSend on submit.
+	toggle keybind, Yapper transitions into a larger, resizable editing surface.
+	The multi-line frame is a standalone ScrollingEditBox that feeds its final
+	text into the delivery Queue.
 
-	Lifecycle:
-		EditBox overlay visible  ──► user triggers expand (keybind / auto)
-		  └─► Multiline:Enter(text, chatType, target)
-		        ├ captures current text + channel context
-		        ├ hides single-line overlay
-		        └ shows expanded frame, sets focus
+	Lifecycle (FSM Integrated):
+		IDLE ──► EDITING: User opens the overlay.
+		EDITING ──► MULTILINE: User triggers expand (Multiline:Enter).
+		  └─► captures current draft + channel context
+		  └─► hides single-line overlay, shows expanded frame
 
-		User presses Enter / submit  ──► Multiline:Submit()
-		  └─► passes text to Chat:OnSend
-		  └─► Multiline:Exit()
+		MULTILINE ──► SENDING: User submits (Multiline:Submit).
+		  └─► chunks text, hands off to Queue or Chat:DirectSend
+		  └─► returns machine to IDLE upon delivery completion
 
-		User presses Escape / cancel ──► Multiline:Exit()
-		  └─► optionally restores text to the single-line overlay
-		  └─► re-shows single-line overlay
+		MULTILINE ──► EDITING: User cancels (Multiline:Exit/Cancel).
+		  └─► restores draft to single-line overlay
 
-	Not yet wired — this is scaffolding only.
+		MULTILINE ──► IDLE: User closes UI while editor is open.
 ]]
 
 local _, YapperTable = ...
@@ -51,7 +48,6 @@ Multiline.Frame       = nil   -- main container frame
 Multiline.ScrollFrame = nil   -- scroll wrapper (ScrollFrame)
 Multiline.EditBox     = nil   -- the actual multi-line EditBox widget
 Multiline.LabelFS     = nil   -- channel label FontString
-Multiline.Active      = false -- true while the expanded editor is shown
 Multiline.ChatType    = nil   -- current channel type (SAY, YELL, …)
 Multiline.Language    = nil   -- language index
 Multiline.Target      = nil   -- whisper / channel target
@@ -137,7 +133,6 @@ end
 -- Frame creation (lazy)
 -- ---------------------------------------------------------------------------
 
---- Build the multi-line editor frame.  Called once on first Enter().
 function Multiline:CreateFrame()
 	if self.Frame then return end
 
@@ -495,7 +490,7 @@ end
 ---@param language  number?  Language index.
 ---@param target    string?  Whisper / channel target.
 function Multiline:Enter(text, chatType, language, target)
-	if self.Active then return end
+	if State:IsMultiline() then return end
 	self:CreateFrame()
 	self:ApplyTheme()   -- pick up current config every open (rounded corners, colours, shadow)
 
@@ -564,16 +559,8 @@ function Multiline:Enter(text, chatType, language, target)
 		end
 	end
 
-	-- IMPORTANT: set Active = true BEFORE hiding the overlay.
-	-- The EditBox:Show() hook fires when the overlay is hidden (the game
-	-- tries to re-open it), and its guard checks ml.Active.  If we set
-	-- Active after Hide, the guard fails and the overlay re-opens,
-	-- stealing keyboard focus and making the caret invisible.
-	self.Active = true
-
-	if State then
-		State:ToMultiline()
-	end
+	-- Transition machine to MULTILINE state.
+	State:ToMultiline()
 
 	-- Position the frame using absolute UIParent coordinates captured
 	-- from the overlay and ChatFrame1 before the overlay is hidden.
@@ -613,7 +600,7 @@ end
 --- Close the expanded editor and return to the single-line overlay.
 ---@param restoreText boolean?  If true, push the current text back to the overlay.
 function Multiline:Exit(restoreText)
-	if not self.Active then return end
+	if not State:IsMultiline() then return end
 
 	-- Hide icon gallery if open.
 	if YapperTable.IconGallery and YapperTable.IconGallery.Active then
@@ -644,8 +631,7 @@ function Multiline:Exit(restoreText)
 			YapperTable.History:ClearDraft(self.EditBox)
 		end
 	end
-
-	self.Active = false
+	State:ToIdle()
 
 	if self.Frame then
 		self.Frame:Hide()
@@ -730,7 +716,7 @@ end
 --- All posts are chunked and delivered as one queued sequence.
 --- After sending, the overlay is closed entirely.
 function Multiline:Submit()
-	if not self.Active then return end
+	if not State:IsMultiline() then return end
 
 	local rawText = self.EditBox and self.EditBox:GetText() or ""
 	local posts   = CollapseText(rawText)
@@ -745,7 +731,7 @@ function Multiline:Submit()
 	-- Empty editor: close entirely (do not return to the overlay).
 	if #posts == 0 then
 		local eb = YapperTable.EditBox
-		self.Active = false
+		State:ToIdle()
 		if self.Frame then self.Frame:Hide() end
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 			YapperTable.Spellcheck:UnbindMultiline()
@@ -760,7 +746,7 @@ function Multiline:Submit()
 	end
 
 	-- Close the multiline frame before handing off to the pipeline.
-	self.Active = false
+	State:ToIdle()
 	if self.Frame then self.Frame:Hide() end
 
 	-- Restore spellcheck and autocomplete to the single-line overlay.
@@ -859,9 +845,7 @@ function Multiline:Submit()
 		eb:PersistLastUsed()
 	end
 
-	-- Hide the overlay entirely — submit means done, not back to overlay.
 	if eb then eb:Hide() end
-	if State then State:ToIdle() end
 end
 
 --- Cancel editing — return to the single-line overlay with the draft intact.
@@ -881,7 +865,7 @@ end
 function Multiline:ShouldAutoExpand(textWidth, boxWidth)
 	local cfg = GetConfig()
 	if not cfg.autoExpand then return false end
-	if self.Active then return false end
+	if State:IsMultiline() then return false end
 
 	-- Trigger when text fills ≥95 % of the available width.
 	return textWidth >= (boxWidth * 0.95)
@@ -890,6 +874,11 @@ end
 -- ---------------------------------------------------------------------------
 -- Theme / appearance
 -- ---------------------------------------------------------------------------
+
+function Multiline:HandleEscape()
+	if State:IsMultiline() then return false end
+	return true
+end
 
 --- Apply the current theme's colours and font to the multi-line frame.
 --- Mirrors the same font-resolution logic as the single-line overlay:
