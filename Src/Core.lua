@@ -149,9 +149,8 @@ local DEFAULTS = {
         MinHeight             = 0, -- minimum overlay height; only applies if larger than the native editbox height
         FontPad               = 8, -- extra pixels above + below the text baseline
 
-        -- Tier 1 integration: keep the Blizzard editbox alive (text invisible)
-        -- so its native skin/backdrop wraps the Yapper overlay while typing.
-        UseBlizzardSkinProxy  = true,
+        -- Try to imitate Blizzard's editbox appearance
+        UseBlizzardSkinProxy  = false,
 
         -- Sticky channel: remember last-used channel across opens.
         -- Group channels (Party/Instance/Raid) stay sticky even when StickyChannel
