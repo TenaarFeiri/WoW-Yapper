@@ -284,25 +284,25 @@ Initialised from `Spellcheck:Init` when present.
   - `total: number`
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
-  - [TODO] `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L723`](../Src/Spellcheck/YALLM.lua#L723))
-  - [TODO] `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L565`](../Src/Spellcheck/YALLM.lua#L565))
-  - [TODO] `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L191`](../Src/Spellcheck/YALLM.lua#L191))
-  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L111`](`../Src/Spellcheck/YALLM.lua#L111`))
-  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L117`](`../Src/Spellcheck/YALLM.lua#L117`))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L123`](`../Src/Spellcheck/YALLM.lua#L123`))
-  - `Init` ([`../Src/Spellcheck/YALLM.lua#L133`](`../Src/Spellcheck/YALLM.lua#L133`))
-  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L159`](`../Src/Spellcheck/YALLM.lua#L159`))
-  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L211`](`../Src/Spellcheck/YALLM.lua#L211`))
-  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L249`](`../Src/Spellcheck/YALLM.lua#L249`))
-  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L282`](`../Src/Spellcheck/YALLM.lua#L282`))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L359`](`../Src/Spellcheck/YALLM.lua#L359`))
-  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L451`](`../Src/Spellcheck/YALLM.lua#L451`))
-  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L476`](`../Src/Spellcheck/YALLM.lua#L476`))
-  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L515`](`../Src/Spellcheck/YALLM.lua#L515`))
-  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L607`](`../Src/Spellcheck/YALLM.lua#L607`))
-  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L654`](`../Src/Spellcheck/YALLM.lua#L654`))
-  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L667`](`../Src/Spellcheck/YALLM.lua#L667`))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L754`](`../Src/Spellcheck/YALLM.lua#L754`))
+  - [TODO] `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L724`](../Src/Spellcheck/YALLM.lua#L724))
+  - [TODO] `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L566`](../Src/Spellcheck/YALLM.lua#L566))
+  - [TODO] `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L192`](../Src/Spellcheck/YALLM.lua#L192))
+  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L112`](`../Src/Spellcheck/YALLM.lua#L112`))
+  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L118`](`../Src/Spellcheck/YALLM.lua#L118`))
+  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L124`](`../Src/Spellcheck/YALLM.lua#L124`))
+  - `Init` ([`../Src/Spellcheck/YALLM.lua#L134`](`../Src/Spellcheck/YALLM.lua#L134`))
+  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L160`](`../Src/Spellcheck/YALLM.lua#L160`))
+  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L212`](`../Src/Spellcheck/YALLM.lua#L212`))
+  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L250`](`../Src/Spellcheck/YALLM.lua#L250`))
+  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L283`](`../Src/Spellcheck/YALLM.lua#L283`))
+  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L360`](`../Src/Spellcheck/YALLM.lua#L360`))
+  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L452`](`../Src/Spellcheck/YALLM.lua#L452`))
+  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L477`](`../Src/Spellcheck/YALLM.lua#L477`))
+  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L516`](`../Src/Spellcheck/YALLM.lua#L516`))
+  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L608`](`../Src/Spellcheck/YALLM.lua#L608`))
+  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L655`](`../Src/Spellcheck/YALLM.lua#L655`))
+  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L668`](`../Src/Spellcheck/YALLM.lua#L668`))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L755`](`../Src/Spellcheck/YALLM.lua#L755`))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
@@ -439,8 +439,8 @@ Initialised by `Chat:Init`.
   - `Init` ([`../Src/Bridges/GopherBridge.lua#L53`](`../Src/Bridges/GopherBridge.lua#L53`))
   - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L75`](`../Src/Bridges/GopherBridge.lua#L75`))
   - `Send` ([`../Src/Bridges/GopherBridge.lua#L103`](`../Src/Bridges/GopherBridge.lua#L103`))
-  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L145`](`../Src/Bridges/GopherBridge.lua#L145`))
-  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L152`](`../Src/Bridges/GopherBridge.lua#L152`))
+  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L147`](`../Src/Bridges/GopherBridge.lua#L147`))
+  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L154`](`../Src/Bridges/GopherBridge.lua#L154`))
 
 ## TypingTrackerBridge
 
