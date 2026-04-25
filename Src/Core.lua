@@ -337,6 +337,13 @@ local function DeepCopy(src)
     return out
 end
 
+local PROTECTED_KEYS = {
+    InterfaceUI     = true,
+    _Stash          = true,
+    _appliedTheme   = true,
+    _themeOverrides = true,
+}
+
 local function SyncParity(dest, schema)
     if type(dest) ~= "table" or type(schema) ~= "table" then
         return
@@ -363,7 +370,7 @@ local function SyncParity(dest, schema)
     end
 
     for key in pairs(dest) do
-        if schema[key] == nil then
+        if schema[key] == nil and not PROTECTED_KEYS[key] then
             dest[key] = nil
         end
     end
@@ -466,19 +473,21 @@ function YapperTable.Core:InitSavedVars()
     _G.YapperDB.chatHistory = nil
     _G.YapperDB.draft = nil
 
-    -- 2. YapperLocalConf — per-character config (inherits from YapperDB).
-    ApplyDefaults(_G.YapperLocalConf, DEFAULTS)
+    -- 2. YapperLocalConf — per-character config.
+    -- We no longer call ApplyDefaults here, as it "flattens" the table and
+    -- blocks metatable inheritance from the Global Profile.
+    if type(_G.YapperLocalConf.System) ~= "table" then
+        _G.YapperLocalConf.System = {}
+    end
 
     if confVersion and currentVersion > confVersion then
         SyncParity(_G.YapperLocalConf, DEFAULTS)
     end
 
-    if type(_G.YapperLocalConf.System) ~= "table" then
-        _G.YapperLocalConf.System = {}
-    end
     _G.YapperLocalConf.System.VERSION = currentVersion
 
-    InheritDefaults(_G.YapperLocalConf, _G.YapperDB)
+    -- Initialise inheritance chain (Global vs Local).
+    self:RefreshInheritance()
 
     -- Switch the live Config reference to the per-character table.
     YapperTable.Config = _G.YapperLocalConf
