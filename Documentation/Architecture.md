@@ -284,7 +284,7 @@ Key files:
 
 ## Error handling
 
-Errors are centralised in [`Src/Error.lua`](../Src/Error.lua). Runtime throw path is `YapperTable.Error:Throw(code, ...)` ([`Src/Error.lua#L8`](../Src/Error.lua#L8)).
+Errors are centralised in [`Src/Error.lua`](../Src/Error.lua). Runtime throw path is `YapperTable.Error:Throw(code, ...)` ([`Src/Error.lua#L9`](../Src/Error.lua#L9)).
 
 | Code | Meaning |
 |---|---|

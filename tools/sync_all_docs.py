@@ -55,9 +55,11 @@ def find_line_in_file(file_path, search_term):
     # Heuristics for search patterns
     patterns = [
         # Method: function table:name
-        re.compile(r'function\s+\w+[:.]' + re.escape(search_term) + r'\b'),
+        re.compile(r'function\s+[a-zA-Z0-9_.:]+[:.]' + re.escape(search_term) + r'\b'),
         # Assignment: table.name = or name =
-        re.compile(r'\b' + re.escape(search_term) + r'\s*='),
+        re.compile(r'[a-zA-Z0-9_.:]+[:.]' + re.escape(search_term) + r'\s*='),
+        # Local assignment: local name =
+        re.compile(r'local\s+' + re.escape(search_term) + r'\s*='),
         # Function: function name(
         re.compile(r'function\s+' + re.escape(search_term) + r'\b'),
         # Fallback: just the term
@@ -69,6 +71,16 @@ def find_line_in_file(file_path, search_term):
         
         for pattern in patterns:
             for i, line in enumerate(lines, 1):
+                # Skip comments if we're not on the fallback pattern
+                if pattern != patterns[-1]:
+                    # Basic check for Lua comments
+                    stripped = line.strip()
+                    if stripped.startswith("--") or stripped.startswith("]]"):
+                        continue
+                    if "--" in line:
+                        # Only check part before comment
+                        line = line.split("--")[0]
+
                 if pattern.search(line):
                     return i
     return None
@@ -190,7 +202,8 @@ if __name__ == "__main__":
             
             # Heuristic: Find something that looks like a method or field name
             # 1. Look for content in backticks immediately preceding the link
-            backtick_matches = re.findall(r'`([^`]+)`', line_text[:match.start()])
+            prefix = line_text[:match.start() - line_start]
+            backtick_matches = re.findall(r'`([^`]+)`', prefix)
             search_term = None
             if backtick_matches:
                 # Iterate backwards through backticks to find a symbol, skipping path-like strings
@@ -213,7 +226,6 @@ if __name__ == "__main__":
             if not search_term or search_term.lower() == "lua":
                 continue
 
-            # Resolve absolute path to Lua file
             lua_path = os.path.normpath(os.path.join(DOCS_DIR, url_path.split('#')[0]))
             new_line_no = find_line_in_file(lua_path, search_term)
             

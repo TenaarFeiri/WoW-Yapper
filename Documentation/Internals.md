@@ -23,16 +23,16 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
   - `Yapper.Config: table` live config root ([`../Src/Core.lua#L268`](../Src/Core.lua#L268)).
 - Methods:
   - [TODO] `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L721`](../Src/Core.lua#L721))
-  - [TODO] `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L489`](../Src/Core.lua#L489))
+  - [TODO] `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L518`](../Src/Core.lua#L518))
   - [TODO] `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L290`](../Src/Core.lua#L290))
   - [TODO] `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L273`](../Src/Core.lua#L273))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L421`](../Src/Core.lua#L421)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L416`](../Src/Core.lua#L416)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
   - `Core:GetVersion() → string` ([`../Src/Core.lua#L541`](../Src/Core.lua#L541))
   - `Core:GetDefaults() → table` ([`../Src/Core.lua#L545`](../Src/Core.lua#L545))
   - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L549`](../Src/Core.lua#L549))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L564`](../Src/Core.lua#L564)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L419`](../Src/Core.lua#L419)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L342`](../Src/Core.lua#L342)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L562`](../Src/Core.lua#L562)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L628`](../Src/Core.lua#L628)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L742`](../Src/Core.lua#L742)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -60,7 +60,7 @@ Loaded early; used for warnings and fatal throws.
 - Description: Central error code registry and formatting.
 - Methods:
   - `Error:PrintError(code, ...) → nil` ([`../Src/Error.lua#L82`](../Src/Error.lua#L82))
-  - `Error:Throw(code, ...) → nil` ([`../Src/Error.lua#L18`](../Src/Error.lua#L18)) — halts via `error()` after printing.
+  - `Error:Throw(code, ...) → nil` ([`../Src/Error.lua#L92`](../Src/Error.lua#L92)) — halts via `error()` after printing.
 
 ## Frame
 
@@ -76,7 +76,7 @@ Initialised from boot entrypoint (`Yapper.lua`).
 
 - Description: Creates and stores event-listening frames.
 - Fields:
-  - `EventFrames.Container: table` map of frame names to frame objects ([`../Src/Frames.lua#L13`](../Src/Frames.lua#L13)).
+  - `EventFrames.Container: table` map of frame names to frame objects ([`../Src/Frames.lua#L19`](../Src/Frames.lua#L19)).
 - Methods:
   - `EventFrames:Init() → nil` ([`../Src/Frames.lua#L22`](../Src/Frames.lua#L22))
   - `EventFrames:HideParent() → nil` ([`../Src/Frames.lua#L32`](../Src/Frames.lua#L32))
@@ -274,7 +274,7 @@ Initialised from `Spellcheck:Init` when present.
 
 - Description: Adaptive learning model for frequency/bias and auto-promote.
 - Fields:
-  - `Spellcheck.YALLM: table` ([`../Src/Spellcheck/YALLM.lua#L7`](../Src/Spellcheck/YALLM.lua#L7)).
+  - `Spellcheck.YALLM: table` ([`../Src/Spellcheck/YALLM.lua#L8`](../Src/Spellcheck/YALLM.lua#L8)).
 - Locale store shape (`_G.YapperDB.SpellcheckLearned[locale]`):
   - `freq[word] = { c, t }`
   - `bias["typo:correction"] = { c, t, u }`
