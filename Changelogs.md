@@ -23,6 +23,17 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.10
+  - *Stability & Reliability:*
+    - **Smoother State Transitions:** Refactored the core logic that manages chat modes. This resolves several rare "confused" UI states when switching between the single-line overlay and the expanded multiline editor.
+    - **Hardened UI Guards:** Added extra protection to prevent the chat box from closing or resetting while it's still busy delivering a long message or waiting for a hardware event.
+    - **Internal "Flight Recorder":** Implemented a high-performance background logging system. While invisible to the user, this allows developers to precisely retrace the addon's steps to squash bugs faster.
+  - *Bug Fixes:*
+    - Fixed an issue where closing the UI via external means (like a custom keybind) could occasionally "orphan" a message that was currently being sent.
+    - Cleaned up legacy internal flags to reduce memory overhead and improve long-term maintainability.
+  - *API & Documentation:*
+    - **Developer Tools:** Exposed new state-logging APIs for third-party addon developers and fully synchronised the technical documentation.
+
 -- 2.1.9
   - *Bugfix*
     - Fix rare stall case where in some circumstances we get stuck waiting for a pending queue that can never complete.
