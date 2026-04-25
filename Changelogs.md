@@ -26,6 +26,8 @@
 -- 2.1.8
   - *Bugfix*
     - Fix for issue #34 where languages sometimes fail to resolve correctly for whispers.
+    - Blizzard skin proxy is now off by default, in case of a reset.
+    - Fix for issue #33 where the new Global Profile would sometimes reset on a version change.
 
 -- 2.1.7
   - *Chat Fixes*
