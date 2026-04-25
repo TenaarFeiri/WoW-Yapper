@@ -364,6 +364,9 @@ function Interface:UpdateMinimapButtonAngleFromCursor()
 end
 
 function Interface:ApplyMinimapButtonVisibility()
+    if self._inMinimapVisibilityUpdate then return end
+    self._inMinimapVisibilityUpdate = true
+
     -- Always ensure the launcher is created before attempting to toggle visibility.
     if not self.LauncherCreated then
         self:CreateLauncher()
@@ -393,6 +396,7 @@ function Interface:ApplyMinimapButtonVisibility()
             self.MinimapButton:Hide()
         end
     end
+    self._inMinimapVisibilityUpdate = nil
 end
 
 -- ---------------------------------------------------------------------------

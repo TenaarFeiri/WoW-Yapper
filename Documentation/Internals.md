@@ -741,9 +741,9 @@ Handles config reads/writes and side-effect fan-out.
   - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L333`](`../Src/Interface/Config.lua#L333`))
   - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L349`](`../Src/Interface/Config.lua#L349`))
   - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L402`](`../Src/Interface/Config.lua#L402`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L427`](`../Src/Interface/Config.lua#L427`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L456`](`../Src/Interface/Config.lua#L456`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L406`](`../Src/Interface/Config.lua#L406`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L431`](`../Src/Interface/Config.lua#L431`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L460`](`../Src/Interface/Config.lua#L460`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.

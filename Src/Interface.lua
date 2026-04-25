@@ -836,6 +836,7 @@ end
 -- Create a launcher (Addon Compartment preferred, LDB fallback)
 function Interface:CreateLauncher()
     if self.LauncherCreated then return end
+    self.LauncherCreated = true
 
     local tooltipLines = self:GetLauncherTooltipLines()
 
@@ -897,7 +898,6 @@ function Interface:CreateLauncher()
                 DBIcon:Register(YapperName, self.MinimapLDBObject, minimapCfg)
             end)
             self:ApplyMinimapButtonVisibility()
-            self.LauncherCreated = true
             return
         end
     end
@@ -959,6 +959,5 @@ function Interface:CreateLauncher()
         self:ApplyMinimapButtonVisibility()
     end
 
-    self.LauncherCreated = true
 end
 
