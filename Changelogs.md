@@ -23,6 +23,10 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.8
+  - *Bugfix*
+    - Fix for issue #34 where languages sometimes fail to resolve correctly for whispers.
+
 -- 2.1.7
   - *Chat Fixes*
     - Language should now persist correctly when selected, in all of Yapper's modes.
