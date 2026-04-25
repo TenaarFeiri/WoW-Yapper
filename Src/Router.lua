@@ -290,7 +290,7 @@ function Router:Send(msg, chatType, language, target)
         local clubId   = language
         local streamId = target
         if self.ClubSendMessage and clubId and streamId then
-            self.ClubSendMessage(tonumber(clubId), tonumber(streamId), msg)
+            self.ClubSendMessage(clubId, streamId, msg)
             return true
         end
         return false

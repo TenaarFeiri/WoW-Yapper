@@ -124,8 +124,10 @@ function GopherBridge:Send(msg, chatType, language, target)
 
     -- Community / Club
     if chatType == "CLUB" then
-        local clubId   = tonumber(language)
-        local streamId = tonumber(target)
+        -- In WoW, Club and Stream IDs are 64-bit integers passed as strings.
+        -- Converting them to numbers causes precision loss.
+        local clubId   = language
+        local streamId = target
         if clubId and streamId and _G.C_Club then
             _G.C_Club.SendMessage(clubId, streamId, msg)
             return true
