@@ -212,6 +212,10 @@ function Queue:Reset()
     self:CancelStallTimer()
     self:HideContinuePrompt()
     self:DisableEscapeCancel()
+
+    if State then
+        State:ToIdle()
+    end
 end
 
 -- ===========================================================================

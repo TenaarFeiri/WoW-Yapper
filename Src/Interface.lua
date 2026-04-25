@@ -811,6 +811,12 @@ end
 
 -- Instantiation --
 function Interface:Init()
+    local State = YapperTable.State
+    if self.MainWindowFrame or (State and State:IsInitialising() and self._initializing) then
+        return
+    end
+    self._initializing = true
+
     Interface:SanitizeLocalConfig()
     Interface:CreateMainWindow()
     Interface:BuildConfigUI()
@@ -831,12 +837,14 @@ function Interface:Init()
     if Interface:ShouldShowWelcomeChoice() then
         Interface:CreateWelcomeChoiceFrame()
     end
+
+    self._initializing = nil
 end
 
 -- Create a launcher (Addon Compartment preferred, LDB fallback)
 function Interface:CreateLauncher()
-    if self.LauncherCreated or self._inLauncherCreation then return end
-    self._inLauncherCreation = true
+    local State = YapperTable.State
+    if self.LauncherCreated or (State and not State:IsInitialising()) then return end
 
     local tooltipLines = self:GetLauncherTooltipLines()
 
@@ -960,6 +968,5 @@ function Interface:CreateLauncher()
     end
 
     self.LauncherCreated = true
-    self._inLauncherCreation = nil
 end
 

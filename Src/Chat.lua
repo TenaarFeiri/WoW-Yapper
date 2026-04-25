@@ -247,6 +247,8 @@ function Chat:DirectSend(msg, chatType, language, target)
         target   = deliverPayload.target   or target
     end
 
+    if State then State:ToSending() end
+
     if YapperTable.Router then
         YapperTable.Router:Send(msg, chatType, language, target)
     else
@@ -257,4 +259,6 @@ function Chat:DirectSend(msg, chatType, language, target)
     if API then
         API:Fire("POST_SEND", msg, chatType, language, target)
     end
+
+    if State then State:ToIdle() end
 end

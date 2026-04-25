@@ -755,6 +755,7 @@ function Multiline:Submit()
 		end
 		if eb and eb.OverlayEdit then eb.OverlayEdit:SetText("") end
 		if eb then eb:Hide() end
+		if State then State:ToIdle() end
 		return
 	end
 
@@ -860,6 +861,7 @@ function Multiline:Submit()
 
 	-- Hide the overlay entirely — submit means done, not back to overlay.
 	if eb then eb:Hide() end
+	if State then State:ToIdle() end
 end
 
 --- Cancel editing — return to the single-line overlay with the draft intact.

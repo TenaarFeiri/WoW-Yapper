@@ -195,6 +195,11 @@ local function OnPlayerEnteringWorld()
 
     -- After unregistering, build the language cache.
     YapperTable.Core:BuildLanguageCache()
+
+    -- Final transition to IDLE: Boot sequence complete.
+    if YapperTable.State then
+        YapperTable.State:ToIdle()
+    end
 end
 
 YapperTable.Events:Register("PARENT_FRAME", "PLAYER_ENTERING_WORLD", OnPlayerEnteringWorld)

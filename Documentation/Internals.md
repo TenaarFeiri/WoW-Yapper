@@ -10,9 +10,9 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L217`](../Yapper.lua#L217)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L222`](../Yapper.lua#L222)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L212`](../Yapper.lua#L212)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L217`](../Yapper.lua#L217)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -101,11 +101,11 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1143`](../Src/API.lua#L1143)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1204`](../Src/API.lua#L1204)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1062`](../Src/API.lua#L1062))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1129`](../Src/API.lua#L1129))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1164`](../Src/API.lua#L1164))
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1123`](../Src/API.lua#L1123))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1190`](../Src/API.lua#L1190))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1225`](../Src/API.lua#L1225))
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -118,19 +118,20 @@ Loaded early; central orchestrator for the addon's operational mode.
   - `STATES: table` enum of valid states (`IDLE`, `EDITING`, `MULTILINE`, `SENDING`, `STALLED`, `LOCKDOWN`).
   - `_current: string` current active state.
 - Methods:
-  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L161`](../Src/State.lua#L161))
-  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L156`](../Src/State.lua#L156))
-  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L151`](../Src/State.lua#L151))
-  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L146`](../Src/State.lua#L146))
-  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L141`](../Src/State.lua#L141))
-  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L136`](../Src/State.lua#L136))
-  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L121`](../Src/State.lua#L121))
-  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L115`](../Src/State.lua#L115))
-  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L109`](../Src/State.lua#L109))
-  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L103`](../Src/State.lua#L103))
-  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L97`](../Src/State.lua#L97))
-  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L91`](../Src/State.lua#L91))
-  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L85`](../Src/State.lua#L85))
+  [MISSING] - `State:IsInitializing() → boolean`: Is the machine in INITIALIZING state? ([`../Src/State.lua#L91`](../Src/State.lua#L91))
+  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L213`](../Src/State.lua#L213))
+  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L208`](../Src/State.lua#L208))
+  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L203`](../Src/State.lua#L203))
+  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L198`](../Src/State.lua#L198))
+  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L193`](../Src/State.lua#L193))
+  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L188`](../Src/State.lua#L188))
+  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L173`](../Src/State.lua#L173))
+  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L167`](../Src/State.lua#L167))
+  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L161`](../Src/State.lua#L161))
+  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L155`](../Src/State.lua#L155))
+  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L149`](../Src/State.lua#L149))
+  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L143`](../Src/State.lua#L143))
+  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L137`](../Src/State.lua#L137))
   - `State:Get() → string`: Returns the current state.
   - `State:Is(state: string) → boolean`: Returns true if the current state matches.
   - `State:Transition(newState: string, ...) → nil`: Transitions to a new state and fires `STATE_CHANGED`.
@@ -566,35 +567,35 @@ Initialised by `Chat:Init`; registers many chat confirm events.
 - Methods:
   - `Init` ([`../Src/Queue.lua#L186`](../Src/Queue.lua#L186))
   - `Reset` ([`../Src/Queue.lua#L205`](../Src/Queue.lua#L205))
-  - `IsOpenWorld` ([`../Src/Queue.lua#L221`](../Src/Queue.lua#L221))
-  - `IsCommunityChannelEntry` ([`../Src/Queue.lua#L229`](../Src/Queue.lua#L229))
-  - `ClassifyEntry` ([`../Src/Queue.lua#L243`](../Src/Queue.lua#L243))
-  - `GetPolicy` ([`../Src/Queue.lua#L286`](../Src/Queue.lua#L286))
-  - `GetConfirmEventForEntry` ([`../Src/Queue.lua#L301`](../Src/Queue.lua#L301))
-  - `TrackPendingAck` ([`../Src/Queue.lua#L316`](../Src/Queue.lua#L316))
-  - `GetActivePolicySnapshot` ([`../Src/Queue.lua#L324`](../Src/Queue.lua#L324))
-  - `ClearPendingAck` ([`../Src/Queue.lua#L338`](../Src/Queue.lua#L338))
-  - `Enqueue` ([`../Src/Queue.lua#L349`](../Src/Queue.lua#L349))
-  - `Flush` ([`../Src/Queue.lua#L361`](../Src/Queue.lua#L361))
-  - `RequiresHardwareEvent` ([`../Src/Queue.lua#L385`](../Src/Queue.lua#L385))
-  - `SendNext` ([`../Src/Queue.lua#L390`](../Src/Queue.lua#L390))
-  - `BeginEntry` ([`../Src/Queue.lua#L418`](../Src/Queue.lua#L418))
-  - `HandleAck` ([`../Src/Queue.lua#L444`](../Src/Queue.lua#L444))
-  - `AssumeAck` ([`../Src/Queue.lua#L452`](../Src/Queue.lua#L452))
-  - `RawSend` ([`../Src/Queue.lua#L462`](../Src/Queue.lua#L462))
-  - `Complete` ([`../Src/Queue.lua#L486`](../Src/Queue.lua#L486))
-  - `OnChatEvent` ([`../Src/Queue.lua#L500`](../Src/Queue.lua#L500))
-  - `OnOpenChat` ([`../Src/Queue.lua#L547`](../Src/Queue.lua#L547))
-  - `TryContinue` ([`../Src/Queue.lua#L559`](../Src/Queue.lua#L559))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L577`](../Src/Queue.lua#L577))
-  - `CancelStallTimer` ([`../Src/Queue.lua#L595`](../Src/Queue.lua#L595))
-  - `OnStallTimeout` ([`../Src/Queue.lua#L602`](../Src/Queue.lua#L602))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L626`](../Src/Queue.lua#L626))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L686`](../Src/Queue.lua#L686))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L723`](../Src/Queue.lua#L723))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L734`](../Src/Queue.lua#L734))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L767`](../Src/Queue.lua#L767))
-  - `Cancel` ([`../Src/Queue.lua#L774`](../Src/Queue.lua#L774))
+  - `IsOpenWorld` ([`../Src/Queue.lua#L225`](../Src/Queue.lua#L225))
+  - `IsCommunityChannelEntry` ([`../Src/Queue.lua#L233`](../Src/Queue.lua#L233))
+  - `ClassifyEntry` ([`../Src/Queue.lua#L247`](../Src/Queue.lua#L247))
+  - `GetPolicy` ([`../Src/Queue.lua#L290`](../Src/Queue.lua#L290))
+  - `GetConfirmEventForEntry` ([`../Src/Queue.lua#L305`](../Src/Queue.lua#L305))
+  - `TrackPendingAck` ([`../Src/Queue.lua#L320`](../Src/Queue.lua#L320))
+  - `GetActivePolicySnapshot` ([`../Src/Queue.lua#L328`](../Src/Queue.lua#L328))
+  - `ClearPendingAck` ([`../Src/Queue.lua#L342`](../Src/Queue.lua#L342))
+  - `Enqueue` ([`../Src/Queue.lua#L353`](../Src/Queue.lua#L353))
+  - `Flush` ([`../Src/Queue.lua#L365`](../Src/Queue.lua#L365))
+  - `RequiresHardwareEvent` ([`../Src/Queue.lua#L389`](../Src/Queue.lua#L389))
+  - `SendNext` ([`../Src/Queue.lua#L394`](../Src/Queue.lua#L394))
+  - `BeginEntry` ([`../Src/Queue.lua#L422`](../Src/Queue.lua#L422))
+  - `HandleAck` ([`../Src/Queue.lua#L448`](../Src/Queue.lua#L448))
+  - `AssumeAck` ([`../Src/Queue.lua#L456`](../Src/Queue.lua#L456))
+  - `RawSend` ([`../Src/Queue.lua#L466`](../Src/Queue.lua#L466))
+  - `Complete` ([`../Src/Queue.lua#L490`](../Src/Queue.lua#L490))
+  - `OnChatEvent` ([`../Src/Queue.lua#L504`](../Src/Queue.lua#L504))
+  - `OnOpenChat` ([`../Src/Queue.lua#L551`](../Src/Queue.lua#L551))
+  - `TryContinue` ([`../Src/Queue.lua#L563`](../Src/Queue.lua#L563))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L581`](../Src/Queue.lua#L581))
+  - `CancelStallTimer` ([`../Src/Queue.lua#L599`](../Src/Queue.lua#L599))
+  - `OnStallTimeout` ([`../Src/Queue.lua#L606`](../Src/Queue.lua#L606))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L630`](../Src/Queue.lua#L630))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L690`](../Src/Queue.lua#L690))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L727`](../Src/Queue.lua#L727))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L738`](../Src/Queue.lua#L738))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L771`](../Src/Queue.lua#L771))
+  - `Cancel` ([`../Src/Queue.lua#L778`](../Src/Queue.lua#L778))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
@@ -637,9 +638,9 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Enter` ([`../Src/Multiline.lua#L497`](`../Src/Multiline.lua#L497`))
   - `Exit` ([`../Src/Multiline.lua#L615`](`../Src/Multiline.lua#L615`))
   - `Submit` ([`../Src/Multiline.lua#L732`](`../Src/Multiline.lua#L732`))
-  - `Cancel` ([`../Src/Multiline.lua#L866`](`../Src/Multiline.lua#L866`))
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L879`](`../Src/Multiline.lua#L879`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L896`](`../Src/Multiline.lua#L896`))
+  - `Cancel` ([`../Src/Multiline.lua#L868`](`../Src/Multiline.lua#L868`))
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L881`](`../Src/Multiline.lua#L881`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L898`](`../Src/Multiline.lua#L898`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -729,7 +730,7 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `HandleLauncherClick` ([`../Src/Interface.lua#L771`](`../Src/Interface.lua#L771`))
   - `CloseFrame` ([`../Src/Interface.lua#L802`](`../Src/Interface.lua#L802`))
   - `Init` ([`../Src/Interface.lua#L813`](`../Src/Interface.lua#L813`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L837`](`../Src/Interface.lua#L837`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L845`](`../Src/Interface.lua#L845`))
 - Global function:
   - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L789`](../Src/Interface.lua#L789)).
 

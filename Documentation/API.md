@@ -90,6 +90,9 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 - `YapperAPI:IsOverlayShown() → boolean` ([`#L703`](../Src/API.lua#L703))
 - `YapperAPI:GetConfig(path: string) → any` ([`#L713`](../Src/API.lua#L713))
 - `YapperAPI:GetDelineator() → string|nil` ([`#L739`](../Src/API.lua#L739))
+- `YapperAPI:GetState() → string` ([`#L747`](../Src/API.lua#L747))
+- `YapperAPI:IsState(state: string) → boolean` ([`#L756`](../Src/API.lua#L756))
+- `YapperAPI:GetStates() → string[]` ([`#L766`](../Src/API.lua#L766))
 
 ### Spellcheck helpers
 
@@ -137,5 +140,5 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1164`](../Src/API.lua#L1164))
-  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1129`](../Src/API.lua#L1129))
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1225`](../Src/API.lua#L1225))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1190`](../Src/API.lua#L1190))

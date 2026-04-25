@@ -742,6 +742,67 @@ function YapperAPI:GetDelineator()
     return chat.DELINEATOR or chat.PREFIX
 end
 
+-- ===== STATE ACCESSORS =====================================================
+
+--- Returns the current state name (e.g. "IDLE", "SENDING").
+function YapperAPI:GetState()
+    if YapperTable.State and YapperTable.State.Get then
+        return YapperTable.State:Get()
+    end
+    return "UNKNOWN"
+end
+
+--- Returns true if the machine is in the specified state.
+--- @param state string
+function YapperAPI:IsState(state)
+    if type(state) ~= "string" then return false end
+    if YapperTable.State and YapperTable.State.Is then
+        return YapperTable.State:Is(state)
+    end
+    return false
+end
+
+--- Returns a list of all valid state names.
+function YapperAPI:GetStates()
+    if YapperTable.State and YapperTable.State.STATES then
+        local out = {}
+        for name in pairs(YapperTable.State.STATES) do
+            table_insert(out, name)
+        end
+        table_sort(out)
+        return out
+    end
+    return {}
+end
+
+--- Get the full history of state changes (capped at 200).
+--- @return table
+function YapperAPI:GetStateLogs()
+    if YapperTable.State and YapperTable.State.GetLogs then
+        return YapperTable.State:GetLogs()
+    end
+    return {}
+end
+
+--- Get a specific state change log by index.
+--- @param index number
+--- @return table|nil
+function YapperAPI:GetStateLog(index)
+    if YapperTable.State and YapperTable.State.GetLog then
+        return YapperTable.State:GetLog(index)
+    end
+    return nil
+end
+
+--- Get the number of logs currently in the buffer.
+--- @return number
+function YapperAPI:GetStateLogCount()
+    if YapperTable.State and YapperTable.State.GetLogCount then
+        return YapperTable.State:GetLogCount()
+    end
+    return 0
+end
+
 -- ===== SPELLCHECK ACCESSORS ================================================
 
 --- Returns true if the spellcheck system is loaded and enabled.
