@@ -1218,6 +1218,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         local isDebugBypass = YapperTable.Config.System.DEBUG and self._lockdown.handedOff
 
         if isLockdown or isDebugBypass then
+            if State and not State:IsLockdown() then
+                State:ToLockdown()
+            end
             if not self._lockdown.showHandled then
                 self._lockdown.showHandled = true
                 local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
