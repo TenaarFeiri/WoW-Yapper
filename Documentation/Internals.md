@@ -645,10 +645,10 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Enter` ([`../Src/Multiline.lua#L504`](`../Src/Multiline.lua#L504`))
   - `Exit` ([`../Src/Multiline.lua#L614`](`../Src/Multiline.lua#L614`))
   - `Submit` ([`../Src/Multiline.lua#L730`](`../Src/Multiline.lua#L730`))
-  - `Cancel` ([`../Src/Multiline.lua#L864`](`../Src/Multiline.lua#L864`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L890`](`../Src/Multiline.lua#L890`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L877`](`../Src/Multiline.lua#L877`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L899`](`../Src/Multiline.lua#L899`))
+  - `Cancel` ([`../Src/Multiline.lua#L859`](`../Src/Multiline.lua#L859`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L885`](`../Src/Multiline.lua#L885`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L872`](`../Src/Multiline.lua#L872`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L894`](`../Src/Multiline.lua#L894`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
