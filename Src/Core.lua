@@ -675,7 +675,10 @@ function YapperTable.Core:PromoteCharacterToGlobal()
         end
         for key, v in pairs(localConf.FrameSettings) do
             if not FRAME_SETTINGS_LOCAL_ONLY_KEYS[key] then
-                localConf._Stash.FrameSettings[key] = v
+                -- Only stash if it's not an empty proxy table
+                if type(v) ~= "table" or next(v) ~= nil then
+                    localConf._Stash.FrameSettings[key] = v
+                end
                 localConf.FrameSettings[key] = nil
             end
         end
