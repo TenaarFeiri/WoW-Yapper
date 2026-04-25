@@ -612,7 +612,7 @@ end
 --- Close the expanded editor and return to the single-line overlay.
 ---@param restoreText boolean?  If true, push the current text back to the overlay.
 function Multiline:Exit(restoreText)
-	if not State:IsMultiline() then return end
+	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
 
 	-- Hide icon gallery if open.
 	if YapperTable.IconGallery and YapperTable.IconGallery.Active then
@@ -728,7 +728,7 @@ end
 --- All posts are chunked and delivered as one queued sequence.
 --- After sending, the overlay is closed entirely.
 function Multiline:Submit()
-	if not State:IsMultiline() then return end
+	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
 
 	local rawText = self.EditBox and self.EditBox:GetText() or ""
 	local posts   = CollapseText(rawText)
@@ -888,8 +888,8 @@ end
 -- ---------------------------------------------------------------------------
 
 function Multiline:HandleEscape()
-	if State:IsMultiline() then return false end
-	return true
+	if State:IsMultiline() or (self.Frame and self.Frame:IsShown()) then return true end
+	return false
 end
 
 --- Apply the current theme's colours and font to the multi-line frame.

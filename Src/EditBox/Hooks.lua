@@ -79,11 +79,18 @@ function EditBox:Show(origEditBox)
     -- If the multiline EditBox has lost focus (e.g. user clicked elsewhere),
     -- reclaim it here so Enter reliably activates the expanded editor.
     local ml = YapperTable and YapperTable.Multiline
-    if State and State:IsMultiline() then
+    if ml and ml.Frame and ml.Frame:IsShown() then
+        if origEditBox and origEditBox.Hide then
+            origEditBox:Hide()
+        end
         if ml.EditBox and ml.EditBox.SetFocus then
             local mlb = ml.EditBox
             C_Timer.After(0, function()
-                if State:IsMultiline() and mlb and mlb.SetFocus then
+                -- If we are refocusing, ensure state is set back to MULTILINE
+                if State and not State:IsMultiline() then
+                    State:ToMultiline()
+                end
+                if mlb and mlb.SetFocus then
                     mlb:SetFocus()
                 end
             end)

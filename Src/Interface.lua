@@ -845,6 +845,7 @@ end
 function Interface:CreateLauncher()
     local State = YapperTable.State
     if self.LauncherCreated or (State and not State:IsInitialising()) then return end
+    self.LauncherCreated = true
 
     local tooltipLines = self:GetLauncherTooltipLines()
 
@@ -966,7 +967,5 @@ function Interface:CreateLauncher()
 
         self:ApplyMinimapButtonVisibility()
     end
-
-    self.LauncherCreated = true
 end
 
