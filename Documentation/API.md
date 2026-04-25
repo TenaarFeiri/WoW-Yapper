@@ -128,7 +128,7 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 
 ### Icon gallery
 
-- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`#L1096`](../Src/API.lua#L1096))
-- `YapperAPI:HideIconGallery() → nil` ([`#L1104`](../Src/API.lua#L1104))
-- `YapperAPI:IsIconGalleryShown() → boolean` ([`#L1110`](../Src/API.lua#L1110))
-- `YapperAPI:GetRaidIconData() → table[]` ([`#L1117`](../Src/API.lua#L1117))
+- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`#L1091`](../Src/API.lua#L1091))
+- `YapperAPI:HideIconGallery() → nil` ([`#L1099`](../Src/API.lua#L1099))
+- `YapperAPI:IsIconGalleryShown() → boolean` ([`#L1105`](../Src/API.lua#L1105))
+- `YapperAPI:GetRaidIconData() → table[]` ([`#L1112`](../Src/API.lua#L1112))
