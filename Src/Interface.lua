@@ -835,8 +835,8 @@ end
 
 -- Create a launcher (Addon Compartment preferred, LDB fallback)
 function Interface:CreateLauncher()
-    if self.LauncherCreated then return end
-    self.LauncherCreated = true
+    if self.LauncherCreated or self._inLauncherCreation then return end
+    self._inLauncherCreation = true
 
     local tooltipLines = self:GetLauncherTooltipLines()
 
@@ -959,5 +959,7 @@ function Interface:CreateLauncher()
         self:ApplyMinimapButtonVisibility()
     end
 
+    self.LauncherCreated = true
+    self._inLauncherCreation = nil
 end
 
