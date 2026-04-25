@@ -1082,11 +1082,6 @@ end
 -- ===== INTERNAL ENTRY POINTS ===============================================
 -- These are called by Yapper's own modules.  Not on the public object.
 
---- Run all filters for a hook point.
---- Returns the (possibly modified) payload, or false if cancelled.
---- If no filters are registered, returns the payload unchanged.
----
---- @param hookPoint string
 -- ===== ICON GALLERY ========================================================
 
 --- Show the raid-icon gallery anchored to an external EditBox widget.
@@ -1124,6 +1119,11 @@ function YapperAPI:GetRaidIconData()
     return result
 end
 
+--- Run all filters for a hook point.
+--- Returns the (possibly modified) payload, or false if cancelled.
+--- If no filters are registered, returns the payload unchanged.
+---
+--- @param hookPoint string
 --- @param payload table
 --- @return table|false
 function API:RunFilter(hookPoint, payload)
