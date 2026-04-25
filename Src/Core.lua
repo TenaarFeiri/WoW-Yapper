@@ -648,13 +648,18 @@ function YapperTable.Core:PromoteCharacterToGlobal()
             if category == "Spellcheck" then
                 for k, v in pairs(localConf[category]) do
                     if k ~= "Dict" then
-                        localConf._Stash[category][k] = v
+                        -- Only stash if it's not an empty proxy table
+                        if type(v) ~= "table" or next(v) ~= nil then
+                            localConf._Stash[category][k] = v
+                        end
                         localConf[category][k] = nil
                     end
                 end
             else
                 for k, v in pairs(localConf[category]) do
-                    localConf._Stash[category][k] = v
+                    if type(v) ~= "table" or next(v) ~= nil then
+                        localConf._Stash[category][k] = v
+                    end
                     localConf[category][k] = nil
                 end
             end
@@ -752,7 +757,11 @@ function YapperTable.Core:PushToGlobal()
 
         for k, v in pairs(settings) do
             if not (skipKeys and skipKeys[k]) then
-                globalDB[category][k] = DeepCopy(v)
+                -- Only push if it's a scalar or a table with actual data.
+                -- Empty tables are just inheritance proxies and should be skipped.
+                if type(v) ~= "table" or next(v) ~= nil then
+                    globalDB[category][k] = DeepCopy(v)
+                end
             end
         end
 
