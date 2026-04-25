@@ -20,19 +20,19 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L268`](../Src/Core.lua#L268)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L269`](../Src/Core.lua#L269)).
 - Methods:
-  - [TODO] `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L721`](../Src/Core.lua#L721))
-  - [TODO] `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L518`](../Src/Core.lua#L518))
-  - [TODO] `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L290`](../Src/Core.lua#L290))
-  - [TODO] `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L273`](../Src/Core.lua#L273))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L416`](../Src/Core.lua#L416)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L541`](../Src/Core.lua#L541))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L545`](../Src/Core.lua#L545))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L549`](../Src/Core.lua#L549))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L562`](../Src/Core.lua#L562)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L628`](../Src/Core.lua#L628)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L742`](../Src/Core.lua#L742)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L722`](../Src/Core.lua#L722))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L519`](../Src/Core.lua#L519))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L291`](../Src/Core.lua#L291))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L274`](../Src/Core.lua#L274))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L417`](../Src/Core.lua#L417)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L542`](../Src/Core.lua#L542))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L546`](../Src/Core.lua#L546))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L550`](../Src/Core.lua#L550))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L563`](../Src/Core.lua#L563)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L629`](../Src/Core.lua#L629)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L743`](../Src/Core.lua#L743)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -106,6 +106,9 @@ Loaded before all integration hooks.
   - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1123`](../Src/API.lua#L1123))
   - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1190`](../Src/API.lua#L1190))
   - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1225`](../Src/API.lua#L1225))
+  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L799`](../Src/API.lua#L799)) — returns the number of entries in the FSM state history.
+  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L790`](../Src/API.lua#L790)) — returns a specific state transition log entry.
+  - `API:GetStateLogs() → table` ([`../Src/API.lua#L780`](../Src/API.lua#L780)) — returns the full circular buffer of state transitions.
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -119,12 +122,12 @@ Loaded early; central orchestrator for the addon's operational mode.
   - `_current: string` current active state.
 - Methods:
   [MISSING] - `State:IsInitializing() → boolean`: Is the machine in INITIALIZING state? ([`../Src/State.lua#L91`](../Src/State.lua#L91))
-  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L213`](../Src/State.lua#L213))
-  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L208`](../Src/State.lua#L208))
-  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L203`](../Src/State.lua#L203))
-  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L198`](../Src/State.lua#L198))
-  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L193`](../Src/State.lua#L193))
-  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L188`](../Src/State.lua#L188))
+  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L220`](../Src/State.lua#L220))
+  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L215`](../Src/State.lua#L215))
+  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L210`](../Src/State.lua#L210))
+  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L205`](../Src/State.lua#L205))
+  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L200`](../Src/State.lua#L200))
+  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L195`](../Src/State.lua#L195))
   - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L173`](../Src/State.lua#L173))
   - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L167`](../Src/State.lua#L167))
   - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L161`](../Src/State.lua#L161))
@@ -132,6 +135,10 @@ Loaded early; central orchestrator for the addon's operational mode.
   - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L149`](../Src/State.lua#L149))
   - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L143`](../Src/State.lua#L143))
   - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L137`](../Src/State.lua#L137))
+  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L131`](../Src/State.lua#L131))
+  - `State:GetLogCount() → number` ([`../Src/State.lua#L281`](../Src/State.lua#L281)) — returns the number of transitions stored in the history buffer.
+  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L288`](../Src/State.lua#L288)) — returns the transition log at the given index.
+  - `State:GetLogs() → table` ([`../Src/State.lua#L294`](../Src/State.lua#L294)) — returns the raw circular buffer table.
   - `State:Get() → string`: Returns the current state.
   - `State:Is(state: string) → boolean`: Returns true if the current state matches.
   - `State:Transition(newState: string, ...) → nil`: Transitions to a new state and fires `STATE_CHANGED`.
@@ -314,9 +321,9 @@ Initialised from `Spellcheck:Init` when present.
   - `total: number`
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
-  - [TODO] `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L724`](../Src/Spellcheck/YALLM.lua#L724))
-  - [TODO] `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L566`](../Src/Spellcheck/YALLM.lua#L566))
-  - [TODO] `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L192`](../Src/Spellcheck/YALLM.lua#L192))
+  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L724`](../Src/Spellcheck/YALLM.lua#L724))
+  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L566`](../Src/Spellcheck/YALLM.lua#L566))
+  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L192`](../Src/Spellcheck/YALLM.lua#L192))
   - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L112`](`../Src/Spellcheck/YALLM.lua#L112`))
   - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L118`](`../Src/Spellcheck/YALLM.lua#L118`))
   - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L124`](`../Src/Spellcheck/YALLM.lua#L124`))
@@ -363,11 +370,11 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [TODO] `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L48`](../Src/EditBoxCompat.lua#L48))
-  - [TODO] `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
-  - [TODO] `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
-  - [TODO] `box:GetChannelTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
-  - [TODO] `box:GetChatType() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L40`](../Src/EditBoxCompat.lua#L40))
+  - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L48`](../Src/EditBoxCompat.lua#L48))
+  - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
+  - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
+  - `box:GetChannelTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
+  - `box:GetChatType() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L40`](../Src/EditBoxCompat.lua#L40))
 
 Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
 
@@ -510,12 +517,12 @@ Syncs theme colours based on ElvUI state when enabled.
 
 - Description: Optional ElvUI theme adaptation bridge.
 - Fields:
-  - `active: boolean` ([`../Src/Bridges/ElvUIBridge.lua#L107`](../Src/Bridges/ElvUIBridge.lua#L107)).
+  - `active: boolean` ([`../Src/Bridges/ElvUIBridge.lua#L110`](../Src/Bridges/ElvUIBridge.lua#L110)).
 - Methods:
-  - `Activate` ([`../Src/Bridges/ElvUIBridge.lua#L112`](`../Src/Bridges/ElvUIBridge.lua#L112`))
-  - `Deactivate` ([`../Src/Bridges/ElvUIBridge.lua#L156`](`../Src/Bridges/ElvUIBridge.lua#L156`))
-  - `RefreshColors` ([`../Src/Bridges/ElvUIBridge.lua#L215`](`../Src/Bridges/ElvUIBridge.lua#L215`))
-  - `Sync` ([`../Src/Bridges/ElvUIBridge.lua#L235`](`../Src/Bridges/ElvUIBridge.lua#L235`))
+  - `Activate` ([`../Src/Bridges/ElvUIBridge.lua#L115`](`../Src/Bridges/ElvUIBridge.lua#L115`))
+  - `Deactivate` ([`../Src/Bridges/ElvUIBridge.lua#L159`](`../Src/Bridges/ElvUIBridge.lua#L159`))
+  - `RefreshColors` ([`../Src/Bridges/ElvUIBridge.lua#L218`](`../Src/Bridges/ElvUIBridge.lua#L218`))
+  - `Sync` ([`../Src/Bridges/ElvUIBridge.lua#L238`](`../Src/Bridges/ElvUIBridge.lua#L238`))
 
 ## Router
 
@@ -550,23 +557,23 @@ Initialised by `Chat:Init`; registers many chat confirm events.
 
 - Description: Ordered chunk delivery with ack/stall policy.
 - Fields:
-  - Queue state: `Entries` ([`../Src/Queue.lua#L160`](`../Src/Queue.lua#L160`))
-  - Queue state: `Active` ([`../Src/Queue.lua#L161`](`../Src/Queue.lua#L161`))
-  - Queue state: `PlayerGUID` ([`../Src/Queue.lua#L162`](`../Src/Queue.lua#L162`))
-  - Queue state: `NeedsContinue` ([`../Src/Queue.lua#L166`](`../Src/Queue.lua#L166`))
-  - Queue state: `StallTimer` ([`../Src/Queue.lua#L167`](`../Src/Queue.lua#L167`))
-  - Queue state: `StallTimeout` ([`../Src/Queue.lua#L168`](`../Src/Queue.lua#L168`))
-  - Queue state: `PendingEntry` ([`../Src/Queue.lua#L170`](`../Src/Queue.lua#L170`))
-  - Queue state: `PendingAckEntry` ([`../Src/Queue.lua#L171`](`../Src/Queue.lua#L171`))
-  - Queue state: `PendingAckText` ([`../Src/Queue.lua#L172`](`../Src/Queue.lua#L172`))
-  - Queue state: `PendingAckEvent` ([`../Src/Queue.lua#L173`](`../Src/Queue.lua#L173`))
-  - Queue state: `PendingAckPolicyClass` ([`../Src/Queue.lua#L174`](`../Src/Queue.lua#L174`))
-  - Queue state: `StrictAckMatching` ([`../Src/Queue.lua#L175`](`../Src/Queue.lua#L175`))
-  - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L177`](`../Src/Queue.lua#L177`))
-  - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L180`](`../Src/Queue.lua#L180`))
+  - Queue state: `Entries` ([`../Src/Queue.lua#L162`](`../Src/Queue.lua#L162`))
+  [MISSING] - Queue state: `Active` ([`../Src/Queue.lua#L161`](`../Src/Queue.lua#L161`))
+  - Queue state: `PlayerGUID` ([`../Src/Queue.lua#L163`](`../Src/Queue.lua#L163`))
+  - Queue state: `NeedsContinue` ([`../Src/Queue.lua#L167`](`../Src/Queue.lua#L167`))
+  - Queue state: `StallTimer` ([`../Src/Queue.lua#L168`](`../Src/Queue.lua#L168`))
+  - Queue state: `StallTimeout` ([`../Src/Queue.lua#L169`](`../Src/Queue.lua#L169`))
+  - Queue state: `PendingEntry` ([`../Src/Queue.lua#L171`](`../Src/Queue.lua#L171`))
+  - Queue state: `PendingAckEntry` ([`../Src/Queue.lua#L172`](`../Src/Queue.lua#L172`))
+  - Queue state: `PendingAckText` ([`../Src/Queue.lua#L173`](`../Src/Queue.lua#L173`))
+  - Queue state: `PendingAckEvent` ([`../Src/Queue.lua#L174`](`../Src/Queue.lua#L174`))
+  - Queue state: `PendingAckPolicyClass` ([`../Src/Queue.lua#L175`](`../Src/Queue.lua#L175`))
+  - Queue state: `StrictAckMatching` ([`../Src/Queue.lua#L176`](`../Src/Queue.lua#L176`))
+  - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L178`](`../Src/Queue.lua#L178`))
+  - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L181`](`../Src/Queue.lua#L181`))
 - Methods:
-  - `Init` ([`../Src/Queue.lua#L186`](../Src/Queue.lua#L186))
-  - `Reset` ([`../Src/Queue.lua#L205`](../Src/Queue.lua#L205))
+  - `Init` ([`../Src/Queue.lua#L187`](../Src/Queue.lua#L187))
+  - `Reset` ([`../Src/Queue.lua#L206`](../Src/Queue.lua#L206))
   - `IsOpenWorld` ([`../Src/Queue.lua#L225`](../Src/Queue.lua#L225))
   - `IsCommunityChannelEntry` ([`../Src/Queue.lua#L233`](../Src/Queue.lua#L233))
   - `ClassifyEntry` ([`../Src/Queue.lua#L247`](../Src/Queue.lua#L247))
@@ -577,25 +584,25 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - `ClearPendingAck` ([`../Src/Queue.lua#L342`](../Src/Queue.lua#L342))
   - `Enqueue` ([`../Src/Queue.lua#L353`](../Src/Queue.lua#L353))
   - `Flush` ([`../Src/Queue.lua#L365`](../Src/Queue.lua#L365))
-  - `RequiresHardwareEvent` ([`../Src/Queue.lua#L389`](../Src/Queue.lua#L389))
-  - `SendNext` ([`../Src/Queue.lua#L394`](../Src/Queue.lua#L394))
-  - `BeginEntry` ([`../Src/Queue.lua#L422`](../Src/Queue.lua#L422))
-  - `HandleAck` ([`../Src/Queue.lua#L448`](../Src/Queue.lua#L448))
-  - `AssumeAck` ([`../Src/Queue.lua#L456`](../Src/Queue.lua#L456))
-  - `RawSend` ([`../Src/Queue.lua#L466`](../Src/Queue.lua#L466))
-  - `Complete` ([`../Src/Queue.lua#L490`](../Src/Queue.lua#L490))
-  - `OnChatEvent` ([`../Src/Queue.lua#L504`](../Src/Queue.lua#L504))
-  - `OnOpenChat` ([`../Src/Queue.lua#L551`](../Src/Queue.lua#L551))
-  - `TryContinue` ([`../Src/Queue.lua#L563`](../Src/Queue.lua#L563))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L581`](../Src/Queue.lua#L581))
-  - `CancelStallTimer` ([`../Src/Queue.lua#L599`](../Src/Queue.lua#L599))
-  - `OnStallTimeout` ([`../Src/Queue.lua#L606`](../Src/Queue.lua#L606))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L630`](../Src/Queue.lua#L630))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L690`](../Src/Queue.lua#L690))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L727`](../Src/Queue.lua#L727))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L738`](../Src/Queue.lua#L738))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L771`](../Src/Queue.lua#L771))
-  - `Cancel` ([`../Src/Queue.lua#L778`](../Src/Queue.lua#L778))
+  - `RequiresHardwareEvent` ([`../Src/Queue.lua#L390`](../Src/Queue.lua#L390))
+  - `SendNext` ([`../Src/Queue.lua#L395`](../Src/Queue.lua#L395))
+  - `BeginEntry` ([`../Src/Queue.lua#L423`](../Src/Queue.lua#L423))
+  - `HandleAck` ([`../Src/Queue.lua#L449`](../Src/Queue.lua#L449))
+  - `AssumeAck` ([`../Src/Queue.lua#L457`](../Src/Queue.lua#L457))
+  - `RawSend` ([`../Src/Queue.lua#L467`](../Src/Queue.lua#L467))
+  - `Complete` ([`../Src/Queue.lua#L491`](../Src/Queue.lua#L491))
+  - `OnChatEvent` ([`../Src/Queue.lua#L505`](../Src/Queue.lua#L505))
+  - `OnOpenChat` ([`../Src/Queue.lua#L552`](../Src/Queue.lua#L552))
+  - `TryContinue` ([`../Src/Queue.lua#L564`](../Src/Queue.lua#L564))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L582`](../Src/Queue.lua#L582))
+  - `CancelStallTimer` ([`../Src/Queue.lua#L600`](../Src/Queue.lua#L600))
+  - `OnStallTimeout` ([`../Src/Queue.lua#L607`](../Src/Queue.lua#L607))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L631`](../Src/Queue.lua#L631))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L691`](../Src/Queue.lua#L691))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L728`](../Src/Queue.lua#L728))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L739`](../Src/Queue.lua#L739))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L772`](../Src/Queue.lua#L772))
+  - `Cancel` ([`../Src/Queue.lua#L779`](../Src/Queue.lua#L779))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
@@ -624,23 +631,24 @@ Lazy frame creation; active only when user enters multiline mode.
 
 - Description: Expanded multiline editor that bypasses single-line overlay.
 - Fields:
-  - `Frame` ([`../Src/Multiline.lua#L50`](`../Src/Multiline.lua#L50`))
-  - `ScrollFrame` ([`../Src/Multiline.lua#L51`](`../Src/Multiline.lua#L51`))
-  - `EditBox` ([`../Src/Multiline.lua#L52`](`../Src/Multiline.lua#L52`))
-  - `LabelFS` ([`../Src/Multiline.lua#L53`](`../Src/Multiline.lua#L53`))
-  - `Active` ([`../Src/Multiline.lua#L54`](`../Src/Multiline.lua#L54`))
-  - `ChatType` ([`../Src/Multiline.lua#L55`](`../Src/Multiline.lua#L55`))
-  - `Language` ([`../Src/Multiline.lua#L56`](`../Src/Multiline.lua#L56`))
-  - `Target` ([`../Src/Multiline.lua#L57`](`../Src/Multiline.lua#L57`))
+  - `Frame` ([`../Src/Multiline.lua#L47`](`../Src/Multiline.lua#L47`))
+  - `ScrollFrame` ([`../Src/Multiline.lua#L48`](`../Src/Multiline.lua#L48`))
+  - `EditBox` ([`../Src/Multiline.lua#L49`](`../Src/Multiline.lua#L49`))
+  - `LabelFS` ([`../Src/Multiline.lua#L50`](`../Src/Multiline.lua#L50`))
+  - `Active` ([`../Src/Multiline.lua#L189`](`../Src/Multiline.lua#L189`))
+  - `ChatType` ([`../Src/Multiline.lua#L51`](`../Src/Multiline.lua#L51`))
+  - `Language` ([`../Src/Multiline.lua#L52`](`../Src/Multiline.lua#L52`))
+  - `Target` ([`../Src/Multiline.lua#L53`](`../Src/Multiline.lua#L53`))
 - Methods:
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L107`](`../Src/Multiline.lua#L107`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L141`](`../Src/Multiline.lua#L141`))
-  - `Enter` ([`../Src/Multiline.lua#L497`](`../Src/Multiline.lua#L497`))
-  - `Exit` ([`../Src/Multiline.lua#L615`](`../Src/Multiline.lua#L615`))
-  - `Submit` ([`../Src/Multiline.lua#L732`](`../Src/Multiline.lua#L732`))
-  - `Cancel` ([`../Src/Multiline.lua#L868`](`../Src/Multiline.lua#L868`))
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L881`](`../Src/Multiline.lua#L881`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L898`](`../Src/Multiline.lua#L898`))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L103`](`../Src/Multiline.lua#L103`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L136`](`../Src/Multiline.lua#L136`))
+  - `Enter` ([`../Src/Multiline.lua#L492`](`../Src/Multiline.lua#L492`))
+  - `Exit` ([`../Src/Multiline.lua#L602`](`../Src/Multiline.lua#L602`))
+  - `Submit` ([`../Src/Multiline.lua#L718`](`../Src/Multiline.lua#L718`))
+  - `Cancel` ([`../Src/Multiline.lua#L852`](`../Src/Multiline.lua#L852`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L878`](`../Src/Multiline.lua#L878`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L865`](`../Src/Multiline.lua#L865`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L887`](`../Src/Multiline.lua#L887`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -667,20 +675,20 @@ Initialised on `ADDON_LOADED`; hooks overlay on `PLAYER_ENTERING_WORLD`.
 
 - Description: Persistent chat history, draft store, undo/redo snapshots.
 - Methods:
-  - `History:SaveDraft(editBox, isMultiline) → nil`: Save a draft from any EditBox (overlay or multiline). ([`../Src/History.lua#L192`](../Src/History.lua#L192))
-  - `History:GetDraft() → string? text, string? chatType, string? target, boolean? multiline`: Return the saved draft if dirty. ([`../Src/History.lua#L222`](../Src/History.lua#L222))
-  - `InitDB` ([`../Src/History.lua#L69`](`../Src/History.lua#L69`))
-  - `SaveDB` ([`../Src/History.lua#L110`](`../Src/History.lua#L110`))
-  - `AddChatHistory` ([`../Src/History.lua#L131`](`../Src/History.lua#L131`))
-  - `GetChatHistory` ([`../Src/History.lua#L168`](`../Src/History.lua#L168`))
-  - `GetDraftStore` ([`../Src/History.lua#L179`](`../Src/History.lua#L179`))
-  - `MarkDirty` ([`../Src/History.lua#L231`](`../Src/History.lua#L231`))
-  - `ClearDraft` ([`../Src/History.lua#L236`](`../Src/History.lua#L236`))
-  - `CancelPauseTimer` ([`../Src/History.lua#L256`](`../Src/History.lua#L256`))
-  - `AddSnapshot` ([`../Src/History.lua#L286`](`../Src/History.lua#L286`))
-  - `Undo` ([`../Src/History.lua#L330`](`../Src/History.lua#L330`))
-  - `Redo` ([`../Src/History.lua#L346`](`../Src/History.lua#L346`))
-  - `HookOverlayEditBox` ([`../Src/History.lua#L374`](`../Src/History.lua#L374`))
+  - `History:SaveDraft(editBox, isMultiline) → nil`: Save a draft from any EditBox (overlay or multiline). ([`../Src/History.lua#L195`](../Src/History.lua#L195))
+  - `History:GetDraft() → string? text, string? chatType, string? target, boolean? multiline`: Return the saved draft if dirty. ([`../Src/History.lua#L225`](../Src/History.lua#L225))
+  - `InitDB` ([`../Src/History.lua#L72`](`../Src/History.lua#L72`))
+  - `SaveDB` ([`../Src/History.lua#L113`](`../Src/History.lua#L113`))
+  - `AddChatHistory` ([`../Src/History.lua#L134`](`../Src/History.lua#L134`))
+  - `GetChatHistory` ([`../Src/History.lua#L171`](`../Src/History.lua#L171`))
+  - `GetDraftStore` ([`../Src/History.lua#L182`](`../Src/History.lua#L182`))
+  - `MarkDirty` ([`../Src/History.lua#L234`](`../Src/History.lua#L234`))
+  - `ClearDraft` ([`../Src/History.lua#L239`](`../Src/History.lua#L239`))
+  - `CancelPauseTimer` ([`../Src/History.lua#L259`](`../Src/History.lua#L259`))
+  - `AddSnapshot` ([`../Src/History.lua#L289`](`../Src/History.lua#L289`))
+  - `Undo` ([`../Src/History.lua#L333`](`../Src/History.lua#L333`))
+  - `Redo` ([`../Src/History.lua#L349`](`../Src/History.lua#L349`))
+  - `HookOverlayEditBox` ([`../Src/History.lua#L377`](`../Src/History.lua#L377`))
 - Global state touched:
   - `_G.YapperLocalHistory`.
 
@@ -692,18 +700,18 @@ Loaded with defaults; active theme restored on `ADDON_LOADED`.
 - Fields:
   - `_registry`, `_current` *private by convention; do not rely on* ([`../Src/Theme.lua#L16-L17`](../Src/Theme.lua#L16-L17)).
 - Methods:
-  - [TODO] `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L250`](../Src/Theme.lua#L250))
-  - `RegisterTheme` ([`../Src/Theme.lua#L24`](`../Src/Theme.lua#L24`))
-  - `GetTheme` ([`../Src/Theme.lua#L30`](`../Src/Theme.lua#L30`))
-  - `GetRegisteredNames` ([`../Src/Theme.lua#L35`](`../Src/Theme.lua#L35`))
-  - `SetTheme` ([`../Src/Theme.lua#L43`](`../Src/Theme.lua#L43`))
-  - `ApplyToFrame` ([`../Src/Theme.lua#L107`](`../Src/Theme.lua#L107`))
-  - `GetCurrentName` ([`../Src/Theme.lua#L183`](`../Src/Theme.lua#L183`))
-  - `SetLiveTheme` ([`../Src/Theme.lua#L194`](`../Src/Theme.lua#L194`))
+  - `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L251`](../Src/Theme.lua#L251))
+  - `RegisterTheme` ([`../Src/Theme.lua#L25`](`../Src/Theme.lua#L25`))
+  - `GetTheme` ([`../Src/Theme.lua#L31`](`../Src/Theme.lua#L31`))
+  - `GetRegisteredNames` ([`../Src/Theme.lua#L36`](`../Src/Theme.lua#L36`))
+  - `SetTheme` ([`../Src/Theme.lua#L44`](`../Src/Theme.lua#L44`))
+  - `ApplyToFrame` ([`../Src/Theme.lua#L108`](`../Src/Theme.lua#L108`))
+  - `GetCurrentName` ([`../Src/Theme.lua#L184`](`../Src/Theme.lua#L184`))
+  - `SetLiveTheme` ([`../Src/Theme.lua#L195`](`../Src/Theme.lua#L195`))
   - `SetTheme` logic switches between `_G.YapperDB` and `_G.YapperLocalConf` as the root for `_appliedTheme` based on `UseGlobalProfile`.
-  - Global wrappers on root table: `Yapper:RegisterTheme` ([`../Src/Theme.lua#L24`](`../Src/Theme.lua#L24`))
-  - Global wrappers on root table: `Yapper:SetTheme` ([`../Src/Theme.lua#L43`](`../Src/Theme.lua#L43`))
-  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L250`](`../Src/Theme.lua#L250`))
+  - Global wrappers on root table: `Yapper:RegisterTheme` ([`../Src/Theme.lua#L25`](`../Src/Theme.lua#L25`))
+  - Global wrappers on root table: `Yapper:SetTheme` ([`../Src/Theme.lua#L44`](`../Src/Theme.lua#L44`))
+  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L251`](`../Src/Theme.lua#L251`))
 - Callbacks fired:
   - `THEME_CHANGED`.
 
@@ -718,10 +726,10 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `DICTIONARY_DOWNLOAD_URL` ([`../Src/Interface.lua#L12`](`../Src/Interface.lua#L12`))
   - Helpers/constants exported as underscored fields (`_LAYOUT`, `_LayoutCursor`, `_UI_FONT_*`) *private by convention; do not rely on* ([`../Src/Interface.lua#L120-L124`](../Src/Interface.lua#L120-L124)).
 - Methods:
-  - [TODO] `LayoutCursor:Pad() → nil`: No description provided. ([`../Src/Interface.lua#L115`](../Src/Interface.lua#L115))
-  - [TODO] `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L110`](../Src/Interface.lua#L110))
-  - [TODO] `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L106`](../Src/Interface.lua#L106))
-  - [TODO] `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L102`](../Src/Interface.lua#L102))
+  - `LayoutCursor:Pad() → nil`: No description provided. ([`../Src/Interface.lua#L115`](../Src/Interface.lua#L115))
+  - `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L110`](../Src/Interface.lua#L110))
+  - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L106`](../Src/Interface.lua#L106))
+  - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L102`](../Src/Interface.lua#L102))
   - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
   - `BuildConfigUI` ([`../Src/Interface.lua#L440`](`../Src/Interface.lua#L440`))
   - `ShowMainWindow` ([`../Src/Interface.lua#L720`](`../Src/Interface.lua#L720`))
@@ -753,7 +761,7 @@ Handles config reads/writes and side-effect fan-out.
 
 - Description: Config root/path helpers, sanitisation, minimap controls.
 - Methods:
-  - [TODO] `Interface:ResetAllSettings() → nil`: Reset all configuration settings to their default values. ([`../Src/Interface/Config.lua#L50`](../Src/Interface/Config.lua#L50))
+  - `Interface:ResetAllSettings() → nil`: Reset all configuration settings to their default values. ([`../Src/Interface/Config.lua#L50`](../Src/Interface/Config.lua#L50))
   - `GetLocalConfigRoot` ([`../Src/Interface/Config.lua#L34`](`../Src/Interface/Config.lua#L34`))
   - `GetDefaultsRoot` ([`../Src/Interface/Config.lua#L41`](`../Src/Interface/Config.lua#L41`))
   - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L75`](`../Src/Interface/Config.lua#L75`))
