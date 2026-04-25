@@ -12,6 +12,7 @@ local YapperName, YapperTable = ...
 
 local Chat = {}
 YapperTable.Chat = Chat
+local State = YapperTable.State
 
 -- Types we split for.
 local SPLITTABLE = {
@@ -109,8 +110,8 @@ function Chat:OnSend(text, chatType, language, target)
     -- GopherBridge is active — Gopher manages its own queue).
     local bridge = YapperTable.GopherBridge
     if not (bridge and bridge:IsActive()) then
-        if YapperTable.Queue and YapperTable.Queue.Active then
-            if YapperTable.Queue.NeedsContinue then
+        if State and State:IsBusy() then
+            if YapperTable.Queue and YapperTable.Queue.NeedsContinue then
                 YapperTable.Queue:OnOpenChat()
                 return
             end

@@ -58,6 +58,7 @@ Register/unregister:
 - `POST_SEND(text, chatType, language, target)`
 - `POST_CLAIMED(handle, text, chatType, language, target)`
 - `CONFIG_CHANGED(path, value)`
+- `STATE_CHANGED(newState, oldState, ...)`
 - `EDITBOX_SHOW(chatType, target)`
 - `EDITBOX_HIDE()`
 - `EDITBOX_CHANNEL_CHANGED(chatType, target)`
@@ -132,3 +133,9 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 - `YapperAPI:HideIconGallery() → nil` ([`#L1099`](../Src/API.lua#L1099))
 - `YapperAPI:IsIconGalleryShown() → boolean` ([`#L1105`](../Src/API.lua#L1105))
 - `YapperAPI:GetRaidIconData() → table[]` ([`#L1112`](../Src/API.lua#L1112))
+
+## Public API
+
+- Methods:
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1164`](../Src/API.lua#L1164))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1129`](../Src/API.lua#L1129))

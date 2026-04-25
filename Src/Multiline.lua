@@ -30,6 +30,7 @@ local _, YapperTable = ...
 
 local Multiline = {}
 YapperTable.Multiline = Multiline
+local State = YapperTable.State
 
 -- Localise Lua globals for performance
 local type       = type
@@ -569,6 +570,10 @@ function Multiline:Enter(text, chatType, language, target)
 	-- Active after Hide, the guard fails and the overlay re-opens,
 	-- stealing keyboard focus and making the caret invisible.
 	self.Active = true
+
+	if State then
+		State:ToMultiline()
+	end
 
 	-- Position the frame using absolute UIParent coordinates captured
 	-- from the overlay and ChatFrame1 before the overlay is hidden.

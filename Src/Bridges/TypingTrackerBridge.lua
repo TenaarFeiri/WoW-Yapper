@@ -337,15 +337,19 @@ end
 -- is the forward-looking pattern.
 
 if _G.YapperAPI then
-    _G.YapperAPI:RegisterCallback("EDITBOX_SHOW", function(chatType)
-        if Bridge.Enabled then Bridge:OnOverlayFocusGained(chatType) end
+    _G.YapperAPI:RegisterCallback("STATE_CHANGED", function(newState, oldState, chatType)
+        if not Bridge.Enabled then return end
+
+        local State = YapperTable.State
+        if State:IsInputActive() then
+            -- Use the chatType passed during transition, or fall back to overlay state, or default.
+            local effectiveChatType = chatType or (YapperTable.EditBox and YapperTable.EditBox.ChatType) or "SAY"
+            Bridge:OnOverlayFocusGained(effectiveChatType)
+        elseif newState == "SENDING" or newState == "IDLE" then
+            Bridge:OnOverlayFocusLost()
+        end
     end)
-    _G.YapperAPI:RegisterCallback("EDITBOX_HIDE", function()
-        if Bridge.Enabled then Bridge:OnOverlayFocusLost() end
-    end)
-    _G.YapperAPI:RegisterCallback("POST_SEND", function()
-        if Bridge.Enabled then Bridge:OnOverlaySent() end
-    end)
+
     _G.YapperAPI:RegisterCallback("EDITBOX_CHANNEL_CHANGED", function(chatType)
         if Bridge.Enabled then Bridge:OnChannelChanged(chatType) end
     end)

@@ -7,6 +7,7 @@
 
 local _, YapperTable = ...
 local EditBox        = YapperTable.EditBox
+local State          = YapperTable.State
 
 -- Re-localise shared helpers from hub.
 local SLASH_MAP            = EditBox._SLASH_MAP
@@ -80,7 +81,7 @@ function EditBox:SetupOverlayScripts()
 
         -- Auto-expand into multiline when text fills the overlay.
         local ml = YapperTable.Multiline
-        if ml and type(ml.ShouldAutoExpand) == "function" and not ml.Active then
+        if ml and type(ml.ShouldAutoExpand) == "function" and not (State and State:IsMultiline()) then
             local textW = box.GetStringWidth and box:GetStringWidth() or 0
             local boxW  = box.GetWidth and box:GetWidth() or 0
             if ml:ShouldAutoExpand(textW, boxW) then
@@ -221,7 +222,7 @@ function EditBox:SetupOverlayScripts()
         if IsShiftKeyDown() then return end
         -- Also bail if multiline transition just started.
         local ml = YapperTable.Multiline
-        if ml and ml.Active then return end
+        if State and State:IsMultiline() then return end
         local text = box:GetText() or ""
         local trimmed = strmatch(text, "^%s*(.-)%s*$") or ""
 
@@ -401,11 +402,7 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
-        local lang = self.Language
-        if not lang then
-            -- Fallback to sticky choice or character default.
-            lang = (self.LastUsed and self.LastUsed.language) or (GetDefaultLanguage and GetDefaultLanguage())
-        end
+        local lang = YapperTable.Core:GetCharacterLanguage(self.Language or (self.LastUsed and self.LastUsed.language))
 
         if self.OnSend then
             self.OnSend(trimmed, self.ChatType or "SAY", lang, self.Target)
@@ -526,7 +523,7 @@ function EditBox:SetupOverlayScripts()
         if key == "ENTER" and IsShiftKeyDown() then
             -- Shift+Enter: expand into multi-line storyteller editor.
             local ml = YapperTable.Multiline
-            if ml and type(ml.Enter) == "function" and not ml.Active then
+            if ml and type(ml.Enter) == "function" and not (State and State:IsMultiline()) then
                 local text = box:GetText() or ""
                 ml:Enter(text, self.ChatType, self.Language, self.Target)
                 return
@@ -691,6 +688,9 @@ function EditBox:SetupOverlayScripts()
         elseif event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED" then
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
+            if State then
+                State:ToIdle()
+            end
             -- If we saved a draft during lockdown, poll until lockdown
             -- is truly over (checks every 1s for up to 5s).
             if self._lockdown.handedOff then

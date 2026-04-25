@@ -11,6 +11,7 @@ DOCS_DIR = os.path.join(ROOT_DIR, "Documentation")
 # Mapping from Lua file (relative to Src/) to Markdown section in Internals.md
 FILE_SECTION_MAP = {
     "API.lua": ("API.md", "## Public API"), # Special case: separate file
+    "State.lua": ("Internals.md", "## State"),
     "Core.lua": ("Internals.md", "## Core"),
     "Utils.lua": ("Internals.md", "## Utilities"),
     "Events.lua": ("Internals.md", "## Event System"),

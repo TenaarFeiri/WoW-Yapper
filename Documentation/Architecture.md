@@ -13,6 +13,7 @@ Src/Error.lua
 Src/Frames.lua
 Src/Events.lua
 Src/API.lua
+Src/State.lua
 Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
 Src/Spellcheck/YALLM.lua
@@ -99,6 +100,9 @@ User input / WoW chat events
   │
   └─ Settings/UI
       Interface + Theme + History + API callbacks/filters
+  
+  └─ Orchestration
+      State machine (State.lua)
 ```
 
 ## Hot path 1: Send path

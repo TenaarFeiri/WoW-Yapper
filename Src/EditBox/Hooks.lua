@@ -8,6 +8,7 @@
 
 local _, YapperTable = ...
 local EditBox        = YapperTable.EditBox
+local State          = YapperTable.State
 
 -- Re-localise shared helpers from hub.
 local SLASH_MAP                = EditBox._SLASH_MAP
@@ -78,11 +79,11 @@ function EditBox:Show(origEditBox)
     -- If the multiline EditBox has lost focus (e.g. user clicked elsewhere),
     -- reclaim it here so Enter reliably activates the expanded editor.
     local ml = YapperTable and YapperTable.Multiline
-    if ml and ml.Active then
+    if State and State:IsMultiline() then
         if ml.EditBox and ml.EditBox.SetFocus then
             local mlb = ml.EditBox
             C_Timer.After(0, function()
-                if ml.Active and mlb and mlb.SetFocus then
+                if State:IsMultiline() and mlb and mlb.SetFocus then
                     mlb:SetFocus()
                 end
             end)
@@ -360,6 +361,10 @@ function EditBox:Show(origEditBox)
         origEditBox:SetText("")
     end
 
+    if State then
+        State:ToEditing()
+    end
+
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_SHOW", self.ChatType, self.Target)
     end
@@ -402,6 +407,12 @@ function EditBox:Hide()
         end)
     end
 
+    -- Transition to IDLE state, but only if we're not currently in LOCKDOWN
+    -- or transitioning into MULTILINE mode.
+    if State and not (State:IsLockdown() or State:IsMultiline()) then
+        State:ToIdle()
+    end
+
     -- EDITBOX_HIDE callback: notify external addons.
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_HIDE")
@@ -416,6 +427,10 @@ function EditBox:HandoffToBlizzard(silent)
     end
     YapperTable.Utils:DebugPrint("Executing HandoffToBlizzard...")
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+
+    if State then
+        State:ToLockdown()
+    end
 
     -- Centralised lockdown cleanup (cancels timers/tickers).
     self:ClearLockdownState()

@@ -11,6 +11,7 @@ local YapperName, YapperTable = ...
 
 local Queue = {}
 YapperTable.Queue = Queue
+local State = YapperTable.State
 
 -- Localise Lua globals for performance
 local table_insert = table.insert
@@ -370,6 +371,10 @@ function Queue:Flush(inHardwareEvent)
 
     self:EnableEscapeCancel()
 
+    if State then
+        State:ToSending()
+    end
+
     self:SendNext(inHardwareEvent == true)
 end
 
@@ -480,6 +485,9 @@ end
 
 function Queue:Complete()
     self:Reset()
+    if State then
+        State:ToIdle()
+    end
     if YapperTable.API then
         YapperTable.API:Fire("QUEUE_COMPLETE")
     end
@@ -540,6 +548,10 @@ function Queue:OnOpenChat(...)
     if not self.NeedsContinue then return end
     self.NeedsContinue = false
 
+    if State then
+        State:ToSending()
+    end
+
     self:SendNext(true)
 end
 
@@ -597,6 +609,10 @@ function Queue:OnStallTimeout()
     self.PendingEntry = nil
     self:ClearPendingAck()
     self:ShowContinuePrompt()
+
+    if State then
+        State:ToStalled()
+    end
 
     if YapperTable.API then
         YapperTable.API:Fire("QUEUE_STALL", entry.type, policyClass, #self.Entries)
@@ -758,6 +774,10 @@ end
 function Queue:Cancel()
     local discarded = #self.Entries + (self.PendingEntry and 1 or 0)
     self:Reset()
+
+    if State then
+        State:ToIdle()
+    end
 
     if discarded > 0 then
         YapperTable.Utils:Print(
