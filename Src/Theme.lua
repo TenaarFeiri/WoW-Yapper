@@ -166,6 +166,7 @@ end
 
 -- Wrap original ApplyToFrame to emit diagnostics when Verbose logging is enabled.
 local _origApply = Theme.ApplyToFrame
+---@diagnostic disable-next-line: duplicate-set-field
 function Theme:ApplyToFrame(frame, name)
     local ok, res = pcall(_origApply, self, frame, name)
     if ok then

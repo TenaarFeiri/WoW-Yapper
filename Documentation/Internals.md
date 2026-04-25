@@ -168,16 +168,16 @@ Used lazily by `GetDictionary`, locale switches, and LOD registration.
 - Methods:
   - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L34`](../Src/Spellcheck/Dictionary.lua#L34))
   - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L61`](../Src/Spellcheck/Dictionary.lua#L61))
-  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L307`](../Src/Spellcheck/Dictionary.lua#L307))
-  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L352`](../Src/Spellcheck/Dictionary.lua#L352))
-  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L361`](../Src/Spellcheck/Dictionary.lua#L361))
-  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L366`](../Src/Spellcheck/Dictionary.lua#L366))
-  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L397`](../Src/Spellcheck/Dictionary.lua#L397))
-  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L409`](../Src/Spellcheck/Dictionary.lua#L409))
-  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L423`](../Src/Spellcheck/Dictionary.lua#L423))
-  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L438`](../Src/Spellcheck/Dictionary.lua#L438))
-  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L444`](../Src/Spellcheck/Dictionary.lua#L444))
-  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L494`](../Src/Spellcheck/Dictionary.lua#L494))
+  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L308`](../Src/Spellcheck/Dictionary.lua#L308))
+  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L353`](../Src/Spellcheck/Dictionary.lua#L353))
+  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L362`](../Src/Spellcheck/Dictionary.lua#L362))
+  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L367`](../Src/Spellcheck/Dictionary.lua#L367))
+  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L398`](../Src/Spellcheck/Dictionary.lua#L398))
+  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L410`](../Src/Spellcheck/Dictionary.lua#L410))
+  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L424`](../Src/Spellcheck/Dictionary.lua#L424))
+  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L439`](../Src/Spellcheck/Dictionary.lua#L439))
+  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L445`](../Src/Spellcheck/Dictionary.lua#L445))
+  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L488`](../Src/Spellcheck/Dictionary.lua#L488))
 - Side effects:
   - Schedules `C_Timer.After(0, ...)` chunk processing and refresh tickers.
 
@@ -436,11 +436,11 @@ Initialised by `Chat:Init`.
   - `active: boolean` ([`../Src/Bridges/GopherBridge.lua#L25`](`../Src/Bridges/GopherBridge.lua#L25`))
   - `_gopher: table|nil` ([`../Src/Bridges/GopherBridge.lua#L26`](`../Src/Bridges/GopherBridge.lua#L26`))
 - Methods:
-  - `Init` ([`../Src/Bridges/GopherBridge.lua#L53`](`../Src/Bridges/GopherBridge.lua#L53`))
-  - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L75`](`../Src/Bridges/GopherBridge.lua#L75`))
-  - `Send` ([`../Src/Bridges/GopherBridge.lua#L103`](`../Src/Bridges/GopherBridge.lua#L103`))
-  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L147`](`../Src/Bridges/GopherBridge.lua#L147`))
-  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L154`](`../Src/Bridges/GopherBridge.lua#L154`))
+  - `Init` ([`../Src/Bridges/GopherBridge.lua#L54`](`../Src/Bridges/GopherBridge.lua#L54`))
+  - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L76`](`../Src/Bridges/GopherBridge.lua#L76`))
+  - `Send` ([`../Src/Bridges/GopherBridge.lua#L104`](`../Src/Bridges/GopherBridge.lua#L104`))
+  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L148`](`../Src/Bridges/GopherBridge.lua#L148`))
+  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L155`](`../Src/Bridges/GopherBridge.lua#L155`))
 
 ## TypingTrackerBridge
 
@@ -662,18 +662,18 @@ Loaded with defaults; active theme restored on `ADDON_LOADED`.
 - Fields:
   - `_registry`, `_current` *private by convention; do not rely on* ([`../Src/Theme.lua#L16-L17`](../Src/Theme.lua#L16-L17)).
 - Methods:
-  - [TODO] `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L249`](../Src/Theme.lua#L249))
+  - [TODO] `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L250`](../Src/Theme.lua#L250))
   - `RegisterTheme` ([`../Src/Theme.lua#L24`](`../Src/Theme.lua#L24`))
   - `GetTheme` ([`../Src/Theme.lua#L30`](`../Src/Theme.lua#L30`))
   - `GetRegisteredNames` ([`../Src/Theme.lua#L35`](`../Src/Theme.lua#L35`))
   - `SetTheme` ([`../Src/Theme.lua#L43`](`../Src/Theme.lua#L43`))
   - `ApplyToFrame` ([`../Src/Theme.lua#L107`](`../Src/Theme.lua#L107`))
-  - `GetCurrentName` ([`../Src/Theme.lua#L182`](`../Src/Theme.lua#L182`))
-  - `SetLiveTheme` ([`../Src/Theme.lua#L193`](`../Src/Theme.lua#L193`))
+  - `GetCurrentName` ([`../Src/Theme.lua#L183`](`../Src/Theme.lua#L183`))
+  - `SetLiveTheme` ([`../Src/Theme.lua#L194`](`../Src/Theme.lua#L194`))
   - `SetTheme` logic switches between `_G.YapperDB` and `_G.YapperLocalConf` as the root for `_appliedTheme` based on `UseGlobalProfile`.
   - Global wrappers on root table: `Yapper:RegisterTheme` ([`../Src/Theme.lua#L24`](`../Src/Theme.lua#L24`))
   - Global wrappers on root table: `Yapper:SetTheme` ([`../Src/Theme.lua#L43`](`../Src/Theme.lua#L43`))
-  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L249`](`../Src/Theme.lua#L249`))
+  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L250`](`../Src/Theme.lua#L250`))
 - Callbacks fired:
   - `THEME_CHANGED`.
 
@@ -693,16 +693,16 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - [TODO] `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L106`](../Src/Interface.lua#L106))
   - [TODO] `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L102`](../Src/Interface.lua#L102))
   - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
-  - `BuildConfigUI` ([`../Src/Interface.lua#L442`](`../Src/Interface.lua#L442`))
-  - `ShowMainWindow` ([`../Src/Interface.lua#L722`](`../Src/Interface.lua#L722`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L732`](`../Src/Interface.lua#L732`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L743`](`../Src/Interface.lua#L743`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L773`](`../Src/Interface.lua#L773`))
-  - `CloseFrame` ([`../Src/Interface.lua#L804`](`../Src/Interface.lua#L804`))
-  - `Init` ([`../Src/Interface.lua#L815`](`../Src/Interface.lua#L815`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L839`](`../Src/Interface.lua#L839`))
+  - `BuildConfigUI` ([`../Src/Interface.lua#L440`](`../Src/Interface.lua#L440`))
+  - `ShowMainWindow` ([`../Src/Interface.lua#L720`](`../Src/Interface.lua#L720`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L730`](`../Src/Interface.lua#L730`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L741`](`../Src/Interface.lua#L741`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L771`](`../Src/Interface.lua#L771`))
+  - `CloseFrame` ([`../Src/Interface.lua#L802`](`../Src/Interface.lua#L802`))
+  - `Init` ([`../Src/Interface.lua#L813`](`../Src/Interface.lua#L813`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L837`](`../Src/Interface.lua#L837`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L791`](../Src/Interface.lua#L791)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L789`](../Src/Interface.lua#L789)).
 
 ## Interface.Schema
 

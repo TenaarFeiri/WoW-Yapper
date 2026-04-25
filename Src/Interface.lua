@@ -381,8 +381,6 @@ function Interface:InitPopups()
             OnCancel = function()
                 if C_AddOns and C_AddOns.DisableAddOn then
                     C_AddOns.DisableAddOn("RPPrefix")
-                elseif DisableAddOn then
-                    DisableAddOn("RPPrefix")
                 end
                 ReloadUI()
             end,
@@ -944,7 +942,7 @@ function Interface:CreateLauncher()
             end)
             btn:SetScript("OnEnter", function(selfFrame)
                 GameTooltip:SetOwner(selfFrame, "ANCHOR_TOPLEFT")
-                GameTooltip:SetText(YapperName)
+                GameTooltip:SetText(YapperName, 1, 1, 1)
                 GameTooltip:AddLine(" ")
                 for _, line in ipairs(tooltipLines) do
                     GameTooltip:AddLine(line, 0.6, 0.6, 0.6)

@@ -220,7 +220,7 @@ function Router:DetectCommunityChannel(channelTarget)
 
     local clubId, streamId = name:match("^Community:(%d+):(%d+)$")
     if clubId and streamId then
-        return true, tonumber(clubId), tonumber(streamId)
+        return true, clubId, streamId
     end
     return false
 end

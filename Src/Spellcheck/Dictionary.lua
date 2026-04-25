@@ -264,6 +264,7 @@ function Spellcheck:RegisterDictionary(locale, data)
             ngramIndex2  = nil
             ngramIndex3  = nil
             phonetics    = nil
+            ---@diagnostic disable-next-line: assign-type-mismatch, cast-local-type
             processWord  = nil
             return
         end
@@ -470,13 +471,6 @@ function Spellcheck:EnsureLocale(locale)
                 end
                 return false
             elseif isLoaded and not self:IsLocaleAvailable(locale) then
-                return false
-            end
-        elseif LoadAddOn then
-            local isLoaded = IsAddOnLoaded(addon)
-            local loaded = LoadAddOn(addon)
-            if loaded == false then return false end
-            if isLoaded and not self:IsLocaleAvailable(locale) then
                 return false
             end
         end

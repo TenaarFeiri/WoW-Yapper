@@ -34,11 +34,12 @@ local PASSTHROUGH_CHUNK_SIZE  = 6000
 
 --- Find and return the LibGopher public table, or nil.
 local function FindGopher()
+    ---@diagnostic disable-next-line: undefined-field
     if _G.LibGopher and type(_G.LibGopher) == "table" then
         return _G.LibGopher
     end
     if _G.LibStub then
-        local ok, lib = pcall(_G.LibStub, _G.LibStub, "Gopher", true)
+        local ok, lib = pcall(function(...) return _G.LibStub(...) end, "Gopher", true)
         if ok and lib then return lib end
     end
     return nil
