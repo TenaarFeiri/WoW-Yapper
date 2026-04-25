@@ -22,17 +22,17 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 - Fields:
   - `Yapper.Config: table` live config root ([`../Src/Core.lua#L269`](../Src/Core.lua#L269)).
 - Methods:
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L722`](../Src/Core.lua#L722))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L519`](../Src/Core.lua#L519))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L291`](../Src/Core.lua#L291))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L720`](../Src/Core.lua#L720))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L517`](../Src/Core.lua#L517))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L289`](../Src/Core.lua#L289))
   - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L274`](../Src/Core.lua#L274))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L417`](../Src/Core.lua#L417)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L542`](../Src/Core.lua#L542))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L546`](../Src/Core.lua#L546))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L550`](../Src/Core.lua#L550))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L563`](../Src/Core.lua#L563)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L629`](../Src/Core.lua#L629)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L743`](../Src/Core.lua#L743)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L415`](../Src/Core.lua#L415)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L540`](../Src/Core.lua#L540))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L544`](../Src/Core.lua#L544))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L548`](../Src/Core.lua#L548))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L561`](../Src/Core.lua#L561)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L627`](../Src/Core.lua#L627)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L741`](../Src/Core.lua#L741)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
