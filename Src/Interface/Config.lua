@@ -334,7 +334,11 @@ function Interface:PositionMinimapButton()
     if not self.MinimapButton or not _G.Minimap then return end
     local minimapCfg = self:GetMinimapButtonSettings()
     local angle = tonumber(minimapCfg.angle) or 220
-    local radius = ((_G.Minimap:GetWidth() or 140) / 2) + 10 + self:GetMinimapButtonOffset()
+    
+    local minimapWidth = _G.Minimap:GetWidth() or 0
+    if minimapWidth == 0 then minimapWidth = 140 end -- Default Retail size
+
+    local radius = (minimapWidth / 2) + 10 + self:GetMinimapButtonOffset()
     local rad = math_rad(angle)
     local x = math_cos(rad) * radius
     local y = math_sin(rad) * radius
@@ -360,18 +364,27 @@ function Interface:UpdateMinimapButtonAngleFromCursor()
 end
 
 function Interface:ApplyMinimapButtonVisibility()
-    local enabled = self:GetConfigPath({ "FrameSettings", "EnableMinimapButton" }) ~= false
-    local minimapCfg = self:GetMinimapButtonSettings()
-    minimapCfg.hide = not enabled
+    -- Always ensure the launcher is created before attempting to toggle visibility.
+    if not self.LauncherCreated then
+        self:CreateLauncher()
+    end
 
+    local enabled = self:GetConfigPath({ "FrameSettings", "EnableMinimapButton" }) ~= false
+
+    -- Handle LibDBIcon if available
     if self.DBIcon and self.MinimapLDBObject then
         if enabled then
             self.DBIcon:Show(YapperName)
         else
             self.DBIcon:Hide(YapperName)
         end
+        -- Sync the internal hide flag to the DB table so it persists correctly.
+        -- We do this AFTER the Show/Hide call to avoid confusing the library.
+        local minimapCfg = self:GetMinimapButtonSettings()
+        minimapCfg.hide = not enabled
     end
 
+    -- Handle manual fallback button
     if self.MinimapButton then
         if enabled then
             self.MinimapButton:Show()

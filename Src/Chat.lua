@@ -110,6 +110,10 @@ function Chat:OnSend(text, chatType, language, target)
     local bridge = YapperTable.GopherBridge
     if not (bridge and bridge:IsActive()) then
         if YapperTable.Queue and YapperTable.Queue.Active then
+            if YapperTable.Queue.NeedsContinue then
+                YapperTable.Queue:OnOpenChat()
+                return
+            end
             YapperTable.Utils:Print("Please wait — still sending previous message.")
             return
         end

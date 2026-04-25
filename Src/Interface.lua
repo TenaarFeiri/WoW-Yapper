@@ -851,8 +851,7 @@ function Interface:CreateLauncher()
                 func = Yapper_FromCompartment,
                 funcOnEnter = function(menuItem)
                     GameTooltip:SetOwner(menuItem, "ANCHOR_BOTTOMLEFT", -15, 20)
-                    ---@diagnostic disable-next-line: missing-parameter
-                    GameTooltip:SetText(YapperName)
+                    GameTooltip:SetText(YapperName, 1, 1, 1)
                     GameTooltip:AddLine(" ")
                     for _, line in ipairs(tooltipLines) do
                         GameTooltip:AddLine("|cFF00FF00" .. line .. "|r")
