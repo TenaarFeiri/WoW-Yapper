@@ -298,6 +298,12 @@ function Router:Send(msg, chatType, language, target)
 
     -- Standard SendChatMessage for everything else
     if self.SendChatMessage then
+        -- Do nothing if whispering an empty target.
+        if chatType == "WHISPER" then
+            if not target or target == nil or target == "" then
+                return false
+            end
+        end
         self.SendChatMessage(msg, chatType, language, target)
         return true
     end

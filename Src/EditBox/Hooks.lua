@@ -172,6 +172,12 @@ function EditBox:Show(origEditBox)
         self.Target   = nil
     end
 
+    -- Safeguard: Never open in a whisper state without a target.
+    if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and (not self.Target or self.Target == "") then
+        self.ChatType = "SAY"
+        self.Target   = nil
+    end
+
     -- Validate channel availability (e.g. you left the party/raid/instance).
     if not self:IsChatTypeAvailable(self.ChatType) then
         self.ChatType = "SAY"
@@ -702,6 +708,12 @@ function EditBox:PersistLastUsed()
     -- so we restore to whatever was sticky before YELL.
     if self.ChatType == "YELL" then
         return
+    end
+
+    if self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER" then
+        if not self.Target or self.Target == nil or self.Target == "" then
+            return
+        end
     end
 
     local cfg = YapperTable.Config.EditBox or {}
