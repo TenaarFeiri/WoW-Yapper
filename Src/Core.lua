@@ -268,6 +268,43 @@ local HISTORY_PARITY_SCHEMA = {
 -- Pre-ADDON_LOADED fallback — modules that read Config at load time get defaults.
 YapperTable.Config = DEFAULTS
 
+-- Add a cache for player languages.
+YapperTable.SpokenLanguages = {}
+
+function YapperTable.Core:BuildLanguageCache()
+    -- Wipe the cache so we can repopulate.
+    YapperTable.SpokenLanguages = {}
+    local langStr = nil
+    local langId = nil
+
+    for i = 1, GetNumLanguages() do
+        langStr, langId = GetLanguageInfo(i)
+        if langId and langStr then
+            YapperTable.SpokenLanguages[langStr] = langId
+        end
+    end
+end
+
+--- Get the language or defaults if not present.
+--- @param lang string|number|nil lang is case-sensitive. Capitalise language names ("Common", not "common", etc.)
+--- @return number langId
+function YapperTable.Core:GetCharacterLanguage(lang)
+    if type(lang) ~= "string" then
+        if type(lang) == "number" then
+            return lang
+        end
+    end
+
+    -- Find language in cache
+    if YapperTable.SpokenLanguages[lang] then
+        return YapperTable.SpokenLanguages[lang]
+    end
+
+    -- If not present, use default.
+    local _, langId = GetDefaultLanguage()
+    return langId
+end
+
 -- ---------------------------------------------------------------------------
 -- SavedVariable initialisation
 -- ---------------------------------------------------------------------------

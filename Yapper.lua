@@ -192,6 +192,9 @@ local function OnPlayerEnteringWorld()
     end
 
     YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
+
+    -- After unregistering, build the language cache.
+    YapperTable.Core:BuildLanguageCache()
 end
 
 YapperTable.Events:Register("PARENT_FRAME", "PLAYER_ENTERING_WORLD", OnPlayerEnteringWorld)

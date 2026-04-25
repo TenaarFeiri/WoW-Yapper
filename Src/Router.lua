@@ -78,13 +78,11 @@ function Router:ResolveBnetTarget(target)
         bnetAccountID = bnetAccountID,
         expires      = GetTime() + _bnetCacheTTL,
     }
-
     return presenceID, bnetAccountID
 end
 
 --- Internal uncached BNet friend resolution.  Called by ResolveBnetTarget.
 function Router:_ResolveBnetTargetUncached(needle)
-
     if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
         local count = BNGetNumFriends()
         for i = 1, count do
@@ -104,7 +102,8 @@ function Router:_ResolveBnetTargetUncached(needle)
     if BNGetNumFriends and BNGetFriendInfo then
         local count = BNGetNumFriends()
         for i = 1, count do
-            local presenceID, accountName, battleTag, _, toonName, _, _, _, _, _, _, _, _, bnetAccountID = BNGetFriendInfo(i)
+            local presenceID, accountName, battleTag, _, toonName, _, _, _, _, _, _, _, _, bnetAccountID =
+                BNGetFriendInfo(i)
             if presenceID then
                 if MatchesBnetNeedle(needle, accountName, battleTag, toonName, nil) then
                     return presenceID, bnetAccountID
@@ -140,7 +139,8 @@ function Router:ResolveBnetDisplay(target)
     if BNGetNumFriends and BNGetFriendInfo then
         local count = BNGetNumFriends()
         for i = 1, count do
-            local presenceID, accountName, battleTag, _, toonName, _, _, _, _, _, _, _, _, bnetAccountID = BNGetFriendInfo(i)
+            local presenceID, accountName, battleTag, _, toonName, _, _, _, _, _, _, _, _,
+                bnetAccountID = BNGetFriendInfo(i)
             if numeric then
                 if presenceID == numeric or bnetAccountID == numeric then
                     return pickName(accountName, battleTag, nil, toonName)
@@ -234,6 +234,7 @@ end
 function Router:Send(msg, chatType, language, target)
     if not msg or msg == "" then return false end
     chatType = chatType or "SAY"
+    language = YapperTable.Core:GetCharacterLanguage(language)
 
     -- Pre-resolve BN targets before any bridge handoff so Gopher receives a
     -- numeric ID even when the caller holds a name/battle tag string.
