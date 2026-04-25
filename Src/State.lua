@@ -80,12 +80,17 @@ function State:Transition(newState, ...)
 
     if stack then
         -- Capture filename, line, and function name from the stack frame.
+        -- debugstack often returns: .../File.lua:LINE: in function <.../File.lua:LINE>
         file, line, func = stack:match("(.-%.lua)%]:(%d+):?%s*.-['<]([^'>]+)['>]")
         if not file then
             file, line = stack:match("(.-%.lua)%]:(%d+)")
         end
         if file then
             file = file:match("([^/\\]+)$") or file
+        end
+        if func then
+            -- If func is a file path (common for anonymous functions), strip it to just the basename.
+            func = func:match("([^/\\]+)$") or func
         end
     end
 
@@ -105,8 +110,14 @@ function State:Transition(newState, ...)
             -- Fetch the latest log from our own API to prove it works.
             local last = self:GetLog(self:GetLogCount())
             if last then
-                local blame = ("%s:%s:%s"):format(last.file or "unknown", last.func or "anonymous", last.line or "?")
-                utils:VerbosePrint("info", "STATE", ("|cFF00FF00%s|r -> |cFFFFFF00%s|r [|cFF66CCFF%s|r]"):format(last.old, last.new, blame))
+                local blame
+                if last.func and last.func ~= "anonymous" then
+                    blame = ("%s:%s (%s)"):format(last.file or "unknown", last.line or "?", last.func)
+                else
+                    blame = ("%s:%s"):format(last.file or "unknown", last.line or "?")
+                end
+                local ts = last.time or date("%H:%M:%S")
+                utils:VerbosePrint("info", "STATE", ("|cFF888888[%s]|r |cFF00FF00%s|r -> |cFFFFFF00%s|r [|cFF66CCFF%s|r]"):format(ts, last.old, last.new, blame))
             end
         end
     end
@@ -226,19 +237,19 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Add a transition to the local circular buffer.
---- @param old string
---- @param new string
+--- @param oldState string
+--- @param newState string
 --- @param file string|nil
 --- @param func string|nil
 --- @param line string|nil
-function State:_PushLog(old, new, file, func, line)
+function State:_PushLog(oldState, newState, file, func, line)
     local entry = {
-        old  = old,
-        new  = new,
+        time = date("%H:%M:%S"),
+        old  = oldState,
+        new  = newState,
         file = file,
         func = func,
         line = line,
-        time = GetTime(),
     }
 
     table.insert(self._logBuffer, entry)

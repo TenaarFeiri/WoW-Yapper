@@ -122,23 +122,23 @@ Loaded early; central orchestrator for the addon's operational mode.
   - `_current: string` current active state.
 - Methods:
   [MISSING] - `State:IsInitializing() → boolean`: Is the machine in INITIALIZING state? ([`../Src/State.lua#L91`](../Src/State.lua#L91))
-  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L220`](../Src/State.lua#L220))
-  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L215`](../Src/State.lua#L215))
-  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L210`](../Src/State.lua#L210))
-  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L205`](../Src/State.lua#L205))
-  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L200`](../Src/State.lua#L200))
-  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L195`](../Src/State.lua#L195))
-  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L173`](../Src/State.lua#L173))
-  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L167`](../Src/State.lua#L167))
-  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L161`](../Src/State.lua#L161))
-  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L155`](../Src/State.lua#L155))
-  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L149`](../Src/State.lua#L149))
-  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L143`](../Src/State.lua#L143))
-  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L137`](../Src/State.lua#L137))
-  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L131`](../Src/State.lua#L131))
-  - `State:GetLogCount() → number` ([`../Src/State.lua#L281`](../Src/State.lua#L281)) — returns the number of transitions stored in the history buffer.
-  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L288`](../Src/State.lua#L288)) — returns the transition log at the given index.
-  - `State:GetLogs() → table` ([`../Src/State.lua#L294`](../Src/State.lua#L294)) — returns the raw circular buffer table.
+  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L231`](../Src/State.lua#L231))
+  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L226`](../Src/State.lua#L226))
+  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L221`](../Src/State.lua#L221))
+  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L216`](../Src/State.lua#L216))
+  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L211`](../Src/State.lua#L211))
+  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L206`](../Src/State.lua#L206))
+  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L184`](../Src/State.lua#L184))
+  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L178`](../Src/State.lua#L178))
+  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L172`](../Src/State.lua#L172))
+  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L166`](../Src/State.lua#L166))
+  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L160`](../Src/State.lua#L160))
+  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L154`](../Src/State.lua#L154))
+  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L148`](../Src/State.lua#L148))
+  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L142`](../Src/State.lua#L142))
+  - `State:GetLogCount() → number` ([`../Src/State.lua#L292`](../Src/State.lua#L292)) — returns the number of transitions stored in the history buffer.
+  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L299`](../Src/State.lua#L299)) — returns the transition log at the given index.
+  - `State:GetLogs() → table` ([`../Src/State.lua#L305`](../Src/State.lua#L305)) — returns the raw circular buffer table.
   - `State:Get() → string`: Returns the current state.
   - `State:Is(state: string) → boolean`: Returns true if the current state matches.
   - `State:Transition(newState: string, ...) → nil`: Transitions to a new state and fires `STATE_CHANGED`.
