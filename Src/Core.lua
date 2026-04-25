@@ -278,7 +278,7 @@ function YapperTable.Core:BuildLanguageCache()
     local langId = nil
 
     for i = 1, GetNumLanguages() do
-        langStr, langId = GetLanguageInfo(i)
+        langStr, langId = GetLanguageByIndex(i)
         if langId and langStr then
             YapperTable.SpokenLanguages[langStr] = langId
         end
