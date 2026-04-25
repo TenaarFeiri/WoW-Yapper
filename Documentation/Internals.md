@@ -582,7 +582,7 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L40`](../Src/Chat.lua#L40))
   - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L85`](../Src/Chat.lua#L85))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L205`](../Src/Chat.lua#L205))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L203`](../Src/Chat.lua#L203))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:

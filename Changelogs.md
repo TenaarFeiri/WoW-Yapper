@@ -23,6 +23,10 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.9
+  - *Bugfix*
+    - Fix rare stall case where in some circumstances we get stuck waiting for a pending queue that can never complete.
+
 -- 2.1.8
   - *Bugfix*
     - Fix for issue #34 where languages sometimes fail to resolve correctly for whispers.
