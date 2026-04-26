@@ -222,7 +222,7 @@ local function Clean(s)
     return s:lower():gsub("[%p%c%s]", "")
 end
 
-function YALLM:IsSaneWord(word)
+function YALLM:IsSaneWord(word, locale)
     local w = Clean(word)
     -- Length bounds check
     if #w < 2 or #w > 40 then return false end
@@ -633,6 +633,15 @@ end
 --- Systematic pruning of a learning table
 function YALLM:Prune(tableName, limit, locale)
     local db = self:GetLocaleDB(locale)
+    if not db then
+        -- Throw error if db is nil, because what???
+        -- Note to future self: If you remove this check then
+        -- it is possible for dbId top beyond nils. 
+        -- In which case, also remove linter suppression for need-check-nil.
+        YapperTable.Error:Throw("UNKNOWN", "YALLM:Prune", "Could not obtain local db")
+    end
+
+    -- Explicitly verify for linter that db is not nil
     local tbl = db and db[tableName]
     if not tbl then return end
 
@@ -668,7 +677,10 @@ function YALLM:Prune(tableName, limit, locale)
     for i = targetSize + 1, #keys do
         local k = keys[i]
         tbl[k] = nil
-        if tableName == "freq" then
+        -- db cannot be nil
+        ---@diagnostic disable-next-line: need-check-nil
+        if tableName == "freq" and db.total then
+            ---@diagnostic disable-next-line: need-check-nil
             db.total = math_max(0, db.total - 1)
         end
     end
@@ -770,9 +782,11 @@ function YALLM:Export(locale)
     table_insert(out, "------------------------------------------")
     table_insert(out, "Top Frequency Words:")
     local data = self:GetDataSummary(locale)
-    for i = 1, math_min(10, #data.freq) do
-        local entry = data.freq[i]
-        table_insert(out, string_format("  %s (%d usage)", entry.word, entry.count))
+    if data and data.freq then
+        for i = 1, math_min(10, #data.freq) do
+            local entry = data.freq[i]
+            table_insert(out, string_format("  %s (%d usage)", entry.word, entry.count))
+        end
     end
 
     return table.concat(out, "\n")

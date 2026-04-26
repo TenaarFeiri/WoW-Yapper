@@ -530,6 +530,9 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
     end
     for i = 1, lowerLen do lowerBytes[i] = string_byte(lower, i) end
 
+    local normVowelsFn    = (engine and engine.NormaliseVowels) or NormaliseVowels
+    local lowerVowels     = normVowelsFn(lower)
+
     return {
         dict            = dict,
         lower           = lower,
@@ -545,6 +548,8 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
         inputBag        = inputBag,
         inputBigrams    = inputBigrams,
         phoneticHash    = phoneticHash,
+        normVowelsFn    = normVowelsFn,
+        lowerVowels     = lowerVowels,
         locale          = locale,
         YALLM           = self.YALLM,
         self            = self,
@@ -634,8 +639,8 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
         score = score - W.firstCharBias
     end
 
-    -- Vowel-Neutral Match Bonus
-    if NormaliseVowels(candidate) == NormaliseVowels(lower) then
+    -- Vowel-Neutral Match Bonus (Optimised: pre-normalised lower)
+    if ctx.normVowelsFn(candidate) == ctx.lowerVowels then
         score = score - W.vowelBonus
     end
 

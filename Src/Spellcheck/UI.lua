@@ -1105,7 +1105,7 @@ function Spellcheck:ApplySuggestion(index)
     -- Record the accepted correction for adaptive learning
     if self.YALLM and self.YALLM.RecordSelection then
         local original = text:sub(startPos, endPos)
-        self.YALLM:RecordSelection(original, replacement)
+        self.YALLM:RecordSelection(original, replacement, 0.5, self:GetLocale())
     end
 
     -- Notify external addons that a spellcheck correction was applied.
