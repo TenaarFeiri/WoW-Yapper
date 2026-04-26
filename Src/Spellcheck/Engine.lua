@@ -742,8 +742,18 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
     local attempts = self:GetReshuffleAttempts() or 0
     if attempts <= 0 then return checks end
 
-    local variants = {}
-    local vseen = {}
+    local variants = self._scratchVariants
+    if not variants then
+        variants = {}; self._scratchVariants = variants
+    end
+    for k in pairs(variants) do variants[k] = nil end
+
+    local vseen = self._scratchVSeen
+    if not vseen then
+        vseen = {}; self._scratchVSeen = vseen
+    end
+    for k in pairs(vseen) do vseen[k] = nil end
+
     local maxWrong = ctx.maxWrong
     local function addIfAcceptable(v)
         if not v or v == lower then return end
@@ -773,11 +783,27 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
     end
 
     -- Single replacements using likely letters
-    local alph = {}
+    local alph = self._scratchAlph
+    if not alph then
+        alph = {}; self._scratchAlph = alph
+    end
+    for k in pairs(alph) do alph[k] = nil end
+
     for k in pairs(dict.index) do alph[#alph + 1] = k end
     for i = 1, #lower do alph[#alph + 1] = string_sub(lower, i, i) end
-    local alphSeen = {}
-    local alphaList = {}
+
+    local alphSeen = self._scratchAlphSeen
+    if not alphSeen then
+        alphSeen = {}; self._scratchAlphSeen = alphSeen
+    end
+    for k in pairs(alphSeen) do alphSeen[k] = nil end
+
+    local alphaList = self._scratchAlphaList
+    if not alphaList then
+        alphaList = {}; self._scratchAlphaList = alphaList
+    end
+    for k in pairs(alphaList) do alphaList[k] = nil end
+
     for _, ch in ipairs(alph) do
         if not alphSeen[ch] then
             alphSeen[ch] = true; alphaList[#alphaList + 1] = ch
@@ -1144,12 +1170,14 @@ function Spellcheck:EditDistance(a, b, maxDist)
 
         if minRow > (maxDist or 0) then return nil end
 
-        -- O(1) swap of buffers
-        self._ed_prev_prev, self._ed_prev, self._ed_cur = self._ed_prev, self._ed_cur, self._ed_prev_prev
-        prevPrev = self._ed_prev_prev
-        prev = self._ed_prev
-        cur = self._ed_cur
+        -- O(1) swap of buffers (local register swap)
+        prevPrev, prev, cur = prev, cur, prevPrev
     end
+
+    -- Save the final rotation back to self to ensure consistency for the next call.
+    self._ed_prev_prev = prevPrev
+    self._ed_prev = prev
+    self._ed_cur = cur
 
     return prev[lenB]
 end

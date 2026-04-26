@@ -521,7 +521,9 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
     local bonus = 0
 
     -- 1. Frequency Bonus
-    local freqEntry = db.freq[c]
+    -- If cand comes from dictionary, it is already clean. If from user word, it might not be.
+    -- However, most callers provide a normalised candidate.
+    local freqEntry = db.freq[cand] or db.freq[c]
     if freqEntry and freqEntry.c > 2 then
         -- Use logarithmic scaling so common words get a better proportional boost
         local logBonus = math_min(math.log(freqEntry.c) / 2, 3.0)
@@ -573,9 +575,11 @@ function YALLM:GetBiasTargets(typo, locale)
     -- Pattern match for "typo:*" in the bias table.
     -- While iterating the whole bias table is O(N), N is capped at 500, so it's very fast.
     local prefix = t .. ":"
+    local prefixLen = #prefix
     for key, _ in pairs(db.bias) do
-        if string.sub(key, 1, #prefix) == prefix then
-            local correction = string.sub(key, #prefix + 1)
+        -- Use string.find(..., 1, true) to avoid substring allocation during prefix check.
+        if string.find(key, prefix, 1, true) == 1 then
+            local correction = string.sub(key, prefixLen + 1)
             if correction ~= "" then
                 targets[#targets + 1] = correction
             end
@@ -587,9 +591,10 @@ function YALLM:GetBiasTargets(typo, locale)
     local ph = sc and sc.GetPhoneticHash and sc.GetPhoneticHash(t)
     if ph and ph ~= "" and db.phBias then
         local phPrefix = ph .. ":"
+        local phPrefixLen = #phPrefix
         for key, _ in pairs(db.phBias) do
-            if string.sub(key, 1, #phPrefix) == phPrefix then
-                local correction = string.sub(key, #phPrefix + 1)
+            if string.find(key, phPrefix, 1, true) == 1 then
+                local correction = string.sub(key, phPrefixLen + 1)
                 if correction ~= "" then
                     targets[#targets + 1] = correction
                 end

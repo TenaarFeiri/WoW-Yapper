@@ -232,9 +232,9 @@ Runs during suggestion/underline rebuild.
   - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L202`](`../Src/Spellcheck/Engine.lua#L202`))
   - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L247`](`../Src/Spellcheck/Engine.lua#L247`))
   - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L328`](`../Src/Spellcheck/Engine.lua#L328`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L811`](`../Src/Spellcheck/Engine.lua#L811`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1087`](`../Src/Spellcheck/Engine.lua#L1087`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1157`](`../Src/Spellcheck/Engine.lua#L1157`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L837`](`../Src/Spellcheck/Engine.lua#L837`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1113`](`../Src/Spellcheck/Engine.lua#L1113`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1185`](`../Src/Spellcheck/Engine.lua#L1185`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -321,8 +321,8 @@ Initialised from `Spellcheck:Init` when present.
   - `total: number`
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
-  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L724`](../Src/Spellcheck/YALLM.lua#L724))
-  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L566`](../Src/Spellcheck/YALLM.lua#L566))
+  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L729`](../Src/Spellcheck/YALLM.lua#L729))
+  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L568`](../Src/Spellcheck/YALLM.lua#L568))
   - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L192`](../Src/Spellcheck/YALLM.lua#L192))
   - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L112`](`../Src/Spellcheck/YALLM.lua#L112`))
   - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L118`](`../Src/Spellcheck/YALLM.lua#L118`))
@@ -336,10 +336,10 @@ Initialised from `Spellcheck:Init` when present.
   - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L452`](`../Src/Spellcheck/YALLM.lua#L452`))
   - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L477`](`../Src/Spellcheck/YALLM.lua#L477`))
   - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L516`](`../Src/Spellcheck/YALLM.lua#L516`))
-  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L608`](`../Src/Spellcheck/YALLM.lua#L608`))
-  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L655`](`../Src/Spellcheck/YALLM.lua#L655`))
-  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L668`](`../Src/Spellcheck/YALLM.lua#L668`))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L755`](`../Src/Spellcheck/YALLM.lua#L755`))
+  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L613`](`../Src/Spellcheck/YALLM.lua#L613`))
+  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L660`](`../Src/Spellcheck/YALLM.lua#L660`))
+  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L673`](`../Src/Spellcheck/YALLM.lua#L673`))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L760`](`../Src/Spellcheck/YALLM.lua#L760`))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
