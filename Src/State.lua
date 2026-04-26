@@ -9,6 +9,7 @@ local _, YapperTable = ...
 local State = {
     _current = "INITIALISING",
     _logBuffer = {}, -- local circular buffer
+    _flags = {},     -- session-based flags
     _saveScheduled = false,
     MAX_LOGS = 200,
 }
@@ -23,6 +24,7 @@ State.STATES = {
     SENDING      = "SENDING",      -- Message is being processed or sent (chunking/router).
     STALLED      = "STALLED",      -- Queue is waiting for user hardware input to continue.
     LOCKDOWN     = "LOCKDOWN",     -- Combat or M+ handoff: overlay hidden, handed back to Blizzard.
+    CONFIG       = "CONFIG",       -- Settings/Interface window is open.
 }
 
 -- Current active state.
@@ -43,6 +45,44 @@ end
 --- @return boolean
 function State:Is(state)
     return self._current == state
+end
+
+--- Get a state flag value.
+--- @param name string
+--- @param default any
+--- @return any
+function State:GetFlag(name, default)
+    -- Check session flags first.
+    if self._flags[name] ~= nil then
+        return self._flags[name]
+    end
+
+    -- Check persistent flags in config if available.
+    local config = YapperTable.Config
+    if config and config.System and config.System.StateFlags then
+        if config.System.StateFlags[name] ~= nil then
+            return config.System.StateFlags[name]
+        end
+    end
+
+    return default
+end
+
+--- Set a state flag value.
+--- @param name string
+--- @param value any
+--- @param persistent boolean? If true, value is stored in SavedVariables.
+function State:SetFlag(name, value, persistent)
+    self._flags[name] = value
+
+    if persistent then
+        local config = YapperTable.Config
+        if config and config.System then
+            config.System.StateFlags = config.System.StateFlags or {}
+            config.System.StateFlags[name] = value
+            self:_ScheduleSave()
+        end
+    end
 end
 
 --- Transition to a new state.
@@ -143,6 +183,12 @@ function State:IsInitialising()
     return self._current == self.STATES.INITIALISING
 end
 
+--- Has the machine completed initialisation (i.e. not in INITIALISING state)?
+--- @return boolean
+function State:IsInitialised()
+    return self._current ~= self.STATES.INITIALISING
+end
+
 --- Is the machine in IDLE state?
 --- @return boolean
 function State:IsIdle()
@@ -177,6 +223,12 @@ end
 --- @return boolean
 function State:IsLockdown()
     return self._current == self.STATES.LOCKDOWN
+end
+
+--- Is the settings/interface window open?
+--- @return boolean
+function State:IsConfig()
+    return self._current == self.STATES.CONFIG
 end
 
 --- Helper: is the user currently typing (either overlay or multiline)?
@@ -228,8 +280,13 @@ function State:ToStalled(...)
 end
 
 --- Transition to LOCKDOWN state.
-function State:ToLockdown(...)
-    self:Transition(self.STATES.LOCKDOWN, ...)
+function State:ToLockdown()
+    self:Transition(self.STATES.LOCKDOWN)
+end
+
+--- Transition to CONFIG (settings) state.
+function State:ToConfig()
+    self:Transition(self.STATES.CONFIG)
 end
 
 -- ---------------------------------------------------------------------------
