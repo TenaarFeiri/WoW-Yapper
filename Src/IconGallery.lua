@@ -17,7 +17,8 @@ local ICON_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
 
 -- Core Widget Management
 function IconGallery:Init()
-    if self.Frame then return end
+    local State = YapperTable.State
+    if State and State:GetFlag("ICON_GALLERY_INITIALISED") then return end
 
     local frame = CreateFrame("Frame", "YapperIconGallery", UIParent, "BackdropTemplate")
     frame:SetSize(120, 70)
@@ -54,7 +55,7 @@ function IconGallery:Init()
         
         local label = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmallOutline")
         label:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", -1, 1)
-        label:SetText(i)
+        label:SetText(tostring(i))
         cell.Label = label
 
         -- Calculate Grid Position (4 columns, 2 rows)
@@ -67,6 +68,10 @@ function IconGallery:Init()
         end)
 
         self.Cells[i] = cell
+    end
+
+    if State then
+        State:SetFlag("ICON_GALLERY_INITIALISED", true)
     end
 end
 

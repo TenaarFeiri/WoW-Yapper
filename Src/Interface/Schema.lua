@@ -492,6 +492,11 @@ function Interface:OnWindowClosed()
     if self:IsDirty() then
         self:RefreshRenderSchema()
     end
+
+    local State = YapperTable.State
+    if State then
+        State:ToIdle()
+    end
 end
 
 -- Export metadata for other sub-files.

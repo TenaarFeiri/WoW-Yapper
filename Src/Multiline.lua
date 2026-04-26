@@ -883,7 +883,7 @@ end
 -- ---------------------------------------------------------------------------
 
 function Multiline:HandleEscape()
-	if State:IsMultiline() or (self.Frame and self.Frame:IsShown()) then return true end
+	if State:IsMultiline() then return true end
 	return false
 end
 

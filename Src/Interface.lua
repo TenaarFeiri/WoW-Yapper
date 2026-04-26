@@ -722,6 +722,10 @@ function Interface:ShowMainWindow()
         Interface:Init()
     end
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
+    
+    local State = YapperTable.State
+    if State then State:ToConfig() end
+    
     Interface.MainWindowFrame:Show()
 end
 
@@ -735,6 +739,10 @@ function Interface:OpenToCategory(catId)
     Interface:UpdateSidebarSelection()
     Interface:BuildConfigUI()
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
+    
+    local State = YapperTable.State
+    if State then State:ToConfig() end
+    
     Interface.MainWindowFrame:Show()
 end
 
@@ -746,6 +754,10 @@ function Interface:ToggleMainWindow()
         Interface:CloseFrame(Interface.MainWindowFrame)
     else
         Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
+        
+        local State = YapperTable.State
+        if State then State:ToConfig() end
+        
         Interface.MainWindowFrame:Show()
     end
 end
@@ -812,10 +824,9 @@ end
 -- Instantiation --
 function Interface:Init()
     local State = YapperTable.State
-    if self.MainWindowFrame or (State and State:IsInitialising() and self._initializing) then
+    if State and State:GetFlag("INTERFACE_INITIALISED") then
         return
     end
-    self._initializing = true
 
     Interface:SanitizeLocalConfig()
     Interface:CreateMainWindow()
@@ -838,14 +849,16 @@ function Interface:Init()
         Interface:CreateWelcomeChoiceFrame()
     end
 
-    self._initializing = nil
+    if State then
+        State:SetFlag("INTERFACE_INITIALISED", true)
+    end
 end
 
 -- Create a launcher (Addon Compartment preferred, LDB fallback)
 function Interface:CreateLauncher()
     local State = YapperTable.State
-    if self.LauncherCreated or (State and not State:IsInitialising()) then return end
-    self.LauncherCreated = true
+    if not State or State:GetFlag("LAUNCHER_CREATED") then return end
+    State:SetFlag("LAUNCHER_CREATED", true)
 
     local tooltipLines = self:GetLauncherTooltipLines()
 
