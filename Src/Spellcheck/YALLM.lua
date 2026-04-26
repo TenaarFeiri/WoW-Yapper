@@ -127,6 +127,12 @@ function YALLM:GetAutoThreshold()
     return math_max(1, math_min(v, 200))
 end
 
+function YALLM:GetNegBiasCap()
+    local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
+    local v = tonumber(cfg and cfg.YALLMNegBiasCap) or MAX_BIAS_PAIRS
+    return math_max(100, math_min(v, 10000))
+end
+
 -- ---------------------------------------------------------------------------
 -- Initialization
 -- ---------------------------------------------------------------------------
@@ -178,6 +184,13 @@ function YALLM:GetLocaleDB(locale)
         local count = 0
         for _ in pairs(db.freq) do count = count + 1 end
         db.total = count
+    end
+    if db.negBiasCount == nil then
+        local count = 0
+        if db.negBias then
+            for _ in pairs(db.negBias) do count = count + 1 end
+        end
+        db.negBiasCount = count
     end
     if db.freqSortedDirty == nil then
         db.freqSortedDirty = true
@@ -462,6 +475,14 @@ function YALLM:RecordRejection(typo, candidates, locale)
             -- Clean the candidate word before key construction to ensure consistent matching
             local key = t .. ":" .. Clean(word)
             if not db.negBias[key] then
+                -- Handle Capacity
+                db.negBiasCount = (db.negBiasCount or 0) + 1
+                if db.negBiasCount >= self:GetNegBiasCap() then
+                    self:Prune("negBias", self:GetNegBiasCap(), locale)
+                    local count = 0
+                    for _ in pairs(db.negBias) do count = count + 1 end
+                    db.negBiasCount = count
+                end
                 db.negBias[key] = { c = 1, t = now, u = 1.0 }
             else
                 local entry = db.negBias[key]
