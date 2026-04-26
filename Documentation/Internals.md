@@ -121,24 +121,29 @@ Loaded early; central orchestrator for the addon's operational mode.
   - `STATES: table` enum of valid states (`IDLE`, `EDITING`, `MULTILINE`, `SENDING`, `STALLED`, `LOCKDOWN`).
   - `_current: string` current active state.
 - Methods:
+  - [NEW] `State:ToConfig() → nil`: Transition to CONFIG (settings) state. ([`../Src/State.lua#L288`](../Src/State.lua#L288))
+  - [NEW] `State:IsConfig() → boolean`: Is the settings/interface window open? ([`../Src/State.lua#L230`](../Src/State.lua#L230))
+  - [NEW] `State:IsInitialised() → boolean`: Has the machine completed initialisation (i.e. not in INITIALISING state)? ([`../Src/State.lua#L188`](../Src/State.lua#L188))
+  - [NEW] `State:SetFlag(name, value, persistent) → nil`: Set a state flag value. ([`../Src/State.lua#L75`](../Src/State.lua#L75))
+  - [NEW] `State:GetFlag(name, default) → any`: Get a state flag value. ([`../Src/State.lua#L54`](../Src/State.lua#L54))
   [MISSING] - `State:IsInitializing() → boolean`: Is the machine in INITIALIZING state? ([`../Src/State.lua#L91`](../Src/State.lua#L91))
-  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L231`](../Src/State.lua#L231))
-  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L226`](../Src/State.lua#L226))
-  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L221`](../Src/State.lua#L221))
-  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L216`](../Src/State.lua#L216))
-  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L211`](../Src/State.lua#L211))
-  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L206`](../Src/State.lua#L206))
-  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L184`](../Src/State.lua#L184))
-  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L178`](../Src/State.lua#L178))
-  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L172`](../Src/State.lua#L172))
-  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L166`](../Src/State.lua#L166))
-  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L160`](../Src/State.lua#L160))
-  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L154`](../Src/State.lua#L154))
-  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L148`](../Src/State.lua#L148))
-  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L142`](../Src/State.lua#L142))
-  - `State:GetLogCount() → number` ([`../Src/State.lua#L292`](../Src/State.lua#L292)) — returns the number of transitions stored in the history buffer.
-  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L299`](../Src/State.lua#L299)) — returns the transition log at the given index.
-  - `State:GetLogs() → table` ([`../Src/State.lua#L305`](../Src/State.lua#L305)) — returns the raw circular buffer table.
+  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L283`](../Src/State.lua#L283))
+  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L278`](../Src/State.lua#L278))
+  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L273`](../Src/State.lua#L273))
+  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L268`](../Src/State.lua#L268))
+  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L263`](../Src/State.lua#L263))
+  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L258`](../Src/State.lua#L258))
+  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L236`](../Src/State.lua#L236))
+  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L224`](../Src/State.lua#L224))
+  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L218`](../Src/State.lua#L218))
+  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L212`](../Src/State.lua#L212))
+  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L206`](../Src/State.lua#L206))
+  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L200`](../Src/State.lua#L200))
+  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L194`](../Src/State.lua#L194))
+  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L182`](../Src/State.lua#L182))
+  - `State:GetLogCount() → number` ([`../Src/State.lua#L349`](../Src/State.lua#L349)) — returns the number of transitions stored in the history buffer.
+  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L356`](../Src/State.lua#L356)) — returns the transition log at the given index.
+  - `State:GetLogs() → table` ([`../Src/State.lua#L362`](../Src/State.lua#L362)) — returns the raw circular buffer table.
   - `State:Get() → string`: Returns the current state.
   - `State:Is(state: string) → boolean`: Returns true if the current state matches.
   - `State:Transition(newState: string, ...) → nil`: Transitions to a new state and fires `STATE_CHANGED`.
@@ -232,9 +237,9 @@ Runs during suggestion/underline rebuild.
   - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L202`](`../Src/Spellcheck/Engine.lua#L202`))
   - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L247`](`../Src/Spellcheck/Engine.lua#L247`))
   - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L328`](`../Src/Spellcheck/Engine.lua#L328`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L837`](`../Src/Spellcheck/Engine.lua#L837`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1113`](`../Src/Spellcheck/Engine.lua#L1113`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1185`](`../Src/Spellcheck/Engine.lua#L1185`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L842`](`../Src/Spellcheck/Engine.lua#L842`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1118`](`../Src/Spellcheck/Engine.lua#L1118`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1190`](`../Src/Spellcheck/Engine.lua#L1190`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -322,7 +327,7 @@ Initialised from `Spellcheck:Init` when present.
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
   - [NEW] `YALLM:GetNegBiasCap() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L130`](../Src/Spellcheck/YALLM.lua#L130))
-  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L750`](../Src/Spellcheck/YALLM.lua#L750))
+  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L762`](../Src/Spellcheck/YALLM.lua#L762))
   - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L589`](../Src/Spellcheck/YALLM.lua#L589))
   - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L205`](../Src/Spellcheck/YALLM.lua#L205))
   - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L112`](`../Src/Spellcheck/YALLM.lua#L112`))
@@ -338,9 +343,9 @@ Initialised from `Spellcheck:Init` when present.
   - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L498`](`../Src/Spellcheck/YALLM.lua#L498`))
   - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L537`](`../Src/Spellcheck/YALLM.lua#L537`))
   - `Prune` ([`../Src/Spellcheck/YALLM.lua#L634`](`../Src/Spellcheck/YALLM.lua#L634`))
-  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L681`](`../Src/Spellcheck/YALLM.lua#L681`))
-  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L694`](`../Src/Spellcheck/YALLM.lua#L694`))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L781`](`../Src/Spellcheck/YALLM.lua#L781`))
+  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L693`](`../Src/Spellcheck/YALLM.lua#L693`))
+  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L706`](`../Src/Spellcheck/YALLM.lua#L706`))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L795`](`../Src/Spellcheck/YALLM.lua#L795`))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
@@ -359,13 +364,13 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 - Description: Raid icon picker popup and selection callbacks.
 - Methods:
   - `Init` ([`../Src/IconGallery.lua#L19`](../Src/IconGallery.lua#L19))
-  - `Show` ([`../Src/IconGallery.lua#L73`](../Src/IconGallery.lua#L73))
-  - `Hide` ([`../Src/IconGallery.lua#L94`](../Src/IconGallery.lua#L94))
-  - `Filter` ([`../Src/IconGallery.lua#L106`](../Src/IconGallery.lua#L106))
-  - `Select` ([`../Src/IconGallery.lua#L132`](../Src/IconGallery.lua#L132))
-  - `HandleKeyDown` ([`../Src/IconGallery.lua#L158`](../Src/IconGallery.lua#L158))
-  - `_GetIconMeta` ([`../Src/IconGallery.lua#L201`](../Src/IconGallery.lua#L201))
-  - `OnTextChanged` ([`../Src/IconGallery.lua#L212`](../Src/IconGallery.lua#L212))
+  - `Show` ([`../Src/IconGallery.lua#L78`](../Src/IconGallery.lua#L78))
+  - `Hide` ([`../Src/IconGallery.lua#L99`](../Src/IconGallery.lua#L99))
+  - `Filter` ([`../Src/IconGallery.lua#L111`](../Src/IconGallery.lua#L111))
+  - `Select` ([`../Src/IconGallery.lua#L137`](../Src/IconGallery.lua#L137))
+  - `HandleKeyDown` ([`../Src/IconGallery.lua#L163`](../Src/IconGallery.lua#L163))
+  - `_GetIconMeta` ([`../Src/IconGallery.lua#L206`](../Src/IconGallery.lua#L206))
+  - `OnTextChanged` ([`../Src/IconGallery.lua#L217`](../Src/IconGallery.lua#L217))
 - Callbacks fired:
   - `ICON_GALLERY_SHOW`, `ICON_GALLERY_HIDE`, `ICON_GALLERY_SELECT`.
 
@@ -734,14 +739,14 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
   - `BuildConfigUI` ([`../Src/Interface.lua#L440`](`../Src/Interface.lua#L440`))
   - `ShowMainWindow` ([`../Src/Interface.lua#L720`](`../Src/Interface.lua#L720`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L730`](`../Src/Interface.lua#L730`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L741`](`../Src/Interface.lua#L741`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L771`](`../Src/Interface.lua#L771`))
-  - `CloseFrame` ([`../Src/Interface.lua#L802`](`../Src/Interface.lua#L802`))
-  - `Init` ([`../Src/Interface.lua#L813`](`../Src/Interface.lua#L813`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L845`](`../Src/Interface.lua#L845`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L734`](`../Src/Interface.lua#L734`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L749`](`../Src/Interface.lua#L749`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L783`](`../Src/Interface.lua#L783`))
+  - `CloseFrame` ([`../Src/Interface.lua#L814`](`../Src/Interface.lua#L814`))
+  - `Init` ([`../Src/Interface.lua#L825`](`../Src/Interface.lua#L825`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L858`](`../Src/Interface.lua#L858`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L789`](../Src/Interface.lua#L789)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L801`](../Src/Interface.lua#L801)).
 
 ## Interface.Schema
 
