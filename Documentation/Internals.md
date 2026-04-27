@@ -101,14 +101,14 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1204`](../Src/API.lua#L1204)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1230`](../Src/API.lua#L1230)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1123`](../Src/API.lua#L1123))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1190`](../Src/API.lua#L1190))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1225`](../Src/API.lua#L1225))
-  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L799`](../Src/API.lua#L799)) — returns the number of entries in the FSM state history.
-  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L790`](../Src/API.lua#L790)) — returns a specific state transition log entry.
-  - `API:GetStateLogs() → table` ([`../Src/API.lua#L780`](../Src/API.lua#L780)) — returns the full circular buffer of state transitions.
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1149`](../Src/API.lua#L1149))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1216`](../Src/API.lua#L1216))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1251`](../Src/API.lua#L1251))
+  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L825`](../Src/API.lua#L825)) — returns the number of entries in the FSM state history.
+  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L816`](../Src/API.lua#L816)) — returns a specific state transition log entry.
+  - `API:GetStateLogs() → table` ([`../Src/API.lua#L806`](../Src/API.lua#L806)) — returns the full circular buffer of state transitions.
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 

@@ -259,9 +259,16 @@
       Hides the gallery.
 
     YapperAPI:IsIconGalleryShown()  → boolean
-
+    
     YapperAPI:GetRaidIconData()     → array of 8 tables, each with:
                                         index (int), text (string), code (string)
+
+    Bypass / Lifecycle:
+
+    YapperAPI:OpenBlizzardChat()
+      Force the Yapper overlay to close and open the original Blizzard editbox.
+      Equivalent to the user pressing the "Bypass Yapper" keybind (Shift-Enter).
+      If Yapper is not currently open, the next chat open will be bypassed.
 
     Utility helpers (safe wrappers around Utils.lua):
 
@@ -329,7 +336,18 @@
     These never expose internal tables directly; tables are shallow-copied.
 
 ---------------------------------------------------------------------------
-4.  NOTES FOR ADDON AUTHORS
+4.  LIFECYCLE / BYPASS
+---------------------------------------------------------------------------
+
+    YapperAPI:OpenBlizzardChat()
+      Immediately closes the Yapper overlay (if shown) and opens the
+      original Blizzard chat editbox.  This is useful for plugins that
+      need to drop down to the vanilla UI for specific operations
+      (e.g., target-heavy macros or gquit) that Yapper's overlay might
+      interfere with.
+
+---------------------------------------------------------------------------
+5.  NOTES FOR ADDON AUTHORS
 ---------------------------------------------------------------------------
 
         • Yapper wraps every external filter and callback in `pcall()`.
@@ -706,6 +724,14 @@ function YapperAPI:IsOverlayShown()
         return eb.Overlay:IsShown() == true
     end
     return false
+end
+
+--- Force Yapper to close and open the original Blizzard editbox.
+--- Equivalent to the "Bypass Yapper" keybind (Shift-Enter).
+function YapperAPI:OpenBlizzardChat()
+    if YapperTable.EditBox and YapperTable.EditBox.OpenBlizzardChat then
+        YapperTable.EditBox:OpenBlizzardChat()
+    end
 end
 
 --- Read a config value by dot-path (e.g. "EditBox.FontSize").
