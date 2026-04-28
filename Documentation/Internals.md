@@ -665,14 +665,14 @@ Binds to overlay (or multiline) editbox when available.
 
 - Description: Ghost-text completion from dictionary + YALLM.
 - Fields:
-  - `GhostFS` ([`../Src/Autocomplete.lua#L57`](`../Src/Autocomplete.lua#L57`))
-  - `CurrentSugg` ([`../Src/Autocomplete.lua#L58`](`../Src/Autocomplete.lua#L58`))
-  - `CurrentPrefix` ([`../Src/Autocomplete.lua#L59`](`../Src/Autocomplete.lua#L59`))
-  - `PrefixText` ([`../Src/Autocomplete.lua#L60`](`../Src/Autocomplete.lua#L60`))
-  - `Active` ([`../Src/Autocomplete.lua#L61`](`../Src/Autocomplete.lua#L61`))
-  - `Enabled` ([`../Src/Autocomplete.lua#L62`](`../Src/Autocomplete.lua#L62`))
-  - `_activeEditBox` ([`../Src/Autocomplete.lua#L63`](`../Src/Autocomplete.lua#L63`))
-  - `_isMultiline` ([`../Src/Autocomplete.lua#L64`](`../Src/Autocomplete.lua#L64`))
+  - `GhostFS` ([`../Src/Autocomplete.lua#L55`](`../Src/Autocomplete.lua#L55`))
+  - `CurrentSugg` ([`../Src/Autocomplete.lua#L56`](`../Src/Autocomplete.lua#L56`))
+  - `CurrentPrefix` ([`../Src/Autocomplete.lua#L57`](`../Src/Autocomplete.lua#L57`))
+  - `PrefixText` ([`../Src/Autocomplete.lua#L58`](`../Src/Autocomplete.lua#L58`))
+  - `Active` ([`../Src/Autocomplete.lua#L59`](`../Src/Autocomplete.lua#L59`))
+  - `Enabled` ([`../Src/Autocomplete.lua#L60`](`../Src/Autocomplete.lua#L60`))
+  - `_activeEditBox` ([`../Src/Autocomplete.lua#L61`](`../Src/Autocomplete.lua#L61`))
+  - `_isMultiline` ([`../Src/Autocomplete.lua#L62`](`../Src/Autocomplete.lua#L62`))
 - Methods:
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 
