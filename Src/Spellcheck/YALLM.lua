@@ -1,5 +1,5 @@
 --[[
-    YALLM: Yapper Adaptive Learning Language Model
+    YALLM: Yapper Adaptive Language Learning Model
     Personalized ranking and vocabulary tracking for the spellcheck engine.
 ]]
 
