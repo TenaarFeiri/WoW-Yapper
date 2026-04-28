@@ -20,19 +20,19 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L269`](../Src/Core.lua#L269)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L270`](../Src/Core.lua#L270)).
 - Methods:
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L720`](../Src/Core.lua#L720))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L517`](../Src/Core.lua#L517))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L289`](../Src/Core.lua#L289))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L274`](../Src/Core.lua#L274))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L415`](../Src/Core.lua#L415)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L540`](../Src/Core.lua#L540))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L544`](../Src/Core.lua#L544))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L548`](../Src/Core.lua#L548))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L561`](../Src/Core.lua#L561)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L627`](../Src/Core.lua#L627)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L741`](../Src/Core.lua#L741)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L721`](../Src/Core.lua#L721))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L518`](../Src/Core.lua#L518))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L290`](../Src/Core.lua#L290))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L275`](../Src/Core.lua#L275))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L416`](../Src/Core.lua#L416)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L541`](../Src/Core.lua#L541))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L545`](../Src/Core.lua#L545))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L549`](../Src/Core.lua#L549))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L562`](../Src/Core.lua#L562)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L628`](../Src/Core.lua#L628)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L742`](../Src/Core.lua#L742)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -326,26 +326,27 @@ Initialised from `Spellcheck:Init` when present.
   - `total: number`
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
-  - [NEW] `YALLM:GetNegBiasCap() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L130`](../Src/Spellcheck/YALLM.lua#L130))
-  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L762`](../Src/Spellcheck/YALLM.lua#L762))
-  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L589`](../Src/Spellcheck/YALLM.lua#L589))
-  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L205`](../Src/Spellcheck/YALLM.lua#L205))
-  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L112`](`../Src/Spellcheck/YALLM.lua#L112`))
-  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L118`](`../Src/Spellcheck/YALLM.lua#L118`))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L124`](`../Src/Spellcheck/YALLM.lua#L124`))
-  - `Init` ([`../Src/Spellcheck/YALLM.lua#L140`](`../Src/Spellcheck/YALLM.lua#L140`))
-  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L166`](`../Src/Spellcheck/YALLM.lua#L166`))
-  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L225`](`../Src/Spellcheck/YALLM.lua#L225`))
-  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L263`](`../Src/Spellcheck/YALLM.lua#L263`))
-  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L296`](`../Src/Spellcheck/YALLM.lua#L296`))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L373`](`../Src/Spellcheck/YALLM.lua#L373`))
-  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L465`](`../Src/Spellcheck/YALLM.lua#L465`))
-  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L498`](`../Src/Spellcheck/YALLM.lua#L498`))
-  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L537`](`../Src/Spellcheck/YALLM.lua#L537`))
-  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L634`](`../Src/Spellcheck/YALLM.lua#L634`))
-  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L693`](`../Src/Spellcheck/YALLM.lua#L693`))
-  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L706`](`../Src/Spellcheck/YALLM.lua#L706`))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L795`](`../Src/Spellcheck/YALLM.lua#L795`))
+  - [NEW] `YALLM:GetNegBiasCap() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L136`](../Src/Spellcheck/YALLM.lua#L136))
+  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L775`](../Src/Spellcheck/YALLM.lua#L775))
+  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L601`](../Src/Spellcheck/YALLM.lua#L601))
+  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L211`](../Src/Spellcheck/YALLM.lua#L211))
+  - `IsEnabled() → boolean`: Returns true if YALLM is enabled in the configuration. ([`../Src/Spellcheck/YALLM.lua#L113`](../Src/Spellcheck/YALLM.lua#L113))
+  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L118`](`../Src/Spellcheck/YALLM.lua#L118`))
+  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L124`](`../Src/Spellcheck/YALLM.lua#L124`))
+  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L130`](`../Src/Spellcheck/YALLM.lua#L130`))
+  - `Init` ([`../Src/Spellcheck/YALLM.lua#L146`](`../Src/Spellcheck/YALLM.lua#L146`))
+  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L172`](`../Src/Spellcheck/YALLM.lua#L172`))
+  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L231`](`../Src/Spellcheck/YALLM.lua#L231`))
+  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L269`](`../Src/Spellcheck/YALLM.lua#L269`))
+  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L303`](`../Src/Spellcheck/YALLM.lua#L303`))
+  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L381`](`../Src/Spellcheck/YALLM.lua#L381`))
+  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L474`](`../Src/Spellcheck/YALLM.lua#L474`))
+  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L508`](`../Src/Spellcheck/YALLM.lua#L508`))
+  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L548`](`../Src/Spellcheck/YALLM.lua#L548`))
+  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L647`](`../Src/Spellcheck/YALLM.lua#L647`))
+  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L706`](`../Src/Spellcheck/YALLM.lua#L706`))
+  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L719`](`../Src/Spellcheck/YALLM.lua#L719`))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L808`](`../Src/Spellcheck/YALLM.lua#L808`))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
@@ -353,7 +354,7 @@ Initialised from `Spellcheck:Init` when present.
   - `Spellcheck.UI` records explicit suggestion picks/rejections ([`../Src/Spellcheck/UI.lua#L869-L962`](../Src/Spellcheck/UI.lua#L869-L962)).
   - `Spellcheck.Engine` records implicit corrections from retyped trace words ([`../Src/Spellcheck/Engine.lua#L236-L238`](../Src/Spellcheck/Engine.lua#L236-L238)).
 - Invariants / safeguards:
-  - `IsSaneWord` gates noisy tokens before learning; pruning preserves highest relevance entries by count/utility/recency score; caps/thresholds are clamped from config (`YALLMFreqCap`, `YALLMBiasCap`, `YALLMAutoThreshold`) ([`../Src/Spellcheck/YALLM.lua#L38-L54`](../Src/Spellcheck/YALLM.lua#L38-L54), [`../Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147), [`../Src/Spellcheck/YALLM.lua#L427-L468`](../Src/Spellcheck/YALLM.lua#L427-L468), [`../Src/Core.lua#L209-L212`](../Src/Core.lua#L209-L212)).
+  - `IsSaneWord` gates noisy tokens before learning; pruning preserves highest relevance entries by count/utility/recency score; caps/thresholds are clamped from config (`YALLMEnabled`, `YALLMFreqCap`, `YALLMBiasCap`, `YALLMAutoThreshold`) ([`../Src/Spellcheck/YALLM.lua#L38-L54`](../Src/Spellcheck/YALLM.lua#L38-L54), [`../Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147), [`../Src/Spellcheck/YALLM.lua#L427-L468`](../Src/Spellcheck/YALLM.lua#L427-L468), [`../Src/Core.lua#L209-L212`](../Src/Core.lua#L209-L212)).
 - Callbacks fired:
   - `YALLM_WORD_LEARNED`.
 
@@ -739,14 +740,14 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
   - `BuildConfigUI` ([`../Src/Interface.lua#L440`](`../Src/Interface.lua#L440`))
   - `ShowMainWindow` ([`../Src/Interface.lua#L720`](`../Src/Interface.lua#L720`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L734`](`../Src/Interface.lua#L734`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L749`](`../Src/Interface.lua#L749`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L783`](`../Src/Interface.lua#L783`))
-  - `CloseFrame` ([`../Src/Interface.lua#L814`](`../Src/Interface.lua#L814`))
-  - `Init` ([`../Src/Interface.lua#L825`](`../Src/Interface.lua#L825`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L858`](`../Src/Interface.lua#L858`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L742`](`../Src/Interface.lua#L742`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L764`](`../Src/Interface.lua#L764`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L793`](`../Src/Interface.lua#L793`))
+  - `CloseFrame` ([`../Src/Interface.lua#L824`](`../Src/Interface.lua#L824`))
+  - `Init` ([`../Src/Interface.lua#L835`](`../Src/Interface.lua#L835`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L868`](`../Src/Interface.lua#L868`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L801`](../Src/Interface.lua#L801)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L811`](../Src/Interface.lua#L811)).
 
 ## Interface.Schema
 
@@ -756,10 +757,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L514)).
 - Methods:
-  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L330`](`../Src/Interface/Schema.lua#L330`))
-  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L477`](`../Src/Interface/Schema.lua#L477`))
-  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L485`](`../Src/Interface/Schema.lua#L485`))
-  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L491`](`../Src/Interface/Schema.lua#L491`))
+  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L333`](`../Src/Interface/Schema.lua#L333`))
+  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L480`](`../Src/Interface/Schema.lua#L480`))
+  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L488`](`../Src/Interface/Schema.lua#L488`))
+  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L494`](`../Src/Interface/Schema.lua#L494`))
 
 ## Interface.Config
 
@@ -803,19 +804,19 @@ Builds and controls top-level frames.
   - `GetMainWindowPositionStore` ([`../Src/Interface/Window.lua#L31`](`../Src/Interface/Window.lua#L31`))
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
-  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L280`](`../Src/Interface/Window.lua#L280`))
-  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L288`](`../Src/Interface/Window.lua#L288`))
-  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L297`](`../Src/Interface/Window.lua#L297`))
-  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L302`](`../Src/Interface/Window.lua#L302`))
-  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L356`](`../Src/Interface/Window.lua#L356`))
-  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L520`](`../Src/Interface/Window.lua#L520`))
-  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L647`](`../Src/Interface/Window.lua#L647`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L832`](`../Src/Interface/Window.lua#L832`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L851`](`../Src/Interface/Window.lua#L851`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L857`](`../Src/Interface/Window.lua#L857`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L865`](`../Src/Interface/Window.lua#L865`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L871`](`../Src/Interface/Window.lua#L871`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L899`](`../Src/Interface/Window.lua#L899`))
+  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L288`](`../Src/Interface/Window.lua#L288`))
+  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L299`](`../Src/Interface/Window.lua#L299`))
+  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L311`](`../Src/Interface/Window.lua#L311`))
+  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L316`](`../Src/Interface/Window.lua#L316`))
+  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L371`](`../Src/Interface/Window.lua#L371`))
+  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L567`](`../Src/Interface/Window.lua#L567`))
+  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L726`](`../Src/Interface/Window.lua#L726`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L911`](`../Src/Interface/Window.lua#L911`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L930`](`../Src/Interface/Window.lua#L930`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L936`](`../Src/Interface/Window.lua#L936`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L944`](`../Src/Interface/Window.lua#L944`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L950`](`../Src/Interface/Window.lua#L950`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L978`](`../Src/Interface/Window.lua#L978`))
 
 ## Interface.Widgets
 

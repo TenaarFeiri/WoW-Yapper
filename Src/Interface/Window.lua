@@ -190,6 +190,14 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 local WHATS_NEW = {
+    ["2.1.10"] = {
+        {
+            title = "Adaptive Learning (YALLM) Opt-Out",
+            body  = "You can now suspend YALLM's data collection and suggestion biasing "
+                 .. "while keeping the core spellchecker active. Toggle this in the "
+                 .. "Adaptive Learning settings or the initial setup popup.",
+        },
+    },
     ["2.1.0"] = {
         {
             title = "Global Settings Profiles",
@@ -278,6 +286,9 @@ end
 -- ---------------------------------------------------------------------------
 
 function Interface:ShouldShowWelcomeChoice()
+    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        return true
+    end
     local shown = tonumber(ReadSV("_welcomeShown"))
     if not shown or shown == 0 then return true end
     -- Re-show when the schema version bumps (data structure migration).
@@ -286,6 +297,9 @@ function Interface:ShouldShowWelcomeChoice()
 end
 
 function Interface:ShouldShowWhatsNew()
+    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        return true
+    end
     -- Never show What's New if the full welcome hasn't been shown yet.
     if self:ShouldShowWelcomeChoice() then return false end
     local last = ReadSV("_lastSeenVersion") or ""
@@ -326,6 +340,7 @@ local function CreatePopupToggle(parent, path, label, tip, y)
 
     cb:SetScript("OnClick", function(self)
         Interface:SetLocalPath(path, self:GetChecked() == true)
+        if cb.OnToggle then cb:OnToggle(self:GetChecked() == true) end
     end)
 
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -446,6 +461,11 @@ function Interface:CreateWelcomeChoiceFrame()
         dimmer:Hide()
         dimmer:SetParent(nil)
         Interface.WelcomeFrame = nil
+
+        -- Chain into What's New if eligible.
+        if Interface.ShouldShowWhatsNew and Interface:ShouldShowWhatsNew() then
+            Interface:CreateWhatsNewFrame()
+        end
     end
 
     -- Left column: Blizzard Skin Proxy.
@@ -486,7 +506,7 @@ function Interface:CreateWelcomeChoiceFrame()
     featureLabel:SetTextColor(1, 0.82, 0, 1)
     toggleY = toggleY - 24
 
-    local _, _, nextY = CreatePopupToggle(
+    local spellToggle, spellLabel, nextY = CreatePopupToggle(
         frame,
         { "Spellcheck", "Enabled" },
         "Enable spellcheck  |cFF888888(per-locale dictionaries with adaptive learning)|r",
@@ -495,7 +515,7 @@ function Interface:CreateWelcomeChoiceFrame()
         toggleY
     )
 
-    CreatePopupToggle(
+    local acToggle, acLabel, nextY2 = CreatePopupToggle(
         frame,
         { "EditBox", "AutocompleteEnabled" },
         "Enable autocomplete / ghost text  |cFF888888(requires spellcheck)|r",
@@ -503,6 +523,33 @@ function Interface:CreateWelcomeChoiceFrame()
         .. "vocabulary and the spellcheck dictionary. Press Tab to accept.",
         nextY
     )
+
+    local yallmToggle, yallmLabel, nextY3 = CreatePopupToggle(
+        frame,
+        { "Spellcheck", "YALLMEnabled" },
+        "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
+        "Tracks your vocabulary and correction preferences to improve "
+        .. "suggestion accuracy over time.",
+        nextY2
+    )
+
+    local function updateSubToggles()
+        local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
+        if spellEnabled then
+            acToggle:Enable()
+            acLabel:SetTextColor(0.9, 0.9, 0.9, 1)
+            yallmToggle:Enable()
+            yallmLabel:SetTextColor(0.9, 0.9, 0.9, 1)
+        else
+            acToggle:Disable()
+            acLabel:SetTextColor(0.5, 0.5, 0.5, 1)
+            yallmToggle:Disable()
+            yallmLabel:SetTextColor(0.5, 0.5, 0.5, 1)
+        end
+    end
+
+    spellToggle.OnToggle = updateSubToggles
+    updateSubToggles() -- Initial state
 
     -- Store references.
     frame.BlizzPreview  = blizzPreview
@@ -588,8 +635,9 @@ function Interface:CreateWhatsNewFrame()
     local togglesAdded = false
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
+    local yallmEnabled = Interface:GetConfigPath({ "Spellcheck", "YALLMEnabled" })
 
-    if spellEnabled ~= true or acEnabled ~= true then
+    if spellEnabled ~= true or acEnabled ~= true or yallmEnabled ~= true then
         local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         togLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
         togLabel:SetText("New Features — Try Them Out")
@@ -597,27 +645,58 @@ function Interface:CreateWhatsNewFrame()
         cursor = cursor - 24
         togglesAdded = true
 
+        local spellT, acT, acL, yallmT, yallmL
+
         if spellEnabled ~= true then
-            local _, _, ny = CreatePopupToggle(
+            local st, _, ny = CreatePopupToggle(
                 frame,
                 { "Spellcheck", "Enabled" },
                 "Enable spellcheck",
                 "Turns on real-time spellchecking.",
                 cursor
             )
+            spellT = st
             cursor = ny
         end
 
         if acEnabled ~= true then
-            local _, _, ny = CreatePopupToggle(
+            local at, al, ny = CreatePopupToggle(
                 frame,
                 { "EditBox", "AutocompleteEnabled" },
                 "Enable autocomplete / ghost text  |cFF888888(requires spellcheck)|r",
                 "Shows ghost-text predictions as you type. Press Tab to accept.",
                 cursor
             )
+            acT, acL = at, al
             cursor = ny
         end
+
+        if yallmEnabled ~= true then
+            local yt, yl, ny = CreatePopupToggle(
+                frame,
+                { "Spellcheck", "YALLMEnabled" },
+                "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
+                "Tracks your vocabulary and correction preferences to improve "
+                .. "suggestion accuracy over time.",
+                cursor
+            )
+            yallmT, yallmL = yt, yl
+            cursor = ny
+        end
+
+        local function update()
+            local activeSpell = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
+            if activeSpell then
+                if acT then acT:Enable(); acL:SetTextColor(0.9, 0.9, 0.9, 1) end
+                if yallmT then yallmT:Enable(); yallmL:SetTextColor(0.9, 0.9, 0.9, 1) end
+            else
+                if acT then acT:Disable(); acL:SetTextColor(0.5, 0.5, 0.5, 1) end
+                if yallmT then yallmT:Disable(); yallmL:SetTextColor(0.5, 0.5, 0.5, 1) end
+            end
+        end
+
+        if spellT then spellT.OnToggle = update end
+        update()
     end
 
     -- "Got it" button.

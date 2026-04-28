@@ -87,8 +87,9 @@ local SETTING_TOOLTIPS              = {
     ["Spellcheck.SuggestionCacheSize"] = "How many unique word suggestion results to keep cached across the session. Avoids recalculating suggestions for the same misspelled word. Set to 0 to disable caching entirely (higher values use slightly more memory).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
     ["Spellcheck.YALLMFreqCap"] = "Maximum number of unique vocabulary words YALLM tracks. Older and less-used words are pruned first when this cap is hit.",
-    ["Spellcheck.YALLMBiasCap"] = "Maximum number of typo→correction pairs stored by YALLM. Lower-utility pairs are pruned first.",
+    ["Spellcheck.YALLMBiasCap"] = "Maximum number of typo -> correction pairs stored by YALLM. Lower-utility pairs are pruned first.",
     ["Spellcheck.YALLMAutoThreshold"] = "How many times you must send a word before YALLM automatically adds it to your personal dictionary.",
+    ["Spellcheck.YALLMEnabled"] = "Enable adaptive learning to track your vocabulary and correction preferences. When disabled, Yapper stops collecting data and providing personalised suggestion ranking, but this may lead to a worse spellchecker.",
     ["Spellcheck.NgramKeyCapSize"] =
     "Maximum number of unique n-gram index keys built when loading the dictionary. Higher values improve suggestion recall for uncommon words but directly increase memory usage by roughly 1-2 MB per 10,000 extra keys. Set to 0 to remove the cap entirely (maximum accuracy, higher memory cost).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
@@ -163,6 +164,7 @@ local FRIENDLY_LABELS               = {
     ["Spellcheck.YALLMFreqCap"] = "Vocabulary cap",
     ["Spellcheck.YALLMBiasCap"] = "Correction bias cap",
     ["Spellcheck.YALLMAutoThreshold"] = "Auto-learn threshold",
+    ["Spellcheck.YALLMEnabled"] = "Enable adaptive learning",
     ["Spellcheck.NgramKeyCapSize"] = "N-gram key cap (0 = uncapped)",
     ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
@@ -288,6 +290,7 @@ local CATEGORIES                    = {
         label  = "Adaptive Learning",
         icon   = nil,
         paths  = {
+            "Spellcheck.YALLMEnabled",
             "Spellcheck.YALLMFreqCap",
             "Spellcheck.YALLMBiasCap",
             "Spellcheck.YALLMAutoThreshold",

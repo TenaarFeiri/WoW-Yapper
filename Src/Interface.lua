@@ -318,7 +318,7 @@ function Interface:InitPopups()
                     local resetLocale = (locale ~= "All") and locale or nil
                     yallm:Reset(resetLocale)
                     if Interface.MainWindowFrame and Interface.MainWindowFrame:IsShown() then
-                        Interface:RefreshActivePage()
+                        Interface:BuildConfigUI()
                     end
                 end
             end,
@@ -721,6 +721,14 @@ function Interface:ShowMainWindow()
     if not Interface.MainWindowFrame then
         Interface:Init()
     end
+
+    -- If we're in debug mode, suppress the welcome/whats-new popups when
+    -- explicitly opening the settings to avoid UI clutter.
+    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        if self.WelcomeFrame then self.WelcomeFrame:GetParent():Hide() end
+        if self.WhatsNewFrame then self.WhatsNewFrame:GetParent():Hide() end
+    end
+
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
     local State = YapperTable.State
@@ -735,6 +743,13 @@ function Interface:OpenToCategory(catId)
     if not Interface.MainWindowFrame then
         Interface:Init()
     end
+
+    -- Suppress popups in debug mode when navigating directly to a category.
+    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        if self.WelcomeFrame then self.WelcomeFrame:GetParent():Hide() end
+        if self.WhatsNewFrame then self.WhatsNewFrame:GetParent():Hide() end
+    end
+
     Interface._activeCategory = catId or "help"
     Interface:UpdateSidebarSelection()
     Interface:BuildConfigUI()
@@ -753,12 +768,7 @@ function Interface:ToggleMainWindow()
     if Interface.MainWindowFrame:IsShown() then
         Interface:CloseFrame(Interface.MainWindowFrame)
     else
-        Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
-        
-        local State = YapperTable.State
-        if State then State:ToConfig() end
-        
-        Interface.MainWindowFrame:Show()
+        Interface:ShowMainWindow()
     end
 end
 

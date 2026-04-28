@@ -33,6 +33,9 @@
     - Cleaned up legacy internal flags to reduce memory overhead and improve long-term maintainability.
   - *API & Documentation:*
     - **Developer Tools:** Exposed new state-logging APIs for third-party addon developers and fully synchronised the technical documentation.
+  - *YALLM Update*
+    - Added a toggle to opt out of YALLM (Yapper Adaptive Language Learning Model). This disables automatic learning personalised suggestions over time and may degrade the spellchecking experience, but is an option for those uncomfortable with the function.
+    - - You can always see in the "Adaptive Learning" tab in the Settings if Yapper is recording your usage, or inspect the Yapper DB file (located at World of Warcraft/\_retail\_/WTF/Account/<your account>/SavedVariables, "Yapper.lua") to confirm that it respects your setting.
 
 -- 2.1.9
   - *Bugfix*

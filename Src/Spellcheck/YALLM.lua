@@ -109,6 +109,12 @@ end
 -- Config-driven cap accessors
 -- ---------------------------------------------------------------------------
 
+--- Returns true if YALLM is enabled in the configuration.
+function YALLM:IsEnabled()
+    local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
+    return (cfg and cfg.YALLMEnabled ~= false)
+end
+
 function YALLM:GetFreqCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YALLMFreqCap) or FREQ_CAP
@@ -261,6 +267,7 @@ end
 
 --- Record usage frequency of words in a message
 function YALLM:RecordUsage(text, locale)
+    if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
     local now = time()
@@ -294,6 +301,7 @@ end
 
 --- Record when a user picks a specific suggestion for a typo.
 function YALLM:RecordSelection(typo, correction, utilityGain, locale)
+    if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
     local c = Clean(correction)
@@ -371,6 +379,7 @@ end
 --- Determines the appropriate learning strength based on whether the correction was
 --- already a known candidate and how phonetically/textually close it is to the typo.
 function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
+    if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
 
@@ -463,6 +472,7 @@ end
 
 --- Record when a user rejects a list of suggestions by clicking "More"
 function YALLM:RecordRejection(typo, candidates, locale)
+    if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db or not typo or type(candidates) ~= "table" then return end
 
@@ -496,6 +506,7 @@ end
 
 --- Record high-repetition typos for auto-learning
 function YALLM:RecordIgnored(word, locale)
+    if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
     if not self:IsSaneWord(word, locale) then return end
@@ -517,8 +528,8 @@ function YALLM:RecordIgnored(word, locale)
             local loc = locale or Spellcheck:GetLocale()
             Spellcheck:AddUserWord(loc, word)
             db.auto[w] = nil -- Reset now that it's in the dict
-            if YapperTable.Utils then
-                YapperTable.Utils:Print("info",
+            if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+                YapperTable.Utils:VerbosePrint("info",
                     "YALLM: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
             end
             -- Notify external addons about the auto-learned word.
@@ -535,6 +546,7 @@ end
 
 --- Return the combined score bonus for a candidate using a pre-computed phonetic hash.
 function YALLM:GetBonus(cand, typo, typoPhHash, locale)
+    if not self:IsEnabled() then return 0 end
     local db = self:GetLocaleDB(locale)
     if not db then return 0 end
     local c = Clean(cand)
@@ -587,6 +599,7 @@ end
 
 --- Returns a list of candidate words that have been learned as corrections for the given typo.
 function YALLM:GetBiasTargets(typo, locale)
+    if not self:IsEnabled() then return nil end
     local db = self:GetLocaleDB(locale)
     if not db or not db.bias then return nil end
     local t = Clean(typo)
