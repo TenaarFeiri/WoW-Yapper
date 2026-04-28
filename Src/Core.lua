@@ -15,6 +15,7 @@ local DEFAULTS = {
     System = {
         -- Schema version for SavedVariables migration; bump only when data structure changes.
         VERSION                   = 2.1,
+        WELCOME_VERSION           = 1,
 
         -- VERBOSE and DEBUG are largely for debugging.
         -- VERBOSE is for general debugging messages, or just declaring certain actions.
@@ -424,8 +425,6 @@ function YapperTable.Core:InitSavedVars()
     local confVersion = GetConfigVersion(_G.YapperLocalConf)
     local histVersion = GetHistoryVersion(_G.YapperLocalHistory)
 
-    -- Missing version markers indicate old/invalid schema.
-    -- Rebuild ONLY the affected table, not everything.
     if dbVersion == nil then
         _G.YapperDB = {}
     end
@@ -435,6 +434,14 @@ function YapperTable.Core:InitSavedVars()
     if histVersion == nil then
         _G.YapperLocalHistory = {}
     end
+
+    -- Mark current versions immediately to avoid recursive migration loops
+    -- or stale version data if the boot sequence errors later.
+    if type(_G.YapperDB.System) ~= "table" then _G.YapperDB.System = {} end
+    if type(_G.YapperLocalConf.System) ~= "table" then _G.YapperLocalConf.System = {} end
+    _G.YapperDB.System.VERSION = currentVersion
+    _G.YapperLocalConf.System.VERSION = currentVersion
+    _G.YapperLocalHistory.VERSION = currentVersion
 
     -- 1. YapperDB — account-wide defaults / settings.
     ApplyDefaults(_G.YapperDB, DEFAULTS)
@@ -465,10 +472,6 @@ function YapperTable.Core:InitSavedVars()
         end
     end
 
-    if type(_G.YapperDB.System) ~= "table" then
-        _G.YapperDB.System = {}
-    end
-    _G.YapperDB.System.VERSION = currentVersion
     _G.YapperDB.chatHistory = nil
     _G.YapperDB.draft = nil
 
@@ -479,7 +482,7 @@ function YapperTable.Core:InitSavedVars()
         _G.YapperLocalConf.System = {}
     end
 
-    if confVersion and currentVersion > confVersion then
+    if confVersion and currentVersion ~= confVersion then
         SyncParity(_G.YapperLocalConf, DEFAULTS)
     end
 
@@ -506,7 +509,7 @@ function YapperTable.Core:InitSavedVars()
     -- 3. YapperLocalHistory — per-character history / drafts.
     ApplyDefaults(_G.YapperLocalHistory, HISTORY_DEFAULTS)
 
-    if histVersion and currentVersion > histVersion then
+    if histVersion and currentVersion ~= histVersion then
         SyncParity(_G.YapperLocalHistory, HISTORY_PARITY_SCHEMA)
     end
 

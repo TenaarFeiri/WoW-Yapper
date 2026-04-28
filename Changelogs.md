@@ -24,18 +24,18 @@
 
 ## Patch notes
 -- 2.1.10
-  - *Stability & Reliability:*
-    - **Smoother State Transitions:** Refactored the core logic that manages chat modes. This resolves several rare "confused" UI states when switching between the single-line overlay and the expanded multiline editor.
-    - **Hardened UI Guards:** Added extra protection to prevent the chat box from closing or resetting while it's still busy delivering a long message or waiting for a hardware event.
-    - **Internal "Flight Recorder":** Implemented a high-performance background logging system. While invisible to the user, this allows developers to precisely retrace the addon's steps to squash bugs faster.
-  - *Bug Fixes:*
-    - Fixed an issue where closing the UI via external means (like a custom keybind) could occasionally "orphan" a message that was currently being sent.
-    - Cleaned up legacy internal flags to reduce memory overhead and improve long-term maintainability.
-  - *API & Documentation:*
-    - **Developer Tools:** Exposed new state-logging APIs for third-party addon developers and fully synchronised the technical documentation.
-  - *YALLM Update*
-    - Added a toggle to opt out of YALLM (Yapper Adaptive Language Learning Model). This disables automatic learning personalised suggestions over time and may degrade the spellchecking experience, but is an option for those uncomfortable with the function.
-    - - You can always see in the "Adaptive Learning" tab in the Settings if Yapper is recording your usage, or inspect the Yapper DB file (located at World of Warcraft/\_retail\_/WTF/Account/<your account>/SavedVariables, "Yapper.lua") to confirm that it respects your setting.
+  - *New Features & Improvements:*
+    - **YALLM Opt-out:** Added a toggle to opt out of YALLM (Yapper Adaptive Learning Language Model). This stops Yapper from recording your vocabulary and preferences.
+    - **Factory Reset:** Added a button in Advanced Settings for a total "clean slate"—wipes all settings, learned data, and history.
+    - **Improved Reset:** The standard "Reset to Defaults" is now more thorough, correctly clearing minimap and window positions.
+    - **Scrollable Changelog:** The "What's New" popup is now scrollable, allowing you to review the full history of Yapper updates.
+  - *Bug Fixes & Stability:*
+    - Fixed a rare bug where closing the chat window too quickly could cause a message to be "lost" mid-send.
+    - Resolved several "confused" UI states when switching between single-line and multiline modes.
+    - Added "UI Guards" to prevent the chat box from resetting while it's busy processing long messages.
+  - *Technical Changes (For Developers):*
+    - Implemented a background logging system to help squash bugs faster.
+    - Exposed new state-logging APIs and fully synchronised the technical documentation.
 
 -- 2.1.9
   - *Bugfix*

@@ -366,6 +366,21 @@ function Interface:InitPopups()
             hideOnEscape = true,
         }
     end
+    
+    if not StaticPopupDialogs["YAPPER_FACTORY_RESET_CONFIRM"] then
+        StaticPopupDialogs["YAPPER_FACTORY_RESET_CONFIRM"] = {
+            text =
+            "|cFFFF0000WARNING:|r This will wipe EVERYTHING, including your settings, learned dictionary data, and chat history. This action cannot be undone.\n\nAre you absolutely sure?",
+            button1 = "Wipe Everything",
+            button2 = "Cancel",
+            OnAccept = function()
+                Interface:FactoryReset()
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
 
 
     if not StaticPopupDialogs["YAPPER_RPPREFIX_LOCKDOWN_WARNING"] then
@@ -702,6 +717,16 @@ function Interface:BuildConfigUI()
             StaticPopup_Show("YAPPER_RESET_CONFIRM")
         end)
         self:AddControl(resetBtn)
+        cursor:Advance(44)
+        
+        local factoryBtn = self:AcquireWidget("ActionButton", frame.ContentFrame, "UIPanelButtonTemplate", "Button")
+        factoryBtn:SetSize(160, 24)
+        factoryBtn:SetPoint("TOPLEFT", frame.ContentFrame, "TOPLEFT", LAYOUT.WINDOW_PADDING, cursor:Y() - 28)
+        factoryBtn:SetText("Factory Reset")
+        factoryBtn:SetScript("OnClick", function()
+            StaticPopup_Show("YAPPER_FACTORY_RESET_CONFIRM")
+        end)
+        self:AddControl(factoryBtn)
         cursor:Advance(36)
     end
 

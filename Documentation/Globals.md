@@ -25,7 +25,7 @@ See SavedVariables layout in [Architecture.md](Architecture.md#savedvariables-la
 
 - `_G.YAPPER_UTILS = Utils` for debug/dev access ([`Src/Utils.lua#L94`](../Src/Utils.lua#L94)).
 - `_G.ChatEdit_InsertLink` is replaced by overlay-aware compatibility logic ([`Src/EditBoxCompat.lua#L86`](../Src/EditBoxCompat.lua#L86)).
-- `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L811`](../Src/Interface.lua#L811)).
+- `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L836`](../Src/Interface.lua#L836)).
 
 ## Slash commands
 

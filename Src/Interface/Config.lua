@@ -54,9 +54,11 @@ function Interface:ResetAllSettings()
     -- Clear configuration keys from account-wide storage while keeping
     -- the learned data (YALLM) and interface cache container intact.
     if type(_G.YapperDB) == "table" then
-        _G.YapperDB.EditBox    = nil
-        _G.YapperDB.System     = nil
-        _G.YapperDB.Spellcheck = nil
+        _G.YapperDB.EditBox       = nil
+        _G.YapperDB.System        = nil
+        _G.YapperDB.Spellcheck    = nil
+        _G.YapperDB.FrameSettings = nil
+        _G.YapperDB.minimapbutton = nil
     end
 
     -- Re-run the Core initialisation to re-seed tables with defaults
@@ -70,6 +72,21 @@ function Interface:ResetAllSettings()
 
     -- Mark settings as changed so any active UI elements know to refresh.
     self:SetSettingsChanged(true)
+end
+
+--- TRUE clean slate: wipes all settings, learned dictionary data, and history.
+function Interface:FactoryReset()
+    _G.YapperDB = {}
+    _G.YapperLocalConf = {}
+    _G.YapperLocalHistory = {}
+
+    -- Re-run the Core initialisation to re-seed tables with defaults.
+    if YapperTable.Core and YapperTable.Core.InitSavedVars then
+        YapperTable.Core:InitSavedVars()
+    end
+
+    -- Force a reload to ensure all in-memory state is purged.
+    ReloadUI()
 end
 
 function Interface:GetRenderCacheContainer()

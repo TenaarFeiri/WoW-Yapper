@@ -20,19 +20,19 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L270`](../Src/Core.lua#L270)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L271`](../Src/Core.lua#L271)).
 - Methods:
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L721`](../Src/Core.lua#L721))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L518`](../Src/Core.lua#L518))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L290`](../Src/Core.lua#L290))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L275`](../Src/Core.lua#L275))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L416`](../Src/Core.lua#L416)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L541`](../Src/Core.lua#L541))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L545`](../Src/Core.lua#L545))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L549`](../Src/Core.lua#L549))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L562`](../Src/Core.lua#L562)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L628`](../Src/Core.lua#L628)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L742`](../Src/Core.lua#L742)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L724`](../Src/Core.lua#L724))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L521`](../Src/Core.lua#L521))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L291`](../Src/Core.lua#L291))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L276`](../Src/Core.lua#L276))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L417`](../Src/Core.lua#L417)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L544`](../Src/Core.lua#L544))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L548`](../Src/Core.lua#L548))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L552`](../Src/Core.lua#L552))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L565`](../Src/Core.lua#L565)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L631`](../Src/Core.lua#L631)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L745`](../Src/Core.lua#L745)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -738,16 +738,16 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L106`](../Src/Interface.lua#L106))
   - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L102`](../Src/Interface.lua#L102))
   - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
-  - `BuildConfigUI` ([`../Src/Interface.lua#L440`](`../Src/Interface.lua#L440`))
-  - `ShowMainWindow` ([`../Src/Interface.lua#L720`](`../Src/Interface.lua#L720`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L742`](`../Src/Interface.lua#L742`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L764`](`../Src/Interface.lua#L764`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L793`](`../Src/Interface.lua#L793`))
-  - `CloseFrame` ([`../Src/Interface.lua#L824`](`../Src/Interface.lua#L824`))
-  - `Init` ([`../Src/Interface.lua#L835`](`../Src/Interface.lua#L835`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L868`](`../Src/Interface.lua#L868`))
+  - `BuildConfigUI` ([`../Src/Interface.lua#L455`](`../Src/Interface.lua#L455`))
+  - `ShowMainWindow` ([`../Src/Interface.lua#L745`](`../Src/Interface.lua#L745`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L767`](`../Src/Interface.lua#L767`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L789`](`../Src/Interface.lua#L789`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L818`](`../Src/Interface.lua#L818`))
+  - `CloseFrame` ([`../Src/Interface.lua#L849`](`../Src/Interface.lua#L849`))
+  - `Init` ([`../Src/Interface.lua#L860`](`../Src/Interface.lua#L860`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L893`](`../Src/Interface.lua#L893`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L811`](../Src/Interface.lua#L811)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L836`](../Src/Interface.lua#L836)).
 
 ## Interface.Schema
 
@@ -768,27 +768,28 @@ Handles config reads/writes and side-effect fan-out.
 
 - Description: Config root/path helpers, sanitisation, minimap controls.
 - Methods:
+  - [NEW] `Interface:FactoryReset() → nil`: TRUE clean slate: wipes all settings, learned dictionary data, and history. ([`../Src/Interface/Config.lua#L78`](../Src/Interface/Config.lua#L78))
   - `Interface:ResetAllSettings() → nil`: Reset all configuration settings to their default values. ([`../Src/Interface/Config.lua#L50`](../Src/Interface/Config.lua#L50))
   - `GetLocalConfigRoot` ([`../Src/Interface/Config.lua#L34`](`../Src/Interface/Config.lua#L34`))
   - `GetDefaultsRoot` ([`../Src/Interface/Config.lua#L41`](`../Src/Interface/Config.lua#L41`))
-  - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L75`](`../Src/Interface/Config.lua#L75`))
-  - `PurgeRenderCache` ([`../Src/Interface/Config.lua#L86`](`../Src/Interface/Config.lua#L86`))
-  - `SetDirty` ([`../Src/Interface/Config.lua#L92`](`../Src/Interface/Config.lua#L92`))
-  - `IsDirty` ([`../Src/Interface/Config.lua#L97`](`../Src/Interface/Config.lua#L97`))
-  - `SetSettingsChanged` ([`../Src/Interface/Config.lua#L102`](`../Src/Interface/Config.lua#L102`))
-  - `GetConfigPath` ([`../Src/Interface/Config.lua#L110`](`../Src/Interface/Config.lua#L110`))
-  - `GetDefaultPath` ([`../Src/Interface/Config.lua#L118`](`../Src/Interface/Config.lua#L118`))
-  - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L122`](`../Src/Interface/Config.lua#L122`))
-  - `SetLocalPath` ([`../Src/Interface/Config.lua#L126`](`../Src/Interface/Config.lua#L126`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L308`](`../Src/Interface/Config.lua#L308`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L316`](`../Src/Interface/Config.lua#L316`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L329`](`../Src/Interface/Config.lua#L329`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L333`](`../Src/Interface/Config.lua#L333`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L349`](`../Src/Interface/Config.lua#L349`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L406`](`../Src/Interface/Config.lua#L406`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L431`](`../Src/Interface/Config.lua#L431`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L460`](`../Src/Interface/Config.lua#L460`))
+  - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L92`](`../Src/Interface/Config.lua#L92`))
+  - `PurgeRenderCache` ([`../Src/Interface/Config.lua#L103`](`../Src/Interface/Config.lua#L103`))
+  - `SetDirty` ([`../Src/Interface/Config.lua#L109`](`../Src/Interface/Config.lua#L109`))
+  - `IsDirty` ([`../Src/Interface/Config.lua#L114`](`../Src/Interface/Config.lua#L114`))
+  - `SetSettingsChanged` ([`../Src/Interface/Config.lua#L119`](`../Src/Interface/Config.lua#L119`))
+  - `GetConfigPath` ([`../Src/Interface/Config.lua#L127`](`../Src/Interface/Config.lua#L127`))
+  - `GetDefaultPath` ([`../Src/Interface/Config.lua#L135`](`../Src/Interface/Config.lua#L135`))
+  - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L139`](`../Src/Interface/Config.lua#L139`))
+  - `SetLocalPath` ([`../Src/Interface/Config.lua#L143`](`../Src/Interface/Config.lua#L143`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L325`](`../Src/Interface/Config.lua#L325`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L333`](`../Src/Interface/Config.lua#L333`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L346`](`../Src/Interface/Config.lua#L346`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L350`](`../Src/Interface/Config.lua#L350`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L383`](`../Src/Interface/Config.lua#L383`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L423`](`../Src/Interface/Config.lua#L423`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L448`](`../Src/Interface/Config.lua#L448`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L477`](`../Src/Interface/Config.lua#L477`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
@@ -801,22 +802,23 @@ Builds and controls top-level frames.
 - Fields:
   - `_activeCategory` *private by convention; do not rely on* ([`../Src/Interface/Window.lua#L175`](../Src/Interface/Window.lua#L175)).
 - Methods:
+  - [NEW] `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L288`](../Src/Interface/Window.lua#L288))
   - `GetMainWindowPositionStore` ([`../Src/Interface/Window.lua#L31`](`../Src/Interface/Window.lua#L31`))
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
-  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L288`](`../Src/Interface/Window.lua#L288`))
-  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L299`](`../Src/Interface/Window.lua#L299`))
-  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L311`](`../Src/Interface/Window.lua#L311`))
-  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L316`](`../Src/Interface/Window.lua#L316`))
-  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L371`](`../Src/Interface/Window.lua#L371`))
-  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L567`](`../Src/Interface/Window.lua#L567`))
-  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L726`](`../Src/Interface/Window.lua#L726`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L911`](`../Src/Interface/Window.lua#L911`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L930`](`../Src/Interface/Window.lua#L930`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L936`](`../Src/Interface/Window.lua#L936`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L944`](`../Src/Interface/Window.lua#L944`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L950`](`../Src/Interface/Window.lua#L950`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L978`](`../Src/Interface/Window.lua#L978`))
+  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L332`](`../Src/Interface/Window.lua#L332`))
+  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L344`](`../Src/Interface/Window.lua#L344`))
+  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L356`](`../Src/Interface/Window.lua#L356`))
+  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L360`](`../Src/Interface/Window.lua#L360`))
+  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L415`](`../Src/Interface/Window.lua#L415`))
+  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L611`](`../Src/Interface/Window.lua#L611`))
+  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L767`](`../Src/Interface/Window.lua#L767`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L952`](`../Src/Interface/Window.lua#L952`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L971`](`../Src/Interface/Window.lua#L971`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L977`](`../Src/Interface/Window.lua#L977`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L985`](`../Src/Interface/Window.lua#L985`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L991`](`../Src/Interface/Window.lua#L991`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1019`](`../Src/Interface/Window.lua#L1019`))
 
 ## Interface.Widgets
 

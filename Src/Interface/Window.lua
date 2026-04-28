@@ -197,6 +197,21 @@ local WHATS_NEW = {
                  .. "while keeping the core spellchecker active. Toggle this in the "
                  .. "Adaptive Learning settings or the initial setup popup.",
         },
+        {
+            title = "Factory Reset (Clean Slate)",
+            body  = "Added a |cFFFF0000Factory Reset|r button in Advanced settings to wipe "
+                 .. "all data, history, and settings for a truly fresh start.",
+        },
+        {
+            title = "Scrollable Changelog",
+            body  = "This window is now scrollable! You can review the history of all "
+                 .. "major Yapper updates directly from this popup.",
+        },
+        {
+            title = "Stability Fixes",
+            body  = "Fixed a rare bug where closing the chat window too quickly could "
+                 .. "lose a message mid-send, and smoother transitions between chat modes.",
+        },
     },
     ["2.1.0"] = {
         {
@@ -249,6 +264,35 @@ local WHATS_NEW = {
 -- Helpers
 -- ---------------------------------------------------------------------------
 
+local function CompareVersions(v1, v2)
+    local p1 = { strsplit(".", v1) }
+    local p2 = { strsplit(".", v2) }
+    for i = 1, math.max(#p1, #p2) do
+        local n1 = tonumber(p1[i]) or 0
+        local n2 = tonumber(p2[i]) or 0
+        if n1 ~= n2 then return n1 > n2 end
+    end
+    return false
+end
+
+local function GetSortedVersions()
+    local list = {}
+    for v in pairs(WHATS_NEW) do
+        tinsert(list, v)
+    end
+    table.sort(list, CompareVersions)
+    return list
+end
+
+--- Returns the target version of the welcome screen content.
+function Interface:GetWelcomeVersion()
+    local defaults = self:GetDefaultsRoot()
+    if type(defaults) == "table" and type(defaults.System) == "table" then
+        return tonumber(defaults.System.WELCOME_VERSION) or 1
+    end
+    return 1
+end
+
 local function GetSchemaVersion()
     if not Interface.GetDefaultsRoot then return 0 end
     local defaults = Interface:GetDefaultsRoot()
@@ -291,8 +335,9 @@ function Interface:ShouldShowWelcomeChoice()
     end
     local shown = tonumber(ReadSV("_welcomeShown"))
     if not shown or shown == 0 then return true end
-    -- Re-show when the schema version bumps (data structure migration).
-    if shown < GetSchemaVersion() then return true end
+    
+    -- Re-show when the welcome screen content changes (UI update).
+    if shown ~= self:GetWelcomeVersion() then return true end
     return false
 end
 
@@ -309,8 +354,7 @@ function Interface:ShouldShowWhatsNew()
 end
 
 function Interface:MarkWelcomeShown()
-    WriteSV("_welcomeShown", GetSchemaVersion())
-    WriteSV("_lastSeenVersion", GetAddonVersion())
+    WriteSV("_welcomeShown", self:GetWelcomeVersion())
 end
 
 function Interface:MarkVersionSeen()
@@ -567,16 +611,14 @@ end
 function Interface:CreateWhatsNewFrame()
     if self.WhatsNewFrame then return end
 
-    local version = GetAddonVersion()
-    local notes   = WHATS_NEW[version]
-
-    -- If there are no notes for this version, just mark it seen and bail.
-    if not notes or #notes == 0 then
+    local sorted = GetSortedVersions()
+    if #sorted == 0 then
         self:MarkVersionSeen()
         return
     end
 
     local FRAME_W = 560
+    local FRAME_H = 540
     local PAD     = 20
 
     -- Fullscreen darkener.
@@ -587,9 +629,9 @@ function Interface:CreateWhatsNewFrame()
     dimmer:SetBackdropColor(0, 0, 0, 0.45)
     dimmer:EnableMouse(true)
 
-    -- Main container — height computed dynamically.
+    -- Main container.
     local frame = CreateFrame("Frame", "YapperWhatsNew", dimmer, "BackdropTemplate")
-    frame:SetWidth(FRAME_W)
+    frame:SetSize(FRAME_W, FRAME_H)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(dimmer:GetFrameLevel() + 5)
@@ -605,83 +647,88 @@ function Interface:CreateWhatsNewFrame()
     -- Title.
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", frame, "TOP", 0, -PAD)
-    title:SetText("What's New in " .. version)
+    title:SetText("Yapper Changelog")
     title:SetTextColor(1, 0.82, 0, 1)
 
+    -- Scroll Area.
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -PAD - 32)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD - 26, PAD + 100)
+    
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(scrollFrame:GetWidth(), 1)
+    scrollFrame:SetScrollChild(content)
+
     -- Note entries.
-    local cursor = -PAD - 28
-    local textW  = FRAME_W - PAD * 2 - 10
+    local cursor = 0
+    local textW  = scrollFrame:GetWidth() - 10
 
-    for _, entry in ipairs(notes) do
-        local heading = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        heading:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
-        heading:SetWidth(textW)
-        heading:SetJustifyH("LEFT")
-        heading:SetText(entry.title)
-        heading:SetTextColor(1, 0.82, 0, 0.95)
-        cursor = cursor - (heading:GetStringHeight() + 4)
+    for _, vStr in ipairs(sorted) do
+        local notes = WHATS_NEW[vStr]
+        
+        -- Version Header
+        local vHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        vHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 4, cursor)
+        vHeader:SetWidth(textW)
+        vHeader:SetJustifyH("LEFT")
+        vHeader:SetText("Version " .. vStr)
+        vHeader:SetTextColor(1, 0.9, 0, 1)
+        cursor = cursor - (vHeader:GetStringHeight() + 10)
 
-        local body = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        body:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
-        body:SetWidth(textW)
-        body:SetJustifyH("LEFT")
-        body:SetText(entry.body)
-        body:SetTextColor(0.8, 0.8, 0.8, 1)
-        cursor = cursor - (body:GetStringHeight() + 14)
+        for _, entry in ipairs(notes) do
+            local heading = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            heading:SetPoint("TOPLEFT", content, "TOPLEFT", 12, cursor)
+            heading:SetWidth(textW - 12)
+            heading:SetJustifyH("LEFT")
+            heading:SetText(entry.title)
+            heading:SetTextColor(1, 0.82, 0, 0.95)
+            cursor = cursor - (heading:GetStringHeight() + 4)
+
+            local body = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            body:SetPoint("TOPLEFT", content, "TOPLEFT", 12, cursor)
+            body:SetWidth(textW - 12)
+            body:SetJustifyH("LEFT")
+            body:SetText(entry.body)
+            body:SetTextColor(0.8, 0.8, 0.8, 1)
+            cursor = cursor - (body:GetStringHeight() + 14)
+        end
+        cursor = cursor - 10
     end
+    content:SetHeight(math.abs(cursor))
 
     -- ── Feature opt-in toggles ────────────────────────────────────────
-    -- Only show toggles for features that the user has not yet opted into.
+    local bottomAnchor = -PAD - 100
     local togglesAdded = false
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
     local yallmEnabled = Interface:GetConfigPath({ "Spellcheck", "YALLMEnabled" })
 
+    local toggleCursor = -FRAME_H + 120
+
     if spellEnabled ~= true or acEnabled ~= true or yallmEnabled ~= true then
         local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        togLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, cursor)
+        togLabel:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", PAD + 4, 120)
         togLabel:SetText("New Features — Try Them Out")
         togLabel:SetTextColor(1, 0.82, 0, 1)
-        cursor = cursor - 24
+        toggleCursor = toggleCursor - 24
         togglesAdded = true
 
-        local spellT, acT, acL, yallmT, yallmL
+        local acT, acL, yallmT, yallmL, spellT
 
         if spellEnabled ~= true then
-            local st, _, ny = CreatePopupToggle(
-                frame,
-                { "Spellcheck", "Enabled" },
-                "Enable spellcheck",
-                "Turns on real-time spellchecking.",
-                cursor
-            )
+            local st, _, ny = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck", "Turns on real-time spellchecking.", toggleCursor)
             spellT = st
-            cursor = ny
+            toggleCursor = ny
         end
-
         if acEnabled ~= true then
-            local at, al, ny = CreatePopupToggle(
-                frame,
-                { "EditBox", "AutocompleteEnabled" },
-                "Enable autocomplete / ghost text  |cFF888888(requires spellcheck)|r",
-                "Shows ghost-text predictions as you type. Press Tab to accept.",
-                cursor
-            )
+            local at, al, ny = CreatePopupToggle(frame, { "EditBox", "AutocompleteEnabled" }, "Enable autocomplete / ghost text", "Shows ghost-text predictions as you type.", toggleCursor)
             acT, acL = at, al
-            cursor = ny
+            toggleCursor = ny
         end
-
         if yallmEnabled ~= true then
-            local yt, yl, ny = CreatePopupToggle(
-                frame,
-                { "Spellcheck", "YALLMEnabled" },
-                "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
-                "Tracks your vocabulary and correction preferences to improve "
-                .. "suggestion accuracy over time.",
-                cursor
-            )
+            local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YALLMEnabled" }, "Enable adaptive learning", "Tracks your vocabulary to improve suggestion accuracy.", toggleCursor)
             yallmT, yallmL = yt, yl
-            cursor = ny
+            toggleCursor = ny
         end
 
         local function update()
@@ -694,16 +741,14 @@ function Interface:CreateWhatsNewFrame()
                 if yallmT then yallmT:Disable(); yallmL:SetTextColor(0.5, 0.5, 0.5, 1) end
             end
         end
-
         if spellT then spellT.OnToggle = update end
         update()
     end
 
     -- "Got it" button.
-    cursor = cursor - 10
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btn:SetSize(120, 32)
-    btn:SetPoint("TOP", frame, "TOP", 0, cursor)
+    btn:SetPoint("BOTTOM", frame, "BOTTOM", 0, PAD)
     btn:SetText("Got it")
     btn:SetScript("OnClick", function()
         Interface:MarkVersionSeen()
@@ -711,10 +756,6 @@ function Interface:CreateWhatsNewFrame()
         dimmer:SetParent(nil)
         Interface.WhatsNewFrame = nil
     end)
-    cursor = cursor - 32 - PAD
-
-    -- Set final height.
-    frame:SetHeight(math.abs(cursor) + 10)
 
     self.WhatsNewFrame = frame
     dimmer:Show()
