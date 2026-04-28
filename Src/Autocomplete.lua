@@ -19,8 +19,6 @@
 		YALLM tier uses binary search over a sorted personal-frequency index.
 		Dictionary tier uses binary search on the alphabetically sorted
 		`dict.words` array — ~17 iterations for 130k words ($O(\log N)$).
-
-	Not yet wired — this is scaffolding only.
 ]]
 
 local _, YapperTable = ...
