@@ -2,20 +2,4 @@
     <Binding name="Bypass Yapper" default="SHIFT-ENTER"> 
         Yapper.EditBox:OpenBlizzardChat()
     </Binding>
-    <!-- Possible implementation for opening Yapper with a slash command -->
-    <!-- <Binding name="Open Yapper With Slash" default="/">
-         Yapper.EditBox:OpenSlashCommand()
-     </Binding> -->
-    <!-- NYI: multiline frame not yet implemented
-    <Binding name="YAPPER_TOGGLE_MULTILINE" header="YAPPER">
-        local EditBox = _G.YapperTable and _G.YapperTable.EditBox
-        if EditBox and EditBox.Overlay and EditBox.Overlay:IsShown() then
-            if EditBox._isStorytellerMode then
-                EditBox:ExitStorytellerMode()
-            else
-                EditBox:EnterStorytellerMode()
-            end
-        end
-    </Binding>
-    -->
 </Bindings>
