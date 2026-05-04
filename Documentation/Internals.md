@@ -864,3 +864,14 @@ Per-category page builders called by `BuildConfigUI`.
   - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1319`](`../Src/Interface/Pages.lua#L1319`))
 - Invariants:
   - Dropdown handlers assume config roots are initialised.
+
+## Emotes
+
+- Methods:
+  - [NEW] `Emotes:ApplySelection(index) → nil`: Applies the selected emote to the edit box and hides the menu. ([`../Src/Emotes.lua#L250`](../Src/Emotes.lua#L250))
+  - [NEW] `Emotes:RefreshSelection() → nil`: Highlights the currently selected row in the emote menu. ([`../Src/Emotes.lua#L237`](../Src/Emotes.lua#L237))
+  - [NEW] `Emotes:FilterAndShow() → nil`: Re-renders the emote menu UI based on the current ActiveFilter. ([`../Src/Emotes.lua#L183`](../Src/Emotes.lua#L183))
+  - [NEW] `Emotes:FilterMenu(query) → nil`: Prepares the search filter state from a raw slash command query. ([`../Src/Emotes.lua#L174`](../Src/Emotes.lua#L174))
+  - [NEW] `Emotes:HideMenu() → nil`: Hides the emote menu. ([`../Src/Emotes.lua#L166`](../Src/Emotes.lua#L166))
+  - [NEW] `Emotes:OpenMenu() → nil`: Opens the emote menu. ([`../Src/Emotes.lua#L156`](../Src/Emotes.lua#L156))
+  - [NEW] `Emotes:EnsureUI() → nil`: Ensures the UI is created and ready for use. ([`../Src/Emotes.lua#L45`](../Src/Emotes.lua#L45))

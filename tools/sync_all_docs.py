@@ -37,6 +37,7 @@ FILE_SECTION_MAP = {
     "Chat.lua": ("Internals.md", "## Chat"),
     "Multiline.lua": ("Internals.md", "## Multiline"),
     "Autocomplete.lua": ("Internals.md", "## Autocomplete"),
+    "Emotes.lua": ("Internals.md", "## Emotes"),
     "History.lua": ("Internals.md", "## History"),
     "Theme.lua": ("Internals.md", "## Theme"),
     "Router.lua": ("Internals.md", "## Router"),

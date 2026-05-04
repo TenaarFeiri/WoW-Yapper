@@ -93,7 +93,28 @@ function EditBox:SetupOverlayScripts()
         if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil
+            if YapperTable.Emotes then
+                YapperTable.Emotes:HideHint()
+                YapperTable.Emotes:HideMenu()
+            end
             return
+        end
+
+        if YapperTable.Emotes then
+            if text == "/" then
+                YapperTable.Emotes:ShowHint(box)
+            else
+                YapperTable.Emotes:HideHint()
+            end
+            
+            if YapperTable.Emotes:IsActive() then
+                -- Only continue filtering if there's no space yet
+                if not string.find(text, " ") then
+                    YapperTable.Emotes:FilterMenu(text)
+                else
+                    YapperTable.Emotes:HideMenu()
+                end
+            end
         end
 
         -- Bare numeric channel: "/2 message"
@@ -435,6 +456,11 @@ function EditBox:SetupOverlayScripts()
             YapperTable.IconGallery:Hide()
             return
         end
+        -- If emote menu is open, close it and stay.
+        if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
+            YapperTable.Emotes:HideMenu()
+            return
+        end
         -- If spell suggestions are open, close them only and keep the
         -- overlay active. This prevents ESC from accidentally closing
         -- the whole overlay when the user expected to dismiss hints.
@@ -520,6 +546,29 @@ function EditBox:SetupOverlayScripts()
                 return
             end
         end
+        -- Emote menu handling
+        if YapperTable.Emotes then
+            if key == "ENTER" or key == "NUMPADENTER" then
+                if YapperTable.Emotes:IsActive() then
+                    YapperTable.Emotes:ApplySelection()
+                    return -- Consume it so it doesn't send
+                end
+            elseif key == "UP" and YapperTable.Emotes:IsActive() then
+                YapperTable.Emotes:MoveSelection(-1)
+                return
+            elseif key == "DOWN" and YapperTable.Emotes:IsActive() then
+                YapperTable.Emotes:MoveSelection(1)
+                return
+            elseif key == "TAB" and box:GetText() == "/" then
+                if YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown() then
+                    YapperTable.Emotes:OpenMenu(box)
+                    return
+                elseif YapperTable.Emotes:IsActive() then
+                    YapperTable.Emotes:MoveSelection(1)
+                    return
+                end
+            end
+        end
         if key == "ENTER" and IsShiftKeyDown() then
             -- Shift+Enter: expand into multi-line storyteller editor.
             local ml = YapperTable.Multiline
@@ -555,6 +604,11 @@ function EditBox:SetupOverlayScripts()
 
         if YapperTable.IconGallery and YapperTable.IconGallery.Active then
             YapperTable.IconGallery:Hide()
+        end
+
+        if YapperTable.Emotes then
+            YapperTable.Emotes:HideHint()
+            YapperTable.Emotes:HideMenu()
         end
 
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnOverlayHide) == "function" then
