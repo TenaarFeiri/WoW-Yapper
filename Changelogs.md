@@ -23,6 +23,15 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.11
+  - *What's New & Better:*
+    - **Fresh "What's New" Experience:** Overhauled how we show update notes. You'll only see the notification popup when there's actually something new to read for your current version, and it now includes a dedicated font-size slider so you can make it as readable as you like.
+    - **Full Version History:** Ever wondered what you missed? You can now find the complete, scrollable history of every major feature addition, right inside the Yapper settings under the new "Changelog" tab.
+    - **Adaptive Learning Protection:** Yapper is now smart enough to ignore slash commands (like `/s` or `/p`) so they don't accidentally get learned as part of your vocabulary and clutter your suggestions.
+    - **Smarter UI Layout:** The update popup is now much more responsive. The "Got it" button and font slider scale nicely together, and we've tightened up the text spacing so everything is easier on the eyes.
+  - *Bug Fixes & Stability:*
+    - **BNet Transition Fix:** Resolved an issue where the Yapper overlay would occasionally re-open on its own when you were switching back and forth from BNet whispers.
+
 -- 2.1.10
   - *New Features & Improvements:*
     - **YALLM Opt-out:** Added a toggle to opt out of YALLM (Yapper Adaptive Learning Language Model). This stops Yapper from recording your vocabulary and preferences.
