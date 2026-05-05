@@ -59,6 +59,7 @@ local DEFAULTS = {
     ["FrameSettings"] = {
         ["MouseWheelStepRate"] = 30,
         ["UIFontOffset"] = 0,
+        ["WhatsNewFontSize"] = 12,
         ["EnableMinimapButton"] = true,
         ["MinimapButtonOffset"] = 0,
         ["MainWindowPosition"] = {
@@ -184,6 +185,9 @@ local DEFAULTS = {
             target   = nil,
             language = nil,
         },
+        
+        -- Emote auto-send: true = pressing enter/clicking sends it, false = fills editbox + space.
+        EmoteAutoSend         = false,
     },
 
     Spellcheck = {
