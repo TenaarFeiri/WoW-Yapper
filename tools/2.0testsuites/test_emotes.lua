@@ -32,6 +32,8 @@ local function makeFrame(frameType, name, parent)
     }
 
     function self:SetSize() end
+    function self:SetWidth() end
+    function self:SetHeight() end
     function self:SetFrameStrata() end
     function self:SetFrameLevel() end
     function self:SetBackdrop() end
@@ -55,10 +57,27 @@ local function makeFrame(frameType, name, parent)
     function self:SetCursorPosition(pos) self.cursor = pos end
     function self:GetCursorPosition() return self.cursor end
     function self:SetScript(event, fn) self.scripts[event] = fn end
+    function self:HookScript(event, fn)
+        local old = self.scripts[event]
+        self.scripts[event] = function(...)
+            if old then old(...) end
+            fn(...)
+        end
+    end
+    function self:GetScript(event) return self.scripts[event] end
     function self:RegisterForClicks() end
+    function self:EnableMouseWheel() end
+    function self:SetOrientation() end
+    function self:SetMinMaxValues() end
+    function self:SetValueStep() end
+    function self:SetObeyStepOnDrag() end
+    function self:SetValue() end
+    function self:SetThumbTexture() end
     function self:CreateTexture() 
         local tex = { coords = {} }
         function tex:SetAllPoints() end
+        function tex:SetPoint() end
+        function tex:SetSize() end
         function tex:SetTexture() end
         function tex:SetTexCoord(a,b,c,d) self.coords = {a,b,c,d} end
         function tex:SetColorTexture() end
@@ -93,7 +112,16 @@ _G.EMOTE2_CMD1 = "/dance"
 _G.EMOTE3_TOKEN = "AGREE"
 _G.EMOTE3_CMD1 = "/agree"
 
-local YapperTable = {}
+_G.C_Timer = {
+    After = function(t, cb) cb() end
+}
+
+local YapperTable = {
+    State = {
+        SetFlag = function(self, name, val) self[name] = val end,
+        GetFlag = function(self, name) return self[name] end
+    }
+}
 local loader, err = loadfile("Src/Emotes.lua")
 assert(loader, "failed to load Src/Emotes.lua: " .. tostring(err))
 loader("Yapper", YapperTable)
@@ -108,11 +136,13 @@ local function makeRawEditBox(text, cursor)
     function eb:SetText(t) self.text = t end
     function eb:GetCursorPosition() return self.cursor end
     function eb:SetCursorPosition(pos) self.cursor = pos end
+    function eb:SetFocus() end
+    function eb:GetScript() return nil end
     return eb
 end
 
 print("Test 1: Initialization")
-Emotes:Init()
+Emotes:InitEmoteList()
 check("EmoteList is built", #Emotes.EmoteList == 3)
 check("EmoteList is sorted alphabetically", Emotes.EmoteList[1].cmd == "/agree" and Emotes.EmoteList[3].cmd == "/wave")
 
@@ -141,8 +171,8 @@ Emotes:MoveSelection(-1)
 check("ActiveIndex moves to 1 after MoveSelection(-1)", Emotes.ActiveIndex == 1)
 
 Emotes:ApplySelection()
-check("EditBox text is replaced with '/agree'", eb:GetText() == "/agree")
-check("EditBox cursor is at the end of the text", eb:GetCursorPosition() == 6)
+check("EditBox text is replaced with '/agree '", eb:GetText() == "/agree ")
+check("EditBox cursor is at the end of the text", eb:GetCursorPosition() == 7)
 check("MenuFrame is hidden after application", Emotes.MenuFrame:IsShown() == false)
 
 print(string.rep("-", 60))
