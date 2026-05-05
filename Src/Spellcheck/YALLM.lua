@@ -31,6 +31,8 @@ local math_floor = math.floor
 local table_insert = table.insert
 local table_sort = table.sort
 local string_format = string.format
+local string_sub = string.sub
+local string_lower = string.lower
 
 local function IsDebugEnabled()
     return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
@@ -228,8 +230,10 @@ local function Clean(s)
     return s:lower():gsub("[%p%c%s]", "")
 end
 
-function YALLM:IsSaneWord(word, locale)
-    local w = Clean(word)
+function YALLM:IsSaneWord(w, locale)
+    if not w then return false end
+    -- Note: We expect 'w' to already be cleaned (lowercase, no punctuation)
+    -- to avoid redundant allocations in RecordUsage.
     -- Length bounds check
     if #w < 2 or #w > 40 then return false end
 
@@ -252,8 +256,10 @@ function YALLM:IsSaneWord(word, locale)
     if dict and dict.ngramIndex2 then
         local norm = w:gsub("[aeiouy]", "*")
         local foundValidBigram = false
+        -- Use a sliding window to check bigrams without creating many small strings
+        -- when possible, though table lookups eventually need the string key.
         for i = 1, #norm - 1 do
-            local g = norm:sub(i, i + 1)
+            local g = string_sub(norm, i, i + 1)
             if dict.ngramIndex2[g] then
                 foundValidBigram = true
                 break
@@ -271,11 +277,20 @@ function YALLM:RecordUsage(text, locale)
     local db = self:GetLocaleDB(locale)
     if not db then return end
     local now = time()
+    
+    local isSlashCommand = (text:find("^%s*/") ~= nil)
+    local isFirstWord = true
 
     -- Fast-split into words (alphanumeric only)
     for word in text:gmatch("[%w']+") do
-        if self:IsSaneWord(word, locale) then
-            local w = Clean(word)
+        local skip = false
+        if isFirstWord then
+            isFirstWord = false
+            if isSlashCommand then skip = true end
+        end
+
+        local w = word:lower()
+        if not skip and self:IsSaneWord(w, locale) then
             if not db.freq[w] then
                 -- Handle Capacity (Weighted LRU Eviction)
                 if db.total >= self:GetFreqCap() then
@@ -506,12 +521,12 @@ end
 
 --- Record high-repetition typos for auto-learning
 function YALLM:RecordIgnored(word, locale)
-    if not self:IsEnabled() then return end
+    if not locale then locale = self.Spellcheck and self.Spellcheck:GetLocale() end
     local db = self:GetLocaleDB(locale)
     if not db then return end
-    if not self:IsSaneWord(word, locale) then return end
-
-    local w = Clean(word)
+    
+    local w = word:lower()
+    if not self:IsSaneWord(w, locale) then return end
     local now = time()
     if not db.auto[w] then
         db.auto[w] = { c = 1, t = now }
@@ -661,7 +676,7 @@ function YALLM:Prune(tableName, limit, locale)
 
     local keys = {}
     for k in pairs(tbl) do table_insert(keys, k) end
-    if #keys <= limit then return end
+    if #keys < limit then return end
 
     -- Sort by relevance: Score = Count * Utility * RecencyFactor
     -- Items used a long time ago have lower recency factors.

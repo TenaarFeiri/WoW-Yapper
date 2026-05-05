@@ -88,6 +88,14 @@ function Spellcheck:CollectMisspellings(text, dict)
     local ignoreRanges = self:GetIgnoredRanges(text)
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
 
+    local isSlashCommand = (text:match("^%s*/") ~= nil)
+    local emotePickerVisible = false
+    if isSlashCommand and YapperTable.Emotes then
+        emotePickerVisible = YapperTable.Emotes:IsActive() or (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
+    end
+    local skipFirstWord = isSlashCommand and emotePickerVisible
+    local isFirstWord = true
+
     local idx = 1
     while idx <= #text do
         local byte = text:byte(idx)
@@ -104,7 +112,17 @@ function Spellcheck:CollectMisspellings(text, dict)
             local e = idx - 1
             local word = text:sub(s, e)
             local norm = NormaliseWord(word)
-            if not self:IsRangeIgnored(s, e, ignoreRanges)
+            
+            local shouldAdd = true
+            if isFirstWord then
+                isFirstWord = false
+                if skipFirstWord then
+                    shouldAdd = false
+                end
+            end
+
+            if shouldAdd
+                and not self:IsRangeIgnored(s, e, ignoreRanges)
                 and self:ShouldCheckWord(word, minLen)
                 and not (ignoredSet and ignoredSet[norm])
                 and not (addedSet and addedSet[norm])
@@ -329,6 +347,15 @@ function Spellcheck:GetWordAtCursor(text, cursor)
     local caret = cursor + 1
     local ignoreRanges = self:GetIgnoredRanges(text)
     local minLen = self:GetMinWordLength()
+
+    local isSlashCommand = (text:match("^%s*/") ~= nil)
+    local emotePickerVisible = false
+    if isSlashCommand and YapperTable.Emotes then
+        emotePickerVisible = YapperTable.Emotes:IsActive() or (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
+    end
+    local skipFirstWord = isSlashCommand and emotePickerVisible
+    local isFirstWord = true
+
     local idx = 1
     while idx <= #text do
         local byte = text:byte(idx)
@@ -343,7 +370,13 @@ function Spellcheck:GetWordAtCursor(text, cursor)
             end
             local e = idx - 1
             local word = text:sub(s, e)
-            if caret >= s and caret <= (e + 1)
+            
+            local isCurrentFirstWord = isFirstWord
+            isFirstWord = false
+            
+            if isCurrentFirstWord and skipFirstWord then
+                -- Skip returning this word for autocomplete
+            elseif caret >= s and caret <= (e + 1)
                 and not self:IsRangeIgnored(s, e, ignoreRanges)
                 and self:ShouldCheckWord(word, minLen) then
                 return { word = word, startPos = s, endPos = e }

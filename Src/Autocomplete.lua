@@ -599,10 +599,27 @@ function Autocomplete:OnTextChanged(editBox)
 	local text = editBox:GetText()
 	local pos  = editBox:GetCursorPosition()
 
-	local word, _ = self:ExtractWordAtCursor(text, pos)
+	local word, startIdx = self:ExtractWordAtCursor(text, pos)
 	if not word then
 		self:HideGhost()
 		return
+	end
+
+	-- Skip autocompletion for the first word if it starts with "/" and the emote picker is visible.
+	local isSlashCommand = (text:match("^%s*/") ~= nil)
+	if isSlashCommand and startIdx then
+		-- Check if this is the first word (starts at the slash position)
+		local firstWordStart = text:find("/")
+		if startIdx == firstWordStart then
+			local emotePickerVisible = false
+			if YapperTable.Emotes then
+				emotePickerVisible = YapperTable.Emotes:IsActive() or (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
+			end
+			if emotePickerVisible then
+				self:HideGhost()
+				return
+			end
+		end
 	end
 
 	-- Detect a direction change: the user typed something that no longer
