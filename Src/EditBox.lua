@@ -256,6 +256,42 @@ local function GetLastTellTargetInfo()
 
     return lastType, lastTell
 end
+
+--- Returns the chat type and target of the last outgoing whisper sent via Yapper
+--- (i.e. the last person the player whispered TO, as opposed to who whispered them).
+--- Uses Blizzard's own ChatFrameUtil.GetLastToldTarget so it stays in sync with
+--- sends made through either Yapper or Blizzard's native editbox.
+--- @return string|nil chatType  e.g. "WHISPER" or "BN_WHISPER"
+--- @return string|nil target    Character name or BNet presence ID
+local function GetLastToldTargetInfo()
+    local lastTold = nil
+    local lastType = nil
+    if ChatFrameUtil and ChatFrameUtil.GetLastToldTarget then
+        lastTold, lastType = ChatFrameUtil.GetLastToldTarget()
+    elseif ChatEdit_GetLastToldTarget then
+        lastTold, lastType = ChatEdit_GetLastToldTarget()
+    end
+    if not lastTold or lastTold == "" then
+        return nil, nil
+    end
+
+    if lastType ~= "BN_WHISPER" then
+        -- Verify BNet status, same as GetLastTellTargetInfo.
+        if YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetTarget then
+            local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTold)
+            if bnetAccountID or presenceID then
+                lastType = "BN_WHISPER"
+                lastTold = bnetAccountID or presenceID
+            else
+                lastType = "WHISPER"
+            end
+        else
+            lastType = lastType or "WHISPER"
+        end
+    end
+
+    return lastType, lastTold
+end
 ------------------------------------------------
 --- Bypass Yapper and go straight to Blizzard's editbox.
 ------------------------------------------------
@@ -339,6 +375,7 @@ EditBox._REPLY_QUEUE_MAX        = REPLY_QUEUE_MAX
 EditBox.IsWhisperSlashPrefill   = IsWhisperSlashPrefill
 EditBox.ParseWhisperSlash       = ParseWhisperSlash
 EditBox.GetLastTellTargetInfo   = GetLastTellTargetInfo
+EditBox.GetLastToldTargetInfo   = GetLastToldTargetInfo
 EditBox.SetFrameFillColour      = SetFrameFillColour
 
 function EditBox:SetOnSend(fn)
