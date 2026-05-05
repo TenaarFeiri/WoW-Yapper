@@ -20,5 +20,5 @@ This is a deliberate trade-off, as memory is in far greater supply than CPU capa
 
 <img width="397" height="119" alt="image" src="https://github.com/user-attachments/assets/f5420a4e-d607-45f4-9ad2-7d4d207662ea" />
 
-## A Note on AI Usage
+## On AI Usage
 Yapper is built with AI assistance, but AI is not the final authority on any part of the program. All code that is written or suggested by AI, gets reviewed, refined and/or refactored as needed, and undergoes extensive testing both in- and out of game before it's pushed to release.
