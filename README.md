@@ -12,14 +12,13 @@ Licence: [https://opensource.org/license/mit](https://opensource.org/license/mit
 
 Short answer: Spellchecking.
 
-Longer answer: Without spellchecking enabled, Yapper should sit comfortably in the <2MB range, but for optimisation's sake, spellchecking trades memory for speed. Its dictionaries use a lot of precomputed data to stop Yapper needing to do a lot of background work while you're typing, which generates better spellchecking suggestions for you BUT uses more memory than, say, WoW-Misspelled.
+Longer answer: Without spellchecking enabled, Yapper should sit comfortably in the <10MB range (before learning data), but for optimisation's sake, spellchecking trades memory for speed. Its dictionaries use a lot of precomputed data to stop Yapper needing to do a lot of background work while you're typing, which generates better spellchecking suggestions for you BUT uses more memory than, say, WoW-Misspelled.
 This is a deliberate trade-off, as memory is in far greater supply than CPU capacity, and you will much quicker feel high CPU usage than high memory usage. Even so, potentially a few hundred megabytes on larger dictionaries should still be manageable for a computer that's capable of running WoW. The memory usage is fine, the problems happen if Yapper starts lagging your game, which it goes to great lengths to avoid.
 
 ----------------
-Yapper WAS meant to be a simple, no-interface no-options works-out-of-the-box stand-in/replacement for 
-addons like EmoteSplitter. It has since exploded in scope thanks to patch 12.0.0 but I'm taking up the challenge, I guess.
-It's my first addon and my first foray into Lua!
 
 
 <img width="397" height="119" alt="image" src="https://github.com/user-attachments/assets/f5420a4e-d607-45f4-9ad2-7d4d207662ea" />
 
+## On AI Usage
+Yapper is built with AI assistance, but AI is not the final authority on any part of the program. All code that is written or suggested by AI, gets reviewed, refined and/or refactored as needed, and undergoes extensive testing both in- and out of game before it's pushed to release.
