@@ -10,8 +10,9 @@ local EditBox        = YapperTable.EditBox
 local State          = YapperTable.State
 
 -- Re-localise shared helpers from hub.
-local SLASH_MAP            = EditBox._SLASH_MAP
+local SLASH_MAP             = EditBox._SLASH_MAP
 local GetLastTellTargetInfo = EditBox.GetLastTellTargetInfo
+local GetLastToldTargetInfo = EditBox.GetLastToldTargetInfo
 
 -- Resolve from Overlay.lua (loaded before us).
 local ResolveChannelName   = EditBox._ResolveChannelName
@@ -39,7 +40,9 @@ function EditBox:SetupOverlayScripts()
     edit:SetScript("OnTextChanged", function(box, isUserInput)
         if updatingText then return end
 
-        if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
+        if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
+            -- Skip spellcheck while emote viewer is active
+        elseif YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
             YapperTable.Spellcheck:OnTextChanged(box, isUserInput)
         end
         -- If a suggestion was just applied via numeric hotkey, the engine may
@@ -70,7 +73,9 @@ function EditBox:SetupOverlayScripts()
         local text = box:GetText() or ""
 
         -- Update autocomplete ghost text on every user keystroke.
-        if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
+        if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
+            -- Skip autocomplete while emote viewer is active
+        elseif YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
             YapperTable.Autocomplete:OnTextChanged(box)
         end
 
@@ -198,6 +203,21 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
+        if cmd == "r2" or cmd == "rewhisper" then
+            local lastType, lastTold = GetLastToldTargetInfo()
+            if lastTold and lastTold ~= "" then
+                self.ChatType = lastType
+                self.Target   = lastTold
+                self.Language = nil
+                updatingText  = true
+                box:SetText(rest2 or "")
+                updatingText = false
+                self:RefreshLabel()
+                box:SetCursorPosition(#(rest2 or ""))
+            end
+            return
+        end
+
         if SLASH_MAP[cmd] then
             local ct = SLASH_MAP[cmd]
 
@@ -236,6 +256,10 @@ function EditBox:SetupOverlayScripts()
 
     edit:SetScript("OnEnterPressed", function(box)
         if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
+            return
+        end
+        if State and State:GetFlag("SuppressNextEnter") then
+            State:SetFlag("SuppressNextEnter", false)
             return
         end
         -- Shift+Enter is consumed by OnKeyDown to enter multiline mode.
@@ -297,6 +321,21 @@ function EditBox:SetupOverlayScripts()
                     if lastTell and lastTell ~= "" then
                         self.ChatType = lastType
                         self.Target   = lastTell
+                        self.Language = nil
+                        updatingText  = true
+                        box:SetText(enterRest or "")
+                        updatingText = false
+                        self:RefreshLabel()
+                        box:SetCursorPosition(#(enterRest or ""))
+                        return
+                    end
+                end
+
+                if enterCmd == "r2" or enterCmd == "rewhisper" then
+                    local lastType, lastTold = GetLastToldTargetInfo()
+                    if lastTold and lastTold ~= "" then
+                        self.ChatType = lastType
+                        self.Target   = lastTold
                         self.Language = nil
                         updatingText  = true
                         box:SetText(enterRest or "")
@@ -434,8 +473,15 @@ function EditBox:SetupOverlayScripts()
         end
 
         -- Track outgoing whispers as reply targets too (move to front).
+        -- Also sync Blizzard's SetLastToldTarget so the Re-Whisper keybind works
+        -- correctly after sends made through Yapper.
         if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and self.Target and self.Target ~= "" then
             self:AddReplyTarget(self.Target, self.ChatType)
+            if ChatFrameUtil and ChatFrameUtil.SetLastToldTarget then
+                ChatFrameUtil.SetLastToldTarget(self.Target, self.ChatType)
+            elseif ChatEdit_SetLastToldTarget then
+                ChatEdit_SetLastToldTarget(self.Target, self.ChatType)
+            end
         end
 
         if self.OrigEditBox then
@@ -550,7 +596,7 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.Emotes then
             if key == "ENTER" or key == "NUMPADENTER" then
                 if YapperTable.Emotes:IsActive() then
-                    YapperTable.Emotes:ApplySelection()
+                    YapperTable.Emotes:ApplySelection(nil, true)
                     return -- Consume it so it doesn't send
                 end
             elseif key == "UP" and YapperTable.Emotes:IsActive() then
