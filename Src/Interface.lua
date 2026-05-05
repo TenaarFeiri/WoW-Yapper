@@ -635,6 +635,11 @@ function Interface:BuildConfigUI()
         self:CreateCreditsPage(frame.ContentFrame, cursor)
     end
 
+    -- Changelog.
+    if customSet["changelog"] then
+        self:CreateChangelogPage(frame.ContentFrame, cursor)
+    end
+
     -- Help / Tutorial.
     if customSet["tutorial"] then
         self:CreateTutorialPage(frame.ContentFrame, cursor)
@@ -882,6 +887,8 @@ function Interface:Init()
     -- Check if we should show the welcome/theme choice popup.
     if Interface:ShouldShowWelcomeChoice() then
         Interface:CreateWelcomeChoiceFrame()
+    else
+        Interface:CheckForChangelogUpdate()
     end
 
     if State then

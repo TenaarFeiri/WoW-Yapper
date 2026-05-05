@@ -948,6 +948,46 @@ function Interface:CreateCreditsPage(parent, cursor)
     cursor:Pad(10)
 end
 
+function Interface:CreateChangelogPage(parent, cursor)
+    local WHATS_NEW = YapperTable.WHATS_NEW or {}
+    local sorted = self:GetSortedVersions()
+
+    local cfgSize = self:GetConfigPath({ "FrameSettings", "WhatsNewFontSize" }) or 12
+    local textW = 500
+
+    for _, vStr in ipairs(sorted) do
+        local notes = WHATS_NEW[vStr]
+        
+        -- Version Header
+        local vHeader = self:CreateLabel(parent, "Version " .. vStr, LAYOUT.WINDOW_PADDING, cursor:Y(), textW, nil, "GameFontNormalLarge", true)
+        vHeader:SetTextColor(1, 0.9, 0, 1)
+        local vFont, _, vFlags = vHeader:GetFont()
+        vHeader:SetFont(vFont, cfgSize + 4, vFlags)
+        cursor:Advance(vHeader:GetStringHeight() + 6)
+
+        for _, entry in ipairs(notes) do
+            local hLabel = self:CreateLabel(parent, entry.title, LAYOUT.WINDOW_PADDING + 12, cursor:Y(), textW - 12, nil, "GameFontNormal", true)
+            hLabel:SetTextColor(1, 0.82, 0, 0.95)
+            local hFont, _, hFlags = hLabel:GetFont()
+            hLabel:SetFont(hFont, cfgSize + 2, hFlags)
+            cursor:Advance(hLabel:GetStringHeight() + 2)
+
+            -- Clean body text of trailing newlines/spaces
+            local cleanBody = (entry.body or ""):match("^%s*(.-)%s*$")
+            local bLabel = self:CreateLabel(parent, cleanBody, LAYOUT.WINDOW_PADDING + 12, cursor:Y(), textW - 12, nil, "GameFontHighlightSmall", true)
+            bLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+            bLabel:SetWordWrap(true)
+            local bFont, _, bFlags = bLabel:GetFont()
+            bLabel:SetFont(bFont, cfgSize, bFlags)
+            
+            -- Force layout refresh by re-setting text after font/wrap changes
+            bLabel:SetText(cleanBody) 
+            cursor:Advance(bLabel:GetStringHeight() + 10)
+        end
+        cursor:Pad(6)
+    end
+end
+
 function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
     local y = cursor:Y()
     self:CreateLabel(parent, label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH, self:GetTooltip(JoinPath(path)))

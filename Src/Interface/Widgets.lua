@@ -278,7 +278,7 @@ function Interface:CreateResetButton(parent, x, y, onClick)
     return btn
 end
 
-function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj)
+function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj, skipTooltip)
     -- Labels are tracked like controls so rebuild cleanup is consistent.
     -- Default to White (GameFontHighlight) for option labels.
     local font = fontObj or "GameFontHighlight"
@@ -318,7 +318,7 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj)
 
     -- For tooltips, spawn an invisible hit-frame sized to the actual rendered
     -- text so the tooltip appears next to the label, not out in space.
-    if type(effectiveTooltip) == "string" and effectiveTooltip ~= "" then
+    if not skipTooltip and type(effectiveTooltip) == "string" and effectiveTooltip ~= "" then
         self:AttachTooltip(fs, effectiveTooltip, titleLine)
         local hitFrame = self:AcquireWidget("LabelHitFrame", parent, nil, "Frame")
         hitFrame:SetPoint("TOPLEFT", fs, "TOPLEFT", 0, 2)

@@ -74,6 +74,7 @@ local SETTING_TOOLTIPS              = {
     ["FrameSettings.EnableMinimapButton"] = "Show or hide the minimap launcher button.",
     ["FrameSettings.MinimapButtonOffset"] =
     "Extra pixels away from the minimap center for the fallback minimap button.",
+    ["FrameSettings.WhatsNewFontSize"] = "Sets the font size for the 'What's New' changelog window.",
     ["Spellcheck.Enabled"] = "Underline and suggest replacements for misspelled words.",
     ["Spellcheck.Locale"] =
     "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
@@ -119,6 +120,7 @@ local SETTING_TOOLTIPS              = {
     "When enabled, Yapper shows ghost-text word predictions as you type, based on your personal vocabulary and the spellcheck dictionary. Press Tab to accept. Requires spellcheck to be enabled.",
     ["EditBox.MinHeight"] =
     "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
+    ["EditBox.EmoteAutoSend"] = "When enabled, picking an emote immediately sends it to chat. When disabled, it fills your chatbox with a trailing space so you can continue typing.",
     ["EditBox.UseBlizzardSkinProxy"] =
     "When enabled, Yapper temporarily snaps Blizzard's editbox backdrop/skin frame around the overlay so external chat-skin addons can style it.",
     ["CHANNEL.HEADER"] =
@@ -151,6 +153,7 @@ local FRIENDLY_LABELS               = {
     ["SECTION.FrameSettings"] = "Window & Scrolling",
     ["FrameSettings.EnableMinimapButton"] = "Show minimap button",
     ["FrameSettings.MinimapButtonOffset"] = "Minimap button offset",
+    ["FrameSettings.WhatsNewFontSize"] = "Changelog font size",
     ["Spellcheck.Enabled"] = "Enable spellcheck",
     ["Spellcheck.Locale"] = "Spellcheck locale",
     ["Spellcheck.KeyboardLayout"] = "Keyboard layout",
@@ -190,6 +193,7 @@ local FRIENDLY_LABELS               = {
     ["EditBox.RecoverOnEscape"] = "Recover text after ESC",
     ["EditBox.AutocompleteEnabled"] = "Autocomplete (ghost text)",
     ["EditBox.MinHeight"] = "Minimum input height",
+    ["EditBox.EmoteAutoSend"] = "Auto-send chosen emotes",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
     ["EditBox.StorytellerAutoExpand"] = "Automatic expansion",
     ["EditBox.StorytellerShowHint"] = "Show storyteller mode hint",
@@ -228,6 +232,7 @@ local CATEGORIES                    = {
             "EditBox.RecoverOnEscape",
             -- Autocomplete
             "EditBox.AutocompleteEnabled",
+            "EditBox.EmoteAutoSend",
             -- Label fitting
             "EditBox.AutoFitLabel",
             -- Blizzard skin proxy
@@ -258,6 +263,7 @@ local CATEGORIES                    = {
             -- Font
             "EditBox.FontSize",
             "EditBox.FontFlags",
+            "FrameSettings.WhatsNewFontSize",
         },
         -- Channel override controls and border colour (conditional) are
         -- appended by custom logic inside the page builder.
@@ -310,6 +316,13 @@ local CATEGORIES                    = {
         icon   = nil,
         paths  = {},
         custom = { "credits" },
+    },
+    {
+        id     = "changelog",
+        label  = "Changelog",
+        icon   = nil,
+        paths  = {},
+        custom = { "changelog" },
     },
     {
         id     = "help",

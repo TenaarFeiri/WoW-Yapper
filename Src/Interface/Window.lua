@@ -189,7 +189,23 @@ Interface._activeCategory = "general"
 -- What's New notes — keyed by addon version.
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
-local WHATS_NEW = {
+YapperTable.WHATS_NEW = {
+    ["2.1.11"] = {
+        {
+            title = "Emote Picker added!",
+            body = "Added a new Emote Picker which can be opened by typing \"/\" "
+            .. "in the chat overlay and hitting TAB! If you continue to type afterwards, "
+            .. "it will narrow down the list of available emotes! "
+            .. "You can also navigate the list using the UP and DOWN arrow keys, your scroll wheel "
+            .. "or the scroll bar, and select your emote using ENTER or by clicking on it with your mouse. "
+            .. "A new setting has been added to Yapper where you can optionally automatically "
+            .. "send your emote when you select it. The default is to not immediately send the emote.",
+        },
+        {
+            title = "Re-Whisper Added",
+            body = "Yapper can now use your re-whisper keybind.",
+        }
+    },
     ["2.1.10"] = {
         {
             title = "Adaptive Learning (YALLM) Opt-Out",
@@ -264,10 +280,10 @@ local WHATS_NEW = {
 -- Helpers
 -- ---------------------------------------------------------------------------
 
-local function CompareVersions(v1, v2)
+function Interface:CompareVersions(v1, v2)
     local p1 = { strsplit(".", v1) }
     local p2 = { strsplit(".", v2) }
-    for i = 1, math.max(#p1, #p2) do
+    for i = 1, math_max(#p1, #p2) do
         local n1 = tonumber(p1[i]) or 0
         local n2 = tonumber(p2[i]) or 0
         if n1 ~= n2 then return n1 > n2 end
@@ -275,12 +291,13 @@ local function CompareVersions(v1, v2)
     return false
 end
 
-local function GetSortedVersions()
+function Interface:GetSortedVersions()
     local list = {}
+    local WHATS_NEW = YapperTable.WHATS_NEW or {}
     for v in pairs(WHATS_NEW) do
         tinsert(list, v)
     end
-    table.sort(list, CompareVersions)
+    table.sort(list, function(a, b) return self:CompareVersions(a, b) end)
     return list
 end
 
@@ -342,15 +359,38 @@ function Interface:ShouldShowWelcomeChoice()
 end
 
 function Interface:ShouldShowWhatsNew()
-    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
-        return true
-    end
-    -- Never show What's New if the full welcome hasn't been shown yet.
-    if self:ShouldShowWelcomeChoice() then return false end
-    local last = ReadSV("_lastSeenVersion") or ""
+    local last = ReadSV("_lastSeenVersion") or "0.0.0"
     local current = GetAddonVersion()
-    if current == "" then return false end
-    return last ~= current
+    if last == current then return false end
+    
+    local WHATS_NEW = YapperTable.WHATS_NEW or {}
+    return (WHATS_NEW[current] ~= nil)
+end
+
+function Interface:CheckForChangelogUpdate()
+    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        self:CreateWhatsNewFrame()
+        return
+    end
+
+    -- Never show What's New if the full welcome hasn't been shown yet.
+    if self:ShouldShowWelcomeChoice() then return end
+
+    local last = ReadSV("_lastSeenVersion") or "0.0.0"
+    local current = GetAddonVersion()
+
+    if last == current then return end
+
+    -- SILENT ACKNOWLEDGMENT:
+    -- Update our record immediately so we don't process this same bump again.
+    self:MarkVersionSeen()
+
+    -- REACTIVE POPUP:
+    -- Only show if we have notes for this specific version.
+    local WHATS_NEW = YapperTable.WHATS_NEW or {}
+    if WHATS_NEW[current] then
+        self:CreateWhatsNewFrame()
+    end
 end
 
 function Interface:MarkWelcomeShown()
@@ -507,9 +547,7 @@ function Interface:CreateWelcomeChoiceFrame()
         Interface.WelcomeFrame = nil
 
         -- Chain into What's New if eligible.
-        if Interface.ShouldShowWhatsNew and Interface:ShouldShowWhatsNew() then
-            Interface:CreateWhatsNewFrame()
-        end
+        Interface:CheckForChangelogUpdate()
     end
 
     -- Left column: Blizzard Skin Proxy.
@@ -611,7 +649,7 @@ end
 function Interface:CreateWhatsNewFrame()
     if self.WhatsNewFrame then return end
 
-    local sorted = GetSortedVersions()
+    local sorted = self:GetSortedVersions()
     if #sorted == 0 then
         self:MarkVersionSeen()
         return
@@ -659,42 +697,13 @@ function Interface:CreateWhatsNewFrame()
     content:SetSize(scrollFrame:GetWidth(), 1)
     scrollFrame:SetScrollChild(content)
 
-    -- Note entries.
-    local cursor = 0
-    local textW  = scrollFrame:GetWidth() - 10
+    -- Note entries (most recent only for the popup).
+    self:PopulateWhatsNewContent(content, scrollFrame:GetWidth() - 10, true)
 
-    for _, vStr in ipairs(sorted) do
-        local notes = WHATS_NEW[vStr]
-        
-        -- Version Header
-        local vHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        vHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 4, cursor)
-        vHeader:SetWidth(textW)
-        vHeader:SetJustifyH("LEFT")
-        vHeader:SetText("Version " .. vStr)
-        vHeader:SetTextColor(1, 0.9, 0, 1)
-        cursor = cursor - (vHeader:GetStringHeight() + 10)
-
-        for _, entry in ipairs(notes) do
-            local heading = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            heading:SetPoint("TOPLEFT", content, "TOPLEFT", 12, cursor)
-            heading:SetWidth(textW - 12)
-            heading:SetJustifyH("LEFT")
-            heading:SetText(entry.title)
-            heading:SetTextColor(1, 0.82, 0, 0.95)
-            cursor = cursor - (heading:GetStringHeight() + 4)
-
-            local body = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            body:SetPoint("TOPLEFT", content, "TOPLEFT", 12, cursor)
-            body:SetWidth(textW - 12)
-            body:SetJustifyH("LEFT")
-            body:SetText(entry.body)
-            body:SetTextColor(0.8, 0.8, 0.8, 1)
-            cursor = cursor - (body:GetStringHeight() + 14)
-        end
-        cursor = cursor - 10
-    end
-    content:SetHeight(math.abs(cursor))
+    self.WhatsNewFrame = frame
+    self.WhatsNewContent = content
+    self.WhatsNewScroll = scrollFrame
+    dimmer:Show()
 
     -- ── Feature opt-in toggles ────────────────────────────────────────
     local bottomAnchor = -PAD - 100
@@ -704,6 +713,36 @@ function Interface:CreateWhatsNewFrame()
     local yallmEnabled = Interface:GetConfigPath({ "Spellcheck", "YALLMEnabled" })
 
     local toggleCursor = -FRAME_H + 120
+
+    -- Live Font Size Slider (Upscaled)
+    local sizeSlider = CreateFrame("Slider", "YapperWhatsNewSizeSlider", frame, "OptionsSliderTemplate")
+    sizeSlider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD + 10, PAD + 10)
+    sizeSlider:SetWidth(280)
+    sizeSlider:SetHeight(24)
+    sizeSlider:SetMinMaxValues(8, 32)
+    sizeSlider:SetValueStep(1)
+    sizeSlider:SetObeyStepOnDrag(true)
+
+    -- Hide the generic template labels.
+    _G[sizeSlider:GetName() .. "Low"]:SetText("")
+    _G[sizeSlider:GetName() .. "High"]:SetText("")
+
+    local currentSize = YapperTable.Config.FrameSettings.WhatsNewFontSize or 12
+    sizeSlider:SetValue(currentSize)
+
+    local sizeLabel = sizeSlider:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    sizeLabel:SetPoint("BOTTOM", sizeSlider, "TOP", 0, 8)
+    sizeLabel:SetText("Text Size: " .. currentSize)
+    sizeLabel:SetTextColor(1, 0.82, 0, 1)
+
+    sizeSlider:SetScript("OnValueChanged", function(s, value)
+        local val = math.floor(value + 0.5)
+        sizeLabel:SetText("Text Size: " .. val)
+        if YapperTable.Config.FrameSettings.WhatsNewFontSize ~= val then
+            Interface:SetLocalPath({ "FrameSettings", "WhatsNewFontSize" }, val)
+            Interface:RefreshWhatsNewContent()
+        end
+    end)
 
     if spellEnabled ~= true or acEnabled ~= true or yallmEnabled ~= true then
         local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -748,17 +787,100 @@ function Interface:CreateWhatsNewFrame()
     -- "Got it" button.
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btn:SetSize(120, 32)
-    btn:SetPoint("BOTTOM", frame, "BOTTOM", 0, PAD)
+    btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, PAD)
     btn:SetText("Got it")
+    btn.GotItButton = btn -- for easier access
+    frame.GotItButton = btn
     btn:SetScript("OnClick", function()
         Interface:MarkVersionSeen()
         dimmer:Hide()
         dimmer:SetParent(nil)
         Interface.WhatsNewFrame = nil
     end)
+    self:UpdateWhatsNewButtonScale()
 
     self.WhatsNewFrame = frame
     dimmer:Show()
+end
+
+function Interface:PopulateWhatsNewContent(content, textW, limitToOne)
+    local sorted = self:GetSortedVersions()
+    local cursor = 0
+    local cfgSize = YapperTable.Config.FrameSettings.WhatsNewFontSize or 12
+
+    local WHATS_NEW = YapperTable.WHATS_NEW or {}
+
+    for i, vStr in ipairs(sorted) do
+        if limitToOne and i > 1 then break end
+        local notes = WHATS_NEW[vStr]
+        
+        -- Version Header
+        local vHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        local vFont, _, vFlags = vHeader:GetFont()
+        vHeader:SetFont(vFont, cfgSize + 4, vFlags)
+        vHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 4, cursor)
+        vHeader:SetWidth(textW)
+        vHeader:SetJustifyH("LEFT")
+        vHeader:SetText("Version " .. vStr)
+        vHeader:SetTextColor(1, 0.9, 0, 1)
+        cursor = cursor - (vHeader:GetStringHeight() + 10)
+
+        for _, entry in ipairs(notes) do
+            local heading = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            local hFont, _, hFlags = heading:GetFont()
+            heading:SetFont(hFont, cfgSize + 2, hFlags)
+            heading:SetPoint("TOPLEFT", content, "TOPLEFT", 12, cursor)
+            heading:SetWidth(textW - 12)
+            heading:SetJustifyH("LEFT")
+            heading:SetText(entry.title)
+            heading:SetTextColor(1, 0.82, 0, 0.95)
+            cursor = cursor - (heading:GetStringHeight() + 4)
+
+            local body = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            local bFont, _, bFlags = body:GetFont()
+            body:SetFont(bFont, cfgSize, bFlags)
+            body:SetPoint("TOPLEFT", content, "TOPLEFT", 12, cursor)
+            body:SetWidth(textW - 12)
+            body:SetJustifyH("LEFT")
+            body:SetText(entry.body)
+            body:SetTextColor(0.8, 0.8, 0.8, 1)
+            cursor = cursor - (body:GetStringHeight() + 14)
+        end
+        cursor = cursor - 20
+    end
+    content:SetHeight(math.abs(cursor))
+end
+
+function Interface:RefreshWhatsNewContent()
+    if not self.WhatsNewContent or not self.WhatsNewScroll then return end
+    
+    -- Clear old fontstrings
+    local regions = { self.WhatsNewContent:GetRegions() }
+    for _, region in ipairs(regions) do
+        if region:IsObjectType("FontString") then
+            region:Hide()
+            region:SetText("")
+            region:ClearAllPoints()
+        end
+    end
+    
+    self:PopulateWhatsNewContent(self.WhatsNewContent, self.WhatsNewScroll:GetWidth() - 10, true)
+    self:UpdateWhatsNewButtonScale()
+end
+
+function Interface:UpdateWhatsNewButtonScale()
+    if not self.WhatsNewFrame or not self.WhatsNewFrame.GotItButton then return end
+    local btn = self.WhatsNewFrame.GotItButton
+    local cfgSize = YapperTable.Config.FrameSettings.WhatsNewFontSize or 12
+
+    -- Scale the font, but clamp it so it doesn't break the button's 120x32 footprint.
+    -- 20pt is about as large as we can go without looking ridiculous or clipping.
+    local targetSize = math_max(11, math_min(20, cfgSize))
+    local fs = btn:GetFontString()
+    if fs then
+        local font, _, flags = fs:GetFont()
+        fs:SetFont(font, targetSize, flags)
+    end
 end
 
 -- ---------------------------------------------------------------------------
