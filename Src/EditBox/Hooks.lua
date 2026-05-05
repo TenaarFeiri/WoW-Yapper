@@ -19,6 +19,7 @@ local CHATTYPE_TO_OVERRIDE_KEY = EditBox._CHATTYPE_TO_OVERRIDE_KEY
 local IsWhisperSlashPrefill    = EditBox.IsWhisperSlashPrefill
 local ParseWhisperSlash        = EditBox.ParseWhisperSlash
 local GetLastTellTargetInfo    = EditBox.GetLastTellTargetInfo
+local GetLastToldTargetInfo    = EditBox.GetLastToldTargetInfo
 local SetFrameFillColour       = EditBox.SetFrameFillColour
 
 -- Resolve locals from Overlay.lua (loaded before us).
@@ -155,12 +156,23 @@ function EditBox:Show(origEditBox)
         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
     -- Priority for picking the channel on open:
+    --   0. Re-Whisper keybind — primed by our ReplyTell2 hook immediately before
+    --      this Show fires. Consumed once and cleared.
     --   1. Blizzard explicitly provided a whisper/channel target (reply key,
     --      name-click, Contacts list, etc.) — always honour it.
     --   2. Lockdown draft — restore the channel the user was on mid-combat.
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
-    if blizzHasTarget and not self._lockdown.savedDraft then
+    local pendingRWType   = self._pendingReWhisperType
+    local pendingRWTarget = self._pendingReWhisperTarget
+    self._pendingReWhisperType   = nil
+    self._pendingReWhisperTarget = nil
+
+    if pendingRWType and pendingRWTarget and pendingRWTarget ~= "" and not self._lockdown.savedDraft then
+        self.ChatType = pendingRWType
+        self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
+        self.Target   = pendingRWTarget
+    elseif blizzHasTarget and not self._lockdown.savedDraft then
         self.ChatType = blizzType
         self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target   = blizzTell or blizzChan or nil
@@ -1060,9 +1072,12 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- ── BNet → non-BNet transition ───────────────────────────────
         -- If Blizzard's box was showing for a BNet whisper and the user
         -- typed a slash command that changed chatType, reclaim it.
+        -- Skip if we are in lockdown or the user explicitly bypassed Yapper.
         if key == "chatType" and value ~= "BN_WHISPER"
             and (not self.Overlay or not self.Overlay:IsShown())
-            and eb:IsShown() then
+            and eb:IsShown()
+            and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown())
+            and not BypassEditBox() then
             local prevType = c._prevChatType
             if prevType == "BN_WHISPER" then
                 local savedEB = self._bnetEditBox or eb
@@ -1401,6 +1416,23 @@ function EditBox:HookAllChatFrames()
         -- The UIParent guard is already applied in EditBox:Show() and the
         -- UIParent OnHide hook in SetupOverlayScripts.
         self._openChatHooked = true
+    end
+
+    -- Intercept the Re-Whisper keybind (ChatFrameUtil.ReplyTell2) so it opens
+    -- Yapper instead of Blizzard's editbox. We prime ChatType and Target directly
+    -- before ReplyTell2 calls OpenChat, giving our Show-hook guaranteed values
+    -- regardless of the attribute-cache timing race.
+    if ChatFrameUtil and ChatFrameUtil.ReplyTell2 and not self._replyTell2Hooked then
+        hooksecurefunc(ChatFrameUtil, "ReplyTell2", function()
+            local lastType, lastTold = GetLastToldTargetInfo()
+            if lastTold and lastTold ~= "" then
+                -- Prime the overlay so EditBox:Show picks these up with
+                -- highest priority, overriding any stale attribute-cache values.
+                self._pendingReWhisperType   = lastType
+                self._pendingReWhisperTarget = lastTold
+            end
+        end)
+        self._replyTell2Hooked = true
     end
 end
 
