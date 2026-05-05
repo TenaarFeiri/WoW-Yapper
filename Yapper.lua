@@ -109,7 +109,12 @@ SlashCmdList["YAPPER"] = function(msg)
         return
     end
 
-    YapperTable.Utils:Print("info", "Usage: /yapper [toggle|open|close|export|help|?]")
+    if input == "whatsnew" or input == "changelog" then
+        YapperTable.Interface:CreateWhatsNewFrame()
+        return
+    end
+
+    YapperTable.Utils:Print("info", "Usage: /yapper [toggle | open | close | whatsnew | help | ?]")
 end
 
 -- 2. ADDON_LOADED — access SavedVariables.
@@ -185,9 +190,8 @@ local function OnPlayerEnteringWorld()
         if YapperTable.Interface.ShouldShowWelcomeChoice
             and YapperTable.Interface:ShouldShowWelcomeChoice() then
             YapperTable.Interface:CreateWelcomeChoiceFrame()
-        elseif YapperTable.Interface.ShouldShowWhatsNew
-            and YapperTable.Interface:ShouldShowWhatsNew() then
-            YapperTable.Interface:CreateWhatsNewFrame()
+        elseif YapperTable.Interface.CheckForChangelogUpdate then
+            YapperTable.Interface:CheckForChangelogUpdate()
         end
     end
 
