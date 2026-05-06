@@ -23,6 +23,10 @@
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
 ## Patch notes
+-- 2.1.12
+  - *Word Filtering*
+    - **Bad word filtering added:** Yapper will no longer suggest, or learn bad words and slurs.
+
 -- 2.1.11
   - *What's New & Better:*
     - **Fresh "What's New" Experience:** Overhauled how we show update notes. You'll only see the notification popup when there's actually something new to read for your current version, and it now includes a dedicated font-size slider so you can make it as readable as you like.
