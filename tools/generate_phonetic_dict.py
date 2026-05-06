@@ -91,16 +91,23 @@ def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
 # --- 3. Main Build Logic ---
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    dicts_dir = os.path.normpath(os.path.join(script_dir, "../Src/Spellcheck/Dicts"))
+    dicts_dir_base = os.path.normpath(os.path.join(script_dir, "../Dictionaries"))
     
-    print(f"Scanning for dictionaries in {dicts_dir}...")
+    print(f"Scanning for dictionaries in {dicts_dir_base}/Yapper_Dict_en*...")
     
-    # 1. Find all en*.lua files
-    all_files = [f for f in os.listdir(dicts_dir) if f.startswith("en") and f.endswith(".lua")]
+    import glob
+    all_files = glob.glob(os.path.join(dicts_dir_base, "Yapper_Dict_en*", "Dict_en*.lua"))
+    all_files.extend(glob.glob(os.path.join(dicts_dir_base, "Yapper_Dict_en*", "en*.lua")))
     
     # Identify locales vs base
-    locales = [f[:-4] for f in all_files if f != "enBase.lua"]
-    base_path = os.path.join(dicts_dir, "enBase.lua")
+    locales = [os.path.basename(f)[:-4] for f in all_files if "enBase" not in f and "Dict_enBase" not in f]
+    
+    # Try to find base_path
+    base_path = None
+    for f in all_files:
+        if "enBase" in f or "Dict_enBase" in f:
+            base_path = f
+            break
     
     if not locales:
         print("No English locale dictionaries found (e.g., enUS.lua, enGB.lua)!")
@@ -113,8 +120,18 @@ def main():
     locale_full_sets = {}
     
     for loc in locales:
-        loc_path = os.path.join(dicts_dir, f"{loc}.lua")
-        existing = extract_words_from_lua(loc_path)
+        # Find the actual path for this locale
+        locale_path = None
+        for f in all_files:
+            if f.endswith(f"{loc}.lua"):
+                locale_path = f
+                break
+        
+        if not locale_path:
+            print(f"  Cannot find path for {loc}.lua, skipping")
+            continue
+            
+        existing = extract_words_from_lua(locale_path)
         # Combine locale words with existing base to find "True Full Set" for this locale
         locale_full_sets[loc] = existing.union(base_existing)
     
@@ -153,7 +170,11 @@ def main():
         print(f"Hashing and writing {loc}.lua delta...")
         delta_set = locale_full_sets[loc] - base_words_set
         delta_list, delta_phon = process_dataset(delta_set, index_offset=base_count)
-        loc_path = os.path.join(dicts_dir, f"{loc}.lua")
+        loc_path = None
+        for f in all_files:
+            if f.endswith(f"{loc}.lua"):
+                loc_path = f
+                break
         write_lua_dict(loc_path, loc, "enBase", delta_list, delta_phon)
     
     print(f"Done! Restructured {len(locales)} dictionaries + enBase successfully.")
