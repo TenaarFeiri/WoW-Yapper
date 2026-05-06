@@ -470,10 +470,11 @@ function Spellcheck:GetUserDict(locale)
     local store = self:GetUserDictStore()
     if not store then return nil end
     if type(store[locale]) ~= "table" then
-        store[locale] = { AddedWords = {}, IgnoredWords = {} }
+        store[locale] = { AddedWords = {}, IgnoredWords = {}, BlockedWords = {} }
     end
     if type(store[locale].AddedWords) ~= "table" then store[locale].AddedWords = {} end
     if type(store[locale].IgnoredWords) ~= "table" then store[locale].IgnoredWords = {} end
+    if type(store[locale].BlockedWords) ~= "table" then store[locale].BlockedWords = {} end
     return store[locale]
 end
 
@@ -494,17 +495,60 @@ end
 
 function Spellcheck:GetUserSets(locale)
     local dict = self:GetUserDict(locale)
-    if not dict then return nil, nil end
+    if not dict then return nil, nil, nil end
     local cache = self.UserDictCache[locale]
     if not cache or cache._rev ~= (dict._rev or 0) then
         self.UserDictCache[locale] = {
-            added = self:BuildWordSet(dict.AddedWords),
+            added   = self:BuildWordSet(dict.AddedWords),
             ignored = self:BuildWordSet(dict.IgnoredWords),
-            _rev = dict._rev or 0,
+            blocked = self:BuildWordSet(dict.BlockedWords),
+            _rev    = dict._rev or 0,
         }
         cache = self.UserDictCache[locale]
     end
-    return cache.added, cache.ignored
+    return cache.added, cache.ignored, cache.blocked
+end
+
+--- Returns the data needed to check if a word is blocked at runtime.
+--- @param locale string
+--- @return table|nil addedSet, table|nil userBlockedSet, table|nil engineHashes, function|nil engineHashFn
+function Spellcheck:GetBlockData(locale)
+    local addedSet, _, userBlockedSet = self:GetUserSets(locale)
+    
+    local dict = self.Dictionaries and self.Dictionaries[locale]
+    local family = dict and dict.languageFamily or "en"
+    local engine = self.Engines and self.Engines[family]
+    
+    local engineHashes = engine and engine.BlockedHashes
+    local engineHashFn = engine and engine.HashWord
+    
+    return addedSet, userBlockedSet, engineHashes, engineHashFn
+end
+
+--- Convenience function for checking a single word (e.g., during YALLM learning).
+--- Do not use this in inner loops (like Autocomplete); use GetBlockData and local logic instead.
+--- @param word string
+--- @param locale string
+--- @param ignoreManual boolean? If true, ignores AddedWords override (used by YALLM)
+--- @return boolean
+function Spellcheck:IsWordBlocked(word, locale, ignoreManual)
+    local w = NormaliseWord(word)
+    local addedSet, userBlockedSet, engineHashes, engineHashFn = self:GetBlockData(locale)
+    
+    if not ignoreManual and addedSet and addedSet[w] then return false end
+    if userBlockedSet and userBlockedSet[w] then return true end
+    
+    if engineHashes and engineHashFn then
+        if engineHashes[engineHashFn(w)] then return true end
+        
+        -- Need a local copy of Deleet if not present, but we can do it inline or depend on the caller.
+        -- Actually, Deleet is only locally defined in Autocomplete/Engine/YALLM right now.
+        -- Let's define a simple Deleet for IsWordBlocked here.
+        local dw = w:gsub("0", "o"):gsub("1", "i"):gsub("3", "e"):gsub("4", "a"):gsub("5", "s"):gsub("7", "t"):gsub("%$", "s"):gsub("!", "i"):gsub("%+", "t")
+        if engineHashes[engineHashFn(dw)] then return true end
+    end
+    
+    return false
 end
 
 function Spellcheck:AddUserWord(locale, word)

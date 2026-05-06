@@ -1253,11 +1253,15 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
         local dict = spell.GetUserDict and spell:GetUserDict(locale) or nil
         local added = dict and dict.AddedWords or {}
         local ignored = dict and dict.IgnoredWords or {}
+        local blocked = dict and dict.BlockedWords or {}
         if self._spellcheckUserDictAddedEdit then
             self._spellcheckUserDictAddedEdit:SetText(ListToText(added))
         end
         if self._spellcheckUserDictIgnoredEdit then
             self._spellcheckUserDictIgnoredEdit:SetText(ListToText(ignored))
+        end
+        if self._spellcheckUserDictBlockedEdit then
+            self._spellcheckUserDictBlockedEdit:SetText(ListToText(blocked))
         end
     end
 
@@ -1322,6 +1326,8 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
     self._spellcheckUserDictAddedEdit = addedEdit
     local ignoredEdit = CreateMultiLineBox("Ignored words (one per line)")
     self._spellcheckUserDictIgnoredEdit = ignoredEdit
+    local blockedEdit = CreateMultiLineBox("Blocked words (one per line)")
+    self._spellcheckUserDictBlockedEdit = blockedEdit
 
     local function commit(editBox, kind)
         local locale = self._spellcheckUserDictLocale
@@ -1330,8 +1336,10 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
         local list = TextToList(editBox and editBox:GetText() or "")
         if kind == "added" then
             dict.AddedWords = list
-        else
+        elseif kind == "ignored" then
             dict.IgnoredWords = list
+        elseif kind == "blocked" then
+            dict.BlockedWords = list
         end
         if spell.TouchUserDict then
             spell:TouchUserDict(dict)
@@ -1350,6 +1358,11 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
     if ignoredEdit then
         ignoredEdit:SetScript("OnEditFocusLost", function(selfFrame)
             commit(selfFrame, "ignored")
+        end)
+    end
+    if blockedEdit then
+        blockedEdit:SetScript("OnEditFocusLost", function(selfFrame)
+            commit(selfFrame, "blocked")
         end)
     end
 

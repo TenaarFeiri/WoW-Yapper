@@ -33,6 +33,24 @@ local table_sort = table.sort
 local string_format = string.format
 local string_sub = string.sub
 local string_lower = string.lower
+local string_gsub  = string.gsub
+
+--- Convert leetspeak characters back to their base alphabet equivalents.
+--- @param word string
+--- @return string
+local function Deleet(word)
+    -- a=4, e=3, i=1/!, o=0, s=5/$, t=7/+
+    word = string_gsub(word, "0", "o")
+    word = string_gsub(word, "1", "i")
+    word = string_gsub(word, "3", "e")
+    word = string_gsub(word, "4", "a")
+    word = string_gsub(word, "5", "s")
+    word = string_gsub(word, "7", "t")
+    word = string_gsub(word, "%$", "s")
+    word = string_gsub(word, "!", "i")
+    word = string_gsub(word, "+", "t")
+    return word
+end
 
 local function IsDebugEnabled()
     return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
@@ -281,6 +299,8 @@ function YALLM:RecordUsage(text, locale)
     local isSlashCommand = (text:find("^%s*/") ~= nil)
     local isFirstWord = true
 
+    local sc = YapperTable.Spellcheck
+
     -- Fast-split into words (alphanumeric only)
     for word in text:gmatch("[%w']+") do
         local skip = false
@@ -290,7 +310,9 @@ function YALLM:RecordUsage(text, locale)
         end
 
         local w = word:lower()
-        if not skip and self:IsSaneWord(w, locale) then
+        local isBlocked = sc and sc.IsWordBlocked and sc:IsWordBlocked(w, locale, true)
+
+        if not skip and not isBlocked and self:IsSaneWord(w, locale) then
             if not db.freq[w] then
                 -- Handle Capacity (Weighted LRU Eviction)
                 if db.total >= self:GetFreqCap() then
@@ -324,6 +346,10 @@ function YALLM:RecordSelection(typo, correction, utilityGain, locale)
 
     -- Data Scrubbing: Don't learn from empty symbols or punctuation-only corrections.
     if c == "" or t == "" then return end
+
+    -- Don't learn blocked words.
+    local sc = YapperTable.Spellcheck
+    if sc and sc.IsWordBlocked and sc:IsWordBlocked(c, locale, true) then return end
 
     -- Normalise utilityGain: boolean -> number for backward-compat
     local gain
@@ -398,9 +424,12 @@ function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
     local db = self:GetLocaleDB(locale)
     if not db then return end
 
+    local c = Clean(correction)
+    local sc = YapperTable.Spellcheck
+    if sc and sc.IsWordBlocked and sc:IsWordBlocked(c, locale, true) then return end
+
 
     local t = Clean(typo)
-    local c = Clean(correction)
     if t == "" or c == "" then return end
 
     -- 1. Was the correction already in the shown candidate list?
@@ -526,6 +555,9 @@ function YALLM:RecordIgnored(word, locale)
     if not db then return end
     
     local w = word:lower()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.IsWordBlocked and sc:IsWordBlocked(w, locale, true) then return end
+
     if not self:IsSaneWord(w, locale) then return end
     local now = time()
     if not db.auto[w] then

@@ -41,6 +41,25 @@ local math_max     = math.max
 local math_min     = math.min
 local math_log     = math.log
 local math_huge    = math.huge
+local string_gsub  = string.gsub
+
+--- Convert leetspeak characters back to their base alphabet equivalents.
+--- Used to ensure blocked words can't be bypassed with common substitutions.
+--- @param word string
+--- @return string
+local function Deleet(word)
+	-- a=4, e=3, i=1/!, o=0, s=5/$, t=7/+
+	word = string_gsub(word, "0", "o")
+	word = string_gsub(word, "1", "i")
+	word = string_gsub(word, "3", "e")
+	word = string_gsub(word, "4", "a")
+	word = string_gsub(word, "5", "s")
+	word = string_gsub(word, "7", "t")
+	word = string_gsub(word, "%%$", "s")
+	word = string_gsub(word, "!", "i")
+	word = string_gsub(word, "+", "t")
+	return word
+end
 
 --- Capitalise the first letter of `s`, leaving the rest unchanged.
 local function CapFirst(s)
@@ -271,8 +290,12 @@ end
 ---@param yallmFreq   table|nil
 ---@param yallmNeg    table|nil  yallm.db.negBias table, or nil.
 ---@param broad       boolean|nil  When true, use widest scan + force phonetics (direction-change retry).
+---@param addedSet    table|nil  Optional set of user-added words (overrides blocks).
+---@param userBlockedSet table|nil  Optional set of user-blocked words.
+---@param engineHashes table|nil  Optional set of engine-blocked hashes.
+---@param engineHashFn function|nil  Optional hashing function.
 ---@return string?
-function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yallmNeg, broad)
+function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet, engineHashes, engineHashFn)
 	if not words or #words == 0 then return nil end
 
 	local lowerPrefix = string_lower(prefix)
@@ -318,10 +341,24 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yall
 		local lw = string_lower(w)
 		if not seen[lw] then
 			seen[lw] = true
-			local s = ScoreCandidate(w, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
-			if s > bestScore then
-				bestScore = s
-				bestWord  = w
+			
+			local isBlocked = false
+			if addedSet and addedSet[lw] then
+				-- explicit override
+			elseif userBlockedSet and userBlockedSet[lw] then
+				isBlocked = true
+			elseif engineHashes and engineHashFn then
+				if engineHashes[engineHashFn(lw)] or engineHashes[engineHashFn(Deleet(lw))] then
+					isBlocked = true
+				end
+			end
+
+			if not isBlocked then
+				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
+				if s > bestScore then
+					bestScore = s
+					bestWord  = w
+				end
 			end
 		end
 	end
@@ -359,6 +396,12 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local yallmFreq = yallmDB and yallmDB.freq or nil
 	local cleanPrefix = lowerPrefix:gsub("[%p%c%s]", "")
 
+	-- Fetch block data for this suggestion pass.
+	local addedSet, userBlockedSet, engineHashes, engineHashFn
+	if sc and sc.GetBlockData then
+		addedSet, userBlockedSet, engineHashes, engineHashFn = sc:GetBlockData(locale)
+	end
+
 	if yallmFreq then
 		local freqSorted = yallm and yallm.EnsureFreqSorted and yallm:EnsureFreqSorted(locale)
 		local prefixLen      = string_len(lowerPrefix)
@@ -390,11 +433,25 @@ function Autocomplete:GetSuggestion(prefix, broad)
 			local bestWord = nil
 			local bestScore = -math_huge
 			for _, word in ipairs(candidates) do
-				local entry = yallmFreq[word]
-				local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
-				if freq > bestScore then
-					bestScore = freq
-					bestWord = word
+				-- Filter out blocked words from YALLM suggestions.
+				local isBlocked = false
+				if addedSet and addedSet[word] then
+					-- explicit override
+				elseif userBlockedSet and userBlockedSet[word] then
+					isBlocked = true
+				elseif engineHashes and engineHashFn then
+					if engineHashes[engineHashFn(word)] or engineHashes[engineHashFn(Deleet(word))] then
+						isBlocked = true
+					end
+				end
+
+				if not isBlocked then
+					local entry = yallmFreq[word]
+					local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
+					if freq > bestScore then
+						bestScore = freq
+						bestWord = word
+					end
 				end
 			end
 			if bestWord then
@@ -425,7 +482,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local dict = sc:GetDictionary()
 	if not dict then return nil end
 
-	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yallmFreq, yallmNeg, broad)
+	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet, engineHashes, engineHashFn)
 	if hit then
 		return prefixIsCapital and CapFirst(hit) or hit
 	end
@@ -434,7 +491,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	if dict.extends and sc.Dictionaries then
 		local base = sc.Dictionaries[dict.extends]
 		if base and type(base.words) == "table" then
-			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yallmFreq, yallmNeg, broad)
+			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet, engineHashes, engineHashFn)
 		end
 	end
 
