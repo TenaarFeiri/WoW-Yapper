@@ -222,12 +222,17 @@ function Spellcheck:IsWordCorrect(word)
     local norm = NormaliseWord(word)
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
 
-    -- Correct if in dictionary (original or normalised) or in user-added set
-    if dict.set[norm] or dict.set[word] or (addedSet and addedSet[norm]) then
+    -- 1. Check user dictionary overrides (Manual Add/Ignore)
+    if (addedSet and addedSet[norm]) or (ignoredSet and ignoredSet[norm]) then
         return true
     end
-    -- Explicitly ignored words are treated as "correct" for learning purposes
-    if ignoredSet and ignoredSet[norm] then
+
+    -- 2. Check base dictionary + global blocklist
+    if dict.set[norm] or dict.set[word] then
+        -- Even if in base dictionary, check if blocked by engine
+        if self:IsWordBlocked(norm, self:GetLocale(), true) then
+            return false
+        end
         return true
     end
 
@@ -770,7 +775,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
 end
 
 --- Inject direct locale variant swaps (colour↔color etc.) into the output.
-local function InjectLocaleVariants(ctx, out, seenCandidates)
+local function InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engineHashFn)
     local lower = ctx.lower
     local dict = ctx.dict
     local maxDist = (ctx.lowerLen <= 4) and 2 or 3
@@ -778,9 +783,20 @@ local function InjectLocaleVariants(ctx, out, seenCandidates)
         local varWord = string_gsub(lower, variantSub, candSub)
         if varWord ~= lower and dict.set[varWord] and not seenCandidates[varWord] then
             seenCandidates[varWord] = true
-            local dist = CtxEditDistance(ctx, lower, varWord, maxDist)
-            if dist and dist <= maxDist then
-                ScoreCandidate(ctx, out, varWord, dist, false)
+
+            -- Blocklist check
+            local isBlocked = false
+            if engineHashes and engineHashFn then
+                if engineHashes[engineHashFn(varWord)] or engineHashes[engineHashFn(Deleet(varWord))] then
+                    isBlocked = true
+                end
+            end
+
+            if not isBlocked then
+                local dist = CtxEditDistance(ctx, lower, varWord, maxDist)
+                if dist and dist <= maxDist then
+                    ScoreCandidate(ctx, out, varWord, dist, false)
+                end
             end
         end
     end
@@ -790,7 +806,7 @@ local function InjectLocaleVariants(ctx, out, seenCandidates)
 end
 
 --- Generate transposition / deletion / replacement reshuffles and try them.
-local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
+local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
     local lower = ctx.lower
     local dict = ctx.dict
     local maxDist = (ctx.lowerLen <= 4) and 2 or 3
@@ -879,7 +895,15 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
             checks = checks + 1
             local dist = CtxEditDistance(ctx, lower, var, maxDist)
             if dist and dist <= maxDist then
-                ScoreCandidate(ctx, out, var, dist, false)
+                local isBlocked = false
+                if engineHashes and engineHashFn then
+                    if engineHashes[engineHashFn(var)] or engineHashes[engineHashFn(Deleet(var))] then
+                        isBlocked = true
+                    end
+                end
+                if not isBlocked then
+                    ScoreCandidate(ctx, out, var, dist, false)
+                end
             end
         end
     end
@@ -1043,7 +1067,7 @@ function Spellcheck:GetSuggestions(word)
 
     -- 3. Direct locale variant injection (only when the active engine has variant rules)
     if ctx.isVariantLocale then
-        InjectLocaleVariants(ctx, out, seenCandidates)
+        InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engineHashFn)
     end
 
     -- 4. Bucket prefix candidates (2-char > 1-char > other)
@@ -1083,7 +1107,7 @@ function Spellcheck:GetSuggestions(word)
 
     -- 7. Reshuffle fallback
     if not aborted and #out < maxCount and checks < dynamicCap then
-        checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap)
+        checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
     end
 
     if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
