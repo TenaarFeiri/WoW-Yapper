@@ -193,19 +193,21 @@ YapperTable.WHATS_NEW = {
     ["2.1.12"] = {
         {
             title = "Bad word filtering added",
-            body = "Yapper will no longer suggest, or learn bad words and slurs."
+            body = "Yapper will no longer suggest, or learn bad words and slurs. "
+                .. "These are managed by the dictionaries, and you can add your own "
+                .. "blocked words in the Advanced settings."
         }
     },
     ["2.1.11"] = {
         {
             title = "Emote Picker added!",
             body = "Added a new Emote Picker which can be opened by typing \"/\" "
-            .. "in the chat overlay and hitting TAB! If you continue to type afterwards, "
-            .. "it will narrow down the list of available emotes! "
-            .. "You can also navigate the list using the UP and DOWN arrow keys, your scroll wheel "
-            .. "or the scroll bar, and select your emote using ENTER or by clicking on it with your mouse. "
-            .. "A new setting has been added to Yapper where you can optionally automatically "
-            .. "send your emote when you select it. The default is to not immediately send the emote.",
+                .. "in the chat overlay and hitting TAB! If you continue to type afterwards, "
+                .. "it will narrow down the list of available emotes! "
+                .. "You can also navigate the list using the UP and DOWN arrow keys, your scroll wheel "
+                .. "or the scroll bar, and select your emote using ENTER or by clicking on it with your mouse. "
+                .. "A new setting has been added to Yapper where you can optionally automatically "
+                .. "send your emote when you select it. The default is to not immediately send the emote.",
         },
         {
             title = "Re-Whisper Added",
