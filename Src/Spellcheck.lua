@@ -523,7 +523,7 @@ function Spellcheck:GetBlockData(locale)
     
     local dict = self.Dictionaries and self.Dictionaries[locale]
     local family = dict and dict.languageFamily or "en"
-    local engine = self.Engines and self.Engines[family]
+    local engine = self.LanguageEngines and self.LanguageEngines[family]
     
     local engineHashes = engine and engine.BlockedHashes
     local engineHashFn = engine and engine.HashWord

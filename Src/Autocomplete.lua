@@ -55,9 +55,9 @@ local function Deleet(word)
 	word = string_gsub(word, "4", "a")
 	word = string_gsub(word, "5", "s")
 	word = string_gsub(word, "7", "t")
-	word = string_gsub(word, "%%$", "s")
+	word = string_gsub(word, "%$", "s")
 	word = string_gsub(word, "!", "i")
-	word = string_gsub(word, "+", "t")
+	word = string_gsub(word, "%+", "t")
 	return word
 end
 
@@ -348,7 +348,8 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yall
 			elseif userBlockedSet and userBlockedSet[lw] then
 				isBlocked = true
 			elseif engineHashes and engineHashFn then
-				if engineHashes[engineHashFn(lw)] or engineHashes[engineHashFn(Deleet(lw))] then
+				local nw = sc and sc.NormaliseWord and sc.NormaliseWord(lw) or lw
+				if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
 					isBlocked = true
 				end
 			end
@@ -440,7 +441,8 @@ function Autocomplete:GetSuggestion(prefix, broad)
 				elseif userBlockedSet and userBlockedSet[word] then
 					isBlocked = true
 				elseif engineHashes and engineHashFn then
-					if engineHashes[engineHashFn(word)] or engineHashes[engineHashFn(Deleet(word))] then
+					local nw = sc and sc.NormaliseWord and sc.NormaliseWord(word) or word
+					if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
 						isBlocked = true
 					end
 				end

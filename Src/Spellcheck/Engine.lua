@@ -143,7 +143,7 @@ function Spellcheck:CollectMisspellings(text, dict)
                 and self:ShouldCheckWord(word, minLen)
                 and not (ignoredSet and ignoredSet[norm])
                 and not (addedSet and addedSet[norm])
-                and not dict.set[norm]
+                and (not dict.set[norm] or self:IsWordBlocked(norm, self:GetLocale()))
                 and not dict.set[word] then
                 out[#out + 1] = { startPos = s, endPos = e, word = word }
             end
@@ -787,7 +787,8 @@ local function InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engi
             -- Blocklist check
             local isBlocked = false
             if engineHashes and engineHashFn then
-                if engineHashes[engineHashFn(varWord)] or engineHashes[engineHashFn(Deleet(varWord))] then
+                local nw = sc and sc.NormaliseWord and sc.NormaliseWord(varWord) or varWord
+                if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
                     isBlocked = true
                 end
             end
@@ -1023,9 +1024,15 @@ function Spellcheck:GetSuggestions(word)
                 elseif userBlockedSet and userBlockedSet[candidate] then
                     isBlocked = true
                 elseif engineHashes and engineHashFn then
-                    if engineHashes[engineHashFn(candidate)] or engineHashes[engineHashFn(Deleet(candidate))] then
+                    local nw = sc and sc.NormaliseWord and sc.NormaliseWord(candidate) or candidate
+                    if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
                         isBlocked = true
                     end
+                end
+
+                if candidate == "fuck" then
+                    local h = engineHashFn and engineHashFn(candidate) or "nil"
+                    print("DEBUG: tryCandidates('fuck') hash=" .. tostring(h) .. " isBlocked=" .. tostring(isBlocked))
                 end
 
                 if not isBlocked and not (ignoredSet and ignoredSet[candidate]) then

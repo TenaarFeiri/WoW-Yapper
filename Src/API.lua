@@ -914,7 +914,7 @@ end
 --- Returns true if accepted, false on invalid arguments.
 function YapperAPI:RegisterDictionary(locale, data)
     if type(locale) ~= "string" or locale == "" then return false end
-    if type(data) ~= "table" then return false end
+    if type(data) ~= "table" and type(data) ~= "function" then return false end
     local sc = YapperTable.Spellcheck
     if not sc or not sc.RegisterDictionary then return false end
     local ok, err = pcall(sc.RegisterDictionary, sc, locale, data)

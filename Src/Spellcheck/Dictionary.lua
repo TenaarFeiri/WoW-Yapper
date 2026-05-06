@@ -104,13 +104,15 @@ function Spellcheck:RegisterDictionary(locale, data)
     if data.extends then
         local base = self.Dictionaries[data.extends]
         if not base then
-            -- Base is not yet loaded — use EnsureLocale so the LOD addon
-            -- containing the base builder is actually loaded first.
-            -- A plain LoadDictionary call can no-op when the addon has not
-            -- registered DictionaryBuilders[data.extends] yet.
             self:EnsureLocale(data.extends)
+            -- If the base is still not in Dictionaries, it might be a builder
+            -- that was just registered by EnsureLocale. Try to load it now.
+            if not self.Dictionaries[data.extends] then
+                self:LoadDictionary(data.extends)
+            end
             base = self.Dictionaries[data.extends]
         end
+
         if base then
             -- Membership: safe O(1) metatable inheritance
             setmetatable(set, { __index = base.set })
@@ -118,6 +120,11 @@ function Spellcheck:RegisterDictionary(locale, data)
             -- indices past the base word count, preventing index collision.
             setmetatable(phonetics, { __index = base.phonetics })
             setmetatable(outWords, { __index = base.words })
+
+            -- Inherit languageFamily if not explicitly provided
+            if not data.languageFamily then
+                data.languageFamily = base.languageFamily
+            end
         elseif YapperTable.Utils and YapperTable.Utils.Print then
             YapperTable.Utils:Print("error", "Base dictionary " .. tostring(data.extends) .. " not found for " .. locale)
         end
@@ -463,6 +470,12 @@ function Spellcheck:EnsureLocale(locale)
         if C_AddOns and C_AddOns.LoadAddOn then
             local isLoaded = C_AddOns.IsAddOnLoaded(addon)
             local loaded, reason = C_AddOns.LoadAddOn(addon)
+
+            if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                YapperTable.Utils:DebugPrint("Spellcheck:EnsureLocale(" ..
+                    locale .. ") LoadAddOn(" .. addon .. ") result=" .. tostring(loaded) .. " reason=" .. tostring(reason))
+            end
+
             if loaded == false then
                 -- Only notify on real failures (corrupt, banned, etc.).
                 -- MISSING is handled by the early-return above.
@@ -470,8 +483,14 @@ function Spellcheck:EnsureLocale(locale)
                     self:Notify("Yapper: failed to load " .. addon .. " (" .. tostring(reason) .. ").")
                 end
                 return false
-            elseif isLoaded and not self:IsLocaleAvailable(locale) then
-                return false
+            elseif (isLoaded or loaded) and not self:IsLocaleAvailable(locale) then
+                -- Addon is loaded but dictionary not registered. Could be purged,
+                -- or could be that registration failed previously (e.g. inheritance
+                -- race). Try one last load.
+                self:LoadDictionary(locale)
+                if not self:IsLocaleAvailable(locale) then
+                    return false
+                end
             end
         end
     end
