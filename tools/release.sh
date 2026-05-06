@@ -24,7 +24,8 @@ rsync -a --include='Src/***' --include='Changelogs.md' --include='Yapper.lua' \
 # 2. Ship these locales as sibling addons (deDE not ready yet)
 for d in Yapper_Dict_en Yapper_Dict_enAU Yapper_Dict_enGB Yapper_Dict_enUS; do
     if [ -d "Dictionaries/$d" ]; then
-        cp -r "Dictionaries/$d" "$stage/$d"
+        mkdir -p "$stage/$d"
+        rsync -a --exclude='backup/' "Dictionaries/$d/" "$stage/$d/"
     fi
 done
 
