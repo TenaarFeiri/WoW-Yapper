@@ -25,7 +25,7 @@
 ## Patch notes
 -- 2.1.12
   - *Word Filtering*
-    - **Bad word filtering added:** Yapper will no longer suggest, or learn bad words and slurs.
+    - **Bad word filtering added:** Yapper will no longer suggest, or learn bad words and slurs. These are managed by the dictionaries, and you can add your own blocked words in Advanced settings.
 
 -- 2.1.11
   - *What's New & Better:*
