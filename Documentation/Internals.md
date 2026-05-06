@@ -214,16 +214,16 @@ Used lazily by `GetDictionary`, locale switches, and LOD registration.
 - Methods:
   - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L34`](../Src/Spellcheck/Dictionary.lua#L34))
   - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L61`](../Src/Spellcheck/Dictionary.lua#L61))
-  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L308`](../Src/Spellcheck/Dictionary.lua#L308))
-  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L353`](../Src/Spellcheck/Dictionary.lua#L353))
-  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L362`](../Src/Spellcheck/Dictionary.lua#L362))
-  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L367`](../Src/Spellcheck/Dictionary.lua#L367))
-  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L398`](../Src/Spellcheck/Dictionary.lua#L398))
-  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L410`](../Src/Spellcheck/Dictionary.lua#L410))
-  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L424`](../Src/Spellcheck/Dictionary.lua#L424))
-  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L439`](../Src/Spellcheck/Dictionary.lua#L439))
-  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L445`](../Src/Spellcheck/Dictionary.lua#L445))
-  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L488`](../Src/Spellcheck/Dictionary.lua#L488))
+  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L315`](../Src/Spellcheck/Dictionary.lua#L315))
+  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L360`](../Src/Spellcheck/Dictionary.lua#L360))
+  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L369`](../Src/Spellcheck/Dictionary.lua#L369))
+  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L374`](../Src/Spellcheck/Dictionary.lua#L374))
+  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L405`](../Src/Spellcheck/Dictionary.lua#L405))
+  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L417`](../Src/Spellcheck/Dictionary.lua#L417))
+  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L431`](../Src/Spellcheck/Dictionary.lua#L431))
+  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L446`](../Src/Spellcheck/Dictionary.lua#L446))
+  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L452`](../Src/Spellcheck/Dictionary.lua#L452))
+  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L507`](../Src/Spellcheck/Dictionary.lua#L507))
 - Side effects:
   - Schedules `C_Timer.After(0, ...)` chunk processing and refresh tickers.
 
@@ -241,9 +241,9 @@ Runs during suggestion/underline rebuild.
   - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L242`](`../Src/Spellcheck/Engine.lua#L242`))
   - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L287`](`../Src/Spellcheck/Engine.lua#L287`))
   - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L368`](`../Src/Spellcheck/Engine.lua#L368`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L916`](`../Src/Spellcheck/Engine.lua#L916`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1204`](`../Src/Spellcheck/Engine.lua#L1204`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1276`](`../Src/Spellcheck/Engine.lua#L1276`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L917`](`../Src/Spellcheck/Engine.lua#L917`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1211`](`../Src/Spellcheck/Engine.lua#L1211`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1283`](`../Src/Spellcheck/Engine.lua#L1283`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
