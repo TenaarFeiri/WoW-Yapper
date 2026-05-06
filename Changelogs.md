@@ -30,7 +30,7 @@
     - **Adaptive Learning Protection:** Yapper is now smart enough to ignore slash commands (like `/s` or `/p`) so they don't accidentally get learned as part of your vocabulary and clutter your suggestions.
     - **Re-Whisper Support:** Yapper now supports the Re-Whisper keybind.
   - *Bug Fixes & Stability:*
-    - **BNet Transition Fix:** Resolved an issue where the Yapper overlay would occasionally re-open on its own when you were switching back and forth from BNet whispers.
+    - **BNet Transition Fix In Lockdown:** Resolved an issue where the Yapper overlay would occasionally re-open on its own when you were switching from a BNet whisper to a regular chat channel while under lockdown.
 
 -- 2.1.10
   - *New Features & Improvements:*
