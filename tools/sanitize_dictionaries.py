@@ -25,58 +25,61 @@ def main():
 
     print(f"Loaded {len(bad_words)} bad words for sanitization.")
 
-    dict_dir = "../Dictionaries/Yapper_Dict_en"
-    backup_dir = os.path.join(dict_dir, "backup")
-    os.makedirs(backup_dir, exist_ok=True)
-
-    lua_files = glob(os.path.join(dict_dir, "*.lua"))
+    dicts_parent = "../Dictionaries"
+    dict_dirs = glob(os.path.join(dicts_parent, "Yapper_Dict_*"))
     
-    for filepath in lua_files:
-        filename = os.path.basename(filepath)
-        if filename == "Engine.lua":
-            continue
-            
-        print(f"\nProcessing {filename}...")
+    for dict_dir in dict_dirs:
+        backup_dir = os.path.join(dict_dir, "backup")
+        os.makedirs(backup_dir, exist_ok=True)
+
+        lua_files = glob(os.path.join(dict_dir, "*.lua"))
         
-        # 1. Backup
-        backup_path = os.path.join(backup_dir, filename)
-        shutil.copy2(filepath, backup_path)
-        print(f"  Backed up to {backup_path}")
-        
-        # 2. Extract current words
-        words = gen.extract_words_from_lua(filepath)
-        original_count = len(words)
-        print(f"  Extracted {original_count} words.")
-        
-        if original_count == 0:
-            print("  Skipping (no words found).")
-            continue
-            
-        # 3. Filter
-        filtered_words = set()
-        removed = 0
-        for w in words:
-            # Check against bad words
-            norm = normalize_word(w)
-            if norm in bad_words:
-                removed += 1
-            else:
-                filtered_words.add(w)
+        for filepath in lua_files:
+            filename = os.path.basename(filepath)
+            if filename == "Engine.lua":
+                continue
                 
-        print(f"  Removed {removed} slurs/bad words.")
-        
-        # 4. We don't write them back directly here because generate_phonetic_dict 
-        # needs to be run anyway to regenerate phonetics. 
-        # Wait, generate_phonetic_dict.py reads FROM the lua files!
-        # If we just want to remove the words, we have to write them back without phonetics,
-        # OR we can just write them back WITH empty phonetics and let generate_phonetic_dict.py run next.
-        
-        locale = filename.replace(".lua", "")
-        extends = '"enBASE"' if locale != "enBASE" else "nil"
-        
-        sorted_words = sorted(list(filtered_words))
-        gen.write_lua_dict(filepath, locale, extends, sorted_words, {})
-        print(f"  Wrote sanitized dictionary (phonetics cleared).")
+            print(f"\nProcessing {filename} in {os.path.basename(dict_dir)}...")
+            
+            # 1. Backup
+            backup_path = os.path.join(backup_dir, filename)
+            shutil.copy2(filepath, backup_path)
+            print(f"  Backed up to {backup_path}")
+            
+            # 2. Extract current words
+            words = gen.extract_words_from_lua(filepath)
+            original_count = len(words)
+            print(f"  Extracted {original_count} words.")
+            
+            if original_count == 0:
+                print("  Skipping (no words found).")
+                continue
+                
+            # 3. Filter
+            filtered_words = set()
+            removed = 0
+            for w in words:
+                # Check against bad words
+                norm = normalize_word(w)
+                if norm in bad_words:
+                    removed += 1
+                else:
+                    filtered_words.add(w)
+                    
+            print(f"  Removed {removed} slurs/bad words.")
+            
+            # 4. We don't write them back directly here because generate_phonetic_dict 
+            # needs to be run anyway to regenerate phonetics. 
+            
+            locale = filename.replace(".lua", "")
+            # Determine if it's the base or a variant
+            extends_val = "nil"
+            if locale != "enBase":
+                extends_val = '"enBase"'
+            
+            sorted_words = sorted(list(filtered_words))
+            gen.write_lua_dict(filepath, locale, extends_val, sorted_words, {})
+            print(f"  Wrote sanitized dictionary (phonetics cleared).")
 
 if __name__ == "__main__":
     main()

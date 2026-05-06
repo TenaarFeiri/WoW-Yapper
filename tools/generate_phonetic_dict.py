@@ -35,8 +35,7 @@ def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(f"-- Generated Yapper Dictionary\n")
         f.write(f"-- Locale: {locale}\n\n")
-        f.write("local _, YapperTable = ...\n")
-        f.write("if not YapperTable or not YapperTable.Spellcheck then return end\n\n")
+        f.write("if not YapperAPI or not YapperAPI.RegisterDictionary then return end\n\n")
         
         # 1. Chunked Words (Safe limit ~15k unique strings per function)
         WORD_CHUNK_SIZE = 15000
@@ -67,11 +66,13 @@ def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
             f.write("    }\nend\n\n")
 
         # 3. Aggregation Registry
-        f.write(f'YapperTable.Spellcheck:RegisterDictionary("{locale}", function()\n')
+        f.write(f'YapperAPI:RegisterDictionary("{locale}", function()\n')
         f.write('    local d = {\n')
         if extends:
             f.write(f'        extends = "{extends}",\n')
             f.write('        isDelta = true,\n')
+        else:
+            f.write('        languageFamily = "en",\n')
         f.write('        words = {},\n')
         f.write('        phonetics = {},\n')
         f.write('    }\n')
@@ -100,7 +101,7 @@ def main():
     all_files.extend(glob.glob(os.path.join(dicts_dir_base, "Yapper_Dict_en*", "en*.lua")))
     
     # Identify locales vs base
-    locales = [os.path.basename(f)[:-4] for f in all_files if "enBase" not in f and "Dict_enBase" not in f]
+    locales = [os.path.basename(f)[:-4].replace("Dict_", "") for f in all_files if "enBase" not in f and "Dict_enBase" not in f]
     
     # Try to find base_path
     base_path = None
