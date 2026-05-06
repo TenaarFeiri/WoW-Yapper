@@ -190,6 +190,12 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
+    ["2.1.12"] = {
+        {
+            title = "Bad word filtering added",
+            body = "Yapper will no longer suggest, or learn bad words and slurs."
+        }
+    },
     ["2.1.11"] = {
         {
             title = "Emote Picker added!",
