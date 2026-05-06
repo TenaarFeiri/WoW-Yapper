@@ -63,11 +63,20 @@ local function HashWord(word)
     return hash
 end
 
-local SLURS = { "fuck", "shit", "bitch", "asshole", "cunt", "nigger", "faggot", "dick", "pussy" }
+YapperTable.Spellcheck.ClearSuggestionCache = function(self) self._suggestionCache = {} end
+
+local SLURS = { 
+    "fuck", "shit", "bitch", "asshole", "cunt", "nigger", "faggot", "dick", "pussy",
+    "sodomy", "sodomize", "sodomise", "sodomite", "sodomites", "sodom"
+}
 local BLOCKED_HASHES = {}
 for _, slur in ipairs(SLURS) do
-    BLOCKED_HASHES[HashWord(slur)] = true
+    local h = HashWord(slur)
+    BLOCKED_HASHES[h] = true
 end
+print(string.format("DEBUG: BLOCKED_HASHES populated with %d items.", #SLURS))
+print(string.format("DEBUG: HashWord('fuck') = %s, in_table = %s", tostring(HashWord("fuck")), tostring(BLOCKED_HASHES[HashWord("fuck")])))
+print(string.format("DEBUG: HashWord('sodomize') = %s, in_table = %s", tostring(HashWord("sodomize")), tostring(BLOCKED_HASHES[HashWord("sodomize")])))
 
 -- Mock GetBlockData and IsWordBlocked for tests
 YapperTable.Spellcheck.GetBlockData = function()
@@ -325,11 +334,59 @@ for _, entry in ipairs(learned.freq) do
 end
 
 if learnedFound then
-    print(string.format("FAILURE: YALLM learned blocked word '%s' despite it being blocked!", testSlur))
+    print(string.format("FAILURE: YALLM learned blocked word '%s' via RecordUsage!", testSlur))
     os.exit(1)
 else
-    print(string.format("SUCCESS: YALLM correctly refused to learn blocked word '%s'.", testSlur))
+    print(string.format("SUCCESS: YALLM correctly refused to learn blocked word '%s' via RecordUsage.", testSlur))
 end
+
+-- Test Selection & Implicit Correction (Auto-learn paths)
+YALLM:RecordSelection("fuk", testSlur, true, "enBASE")
+YALLM:RecordImplicitCorrection("fuk", testSlur, {testSlur}, "enBASE")
+
+learned = YALLM:GetDataSummary("enBASE")
+local autoLearnedFound = false
+for _, entry in ipairs(learned.freq) do
+    if entry.word == testSlur then autoLearnedFound = true break end
+end
+for _, entry in ipairs(learned.bias) do
+    if entry.word == testSlur or entry.correction == testSlur then autoLearnedFound = true break end
+end
+
+if autoLearnedFound then
+    print(string.format("FAILURE: YALLM auto-learned blocked word '%s' via Selection/Implicit paths!", testSlur))
+    os.exit(1)
+else
+    print(string.format("SUCCESS: YALLM correctly refused to auto-learn blocked word '%s'.", testSlur))
+end
+
+-- Test Pagination Safety: Ensure slurs don't appear in suggestion lists (which are then paginated)
+local suggestions = SC:GetSuggestions("fuk", "enBASE")
+local suggFound = false
+for _, s in ipairs(suggestions) do
+    local val = type(s) == "table" and (s.value or s.word) or s
+    if val == testSlur then
+        -- Wait, it SHOULD be found now because we added it to the manual dictionary in this test pass!
+        suggFound = true
+    end
+end
+-- This is a special case: In Pass 3, we WANT it to be found because it's a manual override.
+-- But let's verify it is NOT found if we REMOVE the manual override.
+YapperTable.Spellcheck.GetUserSets = function() return {}, {}, {} end
+SC:ClearSuggestionCache()
+suggestions = SC:GetSuggestions("fuk", "enBASE")
+for _, s in ipairs(suggestions) do
+    local val = type(s) == "table" and (s.value or s.word) or s
+    if val == testSlur then
+        print(string.format("FAILURE: Blocked word '%s' appeared in suggestions list!", testSlur))
+        print("Suggestions found:")
+        for i, item in ipairs(suggestions) do
+            print(string.format("  %d. %s", i, type(item) == "table" and item.value or tostring(item)))
+        end
+        os.exit(1)
+    end
+end
+print("SUCCESS: Pagination safety confirmed (slurs filtered before reaching suggestion table).")
 
 local summary = YALLM:GetDataSummary("enBASE")
 print(string.format("\nYALLM Partition:   enBASE [Learned %d items]", #summary.freq))
