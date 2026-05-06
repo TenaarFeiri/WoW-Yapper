@@ -482,6 +482,9 @@ function Spellcheck:TouchUserDict(dict)
     dict._rev = (dict._rev or 0) + 1
 end
 
+--- Converts a word list into a normalized lookup set for $O(1)$ performance.
+--- @param list table Array of strings
+--- @return table set Normalized word set
 function Spellcheck:BuildWordSet(list)
     local set = {}
     for _, w in ipairs(list or {}) do
@@ -493,6 +496,9 @@ function Spellcheck:BuildWordSet(list)
     return set
 end
 
+--- Returns cached, normalized lookup sets for the user's custom dictionary (Added/Ignored/Blocked).
+--- @param locale string
+--- @return table|nil added, table|nil ignored, table|nil blocked
 function Spellcheck:GetUserSets(locale)
     local dict = self:GetUserDict(locale)
     if not dict then return nil, nil, nil end

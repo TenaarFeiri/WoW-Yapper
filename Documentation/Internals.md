@@ -171,6 +171,8 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
   - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
 - Methods:
+  - [NEW] `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YALLM learning). ([`../Src/Spellcheck.lua#L540`](../Src/Spellcheck.lua#L540))
+  - [NEW] `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L521`](../Src/Spellcheck.lua#L521))
   - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L425`](../Src/Spellcheck.lua#L425))
   - `Spellcheck:Init(threads) → nil` ([`../Src/Spellcheck.lua#L187`](../Src/Spellcheck.lua#L187))
   - `Spellcheck:_RegisterLanguageEngine(familyId, engine) → boolean` ([`../Src/Spellcheck.lua#L212`](../Src/Spellcheck.lua#L212))
@@ -185,22 +187,22 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
 
   - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L445`](../Src/Spellcheck.lua#L445))
   - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L469`](../Src/Spellcheck.lua#L469))
-  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L480`](../Src/Spellcheck.lua#L480))
-  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L484`](../Src/Spellcheck.lua#L484))
-  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L495`](../Src/Spellcheck.lua#L495))
-  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L510`](../Src/Spellcheck.lua#L510))
-  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L533`](../Src/Spellcheck.lua#L533))
-  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L557`](../Src/Spellcheck.lua#L557))
-  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L562`](`../Src/Spellcheck.lua#L562`))
-  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L567`](`../Src/Spellcheck.lua#L567`))
-  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L572`](`../Src/Spellcheck.lua#L572`))
-  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L577`](`../Src/Spellcheck.lua#L577`))
-  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L582`](`../Src/Spellcheck.lua#L582`))
-  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L587`](`../Src/Spellcheck.lua#L587`))
-  - Accessors: `GetUnderlineStyle` ([`../Src/Spellcheck.lua#L592`](`../Src/Spellcheck.lua#L592`))
-  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L600`](`../Src/Spellcheck.lua#L600`))
-  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L610`](`../Src/Spellcheck.lua#L610`))
-  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L629`](`../Src/Spellcheck.lua#L629`))
+  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L481`](../Src/Spellcheck.lua#L481))
+  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L488`](../Src/Spellcheck.lua#L488))
+  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L502`](../Src/Spellcheck.lua#L502))
+  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L560`](../Src/Spellcheck.lua#L560))
+  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L583`](../Src/Spellcheck.lua#L583))
+  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L607`](../Src/Spellcheck.lua#L607))
+  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L612`](`../Src/Spellcheck.lua#L612`))
+  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L617`](`../Src/Spellcheck.lua#L617`))
+  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L622`](`../Src/Spellcheck.lua#L622`))
+  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L627`](`../Src/Spellcheck.lua#L627`))
+  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L632`](`../Src/Spellcheck.lua#L632`))
+  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L637`](`../Src/Spellcheck.lua#L637`))
+  - Accessors: `GetUnderlineStyle` ([`../Src/Spellcheck.lua#L642`](`../Src/Spellcheck.lua#L642`))
+  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L650`](`../Src/Spellcheck.lua#L650`))
+  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L660`](`../Src/Spellcheck.lua#L660`))
+  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L679`](`../Src/Spellcheck.lua#L679`))
 - Callbacks fired:
   - `SPELLCHECK_WORD_ADDED`, `SPELLCHECK_WORD_IGNORED`.
 
@@ -231,17 +233,17 @@ Runs during suggestion/underline rebuild.
 
 - Description: Tokenisation, misspelling detection, candidate scoring.
 - Methods:
-  - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L77`](`../Src/Spellcheck/Engine.lua#L77`))
-  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L141`](`../Src/Spellcheck/Engine.lua#L141`))
-  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L148`](`../Src/Spellcheck/Engine.lua#L148`))
-  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L191`](`../Src/Spellcheck/Engine.lua#L191`))
-  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L200`](`../Src/Spellcheck/Engine.lua#L200`))
-  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L220`](`../Src/Spellcheck/Engine.lua#L220`))
-  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L265`](`../Src/Spellcheck/Engine.lua#L265`))
-  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L346`](`../Src/Spellcheck/Engine.lua#L346`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L875`](`../Src/Spellcheck/Engine.lua#L875`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1151`](`../Src/Spellcheck/Engine.lua#L1151`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1223`](`../Src/Spellcheck/Engine.lua#L1223`))
+  - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L94`](`../Src/Spellcheck/Engine.lua#L94`))
+  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L158`](`../Src/Spellcheck/Engine.lua#L158`))
+  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L165`](`../Src/Spellcheck/Engine.lua#L165`))
+  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L208`](`../Src/Spellcheck/Engine.lua#L208`))
+  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L217`](`../Src/Spellcheck/Engine.lua#L217`))
+  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L237`](`../Src/Spellcheck/Engine.lua#L237`))
+  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L282`](`../Src/Spellcheck/Engine.lua#L282`))
+  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L363`](`../Src/Spellcheck/Engine.lua#L363`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L892`](`../Src/Spellcheck/Engine.lua#L892`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1180`](`../Src/Spellcheck/Engine.lua#L1180`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1252`](`../Src/Spellcheck/Engine.lua#L1252`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -328,27 +330,27 @@ Initialised from `Spellcheck:Init` when present.
   - `total: number`
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
-  - [NEW] `YALLM:GetNegBiasCap() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L138`](../Src/Spellcheck/YALLM.lua#L138))
-  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L790`](../Src/Spellcheck/YALLM.lua#L790))
-  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L616`](../Src/Spellcheck/YALLM.lua#L616))
-  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L213`](../Src/Spellcheck/YALLM.lua#L213))
-  - `IsEnabled() → boolean`: Returns true if YALLM is enabled in the configuration. ([`../Src/Spellcheck/YALLM.lua#L115`](../Src/Spellcheck/YALLM.lua#L115))
-  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L120`](`../Src/Spellcheck/YALLM.lua#L120`))
-  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L126`](`../Src/Spellcheck/YALLM.lua#L126`))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L132`](`../Src/Spellcheck/YALLM.lua#L132`))
-  - `Init` ([`../Src/Spellcheck/YALLM.lua#L148`](`../Src/Spellcheck/YALLM.lua#L148`))
-  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L174`](`../Src/Spellcheck/YALLM.lua#L174`))
-  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L233`](`../Src/Spellcheck/YALLM.lua#L233`))
-  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L275`](`../Src/Spellcheck/YALLM.lua#L275`))
-  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L318`](`../Src/Spellcheck/YALLM.lua#L318`))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L396`](`../Src/Spellcheck/YALLM.lua#L396`))
-  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L489`](`../Src/Spellcheck/YALLM.lua#L489`))
-  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L523`](`../Src/Spellcheck/YALLM.lua#L523`))
-  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L563`](`../Src/Spellcheck/YALLM.lua#L563`))
-  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L662`](`../Src/Spellcheck/YALLM.lua#L662`))
-  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L721`](`../Src/Spellcheck/YALLM.lua#L721`))
-  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L734`](`../Src/Spellcheck/YALLM.lua#L734`))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L823`](`../Src/Spellcheck/YALLM.lua#L823`))
+  - [NEW] `YALLM:GetNegBiasCap() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L156`](../Src/Spellcheck/YALLM.lua#L156))
+  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L822`](../Src/Spellcheck/YALLM.lua#L822))
+  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L648`](../Src/Spellcheck/YALLM.lua#L648))
+  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L231`](../Src/Spellcheck/YALLM.lua#L231))
+  - `IsEnabled() → boolean`: Returns true if YALLM is enabled in the configuration. ([`../Src/Spellcheck/YALLM.lua#L133`](../Src/Spellcheck/YALLM.lua#L133))
+  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L138`](`../Src/Spellcheck/YALLM.lua#L138`))
+  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L144`](`../Src/Spellcheck/YALLM.lua#L144`))
+  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L150`](`../Src/Spellcheck/YALLM.lua#L150`))
+  - `Init` ([`../Src/Spellcheck/YALLM.lua#L166`](`../Src/Spellcheck/YALLM.lua#L166`))
+  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L192`](`../Src/Spellcheck/YALLM.lua#L192`))
+  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L251`](`../Src/Spellcheck/YALLM.lua#L251`))
+  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L293`](`../Src/Spellcheck/YALLM.lua#L293`))
+  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L340`](`../Src/Spellcheck/YALLM.lua#L340`))
+  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L422`](`../Src/Spellcheck/YALLM.lua#L422`))
+  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L518`](`../Src/Spellcheck/YALLM.lua#L518`))
+  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L552`](`../Src/Spellcheck/YALLM.lua#L552`))
+  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L595`](`../Src/Spellcheck/YALLM.lua#L595`))
+  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L694`](`../Src/Spellcheck/YALLM.lua#L694`))
+  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L753`](`../Src/Spellcheck/YALLM.lua#L753`))
+  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L766`](`../Src/Spellcheck/YALLM.lua#L766`))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L855`](`../Src/Spellcheck/YALLM.lua#L855`))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
@@ -668,14 +670,14 @@ Binds to overlay (or multiline) editbox when available.
 
 - Description: Ghost-text completion from dictionary + YALLM.
 - Fields:
-  - `GhostFS` ([`../Src/Autocomplete.lua#L55`](`../Src/Autocomplete.lua#L55`))
-  - `CurrentSugg` ([`../Src/Autocomplete.lua#L56`](`../Src/Autocomplete.lua#L56`))
-  - `CurrentPrefix` ([`../Src/Autocomplete.lua#L57`](`../Src/Autocomplete.lua#L57`))
-  - `PrefixText` ([`../Src/Autocomplete.lua#L58`](`../Src/Autocomplete.lua#L58`))
-  - `Active` ([`../Src/Autocomplete.lua#L59`](`../Src/Autocomplete.lua#L59`))
-  - `Enabled` ([`../Src/Autocomplete.lua#L60`](`../Src/Autocomplete.lua#L60`))
-  - `_activeEditBox` ([`../Src/Autocomplete.lua#L61`](`../Src/Autocomplete.lua#L61`))
-  - `_isMultiline` ([`../Src/Autocomplete.lua#L62`](`../Src/Autocomplete.lua#L62`))
+  - `GhostFS` ([`../Src/Autocomplete.lua#L74`](`../Src/Autocomplete.lua#L74`))
+  - `CurrentSugg` ([`../Src/Autocomplete.lua#L75`](`../Src/Autocomplete.lua#L75`))
+  - `CurrentPrefix` ([`../Src/Autocomplete.lua#L76`](`../Src/Autocomplete.lua#L76`))
+  - `PrefixText` ([`../Src/Autocomplete.lua#L77`](`../Src/Autocomplete.lua#L77`))
+  - `Active` ([`../Src/Autocomplete.lua#L78`](`../Src/Autocomplete.lua#L78`))
+  - `Enabled` ([`../Src/Autocomplete.lua#L79`](`../Src/Autocomplete.lua#L79`))
+  - `_activeEditBox` ([`../Src/Autocomplete.lua#L80`](`../Src/Autocomplete.lua#L80`))
+  - `_isMultiline` ([`../Src/Autocomplete.lua#L81`](`../Src/Autocomplete.lua#L81`))
 - Methods:
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 
@@ -805,29 +807,29 @@ Builds and controls top-level frames.
 - Fields:
   - `_activeCategory` *private by convention; do not rely on* ([`../Src/Interface/Window.lua#L175`](../Src/Interface/Window.lua#L175)).
 - Methods:
-  - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L283`](../Src/Interface/Window.lua#L283))
-  - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L294`](../Src/Interface/Window.lua#L294))
-  - `CheckForChangelogUpdate` — Handshake that updates seen records and triggers popups. ([`../Src/Interface/Window.lua#L370`](../Src/Interface/Window.lua#L370))
-  - `PopulateWhatsNewContent` — Renders changelog notes into a container. ([`../Src/Interface/Window.lua#L806`](../Src/Interface/Window.lua#L806))
-  - `RefreshWhatsNewContent` — Wipes and re-renders the WhatsNew popup. ([`../Src/Interface/Window.lua#L854`](../Src/Interface/Window.lua#L854))
-  - `UpdateWhatsNewButtonScale` — Scales the 'Got it' button text. ([`../Src/Interface/Window.lua#L871`](../Src/Interface/Window.lua#L871))
-  - [NEW] `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L305`](../Src/Interface/Window.lua#L305))
+  - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L289`](../Src/Interface/Window.lua#L289))
+  - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L300`](../Src/Interface/Window.lua#L300))
+  - `CheckForChangelogUpdate` — Handshake that updates seen records and triggers popups. ([`../Src/Interface/Window.lua#L376`](../Src/Interface/Window.lua#L376))
+  - `PopulateWhatsNewContent` — Renders changelog notes into a container. ([`../Src/Interface/Window.lua#L812`](../Src/Interface/Window.lua#L812))
+  - `RefreshWhatsNewContent` — Wipes and re-renders the WhatsNew popup. ([`../Src/Interface/Window.lua#L860`](../Src/Interface/Window.lua#L860))
+  - `UpdateWhatsNewButtonScale` — Scales the 'Got it' button text. ([`../Src/Interface/Window.lua#L877`](../Src/Interface/Window.lua#L877))
+  - [NEW] `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L311`](../Src/Interface/Window.lua#L311))
   - `GetMainWindowPositionStore` ([`../Src/Interface/Window.lua#L31`](`../Src/Interface/Window.lua#L31`))
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
-  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L349`](`../Src/Interface/Window.lua#L349`))
-  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L361`](`../Src/Interface/Window.lua#L361`))
-  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L396`](`../Src/Interface/Window.lua#L396`))
-  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L400`](`../Src/Interface/Window.lua#L400`))
-  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L455`](`../Src/Interface/Window.lua#L455`))
-  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L649`](`../Src/Interface/Window.lua#L649`))
-  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L889`](`../Src/Interface/Window.lua#L889`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1074`](`../Src/Interface/Window.lua#L1074`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1093`](`../Src/Interface/Window.lua#L1093`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1099`](`../Src/Interface/Window.lua#L1099`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L1107`](`../Src/Interface/Window.lua#L1107`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1113`](`../Src/Interface/Window.lua#L1113`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1141`](`../Src/Interface/Window.lua#L1141`))
+  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L355`](`../Src/Interface/Window.lua#L355`))
+  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L367`](`../Src/Interface/Window.lua#L367`))
+  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L402`](`../Src/Interface/Window.lua#L402`))
+  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L406`](`../Src/Interface/Window.lua#L406`))
+  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L461`](`../Src/Interface/Window.lua#L461`))
+  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L655`](`../Src/Interface/Window.lua#L655`))
+  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L895`](`../Src/Interface/Window.lua#L895`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1080`](`../Src/Interface/Window.lua#L1080`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1099`](`../Src/Interface/Window.lua#L1099`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1105`](`../Src/Interface/Window.lua#L1105`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L1113`](`../Src/Interface/Window.lua#L1113`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1119`](`../Src/Interface/Window.lua#L1119`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1147`](`../Src/Interface/Window.lua#L1147`))
 
 ## Interface.Widgets
 
@@ -871,7 +873,7 @@ Per-category page builders called by `BuildConfigUI`.
   - `CreateSpellcheckKeyboardLayoutDropdown` ([`../Src/Interface/Pages.lua#L1092`](`../Src/Interface/Pages.lua#L1092`))
   - `CreateSpellcheckUnderlineDropdown` ([`../Src/Interface/Pages.lua#L1141`](`../Src/Interface/Pages.lua#L1141`))
   - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1205`](`../Src/Interface/Pages.lua#L1205`))
-  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1359`](`../Src/Interface/Pages.lua#L1359`))
+  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1372`](`../Src/Interface/Pages.lua#L1372`))
 - Invariants:
   - Dropdown handlers assume config roots are initialised.
 
