@@ -82,7 +82,18 @@ function Spellcheck:RegisterDictionary(locale, data)
 
     local words = data.words or {}
 
-    -- Cancel any in-progress async load for this locale (e.g. locale switch)
+    -- Cancel any in-progress async loads for OTHER locales.
+    -- We only ever want one dictionary indexing in the background at a time.
+    if self._asyncLoaders then
+        for l, loader in pairs(self._asyncLoaders) do
+            if l ~= locale then
+                loader.cancelled = true
+                self._asyncLoaders[l] = nil
+            end
+        end
+    end
+
+    -- Cancel any previous load for THIS locale too (shouldn't happen with guards, but for safety)
     if self._asyncLoaders and self._asyncLoaders[locale] then
         self._asyncLoaders[locale].cancelled = true
         self._asyncLoaders[locale] = nil
@@ -100,13 +111,16 @@ function Spellcheck:RegisterDictionary(locale, data)
     local ngramKeyCapSize = (cfg.NgramKeyCapSize ~= nil) and tonumber(cfg.NgramKeyCapSize) or 0
     if ngramKeyCapSize == 0 then ngramKeyCapSize = math_huge end
 
+    local ngramIndex2 = existing and existing.ngramIndex2 or {}
+    local ngramIndex3 = existing and existing.ngramIndex3 or {}
+
+    local n2, n3 = 2, 3
+
     -- Handle Inheritance (Base + Delta)
     if data.extends then
         local base = self.Dictionaries[data.extends]
         if not base then
             self:EnsureLocale(data.extends)
-            -- If the base is still not in Dictionaries, it might be a builder
-            -- that was just registered by EnsureLocale. Try to load it now.
             if not self.Dictionaries[data.extends] then
                 self:LoadDictionary(data.extends)
             end
@@ -116,12 +130,16 @@ function Spellcheck:RegisterDictionary(locale, data)
         if base then
             -- Membership: safe O(1) metatable inheritance
             setmetatable(set, { __index = base.set })
-            -- Words + Phonetics: safe because the Python generator offsets delta
-            -- indices past the base word count, preventing index collision.
             setmetatable(phonetics, { __index = base.phonetics })
             setmetatable(outWords, { __index = base.words })
+            
+            -- Inherit N-Gram Indices: This allows deltas to see base patterns
+            -- without duplicating the massive base index tables in memory.
+            -- Note: If a pattern exists in both, the delta shadows the base;
+            -- we handle merging these during the suggestion search.
+            setmetatable(ngramIndex2, { __index = base.ngramIndex2 })
+            setmetatable(ngramIndex3, { __index = base.ngramIndex3 })
 
-            -- Inherit languageFamily if not explicitly provided
             if not data.languageFamily then
                 data.languageFamily = base.languageFamily
             end
@@ -200,7 +218,7 @@ function Spellcheck:RegisterDictionary(locale, data)
                 local g = string_sub(norm, i, i + n2 - 1)
                 dict.ngramIndex2[g] = dict.ngramIndex2[g] or {}
                 local posting = dict.ngramIndex2[g]
-                if #posting < 500 then -- TIERED CAP N2: 500
+                if #posting < 400 then -- TIERED CAP N2: 400 (was 500)
                     posting[#posting + 1] = finalId
                 end
             end
@@ -213,7 +231,7 @@ function Spellcheck:RegisterDictionary(locale, data)
                 local g = string_sub(norm, i, i + n3 - 1)
                 dict.ngramIndex3[g] = dict.ngramIndex3[g] or {}
                 local posting = dict.ngramIndex3[g]
-                if #posting < 2500 then -- TIERED CAP N3: 2500
+                if #posting < 500 then -- TIERED CAP N3: 500 (was 2500)
                     posting[#posting + 1] = finalId
                 end
             end

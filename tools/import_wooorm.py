@@ -96,7 +96,7 @@ def write_yapper_delta_dict(out_path, locale, extends, words_list, phonetics_dic
             f.write("    }\nend\n\n")
 
         # Registration Builder
-        f.write(f'YapperAPI:RegisterDictionary("{locale}", (function()\n')
+        f.write(f'YapperAPI:RegisterDictionary("{locale}", function()\n')
         f.write('    local d = {\n')
         f.write(f'        languageFamily = "{locale[:2].lower()}",\n')
         if extends:
@@ -114,7 +114,7 @@ def write_yapper_delta_dict(out_path, locale, extends, words_list, phonetics_dic
             f.write(f'    for h, m in pairs(getPhonetics_{i//PHON_CHUNK_SIZE}()) do d.phonetics[h] = m end\n')
             
         f.write('    return d\n')
-        f.write('end)())\n')
+        f.write('end)\n')
 
 def main():
     parser = argparse.ArgumentParser(description="Convert a wooorm Hunspell dictionary into a Yapper LOD Lua dictionary.")

@@ -454,28 +454,33 @@ end
 local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
     local hits = {}
     local n = lowerLen < 5 and 2 or 3
-    -- Use the engine's NormaliseVowels if it has one, otherwise the built-in.
     local normVowels = (engine and engine.NormaliseVowels) or NormaliseVowels
     local norm = normVowels(lower)
 
-    local function addHits(node, wordsTable)
-        if not node then return end
-        local idx = node["ngramIndex" .. n]
+    local function addHits(idx, wordsTable)
         if not idx then return end
         for i = 1, (#norm - n + 1) do
             local g = string_sub(norm, i, i + n - 1)
             local posting = idx[g]
             if posting then
                 for _, id in ipairs(posting) do
-                    local key = (wordsTable == dict.words) and id or (-id)
-                    hits[key] = (hits[key] or 0) + 1
+                    -- Use raw IDs directly; our generator ensures base and delta IDs never collide.
+                    hits[id] = (hits[id] or 0) + 1
                 end
             end
         end
     end
 
-    addHits(dict.ngramIndex2 and dict or nil, dict.words)
-    if base then addHits(base, base.words) end
+    -- If this is a delta dict, its ngramIndex is already metatable-linked to the base.
+    -- We only need to iterate the active dictionary's index once to see everything.
+    local activeIndex = dict["ngramIndex" .. n]
+    addHits(activeIndex, dict.words)
+
+    -- Special case: if the base is not yet inherited via metatable (old dicts), 
+    -- manually add it.
+    if base and (not activeIndex or getmetatable(activeIndex) == nil) then
+        addHits(base["ngramIndex" .. n], base.words)
+    end
 
     local tmp = {}
     for key, cnt in pairs(hits) do

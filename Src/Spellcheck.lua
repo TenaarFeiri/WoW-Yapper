@@ -336,11 +336,9 @@ function Spellcheck:GetLocale()
         if not self:IsEnabled() or self:EnsureLocale(cfg.Locale) then
             return cfg.Locale
         end
-        local fallback = self:GetFallbackLocale()
-        if cfg.Locale ~= fallback then
-            cfg.Locale = fallback
-        end
-        return fallback
+        -- Temporarily use fallback if preferred locale is missing (LOD delay)
+        -- but DO NOT overwrite the user's config key yet.
+        return self:GetFallbackLocale()
     end
     -- Prefer a region-based default (region 3 -> enGB) before using client locale.
     local region = GetCurrentRegion and GetCurrentRegion() or nil
