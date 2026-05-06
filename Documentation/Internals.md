@@ -238,12 +238,12 @@ Runs during suggestion/underline rebuild.
   - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L165`](`../Src/Spellcheck/Engine.lua#L165`))
   - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L208`](`../Src/Spellcheck/Engine.lua#L208`))
   - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L217`](`../Src/Spellcheck/Engine.lua#L217`))
-  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L237`](`../Src/Spellcheck/Engine.lua#L237`))
-  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L282`](`../Src/Spellcheck/Engine.lua#L282`))
-  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L363`](`../Src/Spellcheck/Engine.lua#L363`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L892`](`../Src/Spellcheck/Engine.lua#L892`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1180`](`../Src/Spellcheck/Engine.lua#L1180`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1252`](`../Src/Spellcheck/Engine.lua#L1252`))
+  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L242`](`../Src/Spellcheck/Engine.lua#L242`))
+  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L287`](`../Src/Spellcheck/Engine.lua#L287`))
+  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L368`](`../Src/Spellcheck/Engine.lua#L368`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L916`](`../Src/Spellcheck/Engine.lua#L916`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1204`](`../Src/Spellcheck/Engine.lua#L1204`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1276`](`../Src/Spellcheck/Engine.lua#L1276`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
