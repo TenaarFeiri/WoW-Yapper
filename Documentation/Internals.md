@@ -497,11 +497,11 @@ Initialised by `Chat:Init` (state refresh), then driven by overlay callbacks.
 
 - Description: Signals external typing tracker addon.  Correctly snapshots/restores configuration from the active profile root (global or per-character) during activation/deactivation.
 - Methods:
-  - `UpdateState` ([`../Src/Bridges/TypingTrackerBridge.lua#L276`](`../Src/Bridges/TypingTrackerBridge.lua#L276`))
-  - `OnOverlayFocusGained` ([`../Src/Bridges/TypingTrackerBridge.lua#L314`](`../Src/Bridges/TypingTrackerBridge.lua#L314`))
-  - `OnOverlayFocusLost` ([`../Src/Bridges/TypingTrackerBridge.lua#L318`](`../Src/Bridges/TypingTrackerBridge.lua#L318`))
-  - `OnOverlaySent` ([`../Src/Bridges/TypingTrackerBridge.lua#L322`](`../Src/Bridges/TypingTrackerBridge.lua#L322`))
-  - `OnChannelChanged` ([`../Src/Bridges/TypingTrackerBridge.lua#L327`](`../Src/Bridges/TypingTrackerBridge.lua#L327`))
+  - `UpdateState` ([`../Src/Bridges/TypingTrackerBridge.lua#L377`](`../Src/Bridges/TypingTrackerBridge.lua#L377`))
+  - `OnOverlayFocusGained` ([`../Src/Bridges/TypingTrackerBridge.lua#L415`](`../Src/Bridges/TypingTrackerBridge.lua#L415`))
+  - `OnOverlayFocusLost` ([`../Src/Bridges/TypingTrackerBridge.lua#L419`](`../Src/Bridges/TypingTrackerBridge.lua#L419`))
+  - `OnOverlaySent` ([`../Src/Bridges/TypingTrackerBridge.lua#L423`](`../Src/Bridges/TypingTrackerBridge.lua#L423`))
+  - `OnChannelChanged` ([`../Src/Bridges/TypingTrackerBridge.lua#L428`](`../Src/Bridges/TypingTrackerBridge.lua#L428`))
 
 ## RPPrefixBridge
 
@@ -712,18 +712,18 @@ Loaded with defaults; active theme restored on `ADDON_LOADED`.
 - Fields:
   - `_registry`, `_current` *private by convention; do not rely on* ([`../Src/Theme.lua#L16-L17`](../Src/Theme.lua#L16-L17)).
 - Methods:
-  - `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L251`](../Src/Theme.lua#L251))
+  - `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L272`](../Src/Theme.lua#L272))
   - `RegisterTheme` ([`../Src/Theme.lua#L25`](`../Src/Theme.lua#L25`))
   - `GetTheme` ([`../Src/Theme.lua#L31`](`../Src/Theme.lua#L31`))
   - `GetRegisteredNames` ([`../Src/Theme.lua#L36`](`../Src/Theme.lua#L36`))
   - `SetTheme` ([`../Src/Theme.lua#L44`](`../Src/Theme.lua#L44`))
-  - `ApplyToFrame` ([`../Src/Theme.lua#L108`](`../Src/Theme.lua#L108`))
-  - `GetCurrentName` ([`../Src/Theme.lua#L184`](`../Src/Theme.lua#L184`))
-  - `SetLiveTheme` ([`../Src/Theme.lua#L195`](`../Src/Theme.lua#L195`))
+  - `ApplyToFrame` ([`../Src/Theme.lua#L129`](`../Src/Theme.lua#L129`))
+  - `GetCurrentName` ([`../Src/Theme.lua#L205`](`../Src/Theme.lua#L205`))
+  - `SetLiveTheme` ([`../Src/Theme.lua#L216`](`../Src/Theme.lua#L216`))
   - `SetTheme` logic switches between `_G.YapperDB` and `_G.YapperLocalConf` as the root for `_appliedTheme` based on `UseGlobalProfile`.
   - Global wrappers on root table: `Yapper:RegisterTheme` ([`../Src/Theme.lua#L25`](`../Src/Theme.lua#L25`))
   - Global wrappers on root table: `Yapper:SetTheme` ([`../Src/Theme.lua#L44`](`../Src/Theme.lua#L44`))
-  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L251`](`../Src/Theme.lua#L251`))
+  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L272`](`../Src/Theme.lua#L272`))
 - Callbacks fired:
   - `THEME_CHANGED`.
 
@@ -786,15 +786,15 @@ Handles config reads/writes and side-effect fan-out.
   - `GetDefaultPath` ([`../Src/Interface/Config.lua#L135`](`../Src/Interface/Config.lua#L135`))
   - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L139`](`../Src/Interface/Config.lua#L139`))
   - `SetLocalPath` ([`../Src/Interface/Config.lua#L143`](`../Src/Interface/Config.lua#L143`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L325`](`../Src/Interface/Config.lua#L325`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L333`](`../Src/Interface/Config.lua#L333`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L346`](`../Src/Interface/Config.lua#L346`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L350`](`../Src/Interface/Config.lua#L350`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L383`](`../Src/Interface/Config.lua#L383`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L423`](`../Src/Interface/Config.lua#L423`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L448`](`../Src/Interface/Config.lua#L448`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L477`](`../Src/Interface/Config.lua#L477`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L339`](`../Src/Interface/Config.lua#L339`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L347`](`../Src/Interface/Config.lua#L347`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L360`](`../Src/Interface/Config.lua#L360`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L364`](`../Src/Interface/Config.lua#L364`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L380`](`../Src/Interface/Config.lua#L380`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L397`](`../Src/Interface/Config.lua#L397`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L437`](`../Src/Interface/Config.lua#L437`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L462`](`../Src/Interface/Config.lua#L462`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L491`](`../Src/Interface/Config.lua#L491`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
