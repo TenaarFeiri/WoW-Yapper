@@ -1314,10 +1314,9 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
         end
 
         self:AddControl(sf)
-        if edit then
-            edit.widgetType = "SpellcheckUserDictEdit"
-            self:AddControl(edit)
-        end
+        -- NOTE: sf.EditBox is a template child. Do NOT give it a widgetType or add it
+        -- to DynamicControls -- doing so causes it to be pooled and hidden, breaking
+        -- the ScrollFrame after the first UI rebuild.
         cursor:Advance(120)
         return edit
     end

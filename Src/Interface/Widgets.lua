@@ -111,14 +111,19 @@ function Interface:ReleaseWidget(widget)
 
     widget:Hide()
     widget:ClearAllPoints()
+    
+    -- Template sub-components (e.g. an EditBox owned by InputScrollFrameTemplate) must
+    -- never be passed to ReleaseWidget; they are cleaned up by their parent's release path
+    -- in the scroll-frame block below. Only top-level acquired widgets reach this point.
     widget:SetParent(nil)
 
     -- Clear script handlers to prevent ghost callbacks from previous lifecycle.
     if widget.SetScript then
         local scripts = {
             "OnClick", "OnEnter", "OnLeave", "OnValueChanged",
-            "OnEditFocusLost", "OnEnterPressed", "OnChar", "OnTextChanged",
-            "OnUpdate"
+            "OnEditFocusLost", "OnEditFocusGained", "OnEnterPressed", "OnEscapePressed",
+            "OnChar", "OnTextChanged", "OnUpdate", "OnMouseDown", "OnMouseUp",
+            "OnReceiveDrag", "OnHyperlinkClick"
         }
         for _, scriptName in ipairs(scripts) do
             if widget:HasScript(scriptName) then
@@ -143,6 +148,27 @@ function Interface:ReleaseWidget(widget)
         if widget.Clear then widget:Clear() end
         if widget.SetFading then widget:SetFading(true) end
         if widget.SetMaxLines then widget:SetMaxLines(100) end
+    end
+
+    -- ScrollFrame: reset scroll position and scrub EditBox scripts to prevent
+    -- ghost callbacks. We do NOT hide or pool the EditBox — it is owned by the
+    -- template and must stay attached.
+    if widget.widgetType and widget.widgetType:find("Scroll") and widget.SetVerticalScroll then
+        widget:SetVerticalScroll(0)
+        -- If this scroll frame has a template EditBox child, clear its scripts
+        -- here so they don't fire after the page has been torn down.
+        local innerEdit = rawget(widget, "EditBox")
+        if innerEdit and innerEdit.SetScript and innerEdit.HasScript then
+            local editScripts = {
+                "OnEditFocusLost", "OnEditFocusGained", "OnEnterPressed",
+                "OnEscapePressed", "OnChar", "OnTextChanged"
+            }
+            for _, sName in ipairs(editScripts) do
+                if innerEdit:HasScript(sName) then
+                    innerEdit:SetScript(sName, nil)
+                end
+            end
+        end
     end
 
     widget._inPool = true
