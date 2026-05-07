@@ -212,7 +212,16 @@ end
 function Spellcheck:_RegisterLanguageEngine(familyId, engine)
     if type(familyId) ~= "string" or familyId == "" then return false end
     if type(engine) ~= "table" then return false end
+
+    -- Security Requirement: Engine must provide phonetic hashing for suggestions.
     if type(engine.GetPhoneticHash) ~= "function" then return false end
+
+    -- Security Requirement: Engine MUST provide blocked hashes for sanitization.
+    -- If a dictionary is missing its blocklist, it is considered unsafe to load.
+    if type(engine.BlockedHashes) ~= "table" or type(engine.HashWord) ~= "function" then
+        self:Notify("|cffff0000Yapper Error:|r Language engine '" .. familyId .. "' is missing mandatory security data (BlockedHashes). Registration blocked.")
+        return false
+    end
 
     self.LanguageEngines = self.LanguageEngines or {}
     self.LanguageEngines[familyId] = engine

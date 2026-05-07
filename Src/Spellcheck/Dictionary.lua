@@ -148,6 +148,16 @@ function Spellcheck:RegisterDictionary(locale, data)
         end
     end
 
+    -- Security Validation: Every dictionary must be associated with a valid language engine
+    -- that provides BlockedHashes for sanitization. Dictionaries without a family
+    -- default to 'en', which must also be registered and secure.
+    local familyId = data.languageFamily or "en"
+    local engine = self:GetEngine(familyId)
+    if not engine or type(engine.BlockedHashes) ~= "table" then
+        self:Notify("|cffff0000Yapper Error:|r Dictionary '" .. locale .. "' requires a registered language engine with BlockedHashes. Registration blocked for security.")
+        return
+    end
+
     -- Make the dictionary available immediately (even if empty/partial),
     -- so CollectMisspellings can start using words as they arrive.
     if not existing then
