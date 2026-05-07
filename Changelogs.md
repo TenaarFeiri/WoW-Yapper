@@ -22,12 +22,21 @@
   - Added the public `_G.YapperAPI` addon API with filters, callbacks, readonly accessors, and structured `API_ERROR` reporting. (added in 2.0.1)
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
-## Patch notes
--- 2.1.12
+# Patch notes
+
+## 2.1.12b
+  - Fixed the following text fields being uninteractable after version change: Added words; Ignored words; Blocked words.
+  - Stripped even more slurs out of the dictionaries and added them to the blocking hash lists.
+
+## 2.1.12a
+  - Fixed memory issue from bloated N-gram compute.
+  - Fixed hangs during load due to dict changes.
+
+## 2.1.12
   - *Word Filtering*
     - **Bad word filtering added:** Yapper will no longer suggest, or learn bad words and slurs. These are managed by the dictionaries, and you can add your own blocked words in Advanced settings.
 
--- 2.1.11
+## 2.1.11
   - *What's New & Better:*
     - **Fresh "What's New" Experience:** Overhauled how we show update notes. You'll only see the notification popup when there's actually something new to read for your current version, and it now includes a dedicated font-size slider so you can make it as readable as you like.
     - **Full Version History:** Ever wondered what you missed? You can now find the complete, scrollable history of every major feature addition, right inside the Yapper settings under the new "Changelog" tab.
