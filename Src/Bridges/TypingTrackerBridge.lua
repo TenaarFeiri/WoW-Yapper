@@ -430,6 +430,24 @@ function Bridge:OnChannelChanged(newChatType)
 end
 
 -- ---------------------------------------------------------------------------
+-- Debug Listener
+-- ---------------------------------------------------------------------------
+-- When debug mode is active, we listen to the SRPTypingTracker prefix to
+-- monitor the actual network traffic (including what the external API sends).
+local function OnCommReceived(prefix, message, distribution, sender)
+    if YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        YapperTable.Utils:DebugPrint(string_format("TT Bridge (RECV from %s): %s", sender, message))
+    end
+end
+
+if IsLoaded() then
+    local AceComm = LibStub("AceComm-3.0", true)
+    if AceComm then
+        AceComm:RegisterComm(COMM_PREFIX, OnCommReceived)
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- API self-registration
 -- ---------------------------------------------------------------------------
 -- Register as a callback consumer via the public API so the bridge is driven
