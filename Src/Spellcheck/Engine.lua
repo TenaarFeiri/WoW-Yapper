@@ -315,7 +315,7 @@ function Spellcheck:UpdateActiveWord()
         return
     end
 
-    if self:IsWordCorrect(wordInfo.word) then
+    if YapperAPI:CheckWord(wordInfo.word) then
         self.ActiveWord = nil
         self.ActiveRange = nil
         self:HideSuggestions()

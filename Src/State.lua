@@ -148,7 +148,7 @@ function State:Transition(newState, ...)
         local utils = YapperTable.Utils
         if utils and type(utils.VerbosePrint) == "function" then
             -- Fetch the latest log from our own API to prove it works.
-            local last = self:GetLog(self:GetLogCount())
+            local last = YapperAPI:GetStateLog(YapperAPI:GetStateLogCount())
             if last then
                 local blame
                 if last.func and last.func ~= "anonymous" then

@@ -297,6 +297,10 @@
     YapperAPI:GetSpellcheckLocale() → locale string (e.g. "enUS") or nil
     YapperAPI:AddToDictionary(word) → boolean (true if added)
     YapperAPI:IgnoreWord(word)      → boolean (true if ignored)
+    YapperAPI:FindMisspellings(text) → table[]|nil
+      Scan a block of text and return an array of misspelled word ranges.
+      Each entry is { startPos: number, endPos: number, word: string }.
+      Returns nil if spellcheck is disabled or no misspellings are found.
 
     Dictionary / engine registration (for LOD dictionary addons):
 
@@ -904,6 +908,54 @@ function YapperAPI:IgnoreWord(word)
     sc:IgnoreWord(locale, word)
     -- SPELLCHECK_WORD_IGNORED is fired by IgnoreWord internally.
     return true
+end
+
+--- Returns true if the spellcheck suggestion panel is currently visible.
+function YapperAPI:IsSuggestionOpen()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.IsSuggestionOpen then
+        return sc:IsSuggestionOpen() == true
+    end
+    return false
+end
+
+--- Closes the spellcheck suggestion panel.
+function YapperAPI:HideSuggestions()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.HideSuggestions then
+        sc:HideSuggestions()
+        return true
+    end
+    return false
+end
+
+--- Applies a suggestion from the current list by its 1-indexed row.
+--- @param index number  1-6
+function YapperAPI:ApplySuggestion(index)
+    if type(index) ~= "number" then return false end
+    local sc = YapperTable.Spellcheck
+    if sc and sc.ApplySuggestion then
+        sc:ApplySuggestion(index)
+        return true
+    end
+    return false
+end
+
+--- Scans a block of text and returns a list of misspelled word ranges.
+--- @param text string  The text to scan.
+--- @return table[]|nil  Array of { startPos, endPos, word } or nil.
+function YapperAPI:FindMisspellings(text)
+    if type(text) ~= "string" or text == "" then return nil end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.IsEnabled or not sc:IsEnabled() then return nil end
+
+    local dict = sc:GetDictionary()
+    if not dict then return nil end
+
+    local ok, results = pcall(sc.CollectMisspellings, sc, text, dict)
+    if not ok or type(results) ~= "table" then return nil end
+
+    return #results > 0 and results or nil
 end
 
 --- Register a dictionary via the public API.

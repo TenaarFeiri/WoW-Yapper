@@ -2,25 +2,34 @@
 	Multiline.lua
 	Expanded multi-line editor frame for storyteller-mode posts.
 
-	When the user's text exceeds the single-line overlay or they trigger the
-	toggle keybind, Yapper transitions into a larger, resizable editing surface.
-	The multi-line frame is a standalone ScrollingEditBox that feeds its final
-	text into the delivery Queue.
+	When the user's presses shift-Enter while typing, Yapper transitions into a larger,
+	resizable editing surface. The multiline frame is a ScrollingEditBox that
+	delineates paragraphs by blank lines for sequential queued delivery.
+
+	Features & Integrations:
+		- Spellcheck: Underline rendering and suggestion panel sync.
+		- Autocomplete: Ghost-text acceptance and channel cycling (Tab).
+		- History: Undo/Redo (Ctrl+Z/Y), auto-save drafts, and message logging.
+		- Icon Gallery: In-line emoji/icon picker ({word pattern).
+		- Navigation: Caret-tracking auto-scroll and manual wheel suppression.
+		- Stashing: Preserves hard newlines when collapsing to single-line.
 
 	Lifecycle (FSM Integrated):
-		IDLE ──► EDITING: User opens the overlay.
-		EDITING ──► MULTILINE: User triggers expand (Multiline:Enter).
-		  └─► captures current draft + channel context
-		  └─► hides single-line overlay, shows expanded frame
+		IDLE -> EDITING: User opens the overlay.
+		EDITING -> MULTILINE: User triggers expand (Multiline:Enter).
+		  └- captures draft + channel context + anchors to chat frame
+		  └- binds Spellcheck/Autocomplete/History to the new widget
 
-		MULTILINE ──► SENDING: User submits (Multiline:Submit).
-		  └─► chunks text, hands off to Queue or Chat:DirectSend
-		  └─► returns machine to IDLE upon delivery completion
+		MULTILINE -> IDLE: User submits (Multiline:Submit).
+		  └- collapses paragraphs (single newlines -> spaces)
+		  └- runs PRE_SEND filters, chunks text, hands off to Queue/Chat
+		  └- clears drafts and closes UI
 
-		MULTILINE ──► EDITING: User cancels (Multiline:Exit/Cancel).
-		  └─► restores draft to single-line overlay
+		MULTILINE -> EDITING: User cancels (Multiline:Exit/Cancel).
+		  └- stashes full multiline draft (for re-expansion)
+		  └- restores collapsed text to single-line overlay
 
-		MULTILINE ──► IDLE: User closes UI while editor is open.
+		MULTILINE -> IDLE: User loses focus or closes UI.
 ]]
 
 local _, YapperTable = ...
@@ -192,12 +201,8 @@ function Multiline:CreateFrame()
 		end
 		-- If a spellcheck suggestion panel is open, ESC closes only the
 		-- panel rather than exiting the multiline editor entirely.
-		if YapperTable.Spellcheck
-				and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function"
-				and YapperTable.Spellcheck:IsSuggestionOpen() then
-			if type(YapperTable.Spellcheck.HideSuggestions) == "function" then
-				YapperTable.Spellcheck:HideSuggestions()
-			end
+		if YapperAPI:IsSuggestionOpen() then
+			YapperAPI:HideSuggestions()
 			return
 		end
 		Multiline:Cancel()
@@ -254,14 +259,9 @@ function Multiline:CreateFrame()
 		end
 		-- If a suggestion panel is still visible, Enter applies the selected
 		-- entry instead of submitting the message.
-		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function" then
-			local sc = YapperTable.Spellcheck
-			if sc:IsSuggestionOpen() then
-				if type(sc.ApplySuggestion) == "function" then
-					sc:ApplySuggestion(sc.ActiveIndex or 1)
-				end
-				return
-			end
+		if YapperAPI:IsSuggestionOpen() then
+			YapperAPI:ApplySuggestion(YapperTable.Spellcheck and YapperTable.Spellcheck.ActiveIndex or 1)
+			return
 		end
 		if IsShiftKeyDown() then
 			box:Insert("\n")

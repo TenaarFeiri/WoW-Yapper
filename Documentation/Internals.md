@@ -101,14 +101,14 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1230`](../Src/API.lua#L1230)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1282`](../Src/API.lua#L1282)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1149`](../Src/API.lua#L1149))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1216`](../Src/API.lua#L1216))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1251`](../Src/API.lua#L1251))
-  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L825`](../Src/API.lua#L825)) — returns the number of entries in the FSM state history.
-  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L816`](../Src/API.lua#L816)) — returns a specific state transition log entry.
-  - `API:GetStateLogs() → table` ([`../Src/API.lua#L806`](../Src/API.lua#L806)) — returns the full circular buffer of state transitions.
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1201`](../Src/API.lua#L1201))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1303`](../Src/API.lua#L1303))
+  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L829`](../Src/API.lua#L829)) — returns the number of entries in the FSM state history.
+  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L820`](../Src/API.lua#L820)) — returns a specific state transition log entry.
+  - `API:GetStateLogs() → table` ([`../Src/API.lua#L810`](../Src/API.lua#L810)) — returns the full circular buffer of state transitions.
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -643,17 +643,17 @@ Lazy frame creation; active only when user enters multiline mode.
 
 - Description: Expanded multiline editor that bypasses single-line overlay.
 - Fields:
-  - `Frame` ([`../Src/Multiline.lua#L47`](`../Src/Multiline.lua#L47`))
-  - `ScrollFrame` ([`../Src/Multiline.lua#L48`](`../Src/Multiline.lua#L48`))
-  - `EditBox` ([`../Src/Multiline.lua#L49`](`../Src/Multiline.lua#L49`))
-  - `LabelFS` ([`../Src/Multiline.lua#L50`](`../Src/Multiline.lua#L50`))
-  - `Active` ([`../Src/Multiline.lua#L189`](`../Src/Multiline.lua#L189`))
-  - `ChatType` ([`../Src/Multiline.lua#L51`](`../Src/Multiline.lua#L51`))
-  - `Language` ([`../Src/Multiline.lua#L52`](`../Src/Multiline.lua#L52`))
-  - `Target` ([`../Src/Multiline.lua#L53`](`../Src/Multiline.lua#L53`))
+  - `Frame` ([`../Src/Multiline.lua#L56`](`../Src/Multiline.lua#L56`))
+  - `ScrollFrame` ([`../Src/Multiline.lua#L57`](`../Src/Multiline.lua#L57`))
+  - `EditBox` ([`../Src/Multiline.lua#L58`](`../Src/Multiline.lua#L58`))
+  - `LabelFS` ([`../Src/Multiline.lua#L59`](`../Src/Multiline.lua#L59`))
+  - `Active` ([`../Src/Multiline.lua#L198`](`../Src/Multiline.lua#L198`))
+  - `ChatType` ([`../Src/Multiline.lua#L60`](`../Src/Multiline.lua#L60`))
+  - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
+  - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L103`](`../Src/Multiline.lua#L103`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L136`](`../Src/Multiline.lua#L136`))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
   - `Enter` ([`../Src/Multiline.lua#L504`](`../Src/Multiline.lua#L504`))
   - `Exit` ([`../Src/Multiline.lua#L614`](`../Src/Multiline.lua#L614`))
   - `Submit` ([`../Src/Multiline.lua#L730`](`../Src/Multiline.lua#L730`))

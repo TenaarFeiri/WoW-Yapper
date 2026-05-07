@@ -159,8 +159,8 @@ function Spellcheck:UpdateUnderlines()
         self._scanWindowStart = nil
         self._scanWindowEnd = nil
 
-        local words = self:CollectMisspellings(text, dict)
-        self._lastMisspellings = words
+        local words = YapperAPI:FindMisspellings(text)
+        self._lastMisspellings = words or {}
         self:RedrawUnderlines()
         return
     end
@@ -214,11 +214,11 @@ function Spellcheck:UpdateUnderlines()
     self._scanWindowEnd = rawEnd
 
     local windowText = string_sub(text, rawStart, rawEnd)
-    local words = self:CollectMisspellings(windowText, dict)
+    local words = YapperAPI:FindMisspellings(windowText)
 
     -- Convert window-local positions to full-text positions and cache.
     local fullPosWords = {}
-    for _, item in ipairs(words) do
+    for _, item in ipairs(words or {}) do
         fullPosWords[#fullPosWords + 1] = {
             startPos = item.startPos + rawStart - 1,
             endPos = item.endPos + rawStart - 1,

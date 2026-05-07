@@ -50,8 +50,8 @@ Register/unregister:
 
 Register/unregister:
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L646`](../Src/API.lua#L646))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L687`](../Src/API.lua#L687))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L650`](../Src/API.lua#L650))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L691`](../Src/API.lua#L691))
 
 ### Event list
 
@@ -107,6 +107,10 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 - `YapperAPI:GetSpellcheckLocale() → string|nil` ([`#L788`](../Src/API.lua#L788))
 - `YapperAPI:AddToDictionary(word: string) → boolean` ([`#L798`](../Src/API.lua#L798))
 - `YapperAPI:IgnoreWord(word: string) → boolean` ([`#L811`](../Src/API.lua#L811))
+- `YapperAPI:FindMisspellings(text: string) → table[]|nil` ([`#L916`](../Src/API.lua#L916))
+- `YapperAPI:IsSuggestionOpen() → boolean` ([`#L913`](../Src/API.lua#L913))
+- `YapperAPI:HideSuggestions() → boolean` ([`#L922`](../Src/API.lua#L922))
+- `YapperAPI:ApplySuggestion(index: number) → boolean` ([`#L932`](../Src/API.lua#L932))
 
 ### Dictionary / language engine
 
@@ -147,5 +151,5 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1251`](../Src/API.lua#L1251))
-  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1216`](../Src/API.lua#L1216))
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1303`](../Src/API.lua#L1303))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
