@@ -207,22 +207,36 @@ function Interface:SetLocalPath(path, value)
         end
     end
 
-    -- If the user is explicitly editing a top-level EditBox colour, mark it
-    -- as an explicit override so theme changes won't stomp the user's choice.
-    if type(normalizedValue) == "table"
-        and #path >= 2
-        and path[1] == "EditBox"
-        and COLOUR_KEYS[path[2]] then
+    -- If the user is explicitly editing a top-level EditBox colour (or a channel
+    -- specific text colour), mark it as an explicit override so theme changes
+    -- won't stomp the user's choice.
+    local isColorKey = false
+    local overrideKey = nil
+    if type(normalizedValue) == "table" and #path >= 2 and path[1] == "EditBox" then
+        if COLOUR_KEYS[path[2]] then
+            isColorKey = true
+            overrideKey = path[2]
+        elseif path[2] == "ChannelTextColors" and #path >= 3 then
+            isColorKey = true
+            overrideKey = path[3] -- Overriding specific channel color
+        end
+    end
+
+    if isColorKey and overrideKey then
         local overrideRoot = isGlobal and (_G.YapperDB or localConf) or localConf
         if type(overrideRoot._themeOverrides) ~= "table" then overrideRoot._themeOverrides = {} end
-        overrideRoot._themeOverrides[path[2]] = true
+        overrideRoot._themeOverrides[overrideKey] = true
         if isGlobal and type(localConf._themeOverrides) == "table" then
-            localConf._themeOverrides[path[2]] = nil
+            localConf._themeOverrides[overrideKey] = nil
         end
         _G.YapperLocalConf = localConf
     end
 
-    if type(YapperTable.Config) == "table" and YapperTable.Config ~= targetRoot then
+    -- Only manually update the live config if we aren't in Global Profile mode.
+    -- In Global mode, YapperTable.Config (the local table) already reflects
+    -- the change via metatable inheritance, so writing to it would create
+    -- an unwanted character-local override.
+    if not isGlobal and type(YapperTable.Config) == "table" and YapperTable.Config ~= targetRoot then
         if syncedChatDelineator and syncedChatPrefix then
             SetPathValue(YapperTable.Config, { "Chat", "DELINEATOR" }, syncedChatDelineator)
             SetPathValue(YapperTable.Config, { "Chat", "PREFIX" }, syncedChatPrefix)

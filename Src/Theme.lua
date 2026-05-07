@@ -79,6 +79,27 @@ function Theme:SetTheme(name)
             applyIfNotOverridden("LabelBg", "labelBg")
             applyIfNotOverridden("TextColor", "textColor")
             applyIfNotOverridden("BorderColor", "borderColor")
+
+            if type(theme.channelTextColors) == "table" then
+                if type(targetRoot.EditBox.ChannelTextColors) ~= "table" then
+                    targetRoot.EditBox.ChannelTextColors = {}
+                end
+                for channel, color in pairs(theme.channelTextColors) do
+                    if targetRoot._themeOverrides[channel] ~= true then
+                        targetRoot.EditBox.ChannelTextColors[channel] = {
+                            r = color.r or 1,
+                            g = color.g or 1,
+                            b = color.b or 1,
+                            a = color.a ~= nil and color.a or 1,
+                        }
+                        if useGlobal and type(localConf.EditBox) == "table"
+                            and type(localConf.EditBox.ChannelTextColors) == "table" then
+                            localConf.EditBox.ChannelTextColors[channel] = nil
+                        end
+                    end
+                end
+            end
+
             -- Remember which theme we last applied programmatically.
             targetRoot._appliedTheme = name
             if useGlobal then
