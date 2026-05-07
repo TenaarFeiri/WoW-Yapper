@@ -17,7 +17,7 @@ local type          = type
 YapperTable.Utils:DebugPrint("TypingTrackerBridge: Bridge registered on YapperTable")
 
 local COMM_PREFIX        = "SRPTypingTracker"
-local KEEPALIVE_INTERVAL = 3.1 -- For some reason 3.1 seconds is the one most consistently producing the message.
+local KEEPALIVE_INTERVAL = 2.0 -- More aggressive keepalive to ensure continuity for others and local display.
 local keepaliveTicker    = nil
 local lastChatType       = nil
 
@@ -36,15 +36,34 @@ local function GetRPName(unitName)
     return unitName
 end
 
-local function GetNeighborhoodGUID()
-    if not C_Housing or not C_Housing.GetCurrentNeighborhoodGUID then
-        return nil
+local function GetAPI()
+    return _G.SRPTypingTracker and _G.SRPTypingTracker.API
+end
+
+local function GetHousingContext()
+    if _G.SRPTypingTracker and _G.SRPTypingTracker.GetHousingContextForPlayer then
+        return _G.SRPTypingTracker.GetHousingContextForPlayer()
     end
-    local guid = C_Housing.GetCurrentNeighborhoodGUID()
-    return (guid ~= "") and guid or nil
+
+    -- Fallback for older versions or if method is missing
+    local guid = nil
+    if C_Housing and C_Housing.GetCurrentNeighborhoodGUID then
+        guid = C_Housing.GetCurrentNeighborhoodGUID()
+    end
+    guid = (guid ~= "") and guid or nil
+
+    return {
+        neighborhoodGUID = guid,
+        houseInstanceKey = nil,
+    }
 end
 
 local function GetZoneID()
+    -- Use the addon's effective zone ID if available, it handles housing interiors better.
+    if _G.SRPTypingTracker and _G.SRPTypingTracker.GetEffectiveZoneID then
+        return _G.SRPTypingTracker.GetEffectiveZoneID()
+    end
+
     -- Normal outdoor/interior maps
     local zoneID = C_Map.GetBestMapForUnit("player")
     if zoneID then return zoneID end
@@ -75,16 +94,72 @@ local function GetCoords(mapID)
     return 0, 0
 end
 
+local function UpdateLocalStatus(isTyping, chatType, zoneID, x, y, housingContext)
+    local TTAddon = LibStub("AceAddon-3.0"):GetAddon("SRPTypingTracker", true)
+    if not TTAddon or not TTAddon.GetTypingPlayers then return end
+
+    local playerGUID = UnitGUID("player")
+    if not playerGUID then return end
+
+    local typingPlayers = TTAddon:GetTypingPlayers()
+    if not typingPlayers then return end
+
+    -- Check if we should display self typing
+    local options = _G.SRPTypingTracker and _G.SRPTypingTracker.GetOptions and _G.SRPTypingTracker.GetOptions()
+    if not options or not options.displaySelfTyping or chatType == "WHISPER" or chatType == "BN_WHISPER" then
+        if typingPlayers[playerGUID] then
+            typingPlayers[playerGUID] = nil
+            TTAddon:SendMessage("TYPING_STATUS_UPDATED")
+        end
+        return
+    end
+
+    if not isTyping then
+        if typingPlayers[playerGUID] then
+            typingPlayers[playerGUID] = nil
+            TTAddon:SendMessage("TYPING_STATUS_UPDATED")
+        end
+        return
+    end
+
+    local playerName = UnitName("player")
+    local rpName     = GetRPName(playerName)
+    local guildName  = GetGuildInfo("player") or ""
+
+    local isPublic = false
+    if _G.SRPTypingTracker and _G.SRPTypingTracker.PublicChannels then
+        isPublic = _G.SRPTypingTracker.PublicChannels[chatType] or chatType == "CHANNEL"
+    end
+
+    -- Update the table manually since the addon ignores our network messages.
+    typingPlayers[playerGUID] = {
+        name = playerName,
+        rpName = rpName,
+        guild = guildName,
+        isTyping = true,
+        chatType = chatType,
+        zoneID = zoneID or 0,
+        x = x,
+        y = y,
+        isTypingPlayerPublic = isPublic and true or false,
+        neighborhoodGUID = housingContext.neighborhoodGUID,
+        houseInstanceKey = housingContext.houseInstanceKey,
+        timeLastMessageReceived = GetTime(),
+    }
+
+    TTAddon:SendMessage("TYPING_STATUS_UPDATED")
+end
+
 local function SendSignal(isTyping, chatType)
     if not IsLoaded() then return end
 
     -- Retrieve the addon object to use its SendCommMessage mixin
-    -- For once I'm glad that we've got an embedded Ace here lol
     local TTAddon = LibStub("AceAddon-3.0"):GetAddon("SRPTypingTracker", true)
     if not TTAddon then return end
 
     -- Get common player info.
-    local playerGUID = UnitGUID("player") or "PRIEST" -- fallback
+    local playerGUID = UnitGUID("player")
+    if not playerGUID then return end
     local playerName = UnitName("player")
     local rpName     = GetRPName(playerName)
     local guildName  = GetGuildInfo("player") or ""
@@ -98,24 +173,25 @@ local function SendSignal(isTyping, chatType)
 
     -- where are we on the map
     local x, y = GetCoords(zoneID)
-    -- Neighborhood GUID for housing
-    local neighborhood = GetNeighborhoodGUID() or ""
+    -- Housing context
+    local housingContext = GetHousingContext()
+    local neighborhood   = housingContext.neighborhoodGUID or ""
+    local houseKey       = housingContext.houseInstanceKey or ""
 
-    local isTypingNum  = isTyping and 1 or 0
-    local isGroup      = (IsInGroup() or IsInRaid()) and 1 or 0
+    local isTypingNum    = isTyping and 1 or 0
+    local isGroup        = (IsInGroup() or IsInRaid()) and 1 or 0
 
-    -- Format: guid,name,rpname,guild,isTyping,chatType,zoneID,x,y,isGroup,neighborhood
-    local msg          = string_format("%s,%s,%s,%s,%d,%s,%d,%f,%f,%d,%s",
+    -- Format: guid,name,rpname,guild,isTyping,chatType,zoneID,x,y,isGroup,neighborhood,houseKey
+    local msg            = string_format("%s,%s,%s,%s,%d,%s,%d,%f,%f,%d,%s,%s",
         playerGUID, playerName, rpName, guildName,
         isTypingNum, chatType, zoneID, x, y,
-        isGroup, neighborhood
+        isGroup, neighborhood, houseKey
     )
 
-    -- Determine channel
-    -- "SAY", "YELL", "EMOTE" -> Public (CHANNEL)
-    -- "PARTY", "RAID" -> Group
-    -- "WHISPER" -> TT suppresses, so we do too (don't send)
+    -- Update local state so we can see ourselves typing
+    UpdateLocalStatus(isTyping, chatType, zoneID, x, y, housingContext)
 
+    -- Determine channel
     if chatType == "WHISPER" or chatType == "BN_WHISPER" then
         return
     end
@@ -138,24 +214,18 @@ local function SendSignal(isTyping, chatType)
             distrib = "PARTY"
         end
 
-        TTAddon:SendCommMessage(COMM_PREFIX, msg, distrib)
-        YapperTable.Utils:DebugPrint("TypingTrackerBridge: Sent (Group) -> " .. msg)
+        -- v3.20 uses C_ChatInfo.SendAddonMessage for groups
+        C_ChatInfo.SendAddonMessage(COMM_PREFIX, msg, distrib)
+        YapperTable.Utils:DebugPrint("TypingTrackerBridge: Sent (Group via C_ChatInfo) -> " .. msg)
     else
-        -- Public channels (SAY, YELL, EMOTE)
-        -- To send to "CHANNEL", we need the channel ID.
-        -- TT joins "SRPChannel<ZoneID>".
-        -- We can try to send to "CHANNEL" with that name?
-        -- SendCommMessage("CHANNEL", target=channelName) logic.
-
+        -- Public channels (SAY, YELL, EMOTE) via "CHANNEL"
         local channelName = "SRPChannel" .. zoneID
         local channelID = GetChannelName(channelName)
 
         if channelID and channelID > 0 then
             TTAddon:SendCommMessage(COMM_PREFIX, msg, "CHANNEL", channelID)
-            YapperTable.Utils:DebugPrint("TypingTrackerBridge: Sent (Public) -> " .. msg)
+            YapperTable.Utils:DebugPrint("TypingTrackerBridge: Sent (Public via AceComm) -> " .. msg)
         else
-            -- If we aren't in the channel (maybe TT failed to join?), we can't send publicly.
-            -- Too bad.
             YapperTable.Utils:DebugPrint("TypingTrackerBridge: Cannot send public signal - not in channel " ..
                 channelName)
         end
@@ -195,14 +265,28 @@ local function SignalTyping(chatType)
     end
 
     chatType = chatType or "SAY"
-
-    if chatType == lastChatType and Bridge._isTyping then
-        -- Already typing in this channel, ensure ticker is running and bail.
-        StartTicker()
+    
+    -- GUARD: Avoid repeated calls if state hasn't changed.
+    -- Moved above the API check to prevent spamming the external API and network.
+    if Bridge._isTyping and lastChatType == chatType then
+        if not GetAPI() then
+            StartTicker() -- Ensure manual ticker is running if not using API
+        end
         return
     end
 
-    YapperTable.Utils:DebugPrint("TypingTrackerBridge: SignalTyping → " .. chatType)
+    local api = GetAPI()
+    if api then
+        -- Use official API if available
+        YapperTable.Utils:VerbosePrint("TypingTrackerBridge: api.StartTyping -> " .. chatType)
+        api.StartTyping("Yapper", chatType)
+        Bridge._isTyping = true
+        lastChatType = chatType
+        StopTicker() -- API handles its own keepalives
+        return
+    end
+
+    YapperTable.Utils:VerbosePrint("TypingTrackerBridge: SignalTyping → " .. chatType)
 
     lastChatType = chatType
     Bridge._isTyping = true
@@ -220,24 +304,33 @@ local function SignalNotTyping()
 
     if YapperTable.Config.System.EnableTypingTrackerBridge == false then
         StopTicker()
+        local api = GetAPI()
+        if api then api.StopTyping("Yapper") end
         return
     end
 
     local wasTyping = Bridge._isTyping or lastChatType ~= nil
 
     if wasTyping then
-        YapperTable.Utils:DebugPrint("TypingTrackerBridge: SignalNotTyping")
+        YapperTable.Utils:VerbosePrint("TypingTrackerBridge: SignalNotTyping (wasTyping=true)")
         Bridge._isTyping = false
 
-        -- Send one final "Not Typing" signal to the last used channel
-        -- to ensure group members/nearby players see us stop immediately.
-        local stopChatType = lastChatType or "SAY"
-        SendSignal(false, stopChatType)
+        local api = GetAPI()
+        if api then
+            YapperTable.Utils:VerbosePrint("TypingTrackerBridge: api.StopTyping")
+            api.StopTyping("Yapper")
+            StopTicker()
+        else
+            -- Send one final "Not Typing" signal to the last used channel
+            -- to ensure group members/nearby players see us stop immediately.
+            local stopChatType = lastChatType or "SAY"
+            SendSignal(false, stopChatType)
+
+            -- Stop ticker
+            StopTicker()
+        end
 
         lastChatType = nil
-
-        -- Stop ticker
-        StopTicker()
     end
 end
 
@@ -260,6 +353,14 @@ local function SignalChannelChanged(newChatType)
 
     local prevChatType = lastChatType
     lastChatType = newChatType
+
+    local api = GetAPI()
+    if api then
+        if Bridge._isTyping then
+            api.StartTyping("Yapper", newChatType)
+        end
+        return
+    end
 
     -- If we were already typing, we MUST clear the old channel indicator
     -- and start the new one immediately.
