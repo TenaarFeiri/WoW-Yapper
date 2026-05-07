@@ -9,19 +9,32 @@ import generate_phonetic_dict as gen
 
 def normalize_word(word):
     word = word.lower().strip()
+    # Strip non-alpha characters to catch things like "dune-coon" or "f.a.g"
     return "".join(c for c in word if c.isalpha())
 
+def get_plurals(word):
+    variants = {word + "s", word + "es"}
+    if word.endswith("y"):
+        variants.add(word[:-1] + "ies")
+    return variants
+
 def main():
-    bad_words_file = "scratch/all_bad_words.txt"
+    bad_words_file = "scratch/filtered-word-lists/bad-word-list-full"
     if not os.path.exists(bad_words_file):
         print(f"Error: {bad_words_file} not found.")
         sys.exit(1)
 
-    bad_words = set()
+    base_bad_words = set()
     with open(bad_words_file, "r", encoding="utf-8") as f:
         for line in f:
-            w = line.strip()
-            if w: bad_words.add(w)
+            w = line.strip().lower()
+            if w: base_bad_words.add(w)
+
+    # Expand with plurals
+    bad_words = set()
+    for w in base_bad_words:
+        bad_words.add(w)
+        bad_words.update(get_plurals(w))
 
     print(f"Loaded {len(bad_words)} bad words for sanitization.")
 
