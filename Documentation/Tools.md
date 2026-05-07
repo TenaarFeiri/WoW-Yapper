@@ -35,7 +35,8 @@ Imports and converts [wooorm/dictionaries](https://github.com/wooorm/dictionarie
 Generates the DJB2 hash table used by the engine to identify and filter blocked words without storing the plain text of the words in the addon.
 - **Usage**: `python3 generate_blocklist.py path/to/words.txt`
 - **Normalization**: The tool automatically normalizes words (lowercase, stripping punctuation) before hashing to ensure consistent detection.
-- **Integration**: The output table should be copied into `Dictionaries/Yapper_Dict_en/Engine.lua`.
+- **Integration**: The output table MUST be copied into the language engine's `BlockedHashes` field (e.g., in `Dictionaries/Yapper_Dict_en/Engine.lua`).
+- **Security Mandatory**: As of Yapper v2.1.12, providing a `BlockedHashes` table is a **mandatory security requirement** for all language engines. Engines or dictionaries without a valid blocklist will be blocked from loading.
 
 ---
 
