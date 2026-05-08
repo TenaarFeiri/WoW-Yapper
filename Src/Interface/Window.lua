@@ -196,6 +196,10 @@ YapperTable.WHATS_NEW = {
             body = "Yapper will no longer suggest, or learn bad words and slurs. "
                 .. "These are managed by the dictionaries, and you can add your own "
                 .. "blocked words in the Advanced settings."
+        },
+        {
+            title = "New Typing Tracker API",
+            body = "Yapper now supports the new Typing Tracker API."
         }
     },
     ["2.1.11"] = {
