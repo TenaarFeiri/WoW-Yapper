@@ -24,6 +24,9 @@
 
 # Patch notes
 
+## 2.1.12c
+  - Added support for new Typing Tracker API.
+
 ## 2.1.12b
   - Fixed the following text fields being uninteractable after version change: Added words; Ignored words; Blocked words.
   - Stripped even more slurs out of the dictionaries and added them to the blocking hash lists.
