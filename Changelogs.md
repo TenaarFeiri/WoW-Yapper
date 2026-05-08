@@ -40,6 +40,8 @@
     - **Bad word filtering added:** Yapper will no longer suggest, or learn bad words and slurs. These are managed by the dictionaries, and you can add your own blocked words in Advanced settings.
 
 ## 2.1.11
+  - *NEW FEATURE: Emote Picker*
+    - Added a new emote picker which you can open by typing `/` and hitting TAB. This will allow you to browse emotes and search for them by typing them out.
   - *What's New & Better:*
     - **Fresh "What's New" Experience:** Overhauled how we show update notes. You'll only see the notification popup when there's actually something new to read for your current version, and it now includes a dedicated font-size slider so you can make it as readable as you like.
     - **Full Version History:** Ever wondered what you missed? You can now find the complete, scrollable history of every major feature addition, right inside the Yapper settings under the new "Changelog" tab.

@@ -192,18 +192,6 @@ Interface._activeCategory = "general"
 YapperTable.WHATS_NEW = {
     ["2.1.12"] = {
         {
-            title = "Bad word filtering added",
-            body = "Yapper will no longer suggest, or learn bad words and slurs. "
-                .. "These are managed by the dictionaries, and you can add your own "
-                .. "blocked words in the Advanced settings."
-        },
-        {
-            title = "New Typing Tracker API",
-            body = "Yapper now supports the new Typing Tracker API."
-        }
-    },
-    ["2.1.11"] = {
-        {
             title = "Emote Picker added!",
             body = "Added a new Emote Picker which can be opened by typing \"/\" "
                 .. "in the chat overlay and hitting TAB! If you continue to type afterwards, "
@@ -216,6 +204,16 @@ YapperTable.WHATS_NEW = {
         {
             title = "Re-Whisper Added",
             body = "Yapper can now use your re-whisper keybind.",
+        },
+        {
+            title = "Bad word filtering added",
+            body = "Yapper will no longer suggest, or learn bad words and slurs. "
+                .. "These are managed by the dictionaries, and you can add your own "
+                .. "blocked words in the Advanced settings."
+        },
+        {
+            title = "New Typing Tracker API",
+            body = "Yapper now supports the new Typing Tracker API."
         }
     },
     ["2.1.10"] = {
