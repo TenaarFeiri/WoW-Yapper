@@ -6,6 +6,15 @@ version=$(grep -E '^## Version:' Yapper.toc | head -1 | sed -E 's/^## Version:\s
 stage=.release/stage
 out=.release/Yapper-"$version".zip
 
+# Configuration
+LOCALES=(
+    "Yapper_Dict_en"
+    "Yapper_Dict_enAU"
+    "Yapper_Dict_enGB"
+    "Yapper_Dict_enUS"
+    # "Yapper_Dict_deDE" # Not ready yet
+)
+
 echo "Building Yapper v$version..."
 
 # 0. Sync documentation before release
@@ -21,8 +30,8 @@ rsync -a --include='Src/***' --include='Changelogs.md' --include='Yapper.lua' \
       --include='Yapper.toc' --include='Bindings.xml' --include='LICENSE' \
       --exclude='*' ./ "$stage/Yapper/"
 
-# 2. Ship these locales as sibling addons (deDE not ready yet)
-for d in Yapper_Dict_en Yapper_Dict_enAU Yapper_Dict_enGB Yapper_Dict_enUS; do
+# 2. Ship these locales as sibling addons
+for d in "${LOCALES[@]}"; do
     if [ -d "Dictionaries/$d" ]; then
         mkdir -p "$stage/$d"
         rsync -a --exclude='backup/' "Dictionaries/$d/" "$stage/$d/"
