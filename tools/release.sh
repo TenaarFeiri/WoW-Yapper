@@ -18,7 +18,7 @@ mkdir -p "$stage/Yapper"
 
 # 1. Main addon — strict whitelist of user-relevant files
 rsync -a --include='Src/***' --include='Changelogs.md' --include='Yapper.lua' \
-      --include='Yapper.toc' --include='Bindings.xml' \
+      --include='Yapper.toc' --include='Bindings.xml' --include='LICENSE' \
       --exclude='*' ./ "$stage/Yapper/"
 
 # 2. Ship these locales as sibling addons (deDE not ready yet)
