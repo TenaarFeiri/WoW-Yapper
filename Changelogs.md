@@ -24,6 +24,9 @@
 
 # Patch notes
 
+## 2.1.13
+  - Fixed issue causing multipost whispers to stall and be unresolvable.
+
 ## 2.1.12c
   - Added support for new Typing Tracker API.
 
