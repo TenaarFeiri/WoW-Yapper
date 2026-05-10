@@ -26,6 +26,12 @@ local ipairs   = ipairs
 local tostring = tostring
 local select   = select
 local GetTime  = GetTime
+local tonumber = tonumber
+
+local function NormaliseName(name)
+    if not name or type(name) ~= "string" then return "" end
+    return name:gsub("%-.*$", ""):lower()
+end
 
 local POLICY_CLASS = {
     OPEN_WORLD_LOCAL = "OPEN_WORLD_LOCAL",
@@ -416,6 +422,14 @@ function Queue:SendNext(inHardwareEvent)
         return
     end
 
+    -- If the game is in a messaging lockdown (Encounter, PvP, etc.),
+    -- stall and wait for it to clear rather than attempting a send
+    -- that Blizzard will likely block.
+    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+        self:ShowContinuePrompt()
+        return
+    end
+
     entry = table_remove(self.Entries, 1)
     self:BeginEntry(entry)
 end
@@ -504,10 +518,7 @@ end
 
 function Queue:OnChatEvent(event, ...)
     if not State:IsSending() then return end
-    if YapperTable.Utils and YapperTable.Utils.IsChatLockdown
-        and YapperTable.Utils:IsChatLockdown() then
-        return
-    end
+    if not self.PendingEntry then return end
 
 
     -- First match the echoed text and expected event. Some chat events
@@ -525,15 +536,44 @@ function Queue:OnChatEvent(event, ...)
         return
     end
 
-    if not self.PendingEntry then return end
     if event ~= self.PendingAckEvent
         and ACK_SIBLING[self.PendingAckEvent] ~= event then
         return
     end
 
+    -- Recipient matching for whispers (arg2 is the target name)
+    if event == "CHAT_MSG_WHISPER_INFORM" and self.PendingEntry.target then
+        local targetName = select(2, ...)
+        if targetName and targetName ~= "" then
+            if NormaliseName(targetName) ~= NormaliseName(self.PendingEntry.target) then
+                if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                    YapperTable.Utils:DebugPrint("  REJECTED: Recipient mismatch",
+                        tostring(targetName), "vs", tostring(self.PendingEntry.target))
+                end
+                return
+            end
+        end
+    elseif event == "CHAT_MSG_BN_WHISPER_INFORM" and self.PendingEntry.target then
+        -- arg13 = presenceID for BN whispers
+        local presenceID = select(13, ...)
+        local targetID   = tonumber(self.PendingEntry.target)
+        if presenceID and targetID and tonumber(presenceID) ~= targetID then
+            if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                YapperTable.Utils:DebugPrint("  REJECTED: BNet Recipient mismatch",
+                    tostring(presenceID), "vs", tostring(targetID))
+            end
+            return
+        end
+    end
+
     -- arg12 = sender GUID when available.
+    -- Notably, whisper inform events may provide the target's GUID (or no GUID)
+    -- in this slot rather than the player's. Since we already matched the
+    -- recipient name/ID above, we exempt them from the sender-match check.
     local guid = select(12, ...)
-    if guid and guid ~= self.PlayerGUID then
+    local isWhisperInform = (event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM")
+
+    if guid and guid ~= self.PlayerGUID and not isWhisperInform then
         if YapperTable.Utils and YapperTable.Utils.DebugPrint then
             YapperTable.Utils:DebugPrint("  REJECTED: GUID mismatch",
                 tostring(guid), "vs", tostring(self.PlayerGUID))
