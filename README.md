@@ -3,7 +3,7 @@ Yapper is functionally a replacement of the EditBox for your chat window. It all
 This should allow you to RP *and* do content without having to worry about disabling an addon in the middle of a boss encounter, to ask the Havoc DH to please get back into melee.
 ## Please download the addon from here: https://github.com/TenaarFeiri/WoW-Yapper/releases
 
-Yapper by Sara Schulze Øverby, aka Tenaar Feiri, Arru/Arruh and a whole bunch of other names in WoW...
+Yapper by Sara Schulze Øverby, aka Tenaar Feiri, Symphicat, Arru/Arruh and a whole bunch of other names in WoW...
 Licence: [https://opensource.org/license/mit](https://opensource.org/license/mit) (go nuts)
 
 ## FAQ
