@@ -151,5 +151,6 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1303`](../Src/API.lua#L1303))
-  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
+  - [NEW] `YapperAPI:GetLanguageEngine() → nil`: Returns the language engine for `familyId`, or nil. ([`../Src/API.lua#L321`](../Src/API.lua#L321))
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1311`](../Src/API.lua#L1311))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1276`](../Src/API.lua#L1276))
