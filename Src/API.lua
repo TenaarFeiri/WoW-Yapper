@@ -1002,6 +1002,14 @@ function YapperAPI:IsLanguageEngineRegistered(familyId)
     return sc.LanguageEngines[familyId] ~= nil
 end
 
+--- Returns the language engine for `familyId`, or nil.
+function YapperAPI:GetLanguageEngine(familyId)
+    if type(familyId) ~= "string" then return nil end
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc.LanguageEngines then return nil end
+    return sc.LanguageEngines[familyId]
+end
+
 --- Map a Load-On-Demand addon to a specific locale so Yapper knows what to load
 --- when tracking dictionaries for that region.
 --- `locale` — e.g. "ptBR", "esES"
