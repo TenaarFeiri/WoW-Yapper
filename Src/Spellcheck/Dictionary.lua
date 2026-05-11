@@ -4,8 +4,8 @@
     dictionary inheritance, and memory management.
 ]]
 
-local _, YapperTable = ...
-local Spellcheck     = YapperTable.Spellcheck
+local _, YapperTable  = ...
+local Spellcheck      = YapperTable.Spellcheck
 
 -- Re-localise shared helpers from hub.
 local Clamp           = Spellcheck.Clamp
@@ -14,19 +14,19 @@ local NormaliseVowels = Spellcheck.NormaliseVowels
 local IsWordStartByte = Spellcheck.IsWordStartByte
 
 -- Re-localise Lua globals.
-local type       = type
-local pairs      = pairs
-local ipairs     = ipairs
-local tostring   = tostring
-local tonumber   = tonumber
-local math_huge    = math.huge
-local math_min     = math.min
-local string_byte  = string.byte
-local string_sub   = string.sub
-local string_lower = string.lower
-local string_format = string.format
-local table_insert  = table.insert
-local table_sort    = table.sort
+local type            = type
+local pairs           = pairs
+local ipairs          = ipairs
+local tostring        = tostring
+local tonumber        = tonumber
+local math_huge       = math.huge
+local math_min        = math.min
+local string_byte     = string.byte
+local string_sub      = string.sub
+local string_lower    = string.lower
+local string_format   = string.format
+local table_insert    = table.insert
+local table_sort      = table.sort
 
 -- Chunk size for async loading (from hub).
 local DICT_CHUNK_SIZE = Spellcheck._DICT_CHUNK_SIZE
@@ -132,7 +132,7 @@ function Spellcheck:RegisterDictionary(locale, data)
             setmetatable(set, { __index = base.set })
             setmetatable(phonetics, { __index = base.phonetics })
             setmetatable(outWords, { __index = base.words })
-            
+
             -- Inherit N-Gram Indices: This allows deltas to see base patterns
             -- without duplicating the massive base index tables in memory.
             -- Note: If a pattern exists in both, the delta shadows the base;
@@ -154,7 +154,8 @@ function Spellcheck:RegisterDictionary(locale, data)
     local familyId = data.languageFamily or "en"
     local engine = self:GetEngine(familyId)
     if not engine or type(engine.BlockedHashes) ~= "table" then
-        self:Notify("|cffff0000Yapper Error:|r Dictionary '" .. locale .. "' requires a registered language engine with BlockedHashes. Registration blocked for security.")
+        self:Notify("|cffff0000Yapper Error:|r Dictionary '" ..
+            locale .. "' requires a registered language engine with BlockedHashes. Registration blocked for security.")
         return
     end
 
@@ -162,23 +163,43 @@ function Spellcheck:RegisterDictionary(locale, data)
     -- so CollectMisspellings can start using words as they arrive.
     if not existing then
         self.Dictionaries[locale] = {
-            locale         = locale,
-            languageFamily = data.languageFamily or nil,
-            words          = outWords,
-            set            = set,
-            index          = index,
-            ngramIndex2    = ngramIndex2,
-            ngramIndex3    = ngramIndex3,
-            phonetics      = phonetics,
-            isDelta        = data.extends and true or false,
-            extends        = data.extends,
-            _metaCache     = {},
+            locale          = locale,
+            languageFamily  = data.languageFamily or nil,
+            words           = outWords,
+            set             = set,
+            index           = index,
+            ngramIndex2     = ngramIndex2,
+            ngramIndex3     = ngramIndex3,
+            phonetics       = phonetics,
+            isDelta         = data.extends and true or false,
+            extends         = data.extends,
+            affixRules      = data.affixRules, -- Support locale-specific rules
+            _metaCache      = {},
             _metaUsageTimer = 0,
             _metaCacheSize  = 0,
         }
     end
 
     local dict = self.Dictionaries[locale]
+    --- Returns true if the word (normalised) exists in this dictionary or its base,
+    --- or if the user has manually added it to their personal dictionary.
+    function dict:Contains(word)
+        if not word or word == "" then return false end
+        local norm = NormaliseWord(word)
+        -- 1. Check static dictionary set (includes base via metatable)
+        if self.set[norm] or self.set[word] then return true end
+        -- 2. Check user-added words for this locale
+        local addedSet = Spellcheck:GetUserSets(self.locale)
+        if addedSet and (addedSet[norm] or addedSet[word]) then
+            return true
+        end
+        return false
+    end
+
+    -- Ensure affixRules are updated/preserved if registration happens again
+    if data.affixRules then
+        dict.affixRules = data.affixRules
+    end
     local indexedCount = 0
 
     -- If the data already contains a pre-built set and index, we can skip processing.
@@ -292,15 +313,15 @@ function Spellcheck:RegisterDictionary(locale, data)
         -- On cancellation: nil all large upvalue references so this closure
         -- doesn't pin the old tables for an extra GC cycle after cancel.
         if loader.cancelled then
-            words        = nil
-            outWords     = nil
-            set          = nil
-            index        = nil
-            ngramIndex2  = nil
-            ngramIndex3  = nil
-            phonetics    = nil
+            words       = nil
+            outWords    = nil
+            set         = nil
+            index       = nil
+            ngramIndex2 = nil
+            ngramIndex3 = nil
+            phonetics   = nil
             ---@diagnostic disable-next-line: assign-type-mismatch, cast-local-type
-            processWord  = nil
+            processWord = nil
             return
         end
 
@@ -461,12 +482,12 @@ function Spellcheck:CanLoadLocale(locale)
     if not addon then
         return self:IsLocaleAvailable(locale)
     end
-    
+
     local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
     if isLoaded and isLoaded(addon) then
         return true
     end
-    
+
     -- If it's not loaded, we can still load it if the addon exists on disk.
     return self:HasLocaleAddon(locale)
 end
@@ -501,7 +522,8 @@ function Spellcheck:EnsureLocale(locale)
 
             if YapperTable.Utils and YapperTable.Utils.DebugPrint then
                 YapperTable.Utils:DebugPrint("Spellcheck:EnsureLocale(" ..
-                    locale .. ") LoadAddOn(" .. addon .. ") result=" .. tostring(loaded) .. " reason=" .. tostring(reason))
+                    locale ..
+                    ") LoadAddOn(" .. addon .. ") result=" .. tostring(loaded) .. " reason=" .. tostring(reason))
             end
 
             if loaded == false then

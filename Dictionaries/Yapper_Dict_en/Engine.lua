@@ -14,11 +14,11 @@
 -- of the input (e.g. "colour" suggested when the user types "color").
 -- ---------------------------------------------------------------------------
 local VARIANT_RULES = {
-    { "or",   "our"  }, { "our",  "or"   },
-    { "ize",  "ise"  }, { "ise",  "ize"  },
-    { "er",   "re"   }, { "re",   "er"   },
-    { "og",   "ogue" }, { "ogue", "og"   },
-    { "l",    "ll"   }, { "ll",   "l"    },
+    { "or",  "our" }, { "our", "or" },
+    { "ize", "ise" }, { "ise", "ize" },
+    { "er", "re" }, { "re", "er" },
+    { "og", "ogue" }, { "ogue", "og" },
+    { "l", "ll" }, { "ll", "l" },
 }
 
 --- 32-bit DJB2 Hash matching the Python generator script.
@@ -38,123 +38,160 @@ end
 -- Word lists used: https://github.com/BurntRouter/filtered-word-lists
 -- ---------------------------------------------------------------------------
 local BLOCKED_HASHES = {
-    [1924744940] = true, [4102830604] = true, [1269130561] = true, [3387041453] = true, 
-    [192264344] = true, [2090159296] = true, [3387045665] = true, [255780147] = true, 
-    [456405453] = true, [2090436841] = true, [2588573972] = true, [193511757] = true, 
-    [330654977] = true, [3600988070] = true, [1375641903] = true, [3425416807] = true,
-    [270321543] = true, [3234139055] = true, [3154119218] = true, [2146852374] = true, 
-    [1685567371] = true, [422016536] = true, [3548927835] = true, [343708735] = true, 
-    [2230350614] = true, [302278623] = true, [3800387947] = true, [1187451698] = true, 
-    [270320894] = true, [2811021064] = true, [271290180] = true, [2090401420] = true, 
-    [2090185024] = true, [2601496658] = true, [1355260557] = true, [193488488] = true, 
-    [261605702] = true, [2090162493] = true, [1849507365] = true, [3035773747] = true, 
-    [3242242805] = true, [2090687707] = true, [274682737] = true, [2090544516] = true, 
-    [2090156020] = true, [265589651] = true, [3367631986] = true, [3137705472] = true, 
-    [2090607818] = true, [193489663] = true, [2090324377] = true, [1194647656] = true, 
-    [3872614978] = true, [3275079834] = true, [2090623140] = true, [4181050045] = true, 
-    [193487068] = true, [1072297390] = true, [260415624] = true, [42880227] = true, 
-    [268507197] = true, [35542499569] = true, [1809970073] = true, [2090155621] = true, 
-    [2090874501] = true, [1415043910] = true, [254486106] = true, [1000590745] = true, 
-    [2090623300] = true, [3647373826] = true, [193485975] = true, [3232008580] = true, 
-    [2090729038] = true, [3370049694] = true, [169341747] = true, [258717741] = true, 
-    [2090544831] = true, [4243675682] = true, [193512331] = true, [4101663913] = true, 
-    [355929612] = true, [3894441888] = true, [3542813698] = true, [2090428531] = true, 
-    [1932286739] = true, [1611502285] = true, [258718006] = true, [270321025] = true, 
-    [4242718141] = true, [320123630] = true, [270000045] = true, [2090508749] = true, 
-    [3138248074] = true, [1695921813] = true, [700377911] = true, [2090366967] = true, 
-    [42880227] = true, [3172445978] = true, [1685567371] = true, [348734042] = true, 
-    [265514124] = true, [275322813] = true, [270328967] = true, [422016536] = true, 
-    [2586853629] = true, [261605702] = true, [222163680] = true, [268507197] = true, 
-    [464898086] = true, [3542813683] = true, [878419609] = true, [271290180] = true, 
-    [2090401420] = true, [1974145175] = true, [3529371519] = true, [2090185024] = true, 
-    [2195282430] = true, [2733380898] = true, [1809590071] = true, [356110598] = true, 
-    [2090407180] = true, [193495744] = true, [475982537] = true, [521535314] = true, 
-    [2090615773] = true, [2090626468] = true, [253141383] = true, [4102830604] = true, 
-    [54298430] = true, [355929612] = true, [2090607818] = true, [2090324377] = true, 
-    [890994144] = true, [2601496658] = true, [1809970073] = true, [3232008580] = true, 
-    [677554903] = true, [2090162527] = true, [260415624] = true, [193487068] = true, 
-    [1924744940] = true, [3287784] = true, [163388255] = true, [2090299765] = true, 
-    [2090155621] = true, [1611502285] = true, [622539562] = true, [900387225] = true, 
-    [193511757] = true, [2018666723] = true, [944344450] = true, [252821814] = true, 
-    [3242242805] = true, [4181050045] = true, [3542499569] = true, [1072297390] = true, 
-    [2695749341] = true, [1922009142] = true, [711924336] = true, [2090623140] = true, 
-    [170853005] = true, [1343182018] = true, [3600987818] = true, [2868485791] = true,
-    [4103075241] = true, [677967707] = true, [193487485] = true, [2090508749] = true, 
-    [4102779131] = true, [2090544516] = true, [2929363216] = true, [2090428531] = true, 
-    [272958513] = true, [4223370912] = true, [2090729038] = true, [3387041453] = true, 
-    [1066225748] = true, [2446782854] = true, [469348250] = true, [816127422] = true, 
-    [2634516259] = true, [1208899288] = true, [2230350614] = true, [417701304] = true, 
-    [323104056] = true, [193489663] = true, [1194647656] = true, [910659274] = true, 
-    [3649346240] = true, [763136093] = true, [3881902284] = true, [2271568594] = true, 
-    [193506902] = true, [270868743] = true, [456405453] = true, [3071101625] = true, 
-    [270326472] = true, [2090830197] = true, [330654662] = true, [136969805] = true, 
-    [193488488] = true, [689281295] = true, [1359747939] = true, [948739336] = true, 
-    [3198697029] = true, [261604917] = true, [4142207584] = true, [4243675326] = true, 
-    [302278623] = true, [1343869934] = true, [1932286739] = true, [3894441888] = true, 
-    [4245011667] = true, [4101663913] = true, [3881983355] = true, [3137705472] = true, 
-    [1000590745] = true, [3781555528] = true, [3548927835] = true, [3551229124] = true, 
-    [192264344] = true, [2570745296] = true, [3542806075] = true, [5863608] = true, 
-    [3397886225] = true, [267302460] = true, [1929455806] = true, [461897986] = true, 
-    [1406798931] = true, [42880769] = true, [2811021064] = true, [164091049] = true, 
-    [1187451698] = true, [3870490900] = true, [1161776932] = true, [279139018] = true, 
-    [7126123] = true, [3367631986] = true, [3050186175] = true, [193502837] = true, 
-    [2090508457] = true, [3548723903] = true, [3275079834] = true, [258717741] = true, 
-    [2090185387] = true, [5863642] = true, [3978900503] = true, [2090162493] = true, 
-    [661442904] = true, [320123630] = true, [994245990] = true, [255413938] = true, 
-    [193513432] = true, [3548864211] = true, [268492604] = true, [2090760585] = true, 
-    [260776244] = true, [3370049694] = true, [2823968682] = true, [43053689] = true, 
-    [193500364] = true, [282574809] = true, [2090401176] = true, [4103074299] = true, 
-    [3353007943] = true, [2375203291] = true, [677967961] = true, [1041643915] = true, 
-    [3695606242] = true, [255780147] = true, [3639517203] = true, [355880415] = true, 
-    [270843888] = true, [573919259] = true, [4133685000] = true, [2090717488] = true, 
-    [1639967491] = true, [3542813698] = true, [470670047] = true, [1637634698] = true, 
-    [193497158] = true, [3484277290] = true, [169341747] = true, [3872614978] = true, 
-    [2090775205] = true, [113305079] = true, [474595844] = true, [1098595893] = true, 
-    [1269130561] = true, [4243675682] = true, [7256661] = true, [4242718141] = true, 
-    [2090773579] = true, [2454697371] = true, [3437049465] = true, [352779459] = true, 
-    [2090069994] = true, [3800487335] = true, [263960319] = true, [260616774] = true, 
-    [628095536] = true, [256858114] = true, [43104448] = true, [3154119218] = true, 
-    [2090590278] = true, [1921832466] = true, [193488578] = true, [2090616624] = true, 
-    [1355260557] = true, [270581373] = true, [1809590086] = true, [3387045665] = true, 
-    [193496018] = true, [3906997489] = true, [2596850495] = true, [3035773747] = true, 
-    [3600985787] = true, [3600988219] = true, [170868384] = true, [3425414761] = true,
-    [2446509878] = true,
-    [436922091] = true, [465340996] = true, [2090679853] = true, [352565713] = true, 
-    [583188959] = true, [1639246084] = true, [465065587] = true, [427081359] = true, 
-    [330921434] = true, [535698116] = true, [2090472517] = true, [2257510488] = true, 
-    [4245015879] = true, [2891210747] = true, [3116217937] = true, [251629441] = true, 
-    [270728388] = true, [3155742719] = true, [4291790405] = true, [4282513142] = true, 
-    [54701204] = true, [2090120071] = true, [2090544831] = true, [2321679764] = true, 
-    [4164846805] = true, [422579975] = true, [174513116] = true, [193491379] = true, 
-    [3799897823] = true, [4103074317] = true, [279171510] = true, [2090156020] = true, 
-    [193485975] = true, [3647373826] = true, [2587984460] = true, [2570738552] = true, 
-    [2588573972] = true, [3267619070] = true, [991208] = true, [255672039] = true, 
-    [3611379852] = true, [270000045] = true, [255557892] = true, [193502737] = true, 
-    [270320893] = true, [25916888] = true, [167368054] = true, [274523719] = true, 
-    [269464342] = true, [677478740] = true, [343708735] = true, [3800387947] = true, 
-    [621439679] = true, [3242951102] = true, [275462634] = true, [1120037436] = true, 
-    [898106660] = true, [3847041754] = true, [2090159296] = true, [420887339] = true, 
-    [3006619808] = true, [3127763176] = true, [254484731] = true, [1159902974] = true, 
-    [920740902] = true, [2090859478] = true, [270871971] = true, [271309145] = true, 
-    [235162174] = true, [258718006] = true, [1871073353] = true, [2249423871] = true, 
-    [270321025] = true, [271309141] = true, [257060302] = true, [84915573] = true, 
-    [2090443117] = true, [174523661] = true, [4149252206] = true, [261958657] = true, 
-    [4011873711] = true, [160279187] = true, [1834861496] = true, [274675815] = true, 
-    [3568900211] = true, [1913286855] = true, [672146765] = true, [270320894] = true, 
-    [2090874501] = true, [1041902069] = true, [1415043910] = true, [3234139055] = true, 
-    [3222627334] = true, [465341128] = true, [2090436841] = true, [23030024] = true, 
-    [270321543] = true, [551146238] = true, [469853051] = true, [2090772550] = true, 
-    [2372888660] = true, [4090711922] = true, [3542806060] = true, [271309161] = true, 
-    [5863241] = true, [1483415783] = true, [2259595891] = true, [261600462] = true, 
-    [758791902] = true, [274284925] = true, [254485722] = true, [3856054570] = true, 
-    [2090623300] = true, [2090939742] = true, [193505685] = true, [1534198020] = true, 
-    [267014964] = true, [4153563690] = true, [1648746202] = true, [3762814904] = true, 
-    [254486106] = true, [1773925536] = true, [2090976075] = true, [421989845] = true, 
-    [2090859474] = true, [265589651] = true, [1849507365] = true, [278417139] = true, 
-    [80697020] = true, [193512331] = true, [274682737] = true, [4174111140] = true, 
-    [2132045460] = true, [2146852374] = true, [1007956785] = true, [3434422957] = true, 
-    [2140386772] = true, [1501483892] = true, [193499175] = true, 
+    [256858114] = true, [270326472] = true, [2090629297] = true, 
+    [261227820] = true, [3647373826] = true, [3198697029] = true, 
+    [274724758] = true, [2132045460] = true, [3071101625] = true, 
+    [2090607818] = true, [2891212625] = true, [3924984663] = true, 
+    [2090626468] = true, [3234139055] = true, [3867428740] = true, 
+    [3781555528] = true, [1834861496] = true, [271092275] = true, 
+    [2090772550] = true, [4266597535] = true, [267014964] = true, 
+    [2090120071] = true, [78142650] = true, [193510484] = true, 
+    [274284925] = true, [3695602030] = true, [3809513771] = true, 
+    [3548864211] = true, [54701204] = true, [270868743] = true, 
+    [193492948] = true, [270843616] = true, [758791902] = true, 
+    [268492604] = true, [2090590278] = true, [4133906349] = true, 
+    [2090156020] = true, [174523661] = true, [2090831965] = true, 
+    [275322813] = true, [193512331] = true, [900387225] = true, 
+    [4164846805] = true, [3906997489] = true, [843928860] = true, 
+    [2090544831] = true, [278417139] = true, [261605702] = true, 
+    [2090830197] = true, [521535314] = true, [422579975] = true, 
+    [505614840] = true, [2090262720] = true, [2090436841] = true, 
+    [4103075241] = true, [2090185387] = true, [193500355] = true, 
+    [3856054570] = true, [465065587] = true, [2634516259] = true, 
+    [193488488] = true, [2090874798] = true, [352779459] = true, 
+    [2454697357] = true, [465340996] = true, [4266297088] = true, 
+    [356110598] = true, [7126123] = true, [2586853629] = true, 
+    [1161776932] = true, [1849507365] = true, [2446782854] = true, 
+    [80697020] = true, [1359747939] = true, [174513116] = true, 
+    [3397886225] = true, [270320894] = true, [3872614978] = true, 
+    [1015824151] = true, [2090324377] = true, [3222627334] = true, 
+    [3387045665] = true, [255658872] = true, [254486106] = true, 
+    [3894441888] = true, [2372888660] = true, [1483415783] = true, 
+    [193495744] = true, [1066225748] = true, [3881983355] = true, 
+    [4142207584] = true, [355880415] = true, [4153563690] = true, 
+    [1159902974] = true, [1187451698] = true, [4181050045] = true, 
+    [3287784] = true, [330654977] = true, [420887339] = true, 
+    [3434422957] = true, [2321679764] = true, [260776244] = true, 
+    [3006619808] = true, [266134777] = true, [4242718141] = true, 
+    [4011873711] = true, [271309145] = true, [1060237402] = true, 
+    [330676442] = true, [1041643915] = true, [136969805] = true, 
+    [193489271] = true, [2090731892] = true, [193487068] = true, 
+    [2090454265] = true, [910659274] = true, [193500364] = true, 
+    [2570745296] = true, [193502837] = true, [261086405] = true, 
+    [1809590071] = true, [270871971] = true, [3437049465] = true, 
+    [1343869934] = true, [2090615773] = true, [441529368] = true, 
+    [622539562] = true, [465341128] = true, [265827870] = true, 
+    [3353007943] = true, [3387041453] = true, [270728388] = true, 
+    [323104056] = true, [2090544516] = true, [677478740] = true, 
+    [1208899288] = true, [3542806075] = true, [1809970073] = true, 
+    [2587984460] = true, [1639967491] = true, [2090162527] = true, 
+    [256638737] = true, [25916888] = true, [270321025] = true, 
+    [994245990] = true, [264939132] = true, [1120037436] = true, 
+    [700377911] = true, [3881902324] = true, [2259595891] = true, 
+    [265252204] = true, [3762954223] = true, [3172445978] = true, 
+    [3800387947] = true, [2601496658] = true, [1921832466] = true, 
+    [193496018] = true, [355929612] = true, [518647874] = true, 
+    [1355260557] = true, [464888744] = true, [2090155621] = true, 
+    [4103074299] = true, [4149252206] = true, [677554903] = true, 
+    [4181548765] = true, [270581373] = true, [330659348] = true, 
+    [535698116] = true, [3881902284] = true, [3327640338] = true, 
+    [3568900211] = true, [330654662] = true, [3542813698] = true, 
+    [193510363] = true, [2456426779] = true, [2090751498] = true, 
+    [54298430] = true, [1269130561] = true, [105296786] = true, 
+    [255420410] = true, [2090401407] = true, [3275079834] = true, 
+    [2090185024] = true, [5863608] = true, [3639517203] = true, 
+    [2090616624] = true, [274675815] = true, [2090472517] = true, 
+    [661442904] = true, [758791770] = true, [160279187] = true, 
+    [3242242805] = true, [271309141] = true, [2090544534] = true, 
+    [422016536] = true, [2475433154] = true, [436922091] = true, 
+    [193502737] = true, [270328967] = true, [3800487335] = true, 
+    [42880227] = true, [19124874] = true, [268420664] = true, 
+    [630548168] = true, [1974145175] = true, [2090428531] = true, 
+    [421989845] = true, [1913286855] = true, [4243178919] = true, 
+    [3542499569] = true, [277738914] = true, [4291790405] = true, 
+    [2090542338] = true, [2891210747] = true, [689281295] = true, 
+    [1415043910] = true, [3131237710] = true, [3484277290] = true, 
+    [583188959] = true, [3551229124] = true, [270843888] = true, 
+    [628095536] = true, [2090939742] = true, [42880769] = true, 
+    [3542806060] = true, [4101663913] = true, [270321543] = true, 
+    [4011873480] = true, [2570738552] = true, [272958513] = true, 
+    [2569382011] = true, [348734042] = true, [164091049] = true, 
+    [489115782] = true, [3050186175] = true, [3695606242] = true, 
+    [920740902] = true, [258718006] = true, [252821814] = true, 
+    [944344450] = true, [268349216] = true, [254484731] = true, 
+    [3548927835] = true, [2090727949] = true, [347913350] = true, 
+    [2195282430] = true, [193488778] = true, [3847041754] = true, 
+    [4174111140] = true, [2090392371] = true, [2090623140] = true, 
+    [261600462] = true, [163388255] = true, [271290180] = true, 
+    [2090366967] = true, [4133685000] = true, [4102830604] = true, 
+    [2090508749] = true, [898097966] = true, [268492594] = true, 
+    [3646582631] = true, [7256661] = true, [470670047] = true, 
+    [260616774] = true, [260426442] = true, [1041902069] = true, 
+    [2090401176] = true, [320123630] = true, [4090711922] = true, 
+    [631120957] = true, [4245015879] = true, [265589651] = true, 
+    [2454697371] = true, [898106660] = true, [3978900503] = true, 
+    [1098595893] = true, [1534198020] = true, [464898086] = true, 
+    [193488578] = true, [43104448] = true, [1637634698] = true, 
+    [3762814904] = true, [193510354] = true, [2140386772] = true, 
+    [268492587] = true, [4223370912] = true, [143390584] = true, 
+    [3867428754] = true, [271309161] = true, [255413938] = true, 
+    [257060302] = true, [1773925536] = true, [2733380898] = true, 
+    [3035773747] = true, [193491379] = true, [2090775205] = true, 
+    [193499175] = true, [5863241] = true, [10419065] = true, 
+    [2090407180] = true, [2090717488] = true, [266127237] = true, 
+    [253141383] = true, [5863642] = true, [3548723903] = true, 
+    [1406798931] = true, [192264344] = true, [948487777] = true, 
+    [1031526798] = true, [1932286739] = true, [3249195276] = true, 
+    [193488182] = true, [4243675326] = true, [677967707] = true, 
+    [2090069994] = true, [1685567371] = true, [1631760709] = true, 
+    [417701304] = true, [1929455806] = true, [3137705472] = true, 
+    [222163680] = true, [4133692773] = true, [2018666723] = true, 
+    [456405453] = true, [235162174] = true, [4282513142] = true, 
+    [3267619070] = true, [193505685] = true, [1974145313] = true, 
+    [2090859478] = true, [1871073353] = true, [722281450] = true, 
+    [3116217937] = true, [3370049694] = true, [2831621462] = true, 
+    [2090248326] = true, [255557892] = true, [2230350614] = true, 
+    [262633290] = true, [2090623300] = true, [1007956785] = true, 
+    [3242951102] = true, [1000590745] = true, [270320893] = true, 
+    [3154119218] = true, [2257510488] = true, [265514124] = true, 
+    [193507364] = true, [3870490900] = true, [1924744940] = true, 
+    [279171510] = true, [43053689] = true, [888516145] = true, 
+    [4242727017] = true, [1695921813] = true, [2823968682] = true, 
+    [274545696] = true, [2090508457] = true, [276126727] = true, 
+    [167368054] = true, [3799897823] = true, [193497158] = true, 
+    [3267487033] = true, [42880115] = true, [427081359] = true, 
+    [2090082593] = true, [461897986] = true, [3127763176] = true, 
+    [2090859474] = true, [573919259] = true, [1922009142] = true, 
+    [4245011667] = true, [991208] = true, [260415624] = true, 
+    [258717741] = true, [1809590086] = true, [3155742719] = true, 
+    [2090536439] = true, [2090679853] = true, [2090152561] = true, 
+    [1611502285] = true, [1415047606] = true, [113305079] = true, 
+    [15681575] = true, [3762899846] = true, [890994144] = true, 
+    [1310665196] = true, [677967961] = true, [263960319] = true, 
+    [3908947801] = true, [267302460] = true, [1924744954] = true, 
+    [4103074317] = true, [2271568594] = true, [2695749341] = true, 
+    [330921434] = true, [275462634] = true, [271086807] = true, 
+    [2811021064] = true, [948739336] = true, [621439679] = true, 
+    [2249423871] = true, [4243675682] = true, [2090299765] = true, 
+    [1639246084] = true, [475982537] = true, [270320883] = true, 
+    [3348861570] = true, [3367631986] = true, [254485722] = true, 
+    [3232008580] = true, [2601496672] = true, [256641150] = true, 
+    [23030024] = true, [277978224] = true, [3754503072] = true, 
+    [816127422] = true, [84915573] = true, [261604917] = true, 
+    [2090874501] = true, [2090443117] = true, [3611379852] = true, 
+    [2929363216] = true, [763136093] = true, [2090162493] = true, 
+    [3358763847] = true, [302278623] = true, [262746409] = true, 
+    [263734532] = true, [878419609] = true, [672146765] = true, 
+    [193485975] = true, [278886159] = true, [279139018] = true, 
+    [3138248074] = true, [2588573972] = true, [3529371519] = true, 
+    [3186195766] = true, [193511757] = true, [613308109] = true, 
+    [2928268063] = true, [2570738763] = true, [551146238] = true, 
+    [255886770] = true, [261958657] = true, [255672039] = true, 
+    [1194647656] = true, [3891160016] = true, [251629441] = true, 
+    [711924336] = true, [2090499745] = true, [3542813683] = true, 
+    [2146852374] = true, [363267836] = true, [2090401420] = true, 
 }
+
 
 -- ---------------------------------------------------------------------------
 -- Keyboard layouts
@@ -162,36 +199,90 @@ local BLOCKED_HASHES = {
 -- x is the column (with stagger offset), y is the row.
 -- Only a-z; digits and punctuation are filtered before proximity scoring.
 -- ---------------------------------------------------------------------------
-local KB_LAYOUTS = {
+local KB_LAYOUTS     = {
     QWERTY = {
-        q = { 0,    0 }, w = { 1,    0 }, e = { 2,    0 }, r = { 3,    0 },
-        t = { 4,    0 }, y = { 5,    0 }, u = { 6,    0 }, i = { 7,    0 },
-        o = { 8,    0 }, p = { 9,    0 },
-        a = { 0.25, 1 }, s = { 1.25, 1 }, d = { 2.25, 1 }, f = { 3.25, 1 },
-        g = { 4.25, 1 }, h = { 5.25, 1 }, j = { 6.25, 1 }, k = { 7.25, 1 },
+        q = { 0, 0 },
+        w = { 1, 0 },
+        e = { 2, 0 },
+        r = { 3, 0 },
+        t = { 4, 0 },
+        y = { 5, 0 },
+        u = { 6, 0 },
+        i = { 7, 0 },
+        o = { 8, 0 },
+        p = { 9, 0 },
+        a = { 0.25, 1 },
+        s = { 1.25, 1 },
+        d = { 2.25, 1 },
+        f = { 3.25, 1 },
+        g = { 4.25, 1 },
+        h = { 5.25, 1 },
+        j = { 6.25, 1 },
+        k = { 7.25, 1 },
         l = { 8.25, 1 },
-        z = { 0.75, 2 }, x = { 1.75, 2 }, c = { 2.75, 2 }, v = { 3.75, 2 },
-        b = { 4.75, 2 }, n = { 5.75, 2 }, m = { 6.75, 2 },
+        z = { 0.75, 2 },
+        x = { 1.75, 2 },
+        c = { 2.75, 2 },
+        v = { 3.75, 2 },
+        b = { 4.75, 2 },
+        n = { 5.75, 2 },
+        m = { 6.75, 2 },
     },
     QWERTZ = {
-        q = { 0,    0 }, w = { 1,    0 }, e = { 2,    0 }, r = { 3,    0 },
-        t = { 4,    0 }, z = { 5,    0 }, u = { 6,    0 }, i = { 7,    0 },
-        o = { 8,    0 }, p = { 9,    0 },
-        a = { 0.25, 1 }, s = { 1.25, 1 }, d = { 2.25, 1 }, f = { 3.25, 1 },
-        g = { 4.25, 1 }, h = { 5.25, 1 }, j = { 6.25, 1 }, k = { 7.25, 1 },
+        q = { 0, 0 },
+        w = { 1, 0 },
+        e = { 2, 0 },
+        r = { 3, 0 },
+        t = { 4, 0 },
+        z = { 5, 0 },
+        u = { 6, 0 },
+        i = { 7, 0 },
+        o = { 8, 0 },
+        p = { 9, 0 },
+        a = { 0.25, 1 },
+        s = { 1.25, 1 },
+        d = { 2.25, 1 },
+        f = { 3.25, 1 },
+        g = { 4.25, 1 },
+        h = { 5.25, 1 },
+        j = { 6.25, 1 },
+        k = { 7.25, 1 },
         l = { 8.25, 1 },
-        y = { 0.75, 2 }, x = { 1.75, 2 }, c = { 2.75, 2 }, v = { 3.75, 2 },
-        b = { 4.75, 2 }, n = { 5.75, 2 }, m = { 6.75, 2 },
+        y = { 0.75, 2 },
+        x = { 1.75, 2 },
+        c = { 2.75, 2 },
+        v = { 3.75, 2 },
+        b = { 4.75, 2 },
+        n = { 5.75, 2 },
+        m = { 6.75, 2 },
     },
     AZERTY = {
-        a = { 0,    0 }, z = { 1,    0 }, e = { 2,    0 }, r = { 3,    0 },
-        t = { 4,    0 }, y = { 5,    0 }, u = { 6,    0 }, i = { 7,    0 },
-        o = { 8,    0 }, p = { 9,    0 },
-        q = { 0.25, 1 }, s = { 1.25, 1 }, d = { 2.25, 1 }, f = { 3.25, 1 },
-        g = { 4.25, 1 }, h = { 5.25, 1 }, j = { 6.25, 1 }, k = { 7.25, 1 },
-        l = { 8.25, 1 }, m = { 9.25, 1 },
-        w = { 0.75, 2 }, x = { 1.75, 2 }, c = { 2.75, 2 }, v = { 3.75, 2 },
-        b = { 4.75, 2 }, n = { 5.75, 2 },
+        a = { 0, 0 },
+        z = { 1, 0 },
+        e = { 2, 0 },
+        r = { 3, 0 },
+        t = { 4, 0 },
+        y = { 5, 0 },
+        u = { 6, 0 },
+        i = { 7, 0 },
+        o = { 8, 0 },
+        p = { 9, 0 },
+        q = { 0.25, 1 },
+        s = { 1.25, 1 },
+        d = { 2.25, 1 },
+        f = { 3.25, 1 },
+        g = { 4.25, 1 },
+        h = { 5.25, 1 },
+        j = { 6.25, 1 },
+        k = { 7.25, 1 },
+        l = { 8.25, 1 },
+        m = { 9.25, 1 },
+        w = { 0.75, 2 },
+        x = { 1.75, 2 },
+        c = { 2.75, 2 },
+        v = { 3.75, 2 },
+        b = { 4.75, 2 },
+        n = { 5.75, 2 },
     },
 }
 
@@ -199,10 +290,10 @@ local KB_LAYOUTS = {
 -- NormaliseVowels
 -- Strips vowels (replaced with '*') for vowel-neutral similarity comparisons.
 -- ---------------------------------------------------------------------------
-local string_gsub  = string.gsub
-local string_lower = string.lower
-local string_upper = string.upper
-local string_sub   = string.sub
+local string_gsub    = string.gsub
+local string_lower   = string.lower
+local string_upper   = string.upper
+local string_sub     = string.sub
 
 local function NormaliseVowels(word)
     if type(word) ~= "string" then return "" end
@@ -228,22 +319,22 @@ local function GetPhoneticHash(word)
 
     -- Silent / variable consonant groups
     hash = string_gsub(hash, "GHT", "T")
-    hash = string_gsub(hash, "PH",  "F")
-    hash = string_gsub(hash, "KN",  "N")
-    hash = string_gsub(hash, "GN",  "N")
-    hash = string_gsub(hash, "WR",  "R")
-    hash = string_gsub(hash, "CH",  "K")
-    hash = string_gsub(hash, "SH",  "X")
-    hash = string_gsub(hash, "C",   "K")
-    hash = string_gsub(hash, "Q",   "K")
-    hash = string_gsub(hash, "X",   "KS")
-    hash = string_gsub(hash, "Z",   "S")
+    hash = string_gsub(hash, "PH", "F")
+    hash = string_gsub(hash, "KN", "N")
+    hash = string_gsub(hash, "GN", "N")
+    hash = string_gsub(hash, "WR", "R")
+    hash = string_gsub(hash, "CH", "K")
+    hash = string_gsub(hash, "SH", "X")
+    hash = string_gsub(hash, "C", "K")
+    hash = string_gsub(hash, "Q", "K")
+    hash = string_gsub(hash, "X", "KS")
+    hash = string_gsub(hash, "Z", "S")
 
     -- GH at end of word sounds like F (laugh, enough)
     if string_sub(hash, -2) == "GH" then
         hash = string_sub(hash, 1, -3) .. "F"
     else
-        hash = string_gsub(hash, "GH", "")  -- silent GH (night, through)
+        hash = string_gsub(hash, "GH", "") -- silent GH (night, through)
     end
 
     if hash == "" then return "" end
@@ -251,7 +342,7 @@ local function GetPhoneticHash(word)
     -- Keep first letter; strip remaining vowels
     local firstChar = string_sub(hash, 1, 1)
     local rest      = string_sub(hash, 2)
-    rest = string_gsub(rest, "[AEIOUY]", "")
+    rest            = string_gsub(rest, "[AEIOUY]", "")
 
     return firstChar .. rest
 end
@@ -265,26 +356,209 @@ if not _G.YapperAPI then
     return
 end
 
+-- ---------------------------------------------------------------------------
+-- Prefix/Suffix stripping rules
+-- ---------------------------------------------------------------------------
+local PREFIX_STRIPPING_ENABLED = false -- Can be toggled for testing
+
+local function DefaultStrip(engine, word, dict)
+    if not word or #word < 3 then return nil end
+
+    -- 1. Try Suffixes (most common in English)
+
+    -- ness / iness (Flag P)
+    if #word >= 5 and word:sub(-4) == "ness" then
+        local root = word:sub(1, -5)
+        if root:sub(-1) == "i" then
+            local rY = root:sub(1, -2) .. "y"
+            if dict.set[rY] then return rY end
+        end
+        if dict.set[root] then return root end
+    end
+
+    -- ing (Flag G)
+    if #word >= 4 and word:sub(-3) == "ing" then
+        local root = word:sub(1, -4)
+
+        -- Case A: using -> use (e-drop)
+        local rE = root .. "e"
+        if dict:Contains(rE) then
+            -- If the root in dict ends in 'e', then the 'ing' form should have dropped it.
+            -- So 'using' is correct for 'use', but 'fleeing' is correct for 'flee'.
+            if rE:sub(-2) == "ee" or root:sub(-1) ~= "e" then
+                return rE
+            end
+        end
+
+        -- Case B: mimicking -> mimic (c -> ck)
+        if root:sub(-1) == "k" then
+            local rC = root:sub(1, -2) .. "c"
+            if dict:Contains(rC) then return rC end
+        end
+
+        -- Case C: talking -> talk (no change)
+        if dict:Contains(root) then
+            -- If 'talk' is in dict, it's only valid with 'ing' if it doesn't end in a single 'e'.
+            -- This catches 'useing' (where 'use' is in dict but ends in 'e').
+            -- Also exclude roots ending in 'c' (they must use the 'ck' rule).
+            local last = root:sub(-1)
+            local last2 = root:sub(-2)
+            if (last ~= "e" or last2 == "ee") and last ~= "c" then
+                return root
+            end
+        end
+    end
+
+    -- ed (Flag D)
+    if #word >= 3 and word:sub(-2) == "ed" then
+        local root = word:sub(1, -3)
+
+        -- Case A: used -> use (e-drop)
+        local rE = root .. "e"
+        if dict:Contains(rE) then
+            if rE:sub(-2) == "ee" or root:sub(-1) ~= "e" then
+                return rE
+            end
+        end
+
+        -- Case B: mimicked -> mimic (c -> ck)
+        if root:sub(-1) == "k" then
+            local rC = root:sub(1, -2) .. "c"
+            if dict:Contains(rC) then return rC end
+        end
+
+        -- Case C: talked -> talk (no change)
+        if dict:Contains(root) then
+            local last = root:sub(-1)
+            local last2 = root:sub(-2)
+            if (last ~= "e" or last2 == "ee") and last ~= "c" then
+                return root
+            end
+        end
+    end
+
+    -- ly / ily (Flag Y)
+    if #word >= 4 and word:sub(-2) == "ly" then
+        local root = word:sub(1, -3)
+        if root:sub(-1) == "i" then
+            local rY = root:sub(1, -2) .. "y"
+            if dict:Contains(rY) then return rY end
+        end
+        if dict:Contains(root) then return root end
+    end
+
+    -- er / est (Flags R, Z)
+    if #word >= 3 and (word:sub(-2) == "er" or word:sub(-3) == "est") then
+        local suffixLen = word:sub(-2) == "er" and 2 or 3
+        local root = word:sub(1, -(suffixLen + 1))
+        local rE = root .. "e"
+        if dict:Contains(rE) then return rE end
+        if dict:Contains(root) then return root end
+    end
+
+    -- s / es / ies (Flag S)
+    if #word >= 3 and word:sub(-1) == "s" then
+        -- Case A: flies -> fly
+        if word:sub(-3) == "ies" then
+            local rY = word:sub(1, -4) .. "y"
+            if dict:Contains(rY) then return rY end
+        end
+
+        -- Case B: boxes -> box (es suffix)
+        if word:sub(-2) == "es" then
+            local root = word:sub(1, -3)
+            if dict:Contains(root) then
+                -- -es is only used if root ends in s, x, z, ch, sh
+                local last = root:sub(-1)
+                local last2 = root:sub(-2)
+                if last == "s" or last == "x" or last == "z" or last2 == "ch" or last2 == "sh" then
+                    return root
+                end
+            end
+        end
+
+        -- Case C: talks -> talk (s suffix)
+        local root = word:sub(1, -2)
+        if dict:Contains(root) then
+            -- -s is NOT used if root ends in s, x, z, ch, sh (those take -es)
+            local last = root:sub(-1)
+            local last2 = root:sub(-2)
+            if last ~= "s" and last ~= "x" and last ~= "z" and last2 ~= "ch" and last2 ~= "sh" then
+                return root
+            end
+        end
+    end
+
+    -- 's (Flag M)
+    if #word >= 3 and word:sub(-2) == "'s" then
+        local root = word:sub(1, -3)
+        if dict:Contains(root) then return root end
+    end
+
+    -- 2. Try Prefixes (if enabled)
+    if PREFIX_STRIPPING_ENABLED then
+        -- un- (Flag I)
+        if #word >= 5 and word:sub(1, 2) == "un" then
+            local root = word:sub(3)
+            if dict:Contains(root) then return root end
+        end
+        -- re- (Flag A)
+        if #word > 5 and word:sub(1, 2) == "re" then
+            local root = word:sub(3)
+            if dict:Contains(root) then return root end
+        end
+        -- in- / im- / il- / ir- (Flags C, E, F, K)
+        if #word > 5 and (word:sub(1, 2) == "in" or word:sub(1, 2) == "im" or word:sub(1, 2) == "il" or word:sub(1, 2) == "ir") then
+            local root = word:sub(3)
+            if dict:Contains(root) then return root end
+        end
+    end
+
+    return nil
+end
+
+local function StripAffixes(engine, word, dict)
+    -- A. Try dictionary-specific authority first (allows enGB/enUS overrides)
+    if type(dict.GetAffixStrippedWord) == "function" then
+        local base = dict:GetAffixStrippedWord(word)
+        if base then return base end
+    end
+
+    -- B. Legacy dictionary-specific rules
+    if dict.affixRules and type(dict.affixRules.Strip) == "function" then
+        local base = dict.affixRules:Strip(word, dict)
+        if base then return base end
+    end
+
+    -- C. Fall back to language-family default rules
+    return DefaultStrip(engine, word, dict)
+end
+
 local ok = YapperAPI:RegisterLanguageEngine("en", {
     -- Required
-    GetPhoneticHash = GetPhoneticHash,
+    GetPhoneticHash        = GetPhoneticHash,
 
     -- Optional helpers — fall back to built-in if absent
-    NormaliseVowels = NormaliseVowels,
+    NormaliseVowels        = NormaliseVowels,
+
+    -- Solve A: Affix stripping
+    StripAffixes           = StripAffixes,
+    DefaultStrip           = DefaultStrip, -- Exposed for custom rules to call back into
+    PrefixStrippingEnabled = PREFIX_STRIPPING_ENABLED,
 
     -- English has British/American spelling variants
-    HasVariantRules = true,
-    VariantRules    = VARIANT_RULES,
+    HasVariantRules        = true,
+    VariantRules           = VARIANT_RULES,
 
     -- Keyboard layout data (same schema as the built-in KB_LAYOUTS table)
-    KBLayouts       = KB_LAYOUTS,
+    KBLayouts              = KB_LAYOUTS,
 
     -- Blocked words hashes and the corresponding hash function
-    BlockedHashes   = BLOCKED_HASHES,
-    HashWord        = HashWord,
+    BlockedHashes          = BLOCKED_HASHES,
+    HashWord               = HashWord,
 
     -- No ScoreWeights override — English uses the built-in defaults
-    ScoreWeights    = nil,
+    ScoreWeights           = nil,
 })
 
 if not ok then

@@ -11,7 +11,7 @@ local Spellcheck      = YapperTable.Spellcheck
 -- Re-localise shared helpers from hub.
 local Clamp           = Spellcheck.Clamp
 local NormaliseWord   = Spellcheck.NormaliseWord
-local NormaliseVowels = Spellcheck.NormaliseVowels  -- built-in fallback
+local NormaliseVowels = Spellcheck.NormaliseVowels -- built-in fallback
 local SuggestionKey   = Spellcheck.SuggestionKey
 local IsWordByte      = Spellcheck.IsWordByte
 local IsWordStartByte = Spellcheck.IsWordStartByte
@@ -63,7 +63,7 @@ end
 -- Returns the active language engine if one is registered for the current
 -- locale's family, otherwise a synthetic table that delegates to the
 -- built-in English helpers so all call-sites can be written uniformly.
-local VARIANT_RULES   = {
+local VARIANT_RULES = {
     { "or",  "our" }, { "our", "or" },
     { "ize", "ise" }, { "ise", "ize" },
     { "er", "re" }, { "re", "er" },
@@ -108,7 +108,8 @@ function Spellcheck:CollectMisspellings(text, dict)
     local isSlashCommand = (text:match("^%s*/") ~= nil)
     local emotePickerVisible = false
     if isSlashCommand and YapperTable.Emotes then
-        emotePickerVisible = YapperTable.Emotes:IsActive() or (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
+        emotePickerVisible = YapperTable.Emotes:IsActive() or
+        (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
     end
     local skipFirstWord = isSlashCommand and emotePickerVisible
     local isFirstWord = true
@@ -129,7 +130,7 @@ function Spellcheck:CollectMisspellings(text, dict)
             local e = idx - 1
             local word = text:sub(s, e)
             local norm = NormaliseWord(word)
-            
+
             local shouldAdd = true
             if isFirstWord then
                 isFirstWord = false
@@ -141,11 +142,44 @@ function Spellcheck:CollectMisspellings(text, dict)
             if shouldAdd
                 and not self:IsRangeIgnored(s, e, ignoreRanges)
                 and self:ShouldCheckWord(word, minLen)
-                and not (ignoredSet and ignoredSet[norm])
-                and not (addedSet and addedSet[norm])
-                and (not dict.set[norm] or self:IsWordBlocked(norm, self:GetLocale()))
-                and not dict.set[word] then
+                and not self:IsWordCorrect(word) then
                 out[#out + 1] = { startPos = s, endPos = e, word = word }
+            end
+        else
+            idx = idx + 1
+        end
+    end
+
+    return out
+end
+
+--- Scans text for words recognized via affix-stripping.
+--- These are candidates for auto-learning in YALLM.
+function Spellcheck:CollectAffixMatches(text, dict)
+    local out = {}
+    if not text or text == "" then return out end
+
+    local idx = 1
+    while idx <= #text do
+        local byte = text:byte(idx)
+        if not byte then break end
+
+        if IsWordStartByte(byte) then
+            local s = idx
+            idx = idx + 1
+            while idx <= #text do
+                local b = text:byte(idx)
+                if not b or not IsWordByte(b) then break end
+                idx = idx + 1
+            end
+            local e = idx - 1
+            local word = text:sub(s, e)
+
+            if self:ShouldCheckWord(word, 3) then
+                local isCorrect, isAffix = self:IsWordCorrect(word)
+                if isCorrect and isAffix then
+                    out[#out + 1] = { startPos = s, endPos = e, word = word }
+                end
             end
         else
             idx = idx + 1
@@ -234,6 +268,18 @@ function Spellcheck:IsWordCorrect(word)
             return false
         end
         return true
+    end
+
+    -- 3. Solve A: Affix-stripping fallback
+    local engine = self:GetActiveEngine()
+    if engine and engine.StripAffixes then
+        local base = engine:StripAffixes(norm, dict)
+        if base then
+            -- Security check: is the stripped root blocked?
+            if not self:IsWordBlocked(base, self:GetLocale(), true) then
+                return true, true -- [NEW] Second return indicates affix match
+            end
+        end
     end
 
     return false
@@ -373,7 +419,8 @@ function Spellcheck:GetWordAtCursor(text, cursor)
     local isSlashCommand = (text:match("^%s*/") ~= nil)
     local emotePickerVisible = false
     if isSlashCommand and YapperTable.Emotes then
-        emotePickerVisible = YapperTable.Emotes:IsActive() or (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
+        emotePickerVisible = YapperTable.Emotes:IsActive() or
+        (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
     end
     local skipFirstWord = isSlashCommand and emotePickerVisible
     local isFirstWord = true
@@ -392,10 +439,10 @@ function Spellcheck:GetWordAtCursor(text, cursor)
             end
             local e = idx - 1
             local word = text:sub(s, e)
-            
+
             local isCurrentFirstWord = isFirstWord
             isFirstWord = false
-            
+
             if isCurrentFirstWord and skipFirstWord then
                 -- Skip returning this word for autocomplete
             elseif caret >= s and caret <= (e + 1)
@@ -415,11 +462,11 @@ end
 --- Collect prefix-indexed candidates from a dictionary (and its base if delta).
 --- Interleaves base and delta so a large delta shard cannot starve base words.
 local function GatherPrefixCandidates(dict, base, firstChar)
-    local out = {}
-    local dictSrc  = dict.index and dict.index[firstChar]
-    local baseSrc  = base      and base.index and base.index[firstChar]
-    local di, bi   = 1, 1
-    local cap      = 5000
+    local out     = {}
+    local dictSrc = dict.index and dict.index[firstChar]
+    local baseSrc = base and base.index and base.index[firstChar]
+    local di, bi  = 1, 1
+    local cap     = 5000
 
     -- Round-robin interleave: 1 delta, 1 base per pass until both exhausted or cap hit.
     while #out < cap do
@@ -476,7 +523,7 @@ local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
     local activeIndex = dict["ngramIndex" .. n]
     addHits(activeIndex, dict.words)
 
-    -- Special case: if the base is not yet inherited via metatable (old dicts), 
+    -- Special case: if the base is not yet inherited via metatable (old dicts),
     -- manually add it.
     if base and (not activeIndex or getmetatable(activeIndex) == nil) then
         addHits(base["ngramIndex" .. n], base.words)
@@ -590,8 +637,8 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
     end
     for i = 1, lowerLen do lowerBytes[i] = string_byte(lower, i) end
 
-    local normVowelsFn    = (engine and engine.NormaliseVowels) or NormaliseVowels
-    local lowerVowels     = normVowelsFn(lower)
+    local normVowelsFn = (engine and engine.NormaliseVowels) or NormaliseVowels
+    local lowerVowels  = normVowelsFn(lower)
 
     return {
         dict            = dict,
@@ -669,7 +716,6 @@ end
 
 --- Score a single candidate and append to the output list if it passes.
 local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
-
     local lower = ctx.lower
     local lowerLen = ctx.lowerLen
     local candidateLen = #candidate
@@ -960,7 +1006,8 @@ function Spellcheck:GetSuggestions(word)
     -- Include YALLM db revision so learning writes invalidate cached scores.
     local yallmDb = self.YALLM and self.YALLM:GetLocaleDB(locale)
     local yallmRev = (yallmDb and yallmDb._rev) or 0
-    local cacheKey = lower .. "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yallmRev)
+    local cacheKey = lower ..
+    "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yallmRev)
     if sc[cacheKey] then
         return sc[cacheKey]
     end
@@ -975,14 +1022,14 @@ function Spellcheck:GetSuggestions(word)
     local useNgram                         = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck
         and YapperTable.Config.Spellcheck.UseNgramIndex) or false
     local ngramCandidates                  = useNgram and GatherNgramCandidates(dict, base, lower, lowerLen, engine) or
-    nil
+        nil
 
     local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
     -- ── YALLM Bias Injection ─────────────────────────────────────────
-    -- If YALLM has learned specific corrections for this typo, inject them 
+    -- If YALLM has learned specific corrections for this typo, inject them
     -- directly into the pool to ensure they aren't starved by shard caps.
-    local learnedCandidates = {}
+    local learnedCandidates                = {}
     if self.YALLM and self.YALLM.GetBiasTargets then
         local targets = self.YALLM:GetBiasTargets(lower, locale)
         if targets then
