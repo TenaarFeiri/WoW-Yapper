@@ -29,8 +29,27 @@ def extract_words_from_lua(filepath):
     
     return words
 
+def extract_custom_logic(filepath):
+    """Extracts custom logic from the RegisterDictionary block of an existing Lua file."""
+    if not os.path.exists(filepath):
+        return ""
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # We look for text between the end of the 'd' table definition and the loading loops.
+    # Standard separator is the 'local tinsert' line.
+    match = re.search(r'phonetics\s*=\s*\{\},\s*\n\s*\}\n(.*?)\n\s+local tinsert\s*=\s*table\.insert', content, re.DOTALL)
+    if match:
+        logic = match.group(1).strip()
+        if logic:
+            return logic + "\n"
+    return ""
+
 def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
     """Writes the optimized dictionary format with chunked loading for Lua 5.1 constant table limits."""
+    # Extract any existing custom logic to preserve it
+    custom_logic = extract_custom_logic(filepath)
+    
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(f"-- Generated Yapper Dictionary\n")
@@ -76,6 +95,10 @@ def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
         f.write('        words = {},\n')
         f.write('        phonetics = {},\n')
         f.write('    }\n')
+        
+        # Inject preserved custom logic
+        if custom_logic:
+            f.write("    " + custom_logic.replace("\n", "\n    ") + "\n")
         
         # Fill words from chunks
         f.write('    local tinsert = table.insert\n')
