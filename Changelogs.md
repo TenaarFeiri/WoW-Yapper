@@ -24,6 +24,13 @@
 
 # Patch notes
 
+## 2.1.14
+  - Added new locale-aware affix stripping for English dictionaries (resolves issues with "using", "ing", "ed" suffixes etc).
+  - YALLM will now intelligently learn missing words that were identified as valid post affix-processing.
+  - Added "dog", "dogs" and several other common words back to enBase.
+  - **Dictionary Audit**: Pruned the blocked hash list to unblock legitimate words (bog, yellow, zebra, brownie, etc.) that were over-zealously flagged.
+  - Fixed "dog" being treated as a misspelling due to a blocklist hash collision.
+
 ## 2.1.13
   - Fixed issue causing multipost whispers to stall and be unresolvable.
 
