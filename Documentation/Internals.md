@@ -101,11 +101,11 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1282`](../Src/API.lua#L1282)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1290`](../Src/API.lua#L1290)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1201`](../Src/API.lua#L1201))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1303`](../Src/API.lua#L1303))
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1209`](../Src/API.lua#L1209))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1276`](../Src/API.lua#L1276))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1311`](../Src/API.lua#L1311))
   - `API:GetStateLogCount() → number` ([`../Src/API.lua#L829`](../Src/API.lua#L829)) — returns the number of entries in the FSM state history.
   - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L820`](../Src/API.lua#L820)) — returns a specific state transition log entry.
   - `API:GetStateLogs() → table` ([`../Src/API.lua#L810`](../Src/API.lua#L810)) — returns the full circular buffer of state transitions.
@@ -214,16 +214,17 @@ Used lazily by `GetDictionary`, locale switches, and LOD registration.
 - Methods:
   - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L34`](../Src/Spellcheck/Dictionary.lua#L34))
   - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L61`](../Src/Spellcheck/Dictionary.lua#L61)) — **Security Note**: Validates the associated language family engine for `BlockedHashes` before indexing. Blocks registration if the family engine is missing or insecure.
-  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L343`](../Src/Spellcheck/Dictionary.lua#L343))
-  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L388`](../Src/Spellcheck/Dictionary.lua#L388))
-  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L397`](../Src/Spellcheck/Dictionary.lua#L397))
-  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L402`](../Src/Spellcheck/Dictionary.lua#L402))
-  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L433`](../Src/Spellcheck/Dictionary.lua#L433))
-  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L445`](../Src/Spellcheck/Dictionary.lua#L445))
-  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L459`](../Src/Spellcheck/Dictionary.lua#L459))
-  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L474`](../Src/Spellcheck/Dictionary.lua#L474))
-  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L480`](../Src/Spellcheck/Dictionary.lua#L480))
-  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L535`](../Src/Spellcheck/Dictionary.lua#L535))
+  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L364`](../Src/Spellcheck/Dictionary.lua#L364))
+  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L409`](../Src/Spellcheck/Dictionary.lua#L409))
+  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L418`](../Src/Spellcheck/Dictionary.lua#L418))
+  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L423`](../Src/Spellcheck/Dictionary.lua#L423))
+  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L454`](../Src/Spellcheck/Dictionary.lua#L454))
+  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L466`](../Src/Spellcheck/Dictionary.lua#L466))
+  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L480`](../Src/Spellcheck/Dictionary.lua#L480))
+  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L495`](../Src/Spellcheck/Dictionary.lua#L495))
+  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L501`](../Src/Spellcheck/Dictionary.lua#L501))
+  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L557`](../Src/Spellcheck/Dictionary.lua#L557))
+  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L186`](../Src/Spellcheck/Dictionary.lua#L186)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
 - Side effects:
   - Schedules `C_Timer.After(0, ...)` chunk processing and refresh tickers.
 
@@ -233,17 +234,18 @@ Runs during suggestion/underline rebuild.
 
 - Description: Tokenisation, misspelling detection, candidate scoring.
 - Methods:
+  - [NEW] `Spellcheck:CollectAffixMatches() → nil`: Scans text for words recognized via affix-stripping. ([`../Src/Spellcheck/Engine.lua#L158`](../Src/Spellcheck/Engine.lua#L158))
   - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L94`](`../Src/Spellcheck/Engine.lua#L94`))
-  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L158`](`../Src/Spellcheck/Engine.lua#L158`))
-  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L165`](`../Src/Spellcheck/Engine.lua#L165`))
-  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L208`](`../Src/Spellcheck/Engine.lua#L208`))
-  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L217`](`../Src/Spellcheck/Engine.lua#L217`))
-  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L242`](`../Src/Spellcheck/Engine.lua#L242`))
-  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L287`](`../Src/Spellcheck/Engine.lua#L287`))
-  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L368`](`../Src/Spellcheck/Engine.lua#L368`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L922`](`../Src/Spellcheck/Engine.lua#L922`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1216`](`../Src/Spellcheck/Engine.lua#L1216`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1288`](`../Src/Spellcheck/Engine.lua#L1288`))
+  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L192`](`../Src/Spellcheck/Engine.lua#L192`))
+  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L199`](`../Src/Spellcheck/Engine.lua#L199`))
+  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L242`](`../Src/Spellcheck/Engine.lua#L242`))
+  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L251`](`../Src/Spellcheck/Engine.lua#L251`))
+  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L288`](`../Src/Spellcheck/Engine.lua#L288`))
+  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L333`](`../Src/Spellcheck/Engine.lua#L333`))
+  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L414`](`../Src/Spellcheck/Engine.lua#L414`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L968`](`../Src/Spellcheck/Engine.lua#L968`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1263`](`../Src/Spellcheck/Engine.lua#L1263`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1335`](`../Src/Spellcheck/Engine.lua#L1335`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
