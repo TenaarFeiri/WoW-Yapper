@@ -16,22 +16,22 @@ local State = YapperTable.State
 
 -- Types we split for.
 local SPLITTABLE = {
-    SAY           = true,
-    EMOTE         = true,
-    YELL          = true,
-    WHISPER       = true,
-    BN_WHISPER    = true,
-    PARTY         = true,
-    PARTY_LEADER  = true,
-    RAID          = true,
-    RAID_LEADER   = true,
-    RAID_WARNING  = true,
-    INSTANCE_CHAT = true,
+    SAY                  = true,
+    EMOTE                = true,
+    YELL                 = true,
+    WHISPER              = true,
+    BN_WHISPER           = true,
+    PARTY                = true,
+    PARTY_LEADER         = true,
+    RAID                 = true,
+    RAID_LEADER          = true,
+    RAID_WARNING         = true,
+    INSTANCE_CHAT        = true,
     INSTANCE_CHAT_LEADER = true,
-    GUILD         = true,
-    OFFICER       = true,
-    CLUB          = true,
-    CHANNEL       = true,
+    GUILD                = true,
+    OFFICER              = true,
+    CLUB                 = true,
+    CHANNEL              = true,
 }
 
 -- ---------------------------------------------------------------------------
@@ -208,7 +208,7 @@ function Chat:DirectSend(msg, chatType, language, target)
         local YALLM = sc.YALLM
         local locale = sc:GetLocale()
         YALLM:RecordUsage(msg, locale)
-        
+
         -- Check for "ignored" misspellings in the outgoing message
         local dict = sc:GetDictionary()
         if dict then
@@ -217,6 +217,15 @@ function Chat:DirectSend(msg, chatType, language, target)
                 for _, item in ipairs(typos) do
                     local word = msg:sub(item.startPos, item.endPos)
                     YALLM:RecordIgnored(word, locale)
+                end
+            end
+
+            -- Also record correctly affixed words so YALLM can auto-learn them
+            -- into the user's personal dictionary over time.
+            local affixMatches = sc:CollectAffixMatches(msg, dict)
+            if affixMatches then
+                for _, item in ipairs(affixMatches) do
+                    YALLM:RecordIgnored(item.word, locale)
                 end
             end
         end
@@ -241,10 +250,10 @@ function Chat:DirectSend(msg, chatType, language, target)
             return
         end
         -- Allow the filter to modify fields.
-        msg      = deliverPayload.text     or msg
+        msg      = deliverPayload.text or msg
         chatType = deliverPayload.chatType or chatType
         language = deliverPayload.language or language
-        target   = deliverPayload.target   or target
+        target   = deliverPayload.target or target
     end
 
     if State then State:ToSending() end
