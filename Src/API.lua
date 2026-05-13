@@ -280,6 +280,22 @@
       Returns true if a value should not be logged or persisted (Blizzard
       issecretvalue / canaccessvalue APIs, with a |K token fallback).
 
+    YapperAPI:InsertText(text)      → boolean
+      Insert text at the cursor in whichever Yapper editbox is active
+      (multiline editor first, then single-line overlay).  Returns true
+      if the text was inserted, false if no Yapper editbox is currently
+      active.  Uses the state machine so it always targets the right box.
+
+    YapperAPI:RegisterLinkProtocol(prefix) → boolean
+      Declare that |H<prefix>:...|h[...]|h hyperlinks are known,
+      first-class link tokens in Yapper.  Registers the prefix string
+      (e.g. "addon:totalrp3") so the pipeline treats those hyperlinks
+      the same as native WoW item/spell links (atomic in the chunker,
+      ignored by the spellchecker).  Returns true on success.
+
+    YapperAPI:GetRegisteredLinkProtocols() → table
+      Returns a shallow copy of all registered link protocol prefixes.
+
     YapperAPI:GetChatParent()       → Frame
       Returns the correct UI parent for chat-related frames, respecting
       fullscreen panels like the housing editor.
@@ -405,6 +421,7 @@ YapperTable.API               = API
 local filters                 = {} -- [hookPoint] = sorted array of {cb, priority, handle}
 local callbacks               = {} -- [event]     = array of {cb, handle}
 local handleSeq               = 0  -- monotonic handle counter
+local registeredLinkProtocols = {} -- [prefix] = true; populated by RegisterLinkProtocol
 
 local type                    = type
 local pairs                   = pairs
@@ -1030,6 +1047,78 @@ function YapperAPI:RegisterLocaleAddon(locale, addonName)
         sc:EnsureLocale(locale)
     end
     return true
+end
+
+--- Declare a |H link protocol prefix as a known, first-class link type.
+--- Plugins that inject custom |H<prefix>:...|h[...]|h links into Yapper
+--- call this once on load so the pipeline knows to treat those tokens as
+--- atomic hyperlinks (chunker already does this for all |H forms; this
+--- API is the public signal surface for tooling and future features).
+--- Returns true on success, false if prefix is not a non-empty string.
+function YapperAPI:RegisterLinkProtocol(prefix)
+    if type(prefix) ~= "string" or prefix == "" then return false end
+    registeredLinkProtocols[prefix] = true
+    return true
+end
+
+--- Returns a shallow copy of all registered link protocol prefixes as an
+--- array of strings.  Ordered alphabetically.
+function YapperAPI:GetRegisteredLinkProtocols()
+    local out = {}
+    for prefix in pairs(registeredLinkProtocols) do
+        out[#out + 1] = prefix
+    end
+    table_sort(out)
+    return out
+end
+
+--- Returns true if `prefix` has been registered via RegisterLinkProtocol.
+function YapperAPI:IsLinkProtocolRegistered(prefix)
+    if type(prefix) ~= "string" then return false end
+    return registeredLinkProtocols[prefix] == true
+end
+
+local registeredAtomicPatterns = {}
+
+--- Register a custom Lua string pattern that the Yapper chunker should
+--- treat as an unbreakable, atomic sequence (similar to a WoW hyperlink).
+--- This is useful for plugins that inject raw pseudo-link text
+--- (like [TRP3:Identifier]) that shouldn't be split across messages.
+--- Returns true on success.
+function YapperAPI:RegisterAtomicPattern(pattern)
+    if type(pattern) ~= "string" or pattern == "" then return false end
+    registeredAtomicPatterns[#registeredAtomicPatterns + 1] = pattern
+    return true
+end
+
+--- Returns an array of all registered atomic patterns.
+function YapperAPI:GetRegisteredAtomicPatterns()
+    return registeredAtomicPatterns
+end
+
+--- Insert `text` at the current cursor position in the active Yapper
+--- editbox.  The state machine is consulted to decide which box to target:
+---   1. Multiline editor (when State:IsMultiline() is true)
+---   2. Single-line overlay (when the overlay frame is visible)
+--- Returns true if the text was inserted, false if no editbox is active.
+function YapperAPI:InsertText(text)
+    if type(text) ~= "string" or text == "" then return false end
+
+    -- Multiline editor has priority: when active, the overlay is hidden.
+    local ml = YapperTable.Multiline
+    if ml and ml.EditBox and ml.Frame and ml.Frame:IsShown() then
+        ml.EditBox:Insert(text)
+        return true
+    end
+
+    -- Fall back to the single-line overlay.
+    local eb = YapperTable.EditBox
+    if eb and eb.Overlay and eb.Overlay:IsShown() and eb.OverlayEdit then
+        eb.OverlayEdit:Insert(text)
+        return true
+    end
+
+    return false
 end
 
 --- Returns a snapshot of the current delivery queue state.
