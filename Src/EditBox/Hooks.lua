@@ -6,21 +6,21 @@
     HookAllChatFrames).
 ]]
 
-local _, YapperTable = ...
-local EditBox        = YapperTable.EditBox
-local State          = YapperTable.State
+local _, YapperTable               = ...
+local EditBox                      = YapperTable.EditBox
+local State                        = YapperTable.State
 
 -- Re-localise shared helpers from hub.
-local SLASH_MAP                = EditBox._SLASH_MAP
-local TAB_CYCLE                = EditBox._TAB_CYCLE
-local LABEL_PREFIXES           = EditBox._LABEL_PREFIXES
-local GROUP_CHAT_TYPES         = EditBox._GROUP_CHAT_TYPES
-local CHATTYPE_TO_OVERRIDE_KEY = EditBox._CHATTYPE_TO_OVERRIDE_KEY
-local IsWhisperSlashPrefill    = EditBox.IsWhisperSlashPrefill
-local ParseWhisperSlash        = EditBox.ParseWhisperSlash
-local GetLastTellTargetInfo    = EditBox.GetLastTellTargetInfo
-local GetLastToldTargetInfo    = EditBox.GetLastToldTargetInfo
-local SetFrameFillColour       = EditBox.SetFrameFillColour
+local SLASH_MAP                    = EditBox._SLASH_MAP
+local TAB_CYCLE                    = EditBox._TAB_CYCLE
+local LABEL_PREFIXES               = EditBox._LABEL_PREFIXES
+local GROUP_CHAT_TYPES             = EditBox._GROUP_CHAT_TYPES
+local CHATTYPE_TO_OVERRIDE_KEY     = EditBox._CHATTYPE_TO_OVERRIDE_KEY
+local IsWhisperSlashPrefill        = EditBox.IsWhisperSlashPrefill
+local ParseWhisperSlash            = EditBox.ParseWhisperSlash
+local GetLastTellTargetInfo        = EditBox.GetLastTellTargetInfo
+local GetLastToldTargetInfo        = EditBox.GetLastToldTargetInfo
+local SetFrameFillColour           = EditBox.SetFrameFillColour
 
 -- Resolve locals from Overlay.lua (loaded before us).
 local RefreshOverlayVisuals        = EditBox._RefreshOverlayVisuals
@@ -132,7 +132,7 @@ function EditBox:Show(origEditBox)
     if not blizzLang and origEditBox and type(origEditBox.GetLanguageID) == "function" then
         blizzLang = origEditBox:GetLanguageID()
     end
-    local blizzText                  = origEditBox and origEditBox.GetText and origEditBox:GetText()
+    local blizzText = origEditBox and origEditBox.GetText and origEditBox:GetText()
 
     -- One-shot BN guard expiry: if we open normally a couple times without
     -- consuming this flag, treat it as stale and clear it.
@@ -151,7 +151,7 @@ function EditBox:Show(origEditBox)
     self._attrCache[origEditBox] = {}
 
     -- Did Blizzard open with a specific target?
-    local blizzHasTarget = ((blizzType == "WHISPER" or blizzType == "BN_WHISPER")
+    local blizzHasTarget         = ((blizzType == "WHISPER" or blizzType == "BN_WHISPER")
             and blizzTell and blizzTell ~= "")
         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
@@ -163,8 +163,8 @@ function EditBox:Show(origEditBox)
     --   2. Lockdown draft — restore the channel the user was on mid-combat.
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
-    local pendingRWType   = self._pendingReWhisperType
-    local pendingRWTarget = self._pendingReWhisperTarget
+    local pendingRWType          = self._pendingReWhisperType
+    local pendingRWTarget        = self._pendingReWhisperTarget
     self._pendingReWhisperType   = nil
     self._pendingReWhisperTarget = nil
 
@@ -323,7 +323,8 @@ function EditBox:Show(origEditBox)
             if draftType then self.ChatType = draftType end
             if draftTarget then self.Target = draftTarget end
             YapperTable.History:MarkDirty(false)
-            YapperTable.Utils:VerbosePrint("Draft recovered: " .. #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
+            YapperTable.Utils:VerbosePrint("Draft recovered: " ..
+            #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
         end
     end
 
@@ -370,7 +371,7 @@ function EditBox:Show(origEditBox)
     -- is briefly shown above (needed for anchoring), then Multiline:Enter
     -- hides it and takes over.
     if draftMultiline and draftText and YapperTable.Multiline
-            and type(YapperTable.Multiline.Enter) == "function" then
+        and type(YapperTable.Multiline.Enter) == "function" then
         YapperTable.Multiline:Enter(
             draftText, self.ChatType, nil, self.Target)
     end
@@ -1217,7 +1218,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 C_Timer.After(0, function()
                     if eb and eb.Hide and eb:IsShown() then eb:Hide() end
                 end)
-                
+
                 return
             end
 
@@ -1227,108 +1228,108 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 return
             end
 
-        -- In lockdown Blizzard's untainted box can still send; leave it alone.
-        -- In DEBUG mode, we only bypass Yapper if the handoff has actually occurred.
-        local isLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
-        local isDebugBypass = YapperTable.Config.System.DEBUG and self._lockdown.handedOff
+            -- In lockdown Blizzard's untainted box can still send; leave it alone.
+            -- In DEBUG mode, we only bypass Yapper if the handoff has actually occurred.
+            local isLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+            local isDebugBypass = YapperTable.Config.System.DEBUG and self._lockdown.handedOff
 
-        if isLockdown or isDebugBypass then
-            if State and not State:IsLockdown() then
-                State:ToLockdown()
-            end
-            if not self._lockdown.showHandled then
-                self._lockdown.showHandled = true
-                local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
-                chosenCT = self:GetResolvedChatType(chosenCT)
+            if isLockdown or isDebugBypass then
+                if State and not State:IsLockdown() then
+                    State:ToLockdown()
+                end
+                if not self._lockdown.showHandled then
+                    self._lockdown.showHandled = true
+                    local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
+                    chosenCT = self:GetResolvedChatType(chosenCT)
 
-                local currentTell = eb:GetAttribute("tellTarget")
-                local diffTell = true
-                pcall(function() diffTell = (currentTell ~= self.Target) end)
+                    local currentTell = eb:GetAttribute("tellTarget")
+                    local diffTell = true
+                    pcall(function() diffTell = (currentTell ~= self.Target) end)
 
-                local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
+                    local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
 
-                eb:SetAttribute("chatType", chosenCT)
-                if chosenCT == "WHISPER" or chosenCT == "BN_WHISPER" then
-                    if diffTell then
-                        if YapperTable.Utils and YapperTable.Utils:IsSecret(self.Target) then
-                            eb:SetAttribute("chatType", "SAY")
-                            eb:SetAttribute("tellTarget", nil)
-                            eb:SetAttribute("channelTarget", nil)
-                            self._ignoreSetText = true
-                            eb:SetText("/r " .. (self.OverlayEdit:GetText() or ""))
-                            self._ignoreSetText = false
-                            return
+                    eb:SetAttribute("chatType", chosenCT)
+                    if chosenCT == "WHISPER" or chosenCT == "BN_WHISPER" then
+                        if diffTell then
+                            if YapperTable.Utils and YapperTable.Utils:IsSecret(self.Target) then
+                                eb:SetAttribute("chatType", "SAY")
+                                eb:SetAttribute("tellTarget", nil)
+                                eb:SetAttribute("channelTarget", nil)
+                                self._ignoreSetText = true
+                                eb:SetText("/r " .. (self.OverlayEdit:GetText() or ""))
+                                self._ignoreSetText = false
+                                return
+                            end
+                            eb:SetAttribute("tellTarget", self.Target)
                         end
-                        eb:SetAttribute("tellTarget", self.Target)
+                        eb:SetAttribute("channelTarget", nil)
+                    elseif chosenCT == "CHANNEL" then
+                        eb:SetAttribute("tellTarget", nil)
+                        if diffChannel then
+                            eb:SetAttribute("channelTarget", self.Target)
+                        end
+                    else
+                        eb:SetAttribute("tellTarget", nil)
+                        eb:SetAttribute("channelTarget", nil)
                     end
-                    eb:SetAttribute("channelTarget", nil)
-                elseif chosenCT == "CHANNEL" then
-                    eb:SetAttribute("tellTarget", nil)
-                    if diffChannel then
-                        eb:SetAttribute("channelTarget", self.Target)
+                    if self.Language then
+                        eb:SetAttribute("language", self.Language)
+                    else
+                        eb:SetAttribute("language", nil)
                     end
-                else
-                    eb:SetAttribute("tellTarget", nil)
-                    eb:SetAttribute("channelTarget", nil)
-                end
-                if self.Language then
-                    eb:SetAttribute("language", self.Language)
-                else
-                    eb:SetAttribute("language", nil)
-                end
-            end
-            return
-        end
-
-
-        -- Seed LastUsed from Blizzard's editbox so the lockdown fallback
-        -- opens on the correct channel. Only seeds when LastUsed is empty —
-        -- once the user has made an explicit choice (send or Tab-cycle) we
-        -- never overwrite it from here.
-        local c = self._attrCache[eb] or {}
-        local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
-        if ct and not self.LastUsed.chatType then
-            local lastTarget = nil
-            if ct == "WHISPER" or ct == "BN_WHISPER" then
-                lastTarget = c.tellTarget or (eb.GetAttribute and eb:GetAttribute("tellTarget"))
-            elseif ct == "CHANNEL" then
-                lastTarget = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
-            end
-            local lastLang         = c.language or eb.languageID or (eb.GetAttribute and eb:GetAttribute("language"))
-            self.LastUsed.chatType = ct
-            self.LastUsed.target   = lastTarget
-            self.LastUsed.language = lastLang
-        end
-
-        -- PreShowCheck: lets Queue suppress the overlay to grab the event.
-        if self.PreShowCheck and self.PreShowCheck(eb) then
-            C_Timer.After(0, function()
-                if eb and eb.Hide and eb:IsShown() then
-                    eb:Hide()
-                end
-            end)
-            return
-        end
-
-        -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
-        -- can inspect the pending open and cancel it.
-        if YapperTable.API then
-            local cache = self._attrCache[eb] or {}
-            local filterCT = cache.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
-            local filterTarget = cache.tellTarget or cache.channelTarget
-            local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
-                chatType = filterCT,
-                target   = filterTarget,
-            })
-            if result == false then
-                -- If we are suppressing the overlay open (e.g. WIM taking focus),
-                -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
-                if State and not State:IsIdle() then
-                    State:ToIdle()
                 end
                 return
             end
-        end
+
+
+            -- Seed LastUsed from Blizzard's editbox so the lockdown fallback
+            -- opens on the correct channel. Only seeds when LastUsed is empty —
+            -- once the user has made an explicit choice (send or Tab-cycle) we
+            -- never overwrite it from here.
+            local c = self._attrCache[eb] or {}
+            local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
+            if ct and not self.LastUsed.chatType then
+                local lastTarget = nil
+                if ct == "WHISPER" or ct == "BN_WHISPER" then
+                    lastTarget = c.tellTarget or (eb.GetAttribute and eb:GetAttribute("tellTarget"))
+                elseif ct == "CHANNEL" then
+                    lastTarget = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
+                end
+                local lastLang         = c.language or eb.languageID or (eb.GetAttribute and eb:GetAttribute("language"))
+                self.LastUsed.chatType = ct
+                self.LastUsed.target   = lastTarget
+                self.LastUsed.language = lastLang
+            end
+
+            -- PreShowCheck: lets Queue suppress the overlay to grab the event.
+            if self.PreShowCheck and self.PreShowCheck(eb) then
+                C_Timer.After(0, function()
+                    if eb and eb.Hide and eb:IsShown() then
+                        eb:Hide()
+                    end
+                end)
+                return
+            end
+
+            -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
+            -- can inspect the pending open and cancel it.
+            if YapperTable.API then
+                local cache = self._attrCache[eb] or {}
+                local filterCT = cache.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
+                local filterTarget = cache.tellTarget or cache.channelTarget
+                local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
+                    chatType = filterCT,
+                    target   = filterTarget,
+                })
+                if result == false then
+                    -- If we are suppressing the overlay open (e.g. WIM taking focus),
+                    -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                    if State and not State:IsIdle() then
+                        State:ToIdle()
+                    end
+                    return
+                end
+            end
 
             C_Timer.After(0, function()
                 if not eb or not eb:IsShown() then return end
