@@ -383,10 +383,10 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L55`](../Src/EditBoxCompat.lua#L55))
-  - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L54`](../Src/EditBoxCompat.lua#L54))
+  - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L58`](../Src/EditBoxCompat.lua#L58))
+  - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L56`](../Src/EditBoxCompat.lua#L56))
   [MISSING] - [NEW] `Multiline:Create() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L73`](../Src/EditBoxCompat.lua#L73))
-  - [NEW] `box:UpdateHeader() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L53`](../Src/EditBoxCompat.lua#L53))
+  - [NEW] `box:UpdateHeader() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L54`](../Src/EditBoxCompat.lua#L54))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L48`](../Src/EditBoxCompat.lua#L48))
   - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
