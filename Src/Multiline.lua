@@ -32,34 +32,34 @@
 		MULTILINE -> IDLE: User loses focus or closes UI.
 ]]
 
-local _, YapperTable = ...
+local _, YapperTable                 = ...
 
-local Multiline = {}
-YapperTable.Multiline = Multiline
-local State = YapperTable.State
+local Multiline                      = {}
+YapperTable.Multiline                = Multiline
+local State                          = YapperTable.State
 
 -- Localise Lua globals for performance
-local type       = type
-local tostring   = tostring
-local math_max    = math.max
-local math_min    = math.min
-local math_abs    = math.abs
-local table_insert = table.insert
+local type                           = type
+local tostring                       = tostring
+local math_max                       = math.max
+local math_min                       = math.min
+local math_abs                       = math.abs
+local table_insert                   = table.insert
 
-local CARET_VIEWPORT_PADDING     = 8
-local AUTO_SCROLL_SUPPRESSION_SECS = 1.5
+local CARET_VIEWPORT_PADDING         = 8
+local AUTO_SCROLL_SUPPRESSION_SECS   = 1.5
 
 -- ---------------------------------------------------------------------------
 -- State
 -- ---------------------------------------------------------------------------
 
-Multiline.Frame       = nil   -- main container frame
-Multiline.ScrollFrame = nil   -- scroll wrapper (ScrollFrame)
-Multiline.EditBox     = nil   -- the actual multi-line EditBox widget
-Multiline.LabelFS     = nil   -- channel label FontString
-Multiline.ChatType    = nil   -- current channel type (SAY, YELL, …)
-Multiline.Language    = nil   -- language index
-Multiline.Target      = nil   -- whisper / channel target
+Multiline.Frame                      = nil -- main container frame
+Multiline.ScrollFrame                = nil -- scroll wrapper (ScrollFrame)
+Multiline.EditBox                    = nil -- the actual multi-line EditBox widget
+Multiline.LabelFS                    = nil -- channel label FontString
+Multiline.ChatType                   = nil -- current channel type (SAY, YELL, …)
+Multiline.Language                   = nil -- language index
+Multiline.Target                     = nil -- whisper / channel target
 Multiline._autoScrollSuppressedUntil = 0
 
 -- ---------------------------------------------------------------------------
@@ -73,10 +73,10 @@ Multiline._autoScrollSuppressedUntil = 0
 --- For EMOTE the player's character name is shown as the uneditable label.
 local function RefreshMLLabel(ml)
 	local BuildLabelText = YapperTable.EditBox and YapperTable.EditBox._BuildLabelText
-	local chatType    = ml.ChatType or "SAY"
-	local target      = ml.Target
-	local eb          = YapperTable.EditBox
-	local channelName = eb and eb.ChannelName
+	local chatType       = ml.ChatType or "SAY"
+	local target         = ml.Target
+	local eb             = YapperTable.EditBox
+	local channelName    = eb and eb.ChannelName
 
 	local label, r, g, b
 	if BuildLabelText then
@@ -112,7 +112,7 @@ end
 function Multiline:UpdateLabelGap()
 	if not self.ScrollFrame or not self.LabelFS or not self.Frame then return end
 	local labelH = self.LabelFS:GetStringHeight() or 14
-	local gap = 8 + labelH + 4  -- 8 = label top inset, 4 = padding below label
+	local gap = 8 + labelH + 4 -- 8 = label top inset, 4 = padding below label
 	self.ScrollFrame:SetPoint("TOPLEFT", self.Frame, "TOPLEFT", 8, -gap)
 end
 
@@ -129,12 +129,12 @@ local MAX_LABEL_FONT_SIZE = 16
 local function GetConfig()
 	local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
 	return {
-		autoExpand     = cfg.StorytellerAutoExpand ~= false,
-		showHint       = cfg.StorytellerShowHint == true,
-		slideSpeed     = (YapperTable.Config and YapperTable.Config.System
-		                  and YapperTable.Config.System.StorytellerSlideSpeed) or 0.25,
-		defaultWidth   = cfg.StorytellerWidth  or 400,
-		defaultHeight  = cfg.StorytellerHeight or 250,
+		autoExpand    = cfg.StorytellerAutoExpand ~= false,
+		showHint      = cfg.StorytellerShowHint == true,
+		slideSpeed    = (YapperTable.Config and YapperTable.Config.System
+			and YapperTable.Config.System.StorytellerSlideSpeed) or 0.25,
+		defaultWidth  = cfg.StorytellerWidth or 400,
+		defaultHeight = cfg.StorytellerHeight or 250,
 	}
 end
 
@@ -150,7 +150,7 @@ function Multiline:CreateFrame()
 	-- Container
 	local f = CreateFrame("Frame", "YapperMultilineFrame", UIParent, "BackdropTemplate")
 	f:SetSize(cfg.defaultWidth, cfg.defaultHeight)
-	f:SetFrameStrata("HIGH")  -- above DIALOG overlay and chat messages
+	f:SetFrameStrata("HIGH") -- above DIALOG overlay and chat messages
 	f:SetClampedToScreen(true)
 	f:Hide()
 	self.Frame = f
@@ -187,7 +187,7 @@ function Multiline:CreateFrame()
 	edit:SetFontObject(ChatFontNormal)
 	-- Width is set to a safe fixed default here; it's updated in Enter() once
 	-- the scroll frame has been laid out and GetWidth() returns a real value.
-	local innerW = cfg.defaultWidth - 40  -- 8 outer pad + 28 scroll bar + 4 spare
+	local innerW = cfg.defaultWidth - 40 -- 8 outer pad + 28 scroll bar + 4 spare
 	edit:SetWidth(innerW)
 	-- Explicit height required: without it the EditBox has zero height and
 	-- text renders invisibly (clipped to 0px).  OnTextChanged grows it.
@@ -209,6 +209,10 @@ function Multiline:CreateFrame()
 	end)
 	sf:SetScrollChild(edit)
 	self.EditBox = edit
+
+	if YapperTable and YapperTable.InstallCompatMethods then
+		YapperTable.InstallCompatMethods(edit)
+	end
 
 	-- Keep the caret in view while typing/navigating in multiline mode.
 	-- Cursor y from Blizzard is a negative offset from the EditBox's top.
@@ -422,7 +426,7 @@ function Multiline:CreateFrame()
 
 			if insertedBoundary or removedBoundary then
 				History:AddSnapshot(box, true, last, #last)
-				History:SaveDraft(box, true)  -- true = multiline
+				History:SaveDraft(box, true) -- true = multiline
 			elseif math_abs(#text - #last) >= 20 then
 				History:AddSnapshot(box, false)
 			end
@@ -460,23 +464,23 @@ end
 ---@param overlay  Frame  The single-line overlay (for horizontal reference).
 local function AnchorAbsolute(frame, overlay)
 	local screenH = UIParent:GetHeight() or 768
-	local screenW = UIParent:GetWidth()  or 1024
+	local screenW = UIParent:GetWidth() or 1024
 
 	-- Horizontal: align left edge with the overlay's left edge.
-	local leftX = overlay:GetLeft() or 10
-	local mlW   = frame:GetWidth()
+	local leftX   = overlay:GetLeft() or 10
+	local mlW     = frame:GetWidth()
 	if leftX + mlW > screenW - 4 then leftX = screenW - mlW - 4 end
 	if leftX < 4 then leftX = 4 end
 
 	-- Vertical: use ChatFrame1 bounds when available; fall back to overlay.
 	local chatTop, chatBot
-	local cf = _G["ChatFrame1"]  -- well-known global, always present
+	local cf = _G["ChatFrame1"] -- well-known global, always present
 	if cf and cf.GetTop then
 		chatTop = cf:GetTop()
 		chatBot = cf:GetBottom()
 	end
-	chatTop = chatTop or overlay:GetTop()    or 200
-	chatBot = chatBot or overlay:GetBottom() or 60
+	chatTop        = chatTop or overlay:GetTop() or 200
+	chatBot        = chatBot or overlay:GetBottom() or 60
 
 	-- Quadrant: chat centre in bottom half → frame grows upward.
 	local chatMidY = (chatTop + chatBot) / 2
@@ -504,7 +508,7 @@ end
 function Multiline:Enter(text, chatType, language, target)
 	if State:IsMultiline() then return end
 	self:CreateFrame()
-	self:ApplyTheme()   -- pick up current config every open (rounded corners, colours, shadow)
+	self:ApplyTheme() -- pick up current config every open (rounded corners, colours, shadow)
 
 	-- Sync font from the overlay EditBox so the multiline editor respects
 	-- the user's configured font size and any active theme font override.
@@ -519,9 +523,9 @@ function Multiline:Enter(text, chatType, language, target)
 		end
 	end
 
-	self.ChatType = chatType or "SAY"
-	self.Language = language
-	self.Target   = target
+	self.ChatType      = chatType or "SAY"
+	self.Language      = language
+	self.Target        = target
 
 	-- Populate the editor.  If a multiline draft was stashed when the user
 	-- previously exited back to the overlay (Exit(true)), restore it in full
@@ -532,7 +536,7 @@ function Multiline:Enter(text, chatType, language, target)
 	local incomingText = text or ""
 	local editorText
 	if self._mlDraft and self._mlDraft ~= ""
-			and self._mlDraftCollapsed and incomingText == self._mlDraftCollapsed then
+		and self._mlDraftCollapsed and incomingText == self._mlDraftCollapsed then
 		editorText = self._mlDraft
 	else
 		editorText = incomingText
@@ -556,7 +560,7 @@ function Multiline:Enter(text, chatType, language, target)
 		eb.OverlayEdit:SetText("")
 	end
 	if eb then
-		eb._closedClean = true  -- prevents OnHide from saving a dirty draft
+		eb._closedClean = true -- prevents OnHide from saving a dirty draft
 	end
 	if YapperTable.History and eb and eb.OverlayEdit then
 		YapperTable.History:ClearDraft(eb.OverlayEdit)
@@ -699,7 +703,7 @@ end
 ---@param rawText string
 ---@return string[]  Ordered list of non-empty post strings.
 local function CollapseText(rawText)
-	rawText = rawText:gsub("\r\n", "\n"):gsub("\r", "\n")
+	rawText       = rawText:gsub("\r\n", "\n"):gsub("\r", "\n")
 	local posts   = {}
 	local current = {}
 	for line in (rawText .. "\n"):gmatch("([^\n]*)\n") do
@@ -730,9 +734,9 @@ end
 function Multiline:Submit()
 	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
 
-	local rawText = self.EditBox and self.EditBox:GetText() or ""
-	local posts   = CollapseText(rawText)
-	self._mlDraft          = nil   -- discard any stashed draft; we're sending now
+	local rawText          = self.EditBox and self.EditBox:GetText() or ""
+	local posts            = CollapseText(rawText)
+	self._mlDraft          = nil -- discard any stashed draft; we're sending now
 	self._mlDraftCollapsed = nil
 
 	-- Draft pipeline: clear the saved draft since we're committing the text.
@@ -782,7 +786,7 @@ function Multiline:Submit()
 	local language = YapperTable.Core:GetCharacterLanguage(self.Language or (eb and eb.LastUsed and eb.LastUsed.language))
 	local target   = self.Target
 
-	local API = YapperTable.API
+	local API      = YapperTable.API
 	if API then
 		local payload = API:RunFilter("PRE_SEND", {
 			text     = posts[1],
@@ -812,9 +816,9 @@ function Multiline:Submit()
 
 	-- Chunk every post and accumulate into one flat delivery list.
 	-- Chunking:Split handles delineators for posts that exceed the limit.
-	local Chunking = YapperTable.Chunking
-	local cfg      = YapperTable.Config and YapperTable.Config.Chat or {}
-	local limit    = cfg.CHARACTER_LIMIT or 255
+	local Chunking  = YapperTable.Chunking
+	local cfg       = YapperTable.Config and YapperTable.Config.Chat or {}
+	local limit     = cfg.CHARACTER_LIMIT or 255
 
 	local allChunks = {}
 	for _, post in ipairs(posts) do
@@ -846,9 +850,9 @@ function Multiline:Submit()
 	-- so the overlay opens on the same channel next time.  Must happen before
 	-- Hide() because PersistLastUsed reads from eb.ChatType/Target.
 	if eb and type(eb.PersistLastUsed) == "function" then
-		eb.ChatType  = chatType
-		eb.Target    = target
-		eb.Language  = language
+		eb.ChatType = chatType
+		eb.Target   = target
+		eb.Language = language
 		eb:PersistLastUsed()
 	end
 
@@ -894,20 +898,20 @@ end
 function Multiline:ApplyTheme()
 	if not self.Frame or not self.EditBox then return end
 
-	local cfg     = (YapperTable.Config and YapperTable.Config.EditBox) or {}
+	local cfg      = (YapperTable.Config and YapperTable.Config.EditBox) or {}
 	local cfgFace  = cfg.FontFace
 	local cfgSize  = cfg.FontSize or 0
 	local cfgFlags = cfg.FontFlags or ""
 
-	local eb      = YapperTable.EditBox
-	local origEB  = eb and eb.OrigEditBox
+	local eb       = YapperTable.EditBox
+	local origEB   = eb and eb.OrigEditBox
 
 	if cfgFace or cfgSize > 0 then
 		local baseFace, baseSize, baseFlags
 		if origEB and origEB.GetFont then
 			baseFace, baseSize, baseFlags = origEB:GetFont()
 		end
-		local face  = cfgFace  or baseFace  or "Fonts\\FRIZQT__.TTF"
+		local face  = cfgFace or baseFace or "Fonts\\FRIZQT__.TTF"
 		local size  = cfgSize > 0 and cfgSize or baseSize or 14
 		local flags = (cfgFlags ~= "") and cfgFlags or baseFlags or ""
 		self.EditBox:SetFont(face, size, flags)
@@ -961,13 +965,13 @@ function Multiline:ApplyTheme()
 	-- have API quirks).  However, the Blizzard skin proxy renders the overlay
 	-- background transparently, and multiline should not inherit that proxy
 	-- transparency.  Fall back to config/theme when the proxy is active.
-	local eb      = YapperTable.EditBox
-	local overlay = eb and eb.Overlay
+	local eb                         = YapperTable.EditBox
+	local overlay                    = eb and eb.Overlay
 
 	local fillR, fillG, fillB, fillA = 0.05, 0.05, 0.05, 0.95
-	local rounded = false
+	local rounded                    = false
 	-- _skinProxyTextures is stored on the EditBox module, not on the overlay frame.
-	local proxyActive = eb and eb._skinProxyTextures
+	local proxyActive                = eb and eb._skinProxyTextures
 
 	if overlay and overlay._yapperFillColor and not proxyActive then
 		local c = overlay._yapperFillColor
@@ -1005,16 +1009,16 @@ function Multiline:ApplyTheme()
 	f:SetBackdrop({
 		bgFile   = "Interface/ChatFrame/ChatFrameBackground",
 		edgeFile = rounded and "Interface/Tooltips/UI-Tooltip-Border"
-		                    or "Interface/Buttons/WHITE8X8",
+			or "Interface/Buttons/WHITE8X8",
 		edgeSize = rounded and 10 or 1,
 		insets   = rounded and { left = 3, right = 3, top = 3, bottom = 3 }
-		                    or { left = 1, right = 1, top = 1, bottom = 1 },
+			or { left = 1, right = 1, top = 1, bottom = 1 },
 	})
 	f:SetBackdropColor(fillR, fillG, fillB, fillA)
 	f:SetBackdropBorderColor(bR, bG, bB, bA)
 
 	-- Shadow: read settings from config (same source the overlay uses).
-	local shadow    = cfg.Shadow == true
+	local shadow               = cfg.Shadow == true
 	local activeThemeForShadow = YapperTable.Theme and YapperTable.Theme:GetTheme()
 	if activeThemeForShadow and activeThemeForShadow.allowDropShadow == false then shadow = false end
 	local shadCol = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
@@ -1036,8 +1040,8 @@ function Multiline:ApplyTheme()
 			local offset  = (i / 3) * shadSz
 			local falloff = { 0.5, 0.3, 0.15 }
 			stex:ClearAllPoints()
-			stex:SetPoint("TOPLEFT",     f, "TOPLEFT",     -offset,  offset)
-			stex:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT",  offset, -offset)
+			stex:SetPoint("TOPLEFT", f, "TOPLEFT", -offset, offset)
+			stex:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", offset, -offset)
 			stex:SetColorTexture(
 				shadCol.r or 0, shadCol.g or 0, shadCol.b or 0,
 				(shadCol.a or 0.5) * (falloff[i] or 0.1))

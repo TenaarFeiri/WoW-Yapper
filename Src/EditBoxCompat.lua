@@ -31,7 +31,7 @@ local function GetCompatAttribute(box, key)
     return nil
 end
 
-local function InstallCompatMethods(box)
+function YapperTable.InstallCompatMethods(box)
     if not box then
         return
     end
@@ -77,7 +77,7 @@ end
 local originalCreateOverlay = EditBox.CreateOverlay
 function EditBox:CreateOverlay(...)
     originalCreateOverlay(self, ...)
-    InstallCompatMethods(self.OverlayEdit)
+    YapperTable.InstallCompatMethods(self.OverlayEdit)
 end
 
 -- Also install on Multiline at creation time if it exists.
@@ -86,16 +86,16 @@ if Multiline then
     local originalCreateMultiline = Multiline.CreateFrame
     function Multiline:CreateFrame(...)
         originalCreateMultiline(self, ...)
-        InstallCompatMethods(self.EditBox)
+        YapperTable.InstallCompatMethods(self.EditBox)
     end
 end
 
 -- Install immediately if components already exist (e.g. reload).
 if EditBox.OverlayEdit then
-    InstallCompatMethods(EditBox.OverlayEdit)
+    YapperTable.InstallCompatMethods(EditBox.OverlayEdit)
 end
 if Multiline and Multiline.EditBox then
-    InstallCompatMethods(Multiline.EditBox)
+    YapperTable.InstallCompatMethods(Multiline.EditBox)
 end
 
 -- Tell Blizz that Yapper is a legit chat frame.
