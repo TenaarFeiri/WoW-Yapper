@@ -40,43 +40,50 @@ local function Tokenise(text)
 
         -- ── WoW escape: starts with | (124) ──────────────────────────
         if b1 == 124 then
-            local b2 = string_byte(text, pos + 1)
+            local char2 = string_sub(text, pos + 1, pos + 1):lower()
 
-            if b2 == 99 then -- "c"
-                -- Colour open.  Consume |c plus everything up to the
-                -- next pipe — standard |cAARRGGBB (10 bytes) and the
-                -- shorter non-hex variants WoW 12.0 produces both work.
-                local nextPipe = string_find(text, "|", pos + 2, true)
-                if nextPipe then
-                    tokens[#tokens + 1] = string_sub(text, pos, nextPipe - 1)
-                    pos = nextPipe
+            if char2 == "c" then
+                -- Colour open. Consume |c plus exactly 8 hex digits if they exist,
+                -- or |cnCOLOR_NAME: if it's the newer format.
+                local char3 = string_sub(text, pos + 2, pos + 2):lower()
+                if char3 == "n" then
+                    -- Modern format: |cnNAME:
+                    local nextColon = string_find(text, ":", pos + 3, true)
+                    if nextColon then
+                        tokens[#tokens + 1] = string_sub(text, pos, nextColon)
+                        pos = nextColon + 1
+                    else
+                        tokens[#tokens + 1] = string_sub(text, pos, pos + 2)
+                        pos = pos + 3
+                    end
                 else
-                    tokens[#tokens + 1] = string_sub(text, pos)
-                    pos = len + 1
+                    -- Hex format: |cAARRGGBB
+                    tokens[#tokens + 1] = string_sub(text, pos, pos + 9)
+                    pos = pos + 10
                 end
 
-            elseif b2 == 114 then -- "r"
-                -- Colour reset: |r  (2 bytes)
+            elseif char2 == "r" then
+                -- Colour reset: |r (2 bytes)
                 tokens[#tokens + 1] = string_sub(text, pos, pos + 1)
                 pos = pos + 2
 
-            elseif b2 == 72 then -- "H"
+            elseif char2 == "h" then
                 -- Hyperlink: |H<type>:<data>|h[display text]|h
-                local metaEnd = string_find(text, "|h", pos + 2, true)
-                if metaEnd then
-                    local displayEnd = string_find(text, "|h", metaEnd + 2, true)
-                    if displayEnd then
-                        tokens[#tokens + 1] = string_sub(text, pos, displayEnd + 1)
-                        pos = displayEnd + 2
+                -- Search for the FIRST |h/|H after the start.
+                local mEnd = string_find(text:lower(), "|h", pos + 2, true)
+                if mEnd then
+                    -- Search for the SECOND |h/|H.
+                    local dEnd = string_find(text:lower(), "|h", mEnd + 2, true)
+                    if dEnd then
+                        tokens[#tokens + 1] = string_sub(text, pos, dEnd + 1)
+                        pos = dEnd + 2
                     else
-                        -- Malformed — take up to first |h.
-                        tokens[#tokens + 1] = string_sub(text, pos, metaEnd + 1)
-                        pos = metaEnd + 2
+                        tokens[#tokens + 1] = string_sub(text, pos, mEnd + 1)
+                        pos = mEnd + 2
                     end
                 else
-                    -- No |h at all — emit the pipe as plain text.
-                    tokens[#tokens + 1] = string_sub(text, pos, pos)
-                    pos = pos + 1
+                    tokens[#tokens + 1] = string_sub(text, pos, pos + 1)
+                    pos = pos + 2
                 end
 
             elseif b2 == 84 or b2 == 116 then -- "T" or "t"
@@ -118,15 +125,44 @@ local function Tokenise(text)
                 pos = pos + 1
             end
 
-        -- ── Plain text: consume up to the next special character ─────
+        -- ── Custom Atomic Patterns ─────────────────────────────────────
         else
-            local nextSpecial = string_find(text, "[|{]", pos + 1)
-            if nextSpecial then
-                tokens[#tokens + 1] = string_sub(text, pos, nextSpecial - 1)
-                pos = nextSpecial
-            else
-                tokens[#tokens + 1] = string_sub(text, pos)
-                pos = len + 1
+            local matchedCustom = false
+            if YapperAPI and YapperAPI.GetRegisteredAtomicPatterns then
+                local patterns = YapperAPI:GetRegisteredAtomicPatterns()
+                for _, pat in ipairs(patterns) do
+                    local sub = string_sub(text, pos)
+                    local matchStart, matchEnd = string_find(sub, "^" .. pat)
+                    if matchStart == 1 then
+                        tokens[#tokens + 1] = string_sub(text, pos, pos + matchEnd - 1)
+                        pos = pos + matchEnd
+                        matchedCustom = true
+                        break
+                    end
+                end
+            end
+
+            -- ── Plain text: consume up to the next special character ─────
+            if not matchedCustom then
+                local nextSpecial = string_find(text, "[|{]", pos + 1)
+                -- Also check if a custom pattern might start before nextSpecial
+                if YapperAPI and YapperAPI.GetRegisteredAtomicPatterns then
+                    local patterns = YapperAPI:GetRegisteredAtomicPatterns()
+                    for _, pat in ipairs(patterns) do
+                        local s = string_find(text, pat, pos + 1)
+                        if s and (not nextSpecial or s < nextSpecial) then
+                            nextSpecial = s
+                        end
+                    end
+                end
+
+                if nextSpecial then
+                    tokens[#tokens + 1] = string_sub(text, pos, nextSpecial - 1)
+                    pos = nextSpecial
+                else
+                    tokens[#tokens + 1] = string_sub(text, pos)
+                    pos = len + 1
+                end
             end
         end
     end
@@ -377,6 +413,15 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
         local isColour = (b1 == 124 and b2 == 99 and #token >= 4)
         local isReset  = (b1 == 124 and b2 == 114 and #token == 2)
         local isEscape = (b1 == 124 and #token > 1) or b1 == 123
+        
+        if not isEscape and YapperAPI and YapperAPI.GetRegisteredAtomicPatterns then
+            for _, pat in ipairs(YapperAPI:GetRegisteredAtomicPatterns()) do
+                if string_match(token, "^" .. pat .. "$") then
+                    isEscape = true
+                    break
+                end
+            end
+        end
 
         -- How many bytes the delineator/colour-close would cost at EOL.
         local suffixCost = #delineator + (colour and 2 or 0)
@@ -400,20 +445,20 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                 local lb1, lb2
                 if last then lb1, lb2 = string_byte(last, 1, 2) end
                 
-                if last and lb1 == 124 and lb2 == 99 and #last >= 4 then
+                if last and lb1 == 124 and (lb2 == 99 or lb2 == 67) and #last >= 4 then
                     -- Case A: orphaned colour code.
                     movedParts[1] = last
                     parts[#parts] = nil
                     size = size - #last
                     colour = nil
-                elseif last and #last > 2 and lb1 == 124 and lb2 == 72 then
+                elseif last and #last > 2 and lb1 == 124 and (lb2 == 72 or lb2 == 104) then
                     -- The |H token is incomplete without its |r.
                     -- Check if the part before it is a |c colour code.
                     local prev = #parts > 1 and parts[#parts - 1] or nil
                     local pb1, pb2
                     if prev then pb1, pb2 = string_byte(prev, 1, 2) end
                     
-                    if prev and pb1 == 124 and pb2 == 99 and #prev >= 4 then
+                    if prev and pb1 == 124 and (pb2 == 99 or pb2 == 67) and #prev >= 4 then
                         -- Case B: pull back both |c and |H.
                         movedParts[1] = prev   -- |c
                         movedParts[2] = last   -- |H
