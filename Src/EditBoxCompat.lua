@@ -32,7 +32,7 @@ local function GetCompatAttribute(box, key)
 end
 
 local function InstallCompatMethods(box)
-    if not box or box._yapperCompatInstalled then
+    if not box then
         return
     end
     box._yapperCompatInstalled = true
@@ -46,6 +46,31 @@ local function InstallCompatMethods(box)
     function box:GetLanguage() return GetCompatAttribute(self, "language") end
 
     function box:GetAttribute(key) return GetCompatAttribute(self, key) end
+
+    -- Blizzard Compatibility Stubs: Prevent nil-method crashes when
+    -- ChatFrameUtil tries to manage Yapper as an active chat box.
+    function box:Deactivate() end
+
+    function box:UpdateHeader() end
+
+    function box:SetFocusRegionsShown() end
+
+    function box:UpdateNewcomerEditBoxHint() end
+
+    -- Satisfy ChatFrameUtil.SetLastActiveWindow: Blizzard expects all
+    -- active editboxes to have a parent chatFrame for state tracking.
+    if not box.chatFrame then
+        box.chatFrame = _G.DEFAULT_CHAT_FRAME
+    end
+
+    -- Some Blizzard code expects these frames to have a 'header'
+    if not box.header then
+        box.header = CreateFrame("Frame", nil, box)
+    end
+
+    -- Parity Fields: direct access fields used by some addons.
+    box.chatType = box:GetChatType() or "SAY"
+    box.chatLanguage = box:GetLanguage() or "Common"
 end
 
 -- Install on overlay at creation time.
@@ -55,28 +80,84 @@ function EditBox:CreateOverlay(...)
     InstallCompatMethods(self.OverlayEdit)
 end
 
--- Install immediately if overlay already exists (shouldn't happen, but safe).
+-- Also install on Multiline at creation time if it exists.
+local Multiline = YapperTable.Multiline
+if Multiline then
+    local originalCreateMultiline = Multiline.CreateFrame
+    function Multiline:CreateFrame(...)
+        originalCreateMultiline(self, ...)
+        InstallCompatMethods(self.EditBox)
+    end
+end
+
+-- Install immediately if components already exist (e.g. reload).
 if EditBox.OverlayEdit then
     InstallCompatMethods(EditBox.OverlayEdit)
 end
+if Multiline and Multiline.EditBox then
+    InstallCompatMethods(Multiline.EditBox)
+end
 
+-- Tell Blizz that Yapper is a legit chat frame.
+
+local function SyncActiveChatEditBox()
+    local ml = YapperTable.Multiline
+    if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox then
+        _G.ACTIVE_CHAT_EDIT_BOX = ml.EditBox
+        return
+    end
+
+    if EditBox.Overlay and EditBox.Overlay:IsShown() and EditBox.OverlayEdit then
+        _G.ACTIVE_CHAT_EDIT_BOX = EditBox.OverlayEdit
+        return
+    end
+end
+
+local function ClearActiveChatEditBox()
+    -- Delay clearing to ensure clicks that cause focus loss still
+    -- see the box as active during the event loop.
+    C_Timer.After(0.1, function()
+        local current = _G.ACTIVE_CHAT_EDIT_BOX
+        if current and current._yapperCompatInstalled then
+            _G.ACTIVE_CHAT_EDIT_BOX = nil
+        end
+    end)
+end
+
+-- Hook into Yapper's internal API events to keep the global in sync.
+if _G.YapperAPI then
+    _G.YapperAPI:RegisterCallback("EDITBOX_SHOW", SyncActiveChatEditBox)
+    _G.YapperAPI:RegisterCallback("STATE_CHANGED", SyncActiveChatEditBox)
+    _G.YapperAPI:RegisterCallback("EDITBOX_HIDE", ClearActiveChatEditBox)
+end
 
 local _suppressOverlayReturn = false
-
 
 -- Hook InsertLink: when the overlay is active and focused, we insert the text
 -- directly into our box and return 'true' to signal Blizzard that the link
 -- has been handled. This prevents Blizzard's native fallback logic from
 -- triggering (e.g., accidental item-stack splitting or quest-tracker toggling).
+-- When the multiline editor is active the overlay is hidden, so we check the
+-- state machine first and redirect to the multiline EditBox in that case.
 
 local origInsertLink = ChatFrameUtil.InsertLink
 local function overlayInsertLink(link)
+    -- Multiline editor takes priority: the overlay is hidden while it's open.
+    local state = YapperTable.State
+    local ml    = YapperTable.Multiline
+    if state and state.IsMultiline and state:IsMultiline()
+        and ml and ml.EditBox and ml.Frame and ml.Frame:IsShown() then
+        ml.EditBox:Insert(link)
+        return true -- Signals Blizzard that the link was handled
+    end
+
+    -- Single-line overlay.
     if EditBox.Overlay and EditBox.Overlay:IsShown()
         and EditBox.OverlayEdit and EditBox.OverlayEdit:HasFocus() then
         EditBox.OverlayEdit:Insert(link)
         return true -- Signals Blizzard that the link was handled
     end
-    -- Fall back to original Blizzard logic if Yapper isn't active
+    -- Fall back to original Blizzard logic if Yapper isn't active.
     return origInsertLink(link)
 end
 
