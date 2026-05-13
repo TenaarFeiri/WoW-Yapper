@@ -50,8 +50,8 @@ Register/unregister:
 
 Register/unregister:
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L650`](../Src/API.lua#L650))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L691`](../Src/API.lua#L691))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L667`](../Src/API.lua#L667))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L708`](../Src/API.lua#L708))
 
 ### Event list
 
@@ -151,6 +151,12 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `YapperAPI:GetLanguageEngine() → nil`: Returns the language engine for `familyId`, or nil. ([`../Src/API.lua#L321`](../Src/API.lua#L321))
-  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1311`](../Src/API.lua#L1311))
-  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1276`](../Src/API.lua#L1276))
+  - [NEW] `YapperAPI:GetRegisteredAtomicPatterns() → nil`: Returns an array of all registered atomic patterns. ([`../Src/API.lua#L1095`](../Src/API.lua#L1095))
+  - [NEW] `YapperAPI:RegisterAtomicPattern() → nil`: Register a custom Lua string pattern that the Yapper chunker should ([`../Src/API.lua#L1088`](../Src/API.lua#L1088))
+  - [NEW] `YapperAPI:InsertText() → nil`: Insert `text` at the current cursor position in the active Yapper ([`../Src/API.lua#L45`](../Src/API.lua#L45))
+  - [NEW] `YapperAPI:IsLinkProtocolRegistered() → nil`: Returns true if `prefix` has been registered via RegisterLinkProtocol. ([`../Src/API.lua#L289`](../Src/API.lua#L289))
+  - [NEW] `YapperAPI:GetRegisteredLinkProtocols() → nil`: Returns a shallow copy of all registered link protocol prefixes as an ([`../Src/API.lua#L1066`](../Src/API.lua#L1066))
+  - [NEW] `YapperAPI:RegisterLinkProtocol() → nil`: Declare a |H link protocol prefix as a known, first-class link type. ([`../Src/API.lua#L1058`](../Src/API.lua#L1058))
+  - [NEW] `YapperAPI:GetLanguageEngine() → nil`: Returns the language engine for `familyId`, or nil. ([`../Src/API.lua#L337`](../Src/API.lua#L337))
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1400`](../Src/API.lua#L1400))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1365`](../Src/API.lua#L1365))

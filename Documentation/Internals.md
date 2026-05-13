@@ -101,14 +101,14 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1290`](../Src/API.lua#L1290)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1379`](../Src/API.lua#L1379)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1209`](../Src/API.lua#L1209))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1276`](../Src/API.lua#L1276))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1311`](../Src/API.lua#L1311))
-  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L829`](../Src/API.lua#L829)) — returns the number of entries in the FSM state history.
-  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L820`](../Src/API.lua#L820)) — returns a specific state transition log entry.
-  - `API:GetStateLogs() → table` ([`../Src/API.lua#L810`](../Src/API.lua#L810)) — returns the full circular buffer of state transitions.
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1298`](../Src/API.lua#L1298))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1365`](../Src/API.lua#L1365))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1400`](../Src/API.lua#L1400))
+  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L846`](../Src/API.lua#L846)) — returns the number of entries in the FSM state history.
+  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L837`](../Src/API.lua#L837)) — returns a specific state transition log entry.
+  - `API:GetStateLogs() → table` ([`../Src/API.lua#L827`](../Src/API.lua#L827)) — returns the full circular buffer of state transitions.
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -383,6 +383,10 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
+  - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L55`](../Src/EditBoxCompat.lua#L55))
+  - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L54`](../Src/EditBoxCompat.lua#L54))
+  [MISSING] - [NEW] `Multiline:Create() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L73`](../Src/EditBoxCompat.lua#L73))
+  - [NEW] `box:UpdateHeader() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L53`](../Src/EditBoxCompat.lua#L53))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L48`](../Src/EditBoxCompat.lua#L48))
   - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
@@ -459,18 +463,18 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Description: Show/hide lifecycle, handoff, hook glue, open guards.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
-  - `Hide` ([`../Src/EditBox/Hooks.lua#L392`](`../Src/EditBox/Hooks.lua#L392`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L442`](`../Src/EditBox/Hooks.lua#L442`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L484`](`../Src/EditBox/Hooks.lua#L484`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L578`](`../Src/EditBox/Hooks.lua#L578`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L747`](`../Src/EditBox/Hooks.lua#L747`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L785`](`../Src/EditBox/Hooks.lua#L785`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L833`](`../Src/EditBox/Hooks.lua#L833`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L855`](`../Src/EditBox/Hooks.lua#L855`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L880`](`../Src/EditBox/Hooks.lua#L880`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L955`](`../Src/EditBox/Hooks.lua#L955`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1022`](`../Src/EditBox/Hooks.lua#L1022`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1386`](`../Src/EditBox/Hooks.lua#L1386`))
+  - `Hide` ([`../Src/EditBox/Hooks.lua#L393`](`../Src/EditBox/Hooks.lua#L393`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L443`](`../Src/EditBox/Hooks.lua#L443`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L485`](`../Src/EditBox/Hooks.lua#L485`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L579`](`../Src/EditBox/Hooks.lua#L579`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L748`](`../Src/EditBox/Hooks.lua#L748`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L786`](`../Src/EditBox/Hooks.lua#L786`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L834`](`../Src/EditBox/Hooks.lua#L834`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L856`](`../Src/EditBox/Hooks.lua#L856`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L881`](`../Src/EditBox/Hooks.lua#L881`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L956`](`../Src/EditBox/Hooks.lua#L956`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1023`](`../Src/EditBox/Hooks.lua#L1023`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1387`](`../Src/EditBox/Hooks.lua#L1387`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -562,8 +566,8 @@ Called from `Chat:OnSend` for oversized messages.
 
 - Description: UTF-8 aware message splitting.
 - Methods:
-  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L315`](../Src/Chunking.lua#L315))
-  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L533`](../Src/Chunking.lua#L533))
+  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L351`](../Src/Chunking.lua#L351))
+  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L578`](../Src/Chunking.lua#L578))
 
 ## Queue
 

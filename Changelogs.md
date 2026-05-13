@@ -24,6 +24,12 @@
 
 # Patch notes
 
+## 2.1.15
+  - Fixed issue where TRP3 Extended links didn't insert correctly into Yapper. (Thanks Heeni, for the report!)
+  - Added new bridge for TRP3.
+  - Updated Yapper's Blizzard compatibility layer to be compliant with the expectations of Blizzard's API. (Thanks Solanya for the guidance)
+  - Fixed issue where the chunker would split custom link protocols.
+
 ## 2.1.14
   - Added new locale-aware affix stripping for English dictionaries (resolves issues with "using", "ing", "ed" suffixes etc).
   - YALLM will now intelligently learn missing words that were identified as valid post affix-processing.
