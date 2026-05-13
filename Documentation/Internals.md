@@ -383,6 +383,7 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
+  - [NEW] `YapperTable:InstallCompatMethods() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L34`](../Src/EditBoxCompat.lua#L34))
   - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L58`](../Src/EditBoxCompat.lua#L58))
   - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L56`](../Src/EditBoxCompat.lua#L56))
   [MISSING] - [NEW] `Multiline:Create() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L73`](../Src/EditBoxCompat.lua#L73))
@@ -660,13 +661,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
   - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L504`](`../Src/Multiline.lua#L504`))
-  - `Exit` ([`../Src/Multiline.lua#L614`](`../Src/Multiline.lua#L614`))
-  - `Submit` ([`../Src/Multiline.lua#L730`](`../Src/Multiline.lua#L730`))
-  - `Cancel` ([`../Src/Multiline.lua#L859`](`../Src/Multiline.lua#L859`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L885`](`../Src/Multiline.lua#L885`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L872`](`../Src/Multiline.lua#L872`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L894`](`../Src/Multiline.lua#L894`))
+  - `Enter` ([`../Src/Multiline.lua#L508`](`../Src/Multiline.lua#L508`))
+  - `Exit` ([`../Src/Multiline.lua#L618`](`../Src/Multiline.lua#L618`))
+  - `Submit` ([`../Src/Multiline.lua#L734`](`../Src/Multiline.lua#L734`))
+  - `Cancel` ([`../Src/Multiline.lua#L863`](`../Src/Multiline.lua#L863`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L889`](`../Src/Multiline.lua#L889`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L876`](`../Src/Multiline.lua#L876`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L898`](`../Src/Multiline.lua#L898`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
