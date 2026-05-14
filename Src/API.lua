@@ -2,445 +2,14 @@
 ===========================================================================
     Yapper Public API  (Src/API.lua)
 ===========================================================================
-    Full documentation are available on GitHub: https://github.com/TenaarFeiri/WoW-Yapper/tree/main/Documentation
-    This will always be up to date.
-    I am always looking for new opportunities to expand the API, so if you have need
-    for a hook point that doesn't exist yet, please open an issue or PR on the Yapper repository.
-    Alternatively, you can DM me on GitHub, CurseForge (Symphicat), or send me an email at symphicat@gmail.com
-
-
     This file creates `_G.YapperAPI`, a safe, public-facing object that
-    lets other addons hook into Yapper without touching the internal
-    `YapperTable`.  Everything exposed here is sandboxed — external code
-    cannot break Yapper's runtime even if it errors.
+    lets other addons hook into Yapper without touching internal tables.
 
-    Two systems are provided:
+    Full documentation is available in:
+    Src/API_Documentation.txt
 
-      • FILTERS   — fire *before* an action.  Can inspect, modify, or
-                     cancel the operation.
-      • CALLBACKS — fire *after* something happened (or on state change).
-                     Notification only; cannot cancel.
-
----------------------------------------------------------------------------
-1.  FILTERS (pre-hooks)
----------------------------------------------------------------------------
-
-    Filters let you intercept an operation, inspect its data, change it,
-    or cancel it entirely.
-
-    Signature:
-        local handle = YapperAPI:RegisterFilter(hookPoint, callback, priority)
-
-    • hookPoint  — string name (see list below).
-    • callback   — `function(payload) ... return payload end`
-                     Receives a single TABLE with named keys.
-                     Must return the (possibly modified) payload to continue,
-                     or return `false` to cancel the operation.
-    • priority   — optional number; lower fires first (default 10).
-    • handle     — opaque value you pass to UnregisterFilter later.
-
-    Example — strip custom tags before spellcheck:
-
-        local h = YapperAPI:RegisterFilter("PRE_SPELLCHECK", function(p)
-            p.text = p.text:gsub("%[MyTag%]", "")
-            return p
-        end)
-
-    Example — block sends that contain a keyword:
-
-        YapperAPI:RegisterFilter("PRE_SEND", function(p)
-            if p.text:find("FORBIDDEN") then
-                return false   -- cancel the send entirely
-            end
-            return p
-        end)
-
-    Example — rewrite outgoing text:
-
-        YapperAPI:RegisterFilter("PRE_SEND", function(p)
-            p.text = p.text:gsub("brb", "be right back")
-            return p
-        end, 5)   -- priority 5 fires before the default 10
-
-    Unregistering:
-
-        YapperAPI:UnregisterFilter(h)
-
-    Available filter hook points
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Hook              Payload keys                   Cancellable?
-    ────              ────────────                   ────────────
-    PRE_EDITBOX_SHOW  chatType, target               yes
-      Fires before the overlay opens.  Return false to suppress it.
-      Used by WIMBridge to yield focus when WIM owns the whisper window.
-
-    PRE_SEND          text, chatType, language,      yes
-                      target
-      Fires after the user presses Enter but before the message is routed.
-      Modify payload fields to rewrite the message or return false to block.
-
-    PRE_CHUNK         text, limit                    yes
-      Fires before the chunker splits a long message.  Modify text or limit,
-      or return false to prevent chunking entirely.
-
-    PRE_SPELLCHECK    text                           yes
-      Fires before the spellchecker runs on the current input.  Return false
-      to skip spellchecking for this particular text.
-
-    PRE_DELIVER       text, chatType, language,      yes
-                      target
-      Fires in DirectSend just before Router:Send.  A filter may return false
-      to "claim" the message — Yapper will not send it via Router and will
-      instead start a delegation timer.  The claiming addon receives a
-      POST_CLAIMED callback with a handle and must call
-      YapperAPI:ResolvePost(handle) within the timeout (default 5 s).
-      If the timeout expires, Yapper sends the message itself and prints an
-      error attributing the failure to the claiming addon.
-
----------------------------------------------------------------------------
-2.  CALLBACKS (post-hooks / event notifications)
----------------------------------------------------------------------------
-
-    Callbacks fire *after* something happened.  They receive data but
-    cannot modify or cancel the action.
-
-    Signature:
-        local handle = YapperAPI:RegisterCallback(event, callback)
-
-    • event    — string name (see list below).
-    • callback — `function(...)` called with event-specific arguments.
-    • handle   — opaque value you pass to UnregisterCallback later.
-
-    Example — log every sent message:
-
-        YapperAPI:RegisterCallback("POST_SEND", function(text, chatType, target)
-            print("Yapper sent:", text, "to", chatType, target)
-        end)
-
-    Example — react to settings changes:
-
-        YapperAPI:RegisterCallback("CONFIG_CHANGED", function(path, value)
-            -- path is a dot-delimited string like "EditBox.FontSize"
-            -- value is the new setting value
-            if path == "Spellcheck.Locale" then
-                print("Spellcheck locale changed to", value)
-            end
-        end)
-
-    Example — track overlay visibility:
-
-        YapperAPI:RegisterCallback("EDITBOX_SHOW", function(chatType, target)
-            print("Yapper overlay opened on", chatType)
-        end)
-
-        YapperAPI:RegisterCallback("EDITBOX_HIDE", function()
-            print("Yapper overlay closed")
-        end)
-
-    Unregistering:
-
-        YapperAPI:UnregisterCallback(h)
-
-    Available callback events
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-    Event                    Arguments
-    ─────                    ─────────
-    POST_SEND                text, chatType, language, target
-      Fires after a message has been handed to the WoW send API.
-
-    CONFIG_CHANGED           path (string), value
-      Fires when a Yapper setting changes.  path is dot-delimited,
-      e.g. "EditBox.FontSize", "Spellcheck.Locale".
-
-    EDITBOX_SHOW             chatType, target
-      Fires when the Yapper overlay becomes visible.
-
-    EDITBOX_HIDE             (none)
-      Fires when the Yapper overlay is hidden.
-
-    EDITBOX_TEXT_CHANGED     text, isUserInput
-      Fires when the content of the overlay editbox is modified.
-
-    EDITBOX_CHANNEL_CHANGED  chatType, target
-      Fires when the user switches chat channel (Tab, slash command, etc.).
-
-    EDITBOX_LABEL_UPDATED    label, r, g, b
-      Fires when the UI label (e.g. "To [Name]:") is refreshed.
-
-    THEME_CHANGED            themeName
-      Fires when the active theme is changed.
-
-    API_ERROR                kind, hook, handler_info, errorMessage, data, ...
-      Fires when a filter or callback handler errors.  Delivered only to the
-      addon that owns the faulting handler (matched by source file path).
-
-    SPELLCHECK_SUGGESTION    word, suggestions (array of strings)
-      Fires when the spellcheck suggestion popup is shown for a misspelled word.
-
-    SPELLCHECK_APPLIED       original, replacement
-      Fires when the user accepts a spellcheck suggestion.
-
-    SPELLCHECK_WORD_ADDED    word, locale
-      Fires when a word is added to the user dictionary (manually or via YALLM).
-
-    SPELLCHECK_WORD_IGNORED  word, locale
-      Fires when the user marks a word as "ignored".
-
-    YALLM_WORD_LEARNED       word, locale
-      Fires when YALLM auto-promotes a word to the user dictionary after
-      persistent usage (reaching the auto-learn threshold).
-
-    POST_CLAIMED             handle, text, chatType, language, target
-      Fires when a PRE_DELIVER filter claims a message.  The handle must
-      be passed to YapperAPI:ResolvePost(handle) within the delegation
-      timeout to confirm delivery.  If not resolved, Yapper sends the
-      message itself and blames the claiming addon.
-
-    QUEUE_STALL              chatType, policyClass, chunksRemaining
-      Fires when the ack-event stall timer expires before the server
-      confirmed a chunk.  Indicates the Continue prompt is now visible.
-      `chatType` is the WoW chat type string (e.g. "SAY"), `policyClass`
-      is the internal policy class name, `chunksRemaining` is the total
-      number of chunks still waiting (including the one that stalled).
-
-    QUEUE_COMPLETE           (no arguments)
-      Fires when the queue finishes delivering all chunks (successfully
-      or after a cancel).  Paired with QUEUE_STALL for addons that need
-      to track active queue sessions.
-
-    ICON_GALLERY_SHOW        query (string)
-      Fires when the raid-icon gallery popup opens.  query is the
-      partial word the user typed after '{' (may be empty string).
-
-    ICON_GALLERY_HIDE        (no arguments)
-      Fires when the raid-icon gallery popup closes.
-
-    ICON_GALLERY_SELECT      index (int), text (string), code (string)
-      Fires when the user picks a raid icon.  index is 1-8; text is the
-      icon name (e.g. "skull"); code is the shorthand (e.g. "rt8").
-
----------------------------------------------------------------------------
-3.  READ-ONLY ACCESSORS
----------------------------------------------------------------------------
-
-    YapperAPI:GetVersion()          → "1.3.0" (string)
-    YapperAPI:GetCurrentTheme()     → theme name (string) or nil
-    YapperAPI:IsOverlayShown()      → boolean
-    YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR"
-    YapperAPI:GetDelineator()       → string|nil (marker used for chunking)
-
-    Theme helpers:
-
-    YapperAPI:RegisterTheme(name, data)
-      Register a custom theme. `data` follows the same schema as built-in
-      themes: inputBg, labelBg, textColor, borderColor, border, allowRoundedCorners,
-      allowDropShadow, font, and optional OnApply.
-
-    YapperAPI:SetTheme(name)
-      Activate a registered theme and persist it as the current selection.
-
-    YapperAPI:GetRegisteredThemes() → array
-      Return a sorted list of registered theme names.
-
-    YapperAPI:GetTheme(name) → table|nil
-      Return the data table for a registered theme, or nil if not found.
-
-    Queue accessors:
-
-    YapperAPI:GetQueueState()       → table with fields:
-                                        active (bool), stalled (bool),
-                                        chatType (string|nil),
-                                        policyClass (string|nil),
-                                        pending (int), inFlight (int)
-    YapperAPI:CancelQueue()         → int (number of chunks discarded)
-
-    Icon Gallery accessors:
-
-    YapperAPI:ShowIconGallery(editBox, anchorFrame, query)
-      Shows the raid-icon gallery anchored to an external EditBox widget.
-      editBox must be a raw WoW EditBox; anchorFrame is the frame the popup
-      anchors to (defaults to editBox); query is an optional pre-filter string.
-
-    YapperAPI:HideIconGallery()
-      Hides the gallery.
-
-    YapperAPI:IsIconGalleryShown()  → boolean
-
-    YapperAPI:GetRaidIconData()     → array of 8 tables, each with:
-                                        index (int), text (string), code (string)
-
-    Bypass / Lifecycle:
-
-    YapperAPI:OpenBlizzardChat()
-      Force the Yapper overlay to close and open the original Blizzard editbox.
-      Equivalent to the user pressing the "Bypass Yapper" keybind (Shift-Enter).
-      If Yapper is not currently open, the next chat open will be bypassed.
-
-    Utility helpers (safe wrappers around Utils.lua):
-
-    YapperAPI:IsChatLockdown()      → boolean
-      Returns true if C_ChatInfo.InChatMessagingLockdown() is active.
-      Use this to guard sends in bridges the same way Yapper does internally.
-
-    YapperAPI:IsSecret(value)       → boolean
-      Returns true if a value should not be logged or persisted (Blizzard
-      issecretvalue / canaccessvalue APIs, with a |K token fallback).
-
-    YapperAPI:InsertText(text)      → boolean
-      Insert text at the cursor in whichever Yapper editbox is active
-      (multiline editor first, then single-line overlay).  Returns true
-      if the text was inserted, false if no Yapper editbox is currently
-      active.  Uses the state machine so it always targets the right box.
-
-    YapperAPI:RegisterLinkProtocol(prefix) → boolean
-      Declare that |H<prefix>:...|h[...]|h hyperlinks are known,
-      first-class link tokens in Yapper.  Registers the prefix string
-      (e.g. "addon:totalrp3") so the pipeline treats those hyperlinks
-      the same as native WoW item/spell links (atomic in the chunker,
-      ignored by the spellchecker).  Returns true on success.
-
-    YapperAPI:GetRegisteredLinkProtocols() → table
-      Returns a shallow copy of all registered link protocol prefixes.
-
-    YapperAPI:GetChatParent()       → Frame
-      Returns the correct UI parent for chat-related frames, respecting
-      fullscreen panels like the housing editor.
-
-    YapperAPI:MakeFullscreenAware(frame)
-      Hooks the frame so it re-parents automatically whenever the active
-      fullscreen panel changes.  Pass any frame you want to keep visible
-      over panels that hide UIParent.
-
----------------------------------------------------------------------------
-4.  STATE & UI MANAGEMENT
----------------------------------------------------------------------------
-
-    YapperAPI:GetState()            → state name (string)
-    YapperAPI:IsState(stateName)    → boolean
-    YapperAPI:GetStates()           → sorted array of all valid state names
-
-    YapperAPI:SetState(stateName, ...)
-      Manually request a state transition. stateName must be a valid state
-      (e.g. "IDLE", "EDITING", "MULTILINE"). Metadata passed in ... is
-      forwarded to callbacks and history logs. Use with caution: forcing
-      states may bypass internal logic or cause UI desync.
-
-    YapperAPI:ListFrames()          → table
-      Returns a map of internal frame names to their WoW frame objects.
-      
-      Flat keys for quick access:
-        Overlay, OverlayEdit, LabelBg, SuggestionFrame, HintFrame,
-        SuggestionClickCatcher, MultilineFrame, MultilineEdit, MultilineScroll.
-
-      Categorized registry (advanced):
-        The returned table also contains an 'All' key which is a raw map of
-        categories (e.g. "Spellcheck", "Overlay", "Core") to their respective
-        frame objects.
-
-      Use this to re-parent or restyle Yapper UI without global lookups.
-
-    Spellcheck accessors (safe wrappers — return nil/false if spellcheck is unavailable):
-
-    YapperAPI:IsSpellcheckEnabled() → boolean
-    YapperAPI:CheckWord(word)       → boolean (true if word is in dict or user dict)
-    YapperAPI:GetSuggestions(word)  → array of suggestion strings, or nil
-    YapperAPI:GetSpellcheckLocale() → locale string (e.g. "enUS") or nil
-    YapperAPI:AddToDictionary(word) → boolean (true if added)
-    YapperAPI:IgnoreWord(word)      → boolean (true if ignored)
-    YapperAPI:FindMisspellings(text) → table[]|nil
-      Scan a block of text and return an array of misspelled word ranges.
-      Each entry is { startPos: number, endPos: number, word: string }.
-      Returns nil if spellcheck is disabled or no misspellings are found.
-
-    Dictionary / engine registration (for LOD dictionary addons):
-
-    YapperAPI:RegisterDictionary(locale, data)
-      Register a dictionary for the given locale (e.g. "enBase", "enGB").
-      `data` accepts the same fields as the internal RegisterDictionary call:
-        • words          — array of canonical word strings
-        • phonetics      — table { [phoneticHash] = { wordId, … } }
-        • extends        — string locale this dict inherits from (delta dicts)
-        • isDelta        — bool (inferred from extends; can be set explicitly)
-        • languageFamily — string family id, e.g. "en". Links this dict to a
-                           registered language engine.
-        • engine         — optional table (see RegisterLanguageEngine). When
-                           present, the engine is registered atomically with
-                           the dict so ordering does not matter.
-      Returns true on success, false on invalid arguments.
-
-    YapperAPI:RegisterLanguageEngine(familyId, engine)
-      Register a language engine for a locale family.
-      `familyId` — short string identifier, e.g. "en", "de", "fr".
-      `engine`   — table with the following fields:
-        • GetPhoneticHash(word) → string   (REQUIRED)
-          Must produce the same hash keys used in the dict's phonetics table.
-        • NormaliseVowels(word) → string   (optional; falls back to built-in)
-        • HasVariantRules — bool           (optional; enables variant swaps)
-        • VariantRules    — array of {from, to} pairs  (optional)
-        • ScoreWeights    — partial table  (optional; overlays built-in weights)
-        • KBLayouts       — table          (optional; same schema as built-in KB_LAYOUTS)
-      Returns true on success, false on invalid / missing GetPhoneticHash.
-
-    YapperAPI:IsLanguageEngineRegistered(familyId) → boolean
-
-    Post delegation:
-
-    YapperAPI:ResolvePost(handle)   → boolean (true if the claim was valid and resolved)
-
-    These never expose internal tables directly; tables are shallow-copied.
-
----------------------------------------------------------------------------
-4.  LIFECYCLE / BYPASS
----------------------------------------------------------------------------
-
-    YapperAPI:OpenBlizzardChat()
-      Immediately closes the Yapper overlay (if shown) and opens the
-      original Blizzard chat editbox.  This is useful for plugins that
-      need to drop down to the vanilla UI for specific operations
-      (e.g., target-heavy macros or gquit) that Yapper's overlay might
-      interfere with.
-
----------------------------------------------------------------------------
-5.  NOTES FOR ADDON AUTHORS
----------------------------------------------------------------------------
-
-        • Yapper wraps every external filter and callback in `pcall()`.
-            If your handler errors, Yapper emits an `API_ERROR` callback so
-            external addons can inspect the failure programmatically and
-            optionally take corrective action.  The `API_ERROR` callback has
-            the signature `(kind, hook, handler_info, errorMessage, data, ...)`:
-                - `kind`: "filter", "callback", or "filter-return"
-                - `hook`: the hook or event name where the failure occurred
-                - `handler_info`: table `{ handle = <number>, priority = <number?> }` or nil
-                - `errorMessage`: the handler's error string
-                - `data`: the payload (for filters) or returned value
-                - `...`: other args passed to the handler
-
-            If handlers are registered for `API_ERROR`, Yapper will attempt
-            to deliver the event only to those handlers that were registered
-            by the same addon/module that owns the failing handler (this
-            ownership is recorded at registration time from the handler's
-            source). If one or more owner-specific handlers exist, only they
-            are invoked. If none exist, the event is broadcast to all
-            `API_ERROR` handlers as a fallback. If no `API_ERROR` handlers are
-            registered at all, Yapper falls back to emitting a concise debug
-            line via `YapperTable.Utils:DebugPrint` (or `print()`). These
-            messages are informational only and intended to aid debugging; their
-            exact formatting may change between releases.
-
-    • Filters MUST return the payload table (or false).  Returning nil
-      is treated as "continue unchanged" for safety, but please don't
-      rely on it — always return the payload explicitly.
-
-    • Filter payloads are plain tables.  Modify fields in-place; do not
-      replace the table itself (return the same reference).
-
-    • Do not cache YapperAPI references across files; the global is
-      stable for the entire session.
-
-    • If you need a hook point that doesn't exist yet, open an issue
-      or PR on the Yapper repository.
-
+    Or on GitHub:
+    https://github.com/TenaarFeiri/WoW-Yapper/tree/main/Documentation
 ===========================================================================
 ]]
 
@@ -1434,6 +1003,90 @@ function YapperAPI:GetRaidIconData()
         result[i] = ig:_GetIconMeta(i)
     end
     return result
+end
+
+-- ===== AUTOCOMPLETE & GHOST TEXT ============================================
+
+--- Returns the best autocomplete suggestion for the given partial word.
+---@param word string
+---@return string|nil
+function YapperAPI:GetAutocompleteSuggestion(word)
+    local ac = YapperTable.Autocomplete
+    if not ac or not ac.GetSuggestion then return nil end
+    return ac:GetSuggestion(word)
+end
+
+--- Returns the current pixel offset of the cursor/caret within an EditBox.
+--- Requires the EditBox to be one managed by Yapper (Overlay, Multiline, or hooked).
+---@param editBox table
+---@return number x, number y, number height (in logical pixels)
+function YapperAPI:GetCaretOffset(editBox)
+    local ac = YapperTable.Autocomplete
+    if not ac then return 0, 0, 0 end
+
+    -- If this is our hooked EditBox, we have cached coordinates.
+    if ac._hookedEditBox == editBox then
+        local uiScale = UIParent and UIParent:GetEffectiveScale() or 1
+        local ebScale = editBox:GetEffectiveScale()
+        local toUI    = ebScale / uiScale
+        return (ac._caretX or 0) * toUI, (ac._caretY or 0) * toUI, (ac._caretH or 0) * toUI
+    end
+
+    return 0, 0, 0
+end
+
+--- Returns the shared FontString used for ghost text rendering.
+---@return table|nil
+function YapperAPI:GetGhostFrame()
+    local ac = YapperTable.Autocomplete
+    if not ac or not ac.GetGhostFS then return nil end
+    return ac:GetGhostFS()
+end
+
+--- Manually show ghost text on a specific EditBox.
+--- Useful for external addons that want to leverage Yapper's ghost renderer.
+---@param text string
+---@param editBox table
+---@param prefix string|nil
+---@param textUpToCursor string|nil
+function YapperAPI:ShowGhostText(text, editBox, prefix, textUpToCursor)
+    local ac = YapperTable.Autocomplete
+    if not ac or not ac.ShowGhost then return end
+
+    -- Temporarily bind to this EditBox if it's different from current.
+    local prevEB = ac._activeEditBox
+    ac._activeEditBox = editBox
+
+    -- In manual mode, if no prefix is provided, we treat the entire text
+    -- as the ghost suffix.
+    ac:ShowGhost(text, prefix or "", textUpToCursor or prefix or "")
+
+    ac._activeEditBox = prevEB
+end
+
+--- Hide the ghost text.
+function YapperAPI:HideGhostText()
+    local ac = YapperTable.Autocomplete
+    if ac and ac.HideGhost then ac:HideGhost() end
+end
+
+--- Set a manual pixel offset for ghost text alignment.
+--- Fixes vertical "dipping" or horizontal overlap in mutated EditBoxes.
+---@param offsetX number
+---@param offsetY number
+function YapperAPI:SetGhostTextOffset(offsetX, offsetY)
+    local ac = YapperTable.Autocomplete
+    if ac and ac.SetOffset then
+        ac:SetOffset(offsetX, offsetY)
+    end
+end
+
+--- Force the ghost text to synchronise its font with its current parent EditBox.
+function YapperAPI:SyncGhostTextFont()
+    local ac = YapperTable.Autocomplete
+    if ac and ac.SyncFont then
+        ac:SyncFont()
+    end
 end
 
 --- Run all filters for a hook point.
