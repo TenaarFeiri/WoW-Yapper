@@ -271,7 +271,9 @@ function Multiline:CreateFrame()
 		-- If a suggestion panel is still visible, Enter applies the selected
 		-- entry instead of submitting the message.
 		if YapperAPI:IsSuggestionOpen() then
-			YapperAPI:ApplySuggestion(YapperTable.Spellcheck and YapperTable.Spellcheck.ActiveIndex or 1)
+			local sc = YapperTable.Spellcheck
+			local relIdx = (sc and sc.ActiveIndex and sc._suggestionOffset) and (sc.ActiveIndex - sc._suggestionOffset) or 1
+			YapperAPI:ApplySuggestion(relIdx)
 			return
 		end
 		if IsShiftKeyDown() then

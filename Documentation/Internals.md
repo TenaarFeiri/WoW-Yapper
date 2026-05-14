@@ -286,8 +286,8 @@ Bound when overlay exists; reacts to text/cursor updates.
   - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L809`](`../Src/Spellcheck/UI.lua#L809`))
   - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L838`](`../Src/Spellcheck/UI.lua#L838`))
   - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L959`](`../Src/Spellcheck/UI.lua#L959`))
-  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L984`](`../Src/Spellcheck/UI.lua#L984`))
-  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L1008`](`../Src/Spellcheck/UI.lua#L1008`))
+  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L986`](`../Src/Spellcheck/UI.lua#L986`))
+  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L1010`](`../Src/Spellcheck/UI.lua#L1010`))
 - Fields:
   - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L554`](../Src/Spellcheck/UI.lua#L554)).
 - Callbacks fired:
@@ -663,13 +663,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
   - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L520`](`../Src/Multiline.lua#L520`))
-  - `Exit` ([`../Src/Multiline.lua#L650`](`../Src/Multiline.lua#L650`))
-  - `Submit` ([`../Src/Multiline.lua#L766`](`../Src/Multiline.lua#L766`))
-  - `Cancel` ([`../Src/Multiline.lua#L895`](`../Src/Multiline.lua#L895`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L921`](`../Src/Multiline.lua#L921`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L908`](`../Src/Multiline.lua#L908`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L930`](`../Src/Multiline.lua#L930`))
+  - `Enter` ([`../Src/Multiline.lua#L522`](`../Src/Multiline.lua#L522`))
+  - `Exit` ([`../Src/Multiline.lua#L652`](`../Src/Multiline.lua#L652`))
+  - `Submit` ([`../Src/Multiline.lua#L768`](`../Src/Multiline.lua#L768`))
+  - `Cancel` ([`../Src/Multiline.lua#L897`](`../Src/Multiline.lua#L897`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L923`](`../Src/Multiline.lua#L923`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L910`](`../Src/Multiline.lua#L910`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L932`](`../Src/Multiline.lua#L932`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 

@@ -978,6 +978,8 @@ function Spellcheck:NextSuggestionsPage()
     self._suggestionOffset = newOffset
     self.ActiveIndex = newOffset + 1
     self._lastPageTurnFrame = GetTime()
+    self._justAppliedSuggestion = true
+    C_Timer.After(0.05, function() self._justAppliedSuggestion = nil end)
     self:ShowSuggestions()
 end
 
