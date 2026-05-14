@@ -24,6 +24,13 @@
 
 # Patch notes
 
+## 2.1.16
+  - New API:
+    - Retrieve and set states via API;
+    - Retrieve complete list of registered frames;
+    - New callbacks: EDITBOX_TEXT_CHANGED, EDITBOX_LABEL_UPDATED
+  - Updated Yapper's internals to consume public API.
+
 ## 2.1.15
   - Fixed issue where TRP3 Extended links didn't insert correctly into Yapper. (Thanks Heeni, for the report!)
   - Added new bridge for TRP3.
