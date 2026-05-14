@@ -5,26 +5,26 @@
     and suggestion application.
 ]]
 
-local _, YapperTable = ...
-local Spellcheck     = YapperTable.Spellcheck
+local _, YapperTable      = ...
+local Spellcheck          = YapperTable.Spellcheck
 
 -- Re-localise shared helpers from hub.
-local SuggestionKey  = Spellcheck.SuggestionKey
+local SuggestionKey       = Spellcheck.SuggestionKey
 local MAX_SUGGESTION_ROWS = Spellcheck._MAX_SUGGESTION_ROWS
 
 -- Re-localise Lua globals.
-local type       = type
-local pairs      = pairs
-local ipairs     = ipairs
-local tostring   = tostring
-local tonumber   = tonumber
-local math_abs   = math.abs
-local math_min   = math.min
-local math_max   = math.max
-local math_floor = math.floor
-local string_sub = string.sub
-local string_format = string.format
-local table_insert  = table.insert
+local type                = type
+local pairs               = pairs
+local ipairs              = ipairs
+local tostring            = tostring
+local tonumber            = tonumber
+local math_abs            = math.abs
+local math_min            = math.min
+local math_max            = math.max
+local math_floor          = math.floor
+local string_sub          = string.sub
+local string_format       = string.format
+local table_insert        = table.insert
 
 function Spellcheck:Bind(editBox, overlay)
     self.EditBox = editBox
@@ -123,16 +123,16 @@ end
 
 --- Restore spellcheck to the single-line overlay after multiline editing.
 function Spellcheck:UnbindMultiline()
-    if not self._mlSavedEditBox then return end  -- not bound to multiline
+    if not self._mlSavedEditBox then return end -- not bound to multiline
 
     -- Clear any multiline underlines before switching back.
     self:OnOverlayHide()
 
-    local oldOverlay = self._mlSavedOverlay
+    local oldOverlay         = self._mlSavedOverlay
 
-    self.EditBox       = self._mlSavedEditBox
-    self.Overlay       = oldOverlay
-    self.MLScrollFrame = self._mlSavedScrollFrame
+    self.EditBox             = self._mlSavedEditBox
+    self.Overlay             = oldOverlay
+    self.MLScrollFrame       = self._mlSavedScrollFrame
 
     self._mlSavedEditBox     = nil
     self._mlSavedOverlay     = nil
@@ -240,12 +240,12 @@ function Spellcheck:UnloadAllDictionaries(purgeNow)
     -- Clear caches
     self:ClearSuggestionCache()
     self.UserDictCache = {}
-    
+
     -- Hidden internal suggestion state
     self._lastSuggestionsText = nil
     self._lastSuggestionsLocale = nil
     self.ActiveSuggestions = nil
-    
+
     -- Cleanup UI state
     self:ClearUnderlines()
     if self.SuggestionFrame then self.SuggestionFrame:Hide() end
@@ -267,10 +267,11 @@ function Spellcheck:ApplyState(enabled, locale)
         if not self:EnsureLocale(locale) then
             -- If the addon is loaded but the locale is unavailable, it was purged.
             local addon = self:GetLocaleAddon(locale)
-            if addon and (C_AddOns and C_AddOns.IsAddOnLoaded(addon) or IsAddOnLoaded(addon)) 
-               and not self:IsLocaleAvailable(locale) then
+            if addon and (C_AddOns and C_AddOns.IsAddOnLoaded(addon) or IsAddOnLoaded(addon))
+                and not self:IsLocaleAvailable(locale) then
                 if self.Notify then
-                    self:Notify("Yapper: The dictionary for " .. locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
+                    self:Notify("Yapper: The dictionary for " ..
+                    locale .. " was purged to save memory. You must /reload your UI to re-enable it.")
                 end
             end
             return false
@@ -420,7 +421,7 @@ function Spellcheck:EnsureSuggestionFrame()
     -- the rows, silently swallowing them instead of letting them fire.
     local catcher = CreateFrame("Button", nil, UIParent)
     catcher:SetFrameStrata("TOOLTIP")
-    catcher:SetFrameLevel(1)    -- must stay below the suggestion frame
+    catcher:SetFrameLevel(1) -- must stay below the suggestion frame
     catcher:SetAllPoints(UIParent)
     catcher:EnableMouse(true)
     catcher:RegisterForClicks("AnyUp")
@@ -432,7 +433,7 @@ function Spellcheck:EnsureSuggestionFrame()
 
     local frame = CreateFrame("Frame", nil, self.Overlay, "BackdropTemplate")
     frame:SetFrameStrata("TOOLTIP")
-    frame:SetFrameLevel(200)    -- well above catcher; buttons get 201+
+    frame:SetFrameLevel(200) -- well above catcher; buttons get 201+
     frame:EnableMouse(true)
     frame:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -479,7 +480,7 @@ function Spellcheck:EnsureSuggestionFrame()
         btn._hl      = hlFrame
         btn._hoverHL = hoverFrame
         btn._index   = i
-        local idx = i
+        local idx    = i
         btn:SetScript("OnEnter", function()
             self.ActiveIndex = idx
             self:RefreshSuggestionSelection()
@@ -723,10 +724,14 @@ function Spellcheck:HandleKeyDown(key)
             return true
         end
         if key == "ENTER" or key == "NUMPADENTER" then
-            -- Accept currently selected suggestion and prevent the enter
-            -- from being handled as a send.
-            local idx = self.ActiveIndex or 1
-            self:ApplySuggestion(idx)
+            local offset = self._suggestionOffset or 0
+            local relativeIndex = (self.ActiveIndex or 1) - offset
+            local row = self.SuggestionRows and self.SuggestionRows[relativeIndex]
+            if row and row._isPagination then
+                self:NextSuggestionsPage()
+            else
+                self:ApplySuggestion(relativeIndex)
+            end
             return true
         end
         if key == "1" or key == "2" or key == "3" or key == "4" or key == "5" or key == "6" then
@@ -750,11 +755,23 @@ end
 function Spellcheck:MoveSelection(delta)
     local count = #self.ActiveSuggestions
     if count == 0 then return end
-    local nextIdx = self.ActiveIndex + delta
-    if nextIdx < 1 then nextIdx = count end
-    if nextIdx > count then nextIdx = 1 end
-    self.ActiveIndex = nextIdx
-    self:RefreshSuggestionSelection()
+
+    local offset = self._suggestionOffset or 0
+    local startRel = self.ActiveIndex - offset
+    local nextRel = startRel
+
+    for _ = 1, MAX_SUGGESTION_ROWS do
+        nextRel = nextRel + delta
+        if nextRel < 1 then nextRel = MAX_SUGGESTION_ROWS end
+        if nextRel > MAX_SUGGESTION_ROWS then nextRel = 1 end
+
+        local row = self.SuggestionRows[nextRel]
+        if row and row:IsShown() then
+            self.ActiveIndex = offset + nextRel
+            self:RefreshSuggestionSelection()
+            return
+        end
+    end
 end
 
 function Spellcheck:RefreshSuggestionSelection()
@@ -765,10 +782,24 @@ function Spellcheck:RefreshSuggestionSelection()
         return
     end
     if not self.ActiveIndex or self.ActiveIndex < 1 then self.ActiveIndex = 1 end
-    if self.ActiveIndex > count then self.ActiveIndex = count end
+    
+    local offset = self._suggestionOffset or 0
+    -- Allow ActiveIndex to reach the pagination row (offset + MAX_SUGGESTION_ROWS)
+    local maxAllowed = math_max(count, offset + MAX_SUGGESTION_ROWS)
+    if self.ActiveIndex > maxAllowed then self.ActiveIndex = maxAllowed end
+
+    local relativeIndex = self.ActiveIndex - offset
+
     for i, row in ipairs(self.SuggestionRows) do
-        if i == self.ActiveIndex then
+        if i == relativeIndex then
             row._hl:Show()
+
+            if row:IsShown() and YapperTable.API then
+                local text = row._fs:GetText() or ""
+                -- Strip color codes for cleaner TTS
+                text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+                YapperTable.API:Fire("SPELLCHECK_SUGGESTION_HIGHLIGHTED", text, self.ActiveIndex, count)
+            end
         else
             row._hl:Hide()
         end
@@ -845,7 +876,8 @@ function Spellcheck:ShowSuggestions()
     local x = self:GetCaretXOffset()
     self.SuggestionFrame:ClearAllPoints()
     -- Anchor above the editbox so the suggestions appear on top of the overlay.
-    self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x + (self._suggestOffsetX or 0), self._suggestOffsetY or 4)
+    self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x + (self._suggestOffsetX or 0),
+        self._suggestOffsetY or 4)
 
     local fontSize = 10
     if editBox and editBox.GetFont then
@@ -870,28 +902,31 @@ function Spellcheck:ShowSuggestions()
             local entry = self.ActiveSuggestions[sugIndex]
             if entry then
                 row._fs:SetText(self:FormatSuggestionLabel(entry, i))
+                row._isPagination = false
                 row:Show()
                 visibleRows = i
                 local w = row._fs:GetStringWidth() + 30
                 if w > maxWidth then maxWidth = w end
             else
+                row._isPagination = false
                 row:Hide()
             end
         elseif i == MAX_SUGGESTION_ROWS then
             -- Pagination Row (Row 6)
             if hasMore or offset > 0 then
+                row._isPagination = true
                 row:Show()
                 visibleRows = i
                 if hasMore then
                     -- TODO: Localization required for German and other locales.
                     row._fs:SetText("|cffbbbbbb" .. i .. ". More Suggestions »|r")
-                    row.OnClick = self.UI_OnMoreClick
                 else
                     row._fs:SetText("|cffbbbbbb" .. i .. ". « Back to Top|r")
                 end
                 local w = row._fs:GetStringWidth() + 30
                 if w > maxWidth then maxWidth = w end
             else
+                row._isPagination = false
                 row:Hide()
             end
         end
@@ -941,6 +976,8 @@ function Spellcheck:NextSuggestionsPage()
         newOffset = 0 -- Wrap around
     end
     self._suggestionOffset = newOffset
+    self.ActiveIndex = newOffset + 1
+    self._lastPageTurnFrame = GetTime()
     self:ShowSuggestions()
 end
 
@@ -950,6 +987,9 @@ function Spellcheck:HideSuggestions()
     end
     if self.SuggestionClickCatcher then
         self.SuggestionClickCatcher:Hide()
+    end
+    if YapperTable.API then
+        YapperTable.API:Fire("SPELLCHECK_CLOSED")
     end
     self.ActiveSuggestions = nil
     self.ActiveIndex = 1
@@ -968,13 +1008,16 @@ end
 function Spellcheck:ApplySuggestion(index)
     if not self.ActiveSuggestions or not self.ActiveRange then return end
 
-    if index == MAX_SUGGESTION_ROWS then
-        local total = #self.ActiveSuggestions
-        local offset = self._suggestionOffset or 0
-        if total > (offset + 5) or offset > 0 then
-            self:NextSuggestionsPage()
-            return
-        end
+    -- Ignore applications in the same frame as a page turn (prevents keyboard double-trigger)
+    if self._lastPageTurnFrame and GetTime() == self._lastPageTurnFrame then
+        return
+    end
+
+    -- Check if the targeted row is a pagination control (mouse click path).
+    local row = self.SuggestionRows and self.SuggestionRows[index]
+    if row and row._isPagination then
+        self:NextSuggestionsPage()
+        return
     end
 
     -- Clear implicit trace on explicit selection
@@ -1115,6 +1158,10 @@ function Spellcheck:ApplySuggestion(index)
     self.EditBox:SetText(newText)
     local cursorPos = #before + #replacement
     self.EditBox:SetCursorPosition(cursorPos)
+
+    if YapperTable.API then
+        YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, self.EditBox)
+    end
     -- Restore focus after one frame so all click-event processing finishes
     -- before the focus claim fires.  Without deferral the claim can be
     -- immediately stolen back by another frame's focus handler.
