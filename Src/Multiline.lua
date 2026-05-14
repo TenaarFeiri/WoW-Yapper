@@ -514,6 +514,26 @@ end
 ---@param target    string?  Whisper / channel target.
 function Multiline:Enter(text, chatType, language, target)
 	if State:IsMultiline() then return end
+
+	-- Allow external addons to block or modify the multiline expansion.
+	if YapperTable.API and type(YapperTable.API.RunFilter) == "function" then
+		local payload = {
+			text     = text,
+			chatType = chatType,
+			language = language,
+			target   = target
+		}
+		local result = YapperTable.API:RunFilter("PRE_MULTILINE_SHOW", payload)
+		if result == false then
+			return
+		end
+		-- Re-apply potentially modified payload values.
+		text     = result.text
+		chatType = result.chatType
+		language = result.language
+		target   = result.target
+	end
+
 	self:CreateFrame()
 	self:ApplyTheme() -- pick up current config every open (rounded corners, colours, shadow)
 

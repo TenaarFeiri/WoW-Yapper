@@ -73,6 +73,10 @@
       Fires before the overlay opens.  Return false to suppress it.
       Used by WIMBridge to yield focus when WIM owns the whisper window.
 
+    PRE_MULTILINE_SHOW text, chatType, language, target yes
+      Fires before the expanded multiline editor opens.
+      Modify payload to change initial text/channel or return false to block.
+
     PRE_SEND          text, chatType, language,      yes
                       target
       Fires after the user presses Enter but before the message is routed.
@@ -217,6 +221,11 @@
     ICON_GALLERY_SELECT      index (int), text (string), code (string)
       Fires when the user picks a raid icon.  index is 1-8; text is the
       icon name (e.g. "skull"); code is the shorthand (e.g. "rt8").
+
+    STATE_CHANGED            newState (string), oldState (string), ...
+      Fires whenever the internal state machine transitions.
+      Common states: "IDLE", "EDITING", "MULTILINE", "SENDING", "STALLED".
+      Any additional metadata passed to SetState is forwarded in ...
 
 ---------------------------------------------------------------------------
 3.  READ-ONLY ACCESSORS

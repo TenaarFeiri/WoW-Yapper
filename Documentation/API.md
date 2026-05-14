@@ -50,8 +50,8 @@ Register/unregister:
 
 Register/unregister:
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L701`](../Src/API.lua#L701))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L742`](../Src/API.lua#L742))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L270`](../Src/API.lua#L270))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L311`](../Src/API.lua#L311))
 
 ### Event list
 
@@ -151,21 +151,21 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `YapperAPI:SyncGhostTextFont() → nil`: Force the ghost text to synchronise its font with its current parent EditBox. ([`../Src/API.lua#L1516`](../Src/API.lua#L1516))
-  - [NEW] `YapperAPI:SetGhostTextOffset(offsetX, offsetY) → nil`: Set a manual pixel offset for ghost text alignment. ([`../Src/API.lua#L1508`](../Src/API.lua#L1508))
-  - [NEW] `YapperAPI:HideGhostText() → nil`: Hide the ghost text. ([`../Src/API.lua#L1499`](../Src/API.lua#L1499))
-  - [NEW] `YapperAPI:ShowGhostText(text, editBox, prefix, textUpToCursor) → nil`: Manually show ghost text on a specific EditBox. ([`../Src/API.lua#L1483`](../Src/API.lua#L1483))
-  - [NEW] `YapperAPI:GetGhostFrame() → table|nil`: Returns the shared FontString used for ghost text rendering. ([`../Src/API.lua#L1471`](../Src/API.lua#L1471))
-  - [NEW] `YapperAPI:GetCaretOffset(editBox) → number x`: Returns the current pixel offset of the cursor/caret within an EditBox. ([`../Src/API.lua#L1454`](../Src/API.lua#L1454))
-  - [NEW] `YapperAPI:GetAutocompleteSuggestion(word) → string|nil`: Returns the best autocomplete suggestion for the given partial word. ([`../Src/API.lua#L1444`](../Src/API.lua#L1444))
-  - [NEW] `YapperAPI:ListFrames() → nil`: Returns a table mapping internal frame names to their WoW frame objects. ([`../Src/API.lua#L904`](../Src/API.lua#L904))
-  - [NEW] `YapperAPI:SetState(stateName) → nil`: Transition the state machine to a new state. ([`../Src/API.lua#L891`](../Src/API.lua#L891))
-  - [NEW] `YapperAPI:GetRegisteredAtomicPatterns() → nil`: Returns an array of all registered atomic patterns. ([`../Src/API.lua#L1176`](../Src/API.lua#L1176))
-  - [NEW] `YapperAPI:RegisterAtomicPattern() → nil`: Register a custom Lua string pattern that the Yapper chunker should ([`../Src/API.lua#L1169`](../Src/API.lua#L1169))
-  - [NEW] `YapperAPI:InsertText() → nil`: Insert `text` at the current cursor position in the active Yapper ([`../Src/API.lua#L45`](../Src/API.lua#L45))
-  - [NEW] `YapperAPI:IsLinkProtocolRegistered() → nil`: Returns true if `prefix` has been registered via RegisterLinkProtocol. ([`../Src/API.lua#L295`](../Src/API.lua#L295))
-  - [NEW] `YapperAPI:GetRegisteredLinkProtocols() → nil`: Returns a shallow copy of all registered link protocol prefixes as an ([`../Src/API.lua#L1147`](../Src/API.lua#L1147))
-  - [NEW] `YapperAPI:RegisterLinkProtocol() → nil`: Declare a |H link protocol prefix as a known, first-class link type. ([`../Src/API.lua#L1139`](../Src/API.lua#L1139))
-  - [NEW] `YapperAPI:GetLanguageEngine() → nil`: Returns the language engine for `familyId`, or nil. ([`../Src/API.lua#L371`](../Src/API.lua#L371))
-  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1565`](../Src/API.lua#L1565))
-  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1530`](../Src/API.lua#L1530))
+  - [NEW] `YapperAPI:SyncGhostTextFont() → nil`: Force the ghost text to synchronise its font with its current parent EditBox. ([`../Src/API.lua#L1085`](../Src/API.lua#L1085))
+  - [NEW] `YapperAPI:SetGhostTextOffset(offsetX, offsetY) → nil`: Set a manual pixel offset for ghost text alignment. ([`../Src/API.lua#L1077`](../Src/API.lua#L1077))
+  - [NEW] `YapperAPI:HideGhostText() → nil`: Hide the ghost text. ([`../Src/API.lua#L1068`](../Src/API.lua#L1068))
+  - [NEW] `YapperAPI:ShowGhostText(text, editBox, prefix, textUpToCursor) → nil`: Manually show ghost text on a specific EditBox. ([`../Src/API.lua#L1052`](../Src/API.lua#L1052))
+  - [NEW] `YapperAPI:GetGhostFrame() → table|nil`: Returns the shared FontString used for ghost text rendering. ([`../Src/API.lua#L1040`](../Src/API.lua#L1040))
+  - [NEW] `YapperAPI:GetCaretOffset(editBox) → number x`: Returns the current pixel offset of the cursor/caret within an EditBox. ([`../Src/API.lua#L1023`](../Src/API.lua#L1023))
+  - [NEW] `YapperAPI:GetAutocompleteSuggestion(word) → string|nil`: Returns the best autocomplete suggestion for the given partial word. ([`../Src/API.lua#L1013`](../Src/API.lua#L1013))
+  - [NEW] `YapperAPI:ListFrames() → nil`: Returns a table mapping internal frame names to their WoW frame objects. ([`../Src/API.lua#L473`](../Src/API.lua#L473))
+  - [NEW] `YapperAPI:SetState(stateName) → nil`: Transition the state machine to a new state. ([`../Src/API.lua#L460`](../Src/API.lua#L460))
+  - [NEW] `YapperAPI:GetRegisteredAtomicPatterns() → nil`: Returns an array of all registered atomic patterns. ([`../Src/API.lua#L745`](../Src/API.lua#L745))
+  - [NEW] `YapperAPI:RegisterAtomicPattern() → nil`: Register a custom Lua string pattern that the Yapper chunker should ([`../Src/API.lua#L738`](../Src/API.lua#L738))
+  - [NEW] `YapperAPI:InsertText() → nil`: Insert `text` at the current cursor position in the active Yapper ([`../Src/API.lua#L614`](../Src/API.lua#L614))
+  - [NEW] `YapperAPI:IsLinkProtocolRegistered() → nil`: Returns true if `prefix` has been registered via RegisterLinkProtocol. ([`../Src/API.lua#L708`](../Src/API.lua#L708))
+  - [NEW] `YapperAPI:GetRegisteredLinkProtocols() → nil`: Returns a shallow copy of all registered link protocol prefixes as an ([`../Src/API.lua#L716`](../Src/API.lua#L716))
+  - [NEW] `YapperAPI:RegisterLinkProtocol() → nil`: Declare a |H link protocol prefix as a known, first-class link type. ([`../Src/API.lua#L708`](../Src/API.lua#L708))
+  - [NEW] `YapperAPI:GetLanguageEngine() → nil`: Returns the language engine for `familyId`, or nil. ([`../Src/API.lua#L651`](../Src/API.lua#L651))
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1134`](../Src/API.lua#L1134))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1099`](../Src/API.lua#L1099))
