@@ -80,7 +80,7 @@ Autocomplete.Enabled        = true  -- master toggle
 Autocomplete._activeEditBox = nil   -- the EditBox the ghost is bound to (nil = overlay)
 Autocomplete._isMultiline   = false -- true while bound to the multiline editor
 Autocomplete._offsetX       = 0     -- manual pixel offset (x)
-Autocomplete._offsetY       = 0     -- manual pixel offset (y)
+Autocomplete._offsetY       = 1     -- manual pixel offset (y) (Default nudge up for baseline alignment)
 
 -- Minimum characters before offering a suggestion.
 local MIN_PREFIX_LEN        = 2
@@ -601,10 +601,15 @@ function Autocomplete:PositionGhost()
 	local offsetY = (self._offsetY or 0)
 
 	fs:ClearAllPoints()
-	if self._isMultiline then
+	
+	-- Automatic Multiline Detection: 
+	-- If Yapper's internal multiline is active, or if the bound EditBox is multiline-capable,
+	-- we must follow the caret vertically.
+	local followVertical = self._isMultiline or (editBox.IsMultiLine and editBox:IsMultiLine())
+
+	if followVertical then
 		-- In multiline, y from OnCursorChanged is the vertical offset from the
 		-- top of the EditBox to the cursor bottom; h is the cursor height.
-		--local offsetY = (self._caretY or 0) + (self._caretH or 0) * 0.5
 		local mlY = ((self._caretY or 0) - (self._caretH or 0) * 0.3) * toUI
 		fs:SetPoint("TOPLEFT", editBox, "TOPLEFT", offsetX, mlY + offsetY)
 	else

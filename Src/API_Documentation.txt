@@ -386,6 +386,11 @@
     YapperAPI:SyncGhostTextFont()
       Force the ghost text to synchronise its font with its current parent.
 
+    YapperAPI:SetSpellcheckTooltipOffset(hintX, hintY, suggestX, suggestY)
+      Set manual pixel offsets for spellcheck tooltips.
+      - hintX/Y: Offsets for the "Shift+Tab" hint (default: 0, -2).
+      - suggestX/Y: Offsets for the suggestion dropdown (default: 0, 4).
+
     Dictionary / engine registration (for LOD dictionary addons):
 
     YapperAPI:RegisterDictionary(locale, data)

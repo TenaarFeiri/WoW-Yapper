@@ -1089,6 +1089,18 @@ function YapperAPI:SyncGhostTextFont()
     end
 end
 
+--- Set manual pixel offsets for spellcheck tooltips (hints and suggestion dropdowns).
+---@param hintX number?
+---@param hintY number?
+---@param suggestX number?
+---@param suggestY number?
+function YapperAPI:SetSpellcheckTooltipOffset(hintX, hintY, suggestX, suggestY)
+    local sc = YapperTable.Spellcheck
+    if sc and sc.SetSpellcheckOffset then
+        sc:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY)
+    end
+end
+
 --- Run all filters for a hook point.
 --- Returns the (possibly modified) payload, or false if cancelled.
 --- If no filters are registered, returns the payload unchanged.

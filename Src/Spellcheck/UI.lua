@@ -610,6 +610,26 @@ function Spellcheck:ScheduleHintShow()
     end
 end
 
+--- Set manual pixel offsets for spellcheck tooltips.
+---@param hintX number?
+---@param hintY number?
+---@param suggestX number?
+---@param suggestY number?
+function Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY)
+    self._hintOffsetX = hintX or self._hintOffsetX
+    self._hintOffsetY = hintY or self._hintOffsetY
+    self._suggestOffsetX = suggestX or self._suggestOffsetX
+    self._suggestOffsetY = suggestY or self._suggestOffsetY
+
+    -- Refresh currently shown frames to reflect new offsets immediately.
+    if self.HintFrame and self.HintFrame:IsShown() then
+        self:ShowHint()
+    end
+    if self.SuggestionFrame and self.SuggestionFrame:IsShown() then
+        self:ShowSuggestions()
+    end
+end
+
 function Spellcheck:ShowHint()
     if not self.HintFrame or not self.EditBox then return end
 
@@ -621,7 +641,7 @@ function Spellcheck:ShowHint()
     -- Avoid re-showing (and retriggering fade) if already visible.
     if self.HintFrame:IsShown() then return end
     self.HintFrame:ClearAllPoints()
-    self.HintFrame:SetPoint("TOPLEFT", self.EditBox, "BOTTOMLEFT", 0, -2)
+    self.HintFrame:SetPoint("TOPLEFT", self.EditBox, "BOTTOMLEFT", self._hintOffsetX or 0, self._hintOffsetY or -2)
     self.HintFrame:SetAlpha(0)
     self.HintFrame:Show()
     if UIFrameFadeIn then
@@ -825,7 +845,7 @@ function Spellcheck:ShowSuggestions()
     local x = self:GetCaretXOffset()
     self.SuggestionFrame:ClearAllPoints()
     -- Anchor above the editbox so the suggestions appear on top of the overlay.
-    self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x, 4)
+    self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x + (self._suggestOffsetX or 0), self._suggestOffsetY or 4)
 
     local fontSize = 10
     if editBox and editBox.GetFont then

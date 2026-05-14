@@ -151,6 +151,7 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
+  - [NEW] `YapperAPI:SetSpellcheckTooltipOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips (hints and suggestion dropdowns). ([`../Src/API.lua#L1097`](../Src/API.lua#L1097))
   - [NEW] `YapperAPI:SyncGhostTextFont() → nil`: Force the ghost text to synchronise its font with its current parent EditBox. ([`../Src/API.lua#L1085`](../Src/API.lua#L1085))
   - [NEW] `YapperAPI:SetGhostTextOffset(offsetX, offsetY) → nil`: Set a manual pixel offset for ghost text alignment. ([`../Src/API.lua#L1077`](../Src/API.lua#L1077))
   - [NEW] `YapperAPI:HideGhostText() → nil`: Hide the ghost text. ([`../Src/API.lua#L1068`](../Src/API.lua#L1068))
@@ -167,5 +168,5 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
   - [NEW] `YapperAPI:GetRegisteredLinkProtocols() → nil`: Returns a shallow copy of all registered link protocol prefixes as an ([`../Src/API.lua#L716`](../Src/API.lua#L716))
   - [NEW] `YapperAPI:RegisterLinkProtocol() → nil`: Declare a |H link protocol prefix as a known, first-class link type. ([`../Src/API.lua#L708`](../Src/API.lua#L708))
   - [NEW] `YapperAPI:GetLanguageEngine() → nil`: Returns the language engine for `familyId`, or nil. ([`../Src/API.lua#L651`](../Src/API.lua#L651))
-  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1134`](../Src/API.lua#L1134))
-  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1099`](../Src/API.lua#L1099))
+  - [NEW] `API:Fire(event) → nil`: Fire all callbacks for an event.  Arguments are passed through. ([`../Src/API.lua#L1146`](../Src/API.lua#L1146))
+  - [NEW] `API:RunFilter(hookPoint, payload) → table|false`: Run all filters for a hook point. ([`../Src/API.lua#L1111`](../Src/API.lua#L1111))
