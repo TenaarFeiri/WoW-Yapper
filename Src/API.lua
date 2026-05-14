@@ -158,8 +158,14 @@
     EDITBOX_HIDE             (none)
       Fires when the Yapper overlay is hidden.
 
+    EDITBOX_TEXT_CHANGED     text, isUserInput
+      Fires when the content of the overlay editbox is modified.
+
     EDITBOX_CHANNEL_CHANGED  chatType, target
       Fires when the user switches chat channel (Tab, slash command, etc.).
+
+    EDITBOX_LABEL_UPDATED    label, r, g, b
+      Fires when the UI label (e.g. "To [Name]:") is refreshed.
 
     THEME_CHANGED            themeName
       Fires when the active theme is changed.
@@ -259,7 +265,7 @@
       Hides the gallery.
 
     YapperAPI:IsIconGalleryShown()  → boolean
-    
+
     YapperAPI:GetRaidIconData()     → array of 8 tables, each with:
                                         index (int), text (string), code (string)
 
@@ -304,6 +310,34 @@
       Hooks the frame so it re-parents automatically whenever the active
       fullscreen panel changes.  Pass any frame you want to keep visible
       over panels that hide UIParent.
+
+---------------------------------------------------------------------------
+4.  STATE & UI MANAGEMENT
+---------------------------------------------------------------------------
+
+    YapperAPI:GetState()            → state name (string)
+    YapperAPI:IsState(stateName)    → boolean
+    YapperAPI:GetStates()           → sorted array of all valid state names
+
+    YapperAPI:SetState(stateName, ...)
+      Manually request a state transition. stateName must be a valid state
+      (e.g. "IDLE", "EDITING", "MULTILINE"). Metadata passed in ... is
+      forwarded to callbacks and history logs. Use with caution: forcing
+      states may bypass internal logic or cause UI desync.
+
+    YapperAPI:ListFrames()          → table
+      Returns a map of internal frame names to their WoW frame objects.
+      
+      Flat keys for quick access:
+        Overlay, OverlayEdit, LabelBg, SuggestionFrame, HintFrame,
+        SuggestionClickCatcher, MultilineFrame, MultilineEdit, MultilineScroll.
+
+      Categorized registry (advanced):
+        The returned table also contains an 'All' key which is a raw map of
+        categories (e.g. "Spellcheck", "Overlay", "Core") to their respective
+        frame objects.
+
+      Use this to re-parent or restyle Yapper UI without global lookups.
 
     Spellcheck accessors (safe wrappers — return nil/false if spellcheck is unavailable):
 
@@ -848,6 +882,53 @@ function YapperAPI:GetStateLogCount()
         return YapperTable.State:GetLogCount()
     end
     return 0
+end
+
+--- Transition the state machine to a new state.
+--- Use with caution: forcing states may bypass safety logic or cause UI desync.
+--- @param stateName string  One of "IDLE", "EDITING", "MULTILINE", etc.
+--- @param ... any          Metadata to pass to the state machine and observers.
+function YapperAPI:SetState(stateName, ...)
+    if type(stateName) ~= "string" then return false end
+    local s = YapperTable.State
+    if s and s.STATES and s.STATES[stateName] and type(s.Transition) == "function" then
+        s:Transition(stateName, ...)
+        return true
+    end
+    return false
+end
+
+--- Returns a table mapping internal frame names to their WoW frame objects.
+--- Useful for addons that need to re-parent or
+--- restyle Yapper's UI components without relying on global names.
+function YapperAPI:ListFrames()
+    local out = {}
+    local registry = YapperTable.Core and YapperTable.Core.UI and YapperTable.Core.UI.Frames
+    if not registry then return out end
+
+    -- Map categorized registry to the flat API keys for backward compatibility.
+    if registry.Overlay then
+        out.Overlay     = registry.Overlay.Frame
+        out.OverlayEdit = registry.Overlay.EditBox
+        out.LabelBg     = registry.Overlay.LabelBg
+    end
+
+    if registry.Spellcheck then
+        out.SuggestionFrame        = registry.Spellcheck.SuggestionFrame
+        out.HintFrame              = registry.Spellcheck.HintFrame
+        out.SuggestionClickCatcher = registry.Spellcheck.SuggestionClickCatcher
+    end
+
+    if registry.Multiline then
+        out.MultilineFrame  = registry.Multiline.Frame
+        out.MultilineEdit   = registry.Multiline.EditBox
+        out.MultilineScroll = registry.Multiline.ScrollFrame
+    end
+
+    -- Also return the full categorized registry as a sub-table for advanced usage.
+    out.All = registry
+
+    return out
 end
 
 -- ===== SPELLCHECK ACCESSORS ================================================
