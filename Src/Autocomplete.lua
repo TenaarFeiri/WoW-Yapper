@@ -21,27 +21,27 @@
 		`dict.words` array — ~17 iterations for 130k words ($O(\log N)$).
 ]]
 
-local _, YapperTable = ...
+local _, YapperTable     = ...
 
-local Autocomplete = {}
+local Autocomplete       = {}
 YapperTable.Autocomplete = Autocomplete
 
 -- Localise Lua globals for performance
-local type         = type
-local pairs        = pairs
-local ipairs       = ipairs
-local tostring     = tostring
-local string_sub   = string.sub
-local string_lower = string.lower
-local string_upper = string.upper
-local string_len   = string.len
-local string_byte  = string.byte
-local math_floor   = math.floor
-local math_max     = math.max
-local math_min     = math.min
-local math_log     = math.log
-local math_huge    = math.huge
-local string_gsub  = string.gsub
+local type               = type
+local pairs              = pairs
+local ipairs             = ipairs
+local tostring           = tostring
+local string_sub         = string.sub
+local string_lower       = string.lower
+local string_upper       = string.upper
+local string_len         = string.len
+local string_byte        = string.byte
+local math_floor         = math.floor
+local math_max           = math.max
+local math_min           = math.min
+local math_log           = math.log
+local math_huge          = math.huge
+local string_gsub        = string.gsub
 
 --- Convert leetspeak characters back to their base alphabet equivalents.
 --- Used to ensure blocked words can't be bypassed with common substitutions.
@@ -71,30 +71,32 @@ end
 -- State
 -- ---------------------------------------------------------------------------
 
-Autocomplete.GhostFS       = nil     -- FontString for the ghost-text preview
-Autocomplete.CurrentSugg   = nil     -- currently displayed suggestion (full word)
-Autocomplete.CurrentPrefix = nil     -- the partial word that produced it
-Autocomplete.PrefixText    = nil     -- full EditBox text up to (and including) the cursor
-Autocomplete.Active        = false   -- true while a suggestion is visible
-Autocomplete.Enabled       = true    -- master toggle
-Autocomplete._activeEditBox = nil    -- the EditBox the ghost is bound to (nil = overlay)
-Autocomplete._isMultiline   = false  -- true while bound to the multiline editor
+Autocomplete.GhostFS        = nil   -- FontString for the ghost-text preview
+Autocomplete.CurrentSugg    = nil   -- currently displayed suggestion (full word)
+Autocomplete.CurrentPrefix  = nil   -- the partial word that produced it
+Autocomplete.PrefixText     = nil   -- full EditBox text up to (and including) the cursor
+Autocomplete.Active         = false -- true while a suggestion is visible
+Autocomplete.Enabled        = true  -- master toggle
+Autocomplete._activeEditBox = nil   -- the EditBox the ghost is bound to (nil = overlay)
+Autocomplete._isMultiline   = false -- true while bound to the multiline editor
+Autocomplete._offsetX       = 0     -- manual pixel offset (x)
+Autocomplete._offsetY       = 0     -- manual pixel offset (y)
 
 -- Minimum characters before offering a suggestion.
-local MIN_PREFIX_LEN = 2
+local MIN_PREFIX_LEN        = 2
 
 -- Thresholds that control how many prefix-scan candidates are considered
 -- and whether phonetic broadening is applied.
 --   SHORT  (2-3 chars): scan up to SCAN_SHORT candidates; no phonetics.
 --   MEDIUM (4-5 chars): scan up to SCAN_MEDIUM candidates; add phonetic matches.
 --   LONG   (6+ chars):  scan up to SCAN_LONG  candidates; phonetic is tie-breaker only.
-local SCAN_SHORT  = 12   -- wider net when prefix is short
-local SCAN_MEDIUM = 8
-local SCAN_LONG   = 4
+local SCAN_SHORT            = 12 -- wider net when prefix is short
+local SCAN_MEDIUM           = 8
+local SCAN_LONG             = 4
 
 -- Pixel gap between the caret and the first character of ghost text.
 -- Prevents the caret from visually swallowing the first ghost letter.
-local GHOST_CARET_PAD = 4
+local GHOST_CARET_PAD       = 4
 
 -- ---------------------------------------------------------------------------
 -- Config
@@ -295,7 +297,8 @@ end
 ---@param engineHashes table|nil  Optional set of engine-blocked hashes.
 ---@param engineHashFn function|nil  Optional hashing function.
 ---@return string?
-function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet, engineHashes, engineHashFn)
+function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet,
+									   engineHashes, engineHashFn)
 	if not words or #words == 0 then return nil end
 
 	local lowerPrefix = string_lower(prefix)
@@ -307,7 +310,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yall
 	local scanLimit
 	local usePhonetics
 	if broad then
-		scanLimit    = SCAN_SHORT  -- widest net
+		scanLimit    = SCAN_SHORT -- widest net
 		usePhonetics = (phonetics ~= nil)
 	elseif prefixLen <= 3 then
 		scanLimit    = SCAN_SHORT
@@ -336,12 +339,12 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yall
 	-- Score and pick the best.
 	local bestWord  = nil
 	local bestScore = -math_huge
-	local seen = {}
+	local seen      = {}
 	for _, w in ipairs(candidates) do
 		local lw = string_lower(w)
 		if not seen[lw] then
 			seen[lw] = true
-			
+
 			local isBlocked = false
 			if addedSet and addedSet[lw] then
 				-- explicit override
@@ -404,7 +407,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	end
 
 	if yallmFreq then
-		local freqSorted = yallm and yallm.EnsureFreqSorted and yallm:EnsureFreqSorted(locale)
+		local freqSorted     = yallm and yallm.EnsureFreqSorted and yallm:EnsureFreqSorted(locale)
 		local prefixLen      = string_len(lowerPrefix)
 		local cleanPrefixLen = string_len(cleanPrefix)
 		if freqSorted and #freqSorted > 0 then
@@ -484,7 +487,8 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local dict = sc:GetDictionary()
 	if not dict then return nil end
 
-	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet, engineHashes, engineHashFn)
+	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet,
+		userBlockedSet, engineHashes, engineHashFn)
 	if hit then
 		return prefixIsCapital and CapFirst(hit) or hit
 	end
@@ -493,7 +497,8 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	if dict.extends and sc.Dictionaries then
 		local base = sc.Dictionaries[dict.extends]
 		if base and type(base.words) == "table" then
-			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet, engineHashes, engineHashFn)
+			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet,
+				userBlockedSet, engineHashes, engineHashFn)
 		end
 	end
 
@@ -566,8 +571,8 @@ function Autocomplete:_InstallCursorHook(editBox)
 		end
 	end)
 
-	self._hookedEditBox   = editBox
-	self._hookedOrigScript = existing  -- may be nil (no prior script)
+	self._hookedEditBox    = editBox
+	self._hookedOrigScript = existing -- may be nil (no prior script)
 end
 
 --- Position the ghost-text FontString immediately after the caret.
@@ -587,22 +592,34 @@ function Autocomplete:PositionGhost()
 	-- At non-100% UI scale the effective scale of the EditBox differs from
 	-- UIParent's, so those frame-local units must be converted before being
 	-- passed to SetPoint (which also uses UIParent-relative logical pixels).
-	local uiScale  = UIParent and UIParent:GetEffectiveScale() or 1
-	local ebScale  = editBox:GetEffectiveScale()
-	local toUI     = ebScale / uiScale   -- eb local → UIParent logical pixels
-	local pad      = GHOST_CARET_PAD / toUI  -- keep pad visually consistent
+	local uiScale = UIParent and UIParent:GetEffectiveScale() or 1
+	local ebScale = editBox:GetEffectiveScale()
+	local toUI    = ebScale / uiScale    -- eb local → UIParent logical pixels
+	local pad     = GHOST_CARET_PAD / toUI -- keep pad visually consistent
 
-	local offsetX = (self._caretX or 0) * toUI + pad
+	local offsetX = (self._caretX or 0) * toUI + pad + (self._offsetX or 0)
+	local offsetY = (self._offsetY or 0)
 
 	fs:ClearAllPoints()
 	if self._isMultiline then
 		-- In multiline, y from OnCursorChanged is the vertical offset from the
 		-- top of the EditBox to the cursor bottom; h is the cursor height.
 		--local offsetY = (self._caretY or 0) + (self._caretH or 0) * 0.5
-		local offsetY = ((self._caretY or 0) - (self._caretH or 0) * 0.3) * toUI
-		fs:SetPoint("TOPLEFT", editBox, "TOPLEFT", offsetX, offsetY)
+		local mlY = ((self._caretY or 0) - (self._caretH or 0) * 0.3) * toUI
+		fs:SetPoint("TOPLEFT", editBox, "TOPLEFT", offsetX, mlY + offsetY)
 	else
-		fs:SetPoint("LEFT", editBox, "LEFT", offsetX, 0)
+		fs:SetPoint("LEFT", editBox, "LEFT", offsetX, offsetY)
+	end
+end
+
+--- Set a manual pixel offset for the ghost-text positioning.
+---@param x number
+---@param y number
+function Autocomplete:SetOffset(x, y)
+	self._offsetX = x or 0
+	self._offsetY = y or 0
+	if self.Active then
+		self:PositionGhost()
 	end
 end
 
@@ -651,16 +668,16 @@ end
 ---@param editBox table  The overlay EditBox widget.
 function Autocomplete:OnTextChanged(editBox)
 	if not self:IsEnabled() then
-		self:HideGhost()
+		YapperAPI:HideGhostText()
 		return
 	end
 
-	local text = editBox:GetText()
-	local pos  = editBox:GetCursorPosition()
+	local text           = editBox:GetText()
+	local pos            = editBox:GetCursorPosition()
 
 	local word, startIdx = self:ExtractWordAtCursor(text, pos)
 	if not word then
-		self:HideGhost()
+		YapperAPI:HideGhostText()
 		return
 	end
 
@@ -672,10 +689,11 @@ function Autocomplete:OnTextChanged(editBox)
 		if startIdx == firstWordStart then
 			local emotePickerVisible = false
 			if YapperTable.Emotes then
-				emotePickerVisible = YapperTable.Emotes:IsActive() or (YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
+				emotePickerVisible = YapperTable.Emotes:IsActive() or
+				(YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown())
 			end
 			if emotePickerVisible then
-				self:HideGhost()
+				YapperAPI:HideGhostText()
 				return
 			end
 		end
@@ -722,15 +740,15 @@ function Autocomplete:OnTextChanged(editBox)
 		end
 	end
 
-	local suggestion = self:GetSuggestion(word)
+	local suggestion = YapperAPI:GetAutocompleteSuggestion(word)
 	if not suggestion and isDirChange then
-		suggestion = self:GetSuggestion(word, true)  -- broad retry
+		suggestion = self:GetSuggestion(word, true) -- broad retry (internal method for now)
 	end
 
 	if suggestion then
-		self:ShowGhost(suggestion, word, string_sub(text, 1, pos))
+		YapperAPI:ShowGhostText(suggestion, editBox, word, string_sub(text, 1, pos))
 	else
-		self:HideGhost()
+		YapperAPI:HideGhostText()
 	end
 end
 
@@ -744,12 +762,12 @@ function Autocomplete:OnTabPressed(editBox)
 		return false
 	end
 
-	local text = editBox:GetText()
-	local pos  = editBox:GetCursorPosition()
+	local text            = editBox:GetText()
+	local pos             = editBox:GetCursorPosition()
 
 	local word, wordStart = self:ExtractWordAtCursor(text, pos)
 	if not word or word ~= self.CurrentPrefix then
-		self:HideGhost()
+		YapperAPI:HideGhostText()
 		return false
 	end
 
@@ -774,13 +792,13 @@ function Autocomplete:OnTabPressed(editBox)
 		end
 	end
 
-	self:HideGhost()
+	YapperAPI:HideGhostText()
 	return true
 end
 
 --- Called when the overlay hides or loses focus.
 function Autocomplete:OnOverlayHide()
-	self:HideGhost()
+	YapperAPI:HideGhostText()
 end
 
 -- ---------------------------------------------------------------------------
