@@ -41,7 +41,7 @@ function EditBox:SetupOverlayScripts()
         if updatingText then return end
 
         if YapperTable.API then
-            YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput)
+            YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
         end
 
         if YapperTable.Emotes and YapperTable.Emotes:IsActive() then

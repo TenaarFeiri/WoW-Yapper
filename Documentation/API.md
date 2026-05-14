@@ -61,10 +61,13 @@ Register/unregister:
 - `STATE_CHANGED(newState, oldState, ...)`
 - `EDITBOX_SHOW(chatType, target)`
 - `EDITBOX_HIDE()`
+- `EDITBOX_TEXT_CHANGED(text, isUserInput, box)`
 - `EDITBOX_CHANNEL_CHANGED(chatType, target)`
 - `THEME_CHANGED(themeName)`
 - `SPELLCHECK_SUGGESTION(word, suggestions)`
+- `SPELLCHECK_SUGGESTION_HIGHLIGHTED(text, index, total)`
 - `SPELLCHECK_APPLIED(original, replacement)`
+- `SPELLCHECK_CLOSED()`
 - `SPELLCHECK_WORD_ADDED(word, locale)`
 - `SPELLCHECK_WORD_IGNORED(word, locale)`
 - `YALLM_WORD_LEARNED(word, locale)`

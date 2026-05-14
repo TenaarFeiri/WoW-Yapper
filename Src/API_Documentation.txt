@@ -161,8 +161,9 @@
     EDITBOX_HIDE             (none)
       Fires when the Yapper overlay is hidden.
 
-    EDITBOX_TEXT_CHANGED     text, isUserInput
+    EDITBOX_TEXT_CHANGED     text, isUserInput, box
       Fires when the content of the overlay editbox is modified.
+      box is the WoW EditBox frame object.
 
     EDITBOX_CHANNEL_CHANGED  chatType, target
       Fires when the user switches chat channel (Tab, slash command, etc.).
@@ -182,6 +183,14 @@
 
     SPELLCHECK_APPLIED       original, replacement
       Fires when the user accepts a spellcheck suggestion.
+
+    SPELLCHECK_CLOSED        (none)
+      Fires when the spellcheck suggestion tooltip is closed.
+
+    SPELLCHECK_SUGGESTION_HIGHLIGHTED text, index, total
+      Fires when a suggestion is highlighted in the popup (via keyboard or mouse).
+      text is the label (color codes stripped); index is the 1-based global
+      index; total is the total number of suggestions.
 
     SPELLCHECK_WORD_ADDED    word, locale
       Fires when a word is added to the user dictionary (manually or via YALLM).

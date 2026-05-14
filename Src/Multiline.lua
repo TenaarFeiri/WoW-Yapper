@@ -398,6 +398,10 @@ function Multiline:CreateFrame()
 	edit:SetScript("OnTextChanged", function(box, isUserInput)
 		if not isUserInput then return end
 
+		if YapperTable.API and type(YapperTable.API.Fire) == "function" then
+			YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
+		end
+
 		-- Passive spellcheck: only reads the EditBox (never calls SetText),
 		-- so this is safe without disturbing cursor or scroll state.
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
@@ -457,6 +461,7 @@ function Multiline:CreateFrame()
 			box:SetWidth(sfW)
 		end
 	end)
+
 end
 
 -- ---------------------------------------------------------------------------

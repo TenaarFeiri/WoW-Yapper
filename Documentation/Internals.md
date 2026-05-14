@@ -256,40 +256,40 @@ Bound when overlay exists; reacts to text/cursor updates.
 
 - Description: UI state machine for underlines, hint, and suggestions.
 - Methods:
-  - [NEW] `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L618`](../Src/Spellcheck/UI.lua#L618))
+  - [NEW] `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L619`](../Src/Spellcheck/UI.lua#L619))
   - `Bind` ([`../Src/Spellcheck/UI.lua#L29`](`../Src/Spellcheck/UI.lua#L29`))
   - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L64`](`../Src/Spellcheck/UI.lua#L64`))
   - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L125`](`../Src/Spellcheck/UI.lua#L125`))
   - `PurgeOtherDictionaries` ([`../Src/Spellcheck/UI.lua#L163`](`../Src/Spellcheck/UI.lua#L163`))
   - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L217`](`../Src/Spellcheck/UI.lua#L217`))
   - `ApplyState` ([`../Src/Spellcheck/UI.lua#L259`](`../Src/Spellcheck/UI.lua#L259`))
-  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L288`](`../Src/Spellcheck/UI.lua#L288`))
-  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L292`](`../Src/Spellcheck/UI.lua#L292`))
-  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L312`](`../Src/Spellcheck/UI.lua#L312`))
-  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L356`](`../Src/Spellcheck/UI.lua#L356`))
-  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L362`](`../Src/Spellcheck/UI.lua#L362`))
-  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L385`](`../Src/Spellcheck/UI.lua#L385`))
-  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L399`](`../Src/Spellcheck/UI.lua#L399`))
-  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L414`](`../Src/Spellcheck/UI.lua#L414`))
-  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L507`](`../Src/Spellcheck/UI.lua#L507`))
-  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L517`](`../Src/Spellcheck/UI.lua#L517`))
-  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L543`](`../Src/Spellcheck/UI.lua#L543`))
-  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L555`](`../Src/Spellcheck/UI.lua#L555`))
-  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L633`](`../Src/Spellcheck/UI.lua#L633`))
-  - `HideHint` ([`../Src/Spellcheck/UI.lua#L654`](`../Src/Spellcheck/UI.lua#L654`))
-  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L659`](`../Src/Spellcheck/UI.lua#L659`))
-  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L682`](`../Src/Spellcheck/UI.lua#L682`))
-  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L686`](`../Src/Spellcheck/UI.lua#L686`))
-  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L693`](`../Src/Spellcheck/UI.lua#L693`))
-  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L750`](`../Src/Spellcheck/UI.lua#L750`))
-  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L760`](`../Src/Spellcheck/UI.lua#L760`))
-  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L778`](`../Src/Spellcheck/UI.lua#L778`))
-  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L807`](`../Src/Spellcheck/UI.lua#L807`))
-  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L924`](`../Src/Spellcheck/UI.lua#L924`))
-  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L947`](`../Src/Spellcheck/UI.lua#L947`))
-  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L968`](`../Src/Spellcheck/UI.lua#L968`))
+  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L289`](`../Src/Spellcheck/UI.lua#L289`))
+  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L293`](`../Src/Spellcheck/UI.lua#L293`))
+  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L313`](`../Src/Spellcheck/UI.lua#L313`))
+  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L357`](`../Src/Spellcheck/UI.lua#L357`))
+  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L363`](`../Src/Spellcheck/UI.lua#L363`))
+  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L386`](`../Src/Spellcheck/UI.lua#L386`))
+  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L400`](`../Src/Spellcheck/UI.lua#L400`))
+  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L415`](`../Src/Spellcheck/UI.lua#L415`))
+  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L508`](`../Src/Spellcheck/UI.lua#L508`))
+  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L518`](`../Src/Spellcheck/UI.lua#L518`))
+  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L544`](`../Src/Spellcheck/UI.lua#L544`))
+  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L556`](`../Src/Spellcheck/UI.lua#L556`))
+  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L634`](`../Src/Spellcheck/UI.lua#L634`))
+  - `HideHint` ([`../Src/Spellcheck/UI.lua#L655`](`../Src/Spellcheck/UI.lua#L655`))
+  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L660`](`../Src/Spellcheck/UI.lua#L660`))
+  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L683`](`../Src/Spellcheck/UI.lua#L683`))
+  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L687`](`../Src/Spellcheck/UI.lua#L687`))
+  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L694`](`../Src/Spellcheck/UI.lua#L694`))
+  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L755`](`../Src/Spellcheck/UI.lua#L755`))
+  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L777`](`../Src/Spellcheck/UI.lua#L777`))
+  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L809`](`../Src/Spellcheck/UI.lua#L809`))
+  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L838`](`../Src/Spellcheck/UI.lua#L838`))
+  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L959`](`../Src/Spellcheck/UI.lua#L959`))
+  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L984`](`../Src/Spellcheck/UI.lua#L984`))
+  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L1008`](`../Src/Spellcheck/UI.lua#L1008`))
 - Fields:
-  - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L553`](../Src/Spellcheck/UI.lua#L553)).
+  - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L554`](../Src/Spellcheck/UI.lua#L554)).
 - Callbacks fired:
   - `SPELLCHECK_SUGGESTION`, `SPELLCHECK_APPLIED`.
 
@@ -663,13 +663,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
   - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L515`](`../Src/Multiline.lua#L515`))
-  - `Exit` ([`../Src/Multiline.lua#L645`](`../Src/Multiline.lua#L645`))
-  - `Submit` ([`../Src/Multiline.lua#L761`](`../Src/Multiline.lua#L761`))
-  - `Cancel` ([`../Src/Multiline.lua#L890`](`../Src/Multiline.lua#L890`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L916`](`../Src/Multiline.lua#L916`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L903`](`../Src/Multiline.lua#L903`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L925`](`../Src/Multiline.lua#L925`))
+  - `Enter` ([`../Src/Multiline.lua#L520`](`../Src/Multiline.lua#L520`))
+  - `Exit` ([`../Src/Multiline.lua#L650`](`../Src/Multiline.lua#L650`))
+  - `Submit` ([`../Src/Multiline.lua#L766`](`../Src/Multiline.lua#L766`))
+  - `Cancel` ([`../Src/Multiline.lua#L895`](`../Src/Multiline.lua#L895`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L921`](`../Src/Multiline.lua#L921`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L908`](`../Src/Multiline.lua#L908`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L930`](`../Src/Multiline.lua#L930`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 

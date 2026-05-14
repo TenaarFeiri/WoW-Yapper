@@ -785,6 +785,10 @@ function Autocomplete:OnTabPressed(editBox)
 	editBox:SetText(newText)
 	editBox:SetCursorPosition(wordStart - 1 + string_len(self.CurrentSugg) + string_len(trail))
 
+	if YapperTable.API then
+		YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
+	end
+
 	-- Record the acceptance in YALLM: strong bias signal (prefix→suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
 	local sc = YapperTable.Spellcheck
