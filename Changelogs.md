@@ -30,6 +30,8 @@
     - Retrieve complete list of registered frames;
     - New callbacks: EDITBOX_TEXT_CHANGED, EDITBOX_LABEL_UPDATED
   - Updated Yapper's internals to consume public API.
+  - Fixed bug where Spellchecking tooltips could sometimes break under certain conditions.
+  - Added spellchecking callbacks for plugin compatibility.
 
 ## 2.1.15
   - Fixed issue where TRP3 Extended links didn't insert correctly into Yapper. (Thanks Heeni, for the report!)
