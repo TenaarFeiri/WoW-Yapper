@@ -102,11 +102,11 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1460`](../Src/API.lua#L1460)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1544`](../Src/API.lua#L1544)).
 - Methods:
   - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1379`](../Src/API.lua#L1379))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1446`](../Src/API.lua#L1446))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1481`](../Src/API.lua#L1481))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1530`](../Src/API.lua#L1530))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1565`](../Src/API.lua#L1565))
   - `API:GetStateLogCount() → number` ([`../Src/API.lua#L880`](../Src/API.lua#L880)) — returns the number of entries in the FSM state history.
   - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L871`](../Src/API.lua#L871)) — returns a specific state transition log entry.
   - `API:GetStateLogs() → table` ([`../Src/API.lua#L861`](../Src/API.lua#L861)) — returns the full circular buffer of state transitions.
@@ -687,6 +687,7 @@ Binds to overlay (or multiline) editbox when available.
   - `_activeEditBox` ([`../Src/Autocomplete.lua#L80`](`../Src/Autocomplete.lua#L80`))
   - `_isMultiline` ([`../Src/Autocomplete.lua#L81`](`../Src/Autocomplete.lua#L81`))
 - Methods:
+  - [NEW] `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L618`](../Src/Autocomplete.lua#L618))
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 
 ## History
