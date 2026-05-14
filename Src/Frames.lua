@@ -25,7 +25,12 @@ function EventFrames:Init()
         return
     end
     local id = YapperTable.Config.System.FRAME_ID_PARENT
-    Container.Events[id] = CreateFrame("Frame", YapperName .. "EventFrame", UIParent)
+    local f = CreateFrame("Frame", YapperName .. "EventFrame", UIParent)
+    Container.Events[id] = f
+    
+    if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
+        YapperTable.Core:RegisterFrame("Core", "EventFrame", f)
+    end
 end
 
 --- Hide the main event frame (used during override/disable).

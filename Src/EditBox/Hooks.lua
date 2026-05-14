@@ -89,7 +89,7 @@ function EditBox:Show(origEditBox)
             C_Timer.After(0, function()
                 -- If we are refocusing, ensure state is set back to MULTILINE
                 if State and not State:IsMultiline() then
-                    State:ToMultiline()
+                    YapperAPI:SetState("MULTILINE")
                 end
                 if mlb and mlb.SetFocus then
                     mlb:SetFocus()
@@ -381,9 +381,7 @@ function EditBox:Show(origEditBox)
         origEditBox:SetText("")
     end
 
-    if State then
-        State:ToEditing()
-    end
+    YapperAPI:SetState("EDITING")
 
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_SHOW", self.ChatType, self.Target)
@@ -429,8 +427,8 @@ function EditBox:Hide()
 
     -- Transition to IDLE state, but only if we're not busy (sending, stalled, lockdown)
     -- or in multiline mode.
-    if State and not (State:IsBusy() or State:IsMultiline()) then
-        State:ToIdle()
+    if not (State:IsBusy() or State:IsMultiline()) then
+        YapperAPI:SetState("IDLE")
     end
 
     -- EDITBOX_HIDE callback: notify external addons.
@@ -448,9 +446,7 @@ function EditBox:HandoffToBlizzard(silent)
     YapperTable.Utils:DebugPrint("Executing HandoffToBlizzard...")
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
 
-    if State then
-        State:ToLockdown()
-    end
+    YapperAPI:SetState("LOCKDOWN")
 
     -- Centralised lockdown cleanup (cancels timers/tickers).
     self:ClearLockdownState()
@@ -741,6 +737,10 @@ function EditBox:RefreshLabel()
     -- Labels stay channel-coloured. Input text uses channel colour, or master override.
     if self.OverlayEdit then
         self.OverlayEdit:SetTextColor(resolvedR, resolvedG, resolvedB)
+    end
+
+    if YapperTable.API then
+        YapperTable.API:Fire("EDITBOX_LABEL_UPDATED", label, resolvedR, resolvedG, resolvedB)
     end
 end
 
@@ -1235,7 +1235,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
             if isLockdown or isDebugBypass then
                 if State and not State:IsLockdown() then
-                    State:ToLockdown()
+                    YapperAPI:SetState("LOCKDOWN")
                 end
                 if not self._lockdown.showHandled then
                     self._lockdown.showHandled = true
@@ -1325,7 +1325,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     -- If we are suppressing the overlay open (e.g. WIM taking focus),
                     -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
                     if State and not State:IsIdle() then
-                        State:ToIdle()
+                        YapperAPI:SetState("IDLE")
                     end
                     return
                 end

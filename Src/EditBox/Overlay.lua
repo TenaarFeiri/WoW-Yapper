@@ -417,6 +417,13 @@ function EditBox:CreateOverlay()
     self.OverlayEdit   = edit
     self.ChannelLabel  = labelFs
     self.LabelBg       = labelBg
+
+    if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
+        YapperTable.Core:RegisterFrame("Overlay", "Frame", frame)
+        YapperTable.Core:RegisterFrame("Overlay", "EditBox", edit)
+        YapperTable.Core:RegisterFrame("Overlay", "Label", labelFs)
+        YapperTable.Core:RegisterFrame("Overlay", "LabelBg", labelBg)
+    end
     -- Also attach to the frame so external theming APIs can find them via the frame object.
     frame.OverlayEdit  = edit
     frame.ChannelLabel = labelFs

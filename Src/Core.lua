@@ -5,7 +5,9 @@
 
 local YapperName, YapperTable = ...
 
-YapperTable.Core = {}
+YapperTable.Core = YapperTable.Core or {}
+YapperTable.Core.UI = YapperTable.Core.UI or {}
+YapperTable.Core.UI.Frames = YapperTable.Core.UI.Frames or {}
 local State      = YapperTable.State
 
 -- ---------------------------------------------------------------------------
@@ -307,6 +309,16 @@ function YapperTable.Core:GetCharacterLanguage(lang)
     -- If not present, use default.
     local _, langId = GetDefaultLanguage()
     return langId
+end
+
+--- Register a frame in the central UI registry for external access.
+--- @param category string  The functional category (e.g. "Overlay", "Spellcheck")
+--- @param key      string  Unique identifier within that category
+--- @param frame    table   The WoW frame object
+function YapperTable.Core:RegisterFrame(category, key, frame)
+    if type(category) ~= "string" or type(key) ~= "string" or not frame then return end
+    self.UI.Frames[category] = self.UI.Frames[category] or {}
+    self.UI.Frames[category][key] = frame
 end
 
 -- ---------------------------------------------------------------------------

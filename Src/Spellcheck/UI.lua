@@ -497,6 +497,11 @@ function Spellcheck:EnsureSuggestionFrame()
 
     self.SuggestionFrame = frame
     self.SuggestionRows = rows
+
+    if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
+        YapperTable.Core:RegisterFrame("Spellcheck", "SuggestionFrame", frame)
+        YapperTable.Core:RegisterFrame("Spellcheck", "SuggestionClickCatcher", catcher)
+    end
 end
 
 function Spellcheck:SuggestionsEqual(a, b)
@@ -529,6 +534,10 @@ function Spellcheck:EnsureHintFrame()
 
     frame._fs = fs
     self.HintFrame = frame
+
+    if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
+        YapperTable.Core:RegisterFrame("Spellcheck", "HintFrame", frame)
+    end
 end
 
 function Spellcheck:CancelHintTimer()

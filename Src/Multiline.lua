@@ -210,6 +210,13 @@ function Multiline:CreateFrame()
 	sf:SetScrollChild(edit)
 	self.EditBox = edit
 
+	if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
+		YapperTable.Core:RegisterFrame("Multiline", "Frame", f)
+		YapperTable.Core:RegisterFrame("Multiline", "ScrollFrame", sf)
+		YapperTable.Core:RegisterFrame("Multiline", "EditBox", edit)
+		YapperTable.Core:RegisterFrame("Multiline", "Label", label)
+	end
+
 	if YapperTable and YapperTable.InstallCompatMethods then
 		YapperTable.InstallCompatMethods(edit)
 	end
@@ -335,14 +342,14 @@ function Multiline:CreateFrame()
 
 		-- If focus is lost (e.g. clicked game world), stop typing signals.
 		if State and State:IsMultiline() then
-			State:ToIdle()
+			YapperAPI:SetState("IDLE")
 		end
 	end)
 
 	edit:HookScript("OnEditFocusGained", function(box)
 		-- Resume typing signals when clicking back in.
 		if State and State:IsIdle() then
-			State:ToMultiline()
+			YapperAPI:SetState("MULTILINE")
 		end
 	end)
 
@@ -576,7 +583,7 @@ function Multiline:Enter(text, chatType, language, target)
 	end
 
 	-- Transition machine to MULTILINE state.
-	State:ToMultiline()
+	YapperAPI:SetState("MULTILINE")
 
 	-- Position the frame using absolute UIParent coordinates captured
 	-- from the overlay and ChatFrame1 before the overlay is hidden.
@@ -647,7 +654,7 @@ function Multiline:Exit(restoreText)
 			YapperTable.History:ClearDraft(self.EditBox)
 		end
 	end
-	State:ToIdle()
+	YapperAPI:SetState("IDLE")
 
 	if self.Frame then
 		self.Frame:Hide()
@@ -747,7 +754,7 @@ function Multiline:Submit()
 	-- Empty editor: close entirely (do not return to the overlay).
 	if #posts == 0 then
 		local eb = YapperTable.EditBox
-		State:ToIdle()
+		YapperAPI:SetState("IDLE")
 		if self.Frame then self.Frame:Hide() end
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 			YapperTable.Spellcheck:UnbindMultiline()
@@ -757,12 +764,12 @@ function Multiline:Submit()
 		end
 		if eb and eb.OverlayEdit then eb.OverlayEdit:SetText("") end
 		if eb then eb:Hide() end
-		if State then State:ToIdle() end
+		YapperAPI:SetState("IDLE")
 		return
 	end
 
 	-- Close the multiline frame before handing off to the pipeline.
-	State:ToIdle()
+	YapperAPI:SetState("IDLE")
 	if self.Frame then self.Frame:Hide() end
 
 	-- Restore spellcheck and autocomplete to the single-line overlay.

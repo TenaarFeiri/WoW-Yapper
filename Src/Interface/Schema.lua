@@ -511,7 +511,7 @@ function Interface:OnWindowClosed()
 
     local State = YapperTable.State
     if State then
-        State:ToIdle()
+        YapperAPI:SetState("IDLE")
     end
 end
 

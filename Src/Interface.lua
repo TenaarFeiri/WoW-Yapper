@@ -761,8 +761,7 @@ function Interface:ShowMainWindow()
 
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
-    local State = YapperTable.State
-    if State then State:ToConfig() end
+    YapperAPI:SetState("CONFIG")
     
     Interface.MainWindowFrame:Show()
 end
@@ -785,8 +784,7 @@ function Interface:OpenToCategory(catId)
     Interface:BuildConfigUI()
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
-    local State = YapperTable.State
-    if State then State:ToConfig() end
+    YapperAPI:SetState("CONFIG")
     
     Interface.MainWindowFrame:Show()
 end

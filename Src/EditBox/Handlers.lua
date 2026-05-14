@@ -40,6 +40,10 @@ function EditBox:SetupOverlayScripts()
     edit:SetScript("OnTextChanged", function(box, isUserInput)
         if updatingText then return end
 
+        if YapperTable.API then
+            YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput)
+        end
+
         if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
             -- Skip spellcheck while emote viewer is active
         elseif YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
@@ -692,7 +696,7 @@ function EditBox:SetupOverlayScripts()
 
         -- If focus is lost (e.g. clicked game world), stop typing signals.
         if State and State:IsEditing() then
-            State:ToIdle()
+            YapperAPI:SetState("IDLE")
         end
     end)
 
@@ -704,7 +708,7 @@ function EditBox:SetupOverlayScripts()
 
         -- Resume typing signals when clicking back in.
         if State and State:IsIdle() then
-            State:ToEditing()
+            YapperAPI:SetState("EDITING")
         end
     end)
 
@@ -796,9 +800,7 @@ function EditBox:SetupOverlayScripts()
         elseif event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED" then
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
-            if State then
-                State:ToIdle()
-            end
+            YapperAPI:SetState("IDLE")
             -- If we saved a draft during lockdown, poll until lockdown
             -- is truly over (checks every 1s for up to 5s).
             if self._lockdown.handedOff then
