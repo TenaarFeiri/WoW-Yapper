@@ -385,6 +385,7 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
+  - [NEW] `EditBox:HardRefocus() → nil`: If the user has triggered a panic condition, ([`../Src/EditBoxCompat.lua#L118`](../Src/EditBoxCompat.lua#L118))
   - [NEW] `YapperTable:InstallCompatMethods() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L34`](../Src/EditBoxCompat.lua#L34))
   - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L58`](../Src/EditBoxCompat.lua#L58))
   - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L56`](../Src/EditBoxCompat.lua#L56))
@@ -477,7 +478,7 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
   - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L881`](`../Src/EditBox/Hooks.lua#L881`))
   - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L956`](`../Src/EditBox/Hooks.lua#L956`))
   - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1023`](`../Src/EditBox/Hooks.lua#L1023`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1387`](`../Src/EditBox/Hooks.lua#L1387`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1386`](`../Src/EditBox/Hooks.lua#L1386`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -639,8 +640,8 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Description: Send orchestrator (`EditBox -> Chunking -> Queue -> Router`).
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
-  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L86`](../Src/Chat.lua#L86))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L204`](../Src/Chat.lua#L204))
+  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L100`](../Src/Chat.lua#L100))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L218`](../Src/Chat.lua#L218))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:
@@ -663,13 +664,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
   - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L522`](`../Src/Multiline.lua#L522`))
-  - `Exit` ([`../Src/Multiline.lua#L652`](`../Src/Multiline.lua#L652`))
-  - `Submit` ([`../Src/Multiline.lua#L768`](`../Src/Multiline.lua#L768`))
-  - `Cancel` ([`../Src/Multiline.lua#L897`](`../Src/Multiline.lua#L897`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L923`](`../Src/Multiline.lua#L923`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L910`](`../Src/Multiline.lua#L910`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L932`](`../Src/Multiline.lua#L932`))
+  - `Enter` ([`../Src/Multiline.lua#L531`](`../Src/Multiline.lua#L531`))
+  - `Exit` ([`../Src/Multiline.lua#L661`](`../Src/Multiline.lua#L661`))
+  - `Submit` ([`../Src/Multiline.lua#L777`](`../Src/Multiline.lua#L777`))
+  - `Cancel` ([`../Src/Multiline.lua#L906`](`../Src/Multiline.lua#L906`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L932`](`../Src/Multiline.lua#L932`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L919`](`../Src/Multiline.lua#L919`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L941`](`../Src/Multiline.lua#L941`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -757,12 +758,12 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `ShowMainWindow` ([`../Src/Interface.lua#L750`](`../Src/Interface.lua#L750`))
   - `OpenToCategory` ([`../Src/Interface.lua#L771`](`../Src/Interface.lua#L771`))
   - `ToggleMainWindow` ([`../Src/Interface.lua#L792`](`../Src/Interface.lua#L792`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L821`](`../Src/Interface.lua#L821`))
-  - `CloseFrame` ([`../Src/Interface.lua#L852`](`../Src/Interface.lua#L852`))
-  - `Init` ([`../Src/Interface.lua#L863`](`../Src/Interface.lua#L863`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L898`](`../Src/Interface.lua#L898`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L824`](`../Src/Interface.lua#L824`))
+  - `CloseFrame` ([`../Src/Interface.lua#L859`](`../Src/Interface.lua#L859`))
+  - `Init` ([`../Src/Interface.lua#L870`](`../Src/Interface.lua#L870`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L905`](`../Src/Interface.lua#L905`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L839`](../Src/Interface.lua#L839)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L846`](../Src/Interface.lua#L846)).
 
 ## Interface.Schema
 

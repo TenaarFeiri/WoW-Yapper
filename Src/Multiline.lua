@@ -210,6 +210,15 @@ function Multiline:CreateFrame()
 	sf:SetScrollChild(edit)
 	self.EditBox = edit
 
+	edit:SetScript("OnMouseDown", function(_, button)
+		if button == "MiddleButton" then
+			local eb = YapperTable.EditBox
+			if eb and eb.HardRefocus then
+				eb:HardRefocus()
+			end
+		end
+	end)
+
 	if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
 		YapperTable.Core:RegisterFrame("Multiline", "Frame", f)
 		YapperTable.Core:RegisterFrame("Multiline", "ScrollFrame", sf)
@@ -1084,3 +1093,6 @@ function Multiline:ApplyTheme()
 		if f._yapperShadowLayer then f._yapperShadowLayer:Hide() end
 	end
 end
+
+-- Export for external use in HardRefocus / Config updates.
+Multiline._RefreshLabel = RefreshMLLabel

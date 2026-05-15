@@ -5,9 +5,9 @@
     event registration, lockdown detection, and idle timer management.
 ]]
 
-local _, YapperTable = ...
-local EditBox        = YapperTable.EditBox
-local State          = YapperTable.State
+local _, YapperTable        = ...
+local EditBox               = YapperTable.EditBox
+local State                 = YapperTable.State
 
 -- Re-localise shared helpers from hub.
 local SLASH_MAP             = EditBox._SLASH_MAP
@@ -15,19 +15,19 @@ local GetLastTellTargetInfo = EditBox.GetLastTellTargetInfo
 local GetLastToldTargetInfo = EditBox.GetLastToldTargetInfo
 
 -- Resolve from Overlay.lua (loaded before us).
-local ResolveChannelName   = EditBox._ResolveChannelName
+local ResolveChannelName    = EditBox._ResolveChannelName
 
 -- Closure accessors for mutable hub-scoped locals.
 local function UserBypassingYapper() return EditBox._UserBypassingYapper() end
 local function SetUserBypassingYapper(v) EditBox._SetUserBypassingYapper(v) end
 
 -- Re-localise Lua globals.
-local type       = type
-local tostring   = tostring
-local tonumber   = tonumber
-local strmatch   = string.match
-local strlower   = string.lower
-local strbyte    = string.byte
+local type     = type
+local tostring = tostring
+local tonumber = tonumber
+local strmatch = string.match
+local strlower = string.lower
+local strbyte  = string.byte
 
 function EditBox:SetupOverlayScripts()
     local edit         = self.OverlayEdit
@@ -115,7 +115,7 @@ function EditBox:SetupOverlayScripts()
             else
                 YapperTable.Emotes:HideHint()
             end
-            
+
             if YapperTable.Emotes:IsActive() then
                 -- Only continue filtering if there's no space yet
                 if not string.find(text, " ") then
@@ -259,6 +259,12 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:SetScript("OnEnterPressed", function(box)
+        -- Panic Debounce: Block accidental sends during focus-spam
+        if self._panicSuppression and GetTime() < self._panicSuppression then
+            self._panicSuppression = nil
+            return
+        end
+
         if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
             return
         end
@@ -648,6 +654,12 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
+    edit:SetScript("OnMouseDown", function(_, button)
+        if button == "MiddleButton" then
+            self:HardRefocus()
+        end
+    end)
+
     frame:SetScript("OnHide", function()
         self.HistoryIndex = nil
         self.HistoryCache = nil
@@ -859,4 +871,3 @@ function EditBox:ResetLockdownIdleTimer()
         self:HandoffToBlizzard()
     end)
 end
-

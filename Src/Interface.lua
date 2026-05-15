@@ -815,6 +815,9 @@ local function NormalizeMouseButton(button)
     if b == "leftbutton" or b == "leftbuttonup" then
         return "LeftButton"
     end
+    if b == "middlebutton" or b == "middlebuttonup" then
+        return "MiddleButton"
+    end
     return nil
 end
 
@@ -822,6 +825,10 @@ function Interface:HandleLauncherClick(mouseButton)
     local btn = NormalizeMouseButton(mouseButton)
     if btn == "RightButton" then
         Interface:OpenToCategory("help")
+    elseif btn == "MiddleButton" then
+        if YapperTable.EditBox and YapperTable.EditBox.HardRefocus then
+            YapperTable.EditBox:HardRefocus()
+        end
     else
         -- Left-click: toggle settings.  But if the window is already open
         -- on the Help page, treat it as "go to General" rather than close,

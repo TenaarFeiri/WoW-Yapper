@@ -324,7 +324,7 @@ function EditBox:Show(origEditBox)
             if draftTarget then self.Target = draftTarget end
             YapperTable.History:MarkDirty(false)
             YapperTable.Utils:VerbosePrint("Draft recovered: " ..
-            #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
+                #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
         end
     end
 
@@ -1205,17 +1205,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
             if self.Overlay and self.Overlay:IsShown() then
                 -- Overlay already visible — suppress Blizzard's editbox and
-                -- reclaim focus if the overlay was in unfocused (game-passthrough)
-                -- mode. The Enter keypress that triggered Blizzard's Show is
-                -- consumed here; it never reaches our OnEnterPressed.
-                if self._overlayUnfocused and self.OverlayEdit then
-                    C_Timer.After(0, function()
-                        if self.Overlay and self.Overlay:IsShown() and self._overlayUnfocused and self.OverlayEdit then
-                            self.OverlayEdit:SetFocus()
-                        end
-                    end)
-                end
+                -- reclaim focus if needed. The Enter keypress that triggered
+                -- Blizzard's Show is consumed here; it never reaches our
+                -- OnEnterPressed.
                 C_Timer.After(0, function()
+                    if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit then
+                        self.OverlayEdit:SetFocus()
+                        if self.SyncActiveChatEditBox then
+                            self:SyncActiveChatEditBox()
+                        end
+                    end
                     if eb and eb.Hide and eb:IsShown() then eb:Hide() end
                 end)
 
@@ -1406,6 +1405,36 @@ function EditBox:HookAllChatFrames()
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, ...)
+            -- Panic Recovery: Heuristic for Enter-spamming
+            if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit and not self.OverlayEdit:HasFocus() then
+                -- Only track panic if we aren't being suppressed by API or Manual Bypass.
+                if not (UserBypassingYapper() or (self._preShowSuppressed)) then
+                    local now = GetTime()
+                    self._panicTracking = self._panicTracking or { times = {}, lastFix = 0 }
+                    local track = self._panicTracking
+
+                    -- Clean up timestamps older than 1 second.
+                    for i = #track.times, 1, -1 do
+                        if now - track.times[i] > 1.0 then
+                            table.remove(track.times, i)
+                        end
+                    end
+
+                    table.insert(track.times, now)
+
+                    -- If 3 attempts in 1 second, trigger the "Big Hammer".
+                    if #track.times >= 3 and (now - track.lastFix > 5.0) then
+                        track.lastFix = now
+                        wipe(track.times)
+
+                        -- Set suppression flag to debounce ghost-sends for 1 second.
+                        self._panicSuppression = now + 1.0
+
+                        self:HardRefocus()
+                    end
+                end
+            end
+
             if type(text) == "string" and text ~= "" then
                 -- Store on the instance so EditBox:Show can prefer it.
                 self._pendingOpenChatText = text

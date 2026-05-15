@@ -76,6 +76,20 @@ function Chat:Init()
     if YapperTable.WIMBridge then
         YapperTable.WIMBridge:Init()
     end
+
+    -- Hard Recovery Slash Commands
+    -- If you can't focus Yapper this is useless, BUT
+    -- you'd put these commands in a macro if you're having the issue
+    -- to see if it corrects your problem.
+    _G.SLASH_YAPPERFIX1 = "/yapperfix"
+    _G.SLASH_YAPPERFIX2 = "/yapperrefocus"
+    _G.SLASH_YAPPERFIX3 = "/yfix"
+    SlashCmdList["YAPPERFIX"] = function()
+        if YapperTable.EditBox and YapperTable.EditBox.HardRefocus then
+            YapperTable.EditBox:HardRefocus()
+            YapperTable.Utils:Print("Hard focus reclaim initiated.")
+        end
+    end
 end
 
 -- ---------------------------------------------------------------------------

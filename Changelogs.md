@@ -32,6 +32,11 @@
   - Updated Yapper's internals to consume public API.
   - Fixed bug where Spellchecking tooltips could sometimes break under certain conditions.
   - Added spellchecking callbacks for plugin compatibility.
+  - Added new panic condition:
+    - If you press your OpenChat keybind (default ENTER) while Yapper is open and it is unable to
+      reclaim focus, it enters panic mode. Repeated OpenChat within 1 second without reclaiming focus
+      will trigger a recovery attempt that resets the editbox's attributes and tries to aggressively
+      wrestle focus back from whatever is keeping it.
 
 ## 2.1.15
   - Fixed issue where TRP3 Extended links didn't insert correctly into Yapper. (Thanks Heeni, for the report!)
