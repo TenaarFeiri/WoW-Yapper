@@ -5,28 +5,28 @@
 ]]
 
 local YapperName, YapperTable = ...
-local Interface      = YapperTable.Interface
+local Interface               = YapperTable.Interface
 
 -- Re-localise shared helpers from hub.
-local IsAnchorPoint  = Interface.IsAnchorPoint
-local LAYOUT         = Interface._LAYOUT
-local CATEGORIES     = Interface._CATEGORIES
-local LayoutCursor   = Interface._LayoutCursor
+local IsAnchorPoint           = Interface.IsAnchorPoint
+local LAYOUT                  = Interface._LAYOUT
+local CATEGORIES              = Interface._CATEGORIES
+local LayoutCursor            = Interface._LayoutCursor
 
 -- Re-localise Lua globals.
-local type       = type
-local ipairs     = ipairs
-local math_abs   = math.abs
-local math_floor = math.floor
-local math_max   = math.max
-local math_min   = math.min
-local tinsert    = table.insert
-local tostring   = tostring
+local type                    = type
+local ipairs                  = ipairs
+local math_abs                = math.abs
+local math_floor              = math.floor
+local math_max                = math.max
+local math_min                = math.min
+local tinsert                 = table.insert
+local tostring                = tostring
 
 -- Even-increment offsets (re-exported from hub for local use).
-local UI_FONT_STEP       = Interface._UI_FONT_STEP
-local UI_FONT_MIN_OFFSET = Interface._UI_FONT_MIN_OFFSET
-local UI_FONT_MAX_OFFSET = Interface._UI_FONT_MAX_OFFSET
+local UI_FONT_STEP            = Interface._UI_FONT_STEP
+local UI_FONT_MIN_OFFSET      = Interface._UI_FONT_MIN_OFFSET
+local UI_FONT_MAX_OFFSET      = Interface._UI_FONT_MAX_OFFSET
 
 function Interface:GetMainWindowPositionStore()
     -- Stored per-character under local config root.
@@ -190,6 +190,14 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
+    ["2.1.16"] = {
+        {
+            title = "API Changes",
+            body = [[- New API has been added to better support external plugins.
+- With these changes, addons like CEBE can better support Yapper! :)
+            ]],
+        }
+    },
     ["2.1.12"] = {
         {
             title = "Emote Picker added!",
@@ -220,68 +228,68 @@ YapperTable.WHATS_NEW = {
         {
             title = "Adaptive Learning (YALLM) Opt-Out",
             body  = "You can now suspend YALLM's data collection and suggestion biasing "
-                 .. "while keeping the core spellchecker active. Toggle this in the "
-                 .. "Adaptive Learning settings or the initial setup popup.",
+                .. "while keeping the core spellchecker active. Toggle this in the "
+                .. "Adaptive Learning settings or the initial setup popup.",
         },
         {
             title = "Factory Reset (Clean Slate)",
             body  = "Added a |cFFFF0000Factory Reset|r button in Advanced settings to wipe "
-                 .. "all data, history, and settings for a truly fresh start.",
+                .. "all data, history, and settings for a truly fresh start.",
         },
         {
             title = "Scrollable Changelog",
             body  = "This window is now scrollable! You can review the history of all "
-                 .. "major Yapper updates directly from this popup.",
+                .. "major Yapper updates directly from this popup.",
         },
         {
             title = "Stability Fixes",
             body  = "Fixed a rare bug where closing the chat window too quickly could "
-                 .. "lose a message mid-send, and smoother transitions between chat modes.",
+                .. "lose a message mid-send, and smoother transitions between chat modes.",
         },
     },
     ["2.1.0"] = {
         {
             title = "Global Settings Profiles",
             body  = "You can now sync your settings across all characters! Enable "
-                 .. "|cFF33FF99Use Global Profile|r in General settings to save your "
-                 .. "preferences and appearance to the account-wide |cFF33FF99YapperDB|r.",
+                .. "|cFF33FF99Use Global Profile|r in General settings to save your "
+                .. "preferences and appearance to the account-wide |cFF33FF99YapperDB|r.",
         },
         {
             title = "Memory Optimizations",
             body  = "Dictionaries are now separate Load-on-Demand addons. This "
-                 .. "significantly reduces memory usage for players who only use "
-                 .. "one language or prefer to disable spellchecking entirely.",
+                .. "significantly reduces memory usage for players who only use "
+                .. "one language or prefer to disable spellchecking entirely.",
         },
         {
             title = "Focus Stability",
             body  = "Completely refactored the editbox focus engine to resolve "
-                 .. "recursive crashes during chat transitions. Typing and "
-                 .. "switching channels is now more robust than ever.",
+                .. "recursive crashes during chat transitions. Typing and "
+                .. "switching channels is now more robust than ever.",
         },
     },
     ["2.0.3"] = {
         {
             title = "Spellchecking",
             body  = "Yapper now has a built-in spellchecker with per-locale dictionaries, "
-                 .. "underline styles, and adaptive learning (YALLM) that picks up your "
-                 .. "vocabulary over time.",
+                .. "underline styles, and adaptive learning (YALLM) that picks up your "
+                .. "vocabulary over time.",
         },
         {
             title = "Autocomplete / Ghost Text",
             body  = "As you type, a muted ghost-text prediction appears based on your "
-                 .. "personal vocabulary and the spellcheck dictionary. Press Tab to accept. "
-                 .. "Requires spellcheck to be enabled.",
+                .. "personal vocabulary and the spellcheck dictionary. Press Tab to accept. "
+                .. "Requires spellcheck to be enabled.",
         },
         {
             title = "Public API",
             body  = "Third-party addons can now register filters and callbacks through "
-                 .. "|cFF33FF99YapperAPI|r. Filters can modify or cancel messages before they "
-                 .. "are sent; callbacks fire after the fact.",
+                .. "|cFF33FF99YapperAPI|r. Filters can modify or cancel messages before they "
+                .. "are sent; callbacks fire after the fact.",
         },
         {
             title = "WIM Bridge",
             body  = "WoW Instant Messenger compatibility is now handled by a dedicated "
-                 .. "bridge module. If WIM is not installed the bridge is a no-op.",
+                .. "bridge module. If WIM is not installed the bridge is a no-op.",
         },
     },
 }
@@ -362,7 +370,7 @@ function Interface:ShouldShowWelcomeChoice()
     end
     local shown = tonumber(ReadSV("_welcomeShown"))
     if not shown or shown == 0 then return true end
-    
+
     -- Re-show when the welcome screen content changes (UI update).
     if shown ~= self:GetWelcomeVersion() then return true end
     return false
@@ -372,7 +380,7 @@ function Interface:ShouldShowWhatsNew()
     local last = ReadSV("_lastSeenVersion") or "0.0.0"
     local current = GetAddonVersion()
     if last == current then return false end
-    
+
     local WHATS_NEW = YapperTable.WHATS_NEW or {}
     return (WHATS_NEW[current] ~= nil)
 end
@@ -506,7 +514,8 @@ function Interface:CreateWelcomeChoiceFrame()
     local sub = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     sub:SetPoint("TOP", title, "BOTTOM", 0, -6)
     sub:SetWidth(FRAME_W - 60)
-    sub:SetText("Pick your editbox appearance, then configure your preferences below. You can change everything later in |cFFFFD100/yapper|r.")
+    sub:SetText(
+        "Pick your editbox appearance, then configure your preferences below. You can change everything later in |cFFFFD100/yapper|r.")
     sub:SetTextColor(0.75, 0.75, 0.75, 1)
 
     local contentTop = -72 -- below title+subtitle
@@ -648,7 +657,7 @@ function Interface:CreateWelcomeChoiceFrame()
     frame.YapperPreview = yapperPreview
     frame.Dimmer        = dimmer
 
-    self.WelcomeFrame = frame
+    self.WelcomeFrame   = frame
     dimmer:Show()
 end
 
@@ -702,7 +711,7 @@ function Interface:CreateWhatsNewFrame()
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -PAD - 32)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD - 26, PAD + 100)
-    
+
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetSize(scrollFrame:GetWidth(), 1)
     scrollFrame:SetScrollChild(content)
@@ -725,7 +734,7 @@ function Interface:CreateWhatsNewFrame()
     local toggleCursor = -FRAME_H + 120
 
     -- Live Font Size Slider (Upscaled)
-    local sizeSlider = CreateFrame("Slider", "YapperWhatsNewSizeSlider", frame, "OptionsSliderTemplate")
+    local sizeSlider   = CreateFrame("Slider", "YapperWhatsNewSizeSlider", frame, "OptionsSliderTemplate")
     sizeSlider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD + 10, PAD + 10)
     sizeSlider:SetWidth(280)
     sizeSlider:SetHeight(24)
@@ -765,17 +774,20 @@ function Interface:CreateWhatsNewFrame()
         local acT, acL, yallmT, yallmL, spellT
 
         if spellEnabled ~= true then
-            local st, _, ny = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck", "Turns on real-time spellchecking.", toggleCursor)
+            local st, _, ny = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck",
+                "Turns on real-time spellchecking.", toggleCursor)
             spellT = st
             toggleCursor = ny
         end
         if acEnabled ~= true then
-            local at, al, ny = CreatePopupToggle(frame, { "EditBox", "AutocompleteEnabled" }, "Enable autocomplete / ghost text", "Shows ghost-text predictions as you type.", toggleCursor)
+            local at, al, ny = CreatePopupToggle(frame, { "EditBox", "AutocompleteEnabled" },
+                "Enable autocomplete / ghost text", "Shows ghost-text predictions as you type.", toggleCursor)
             acT, acL = at, al
             toggleCursor = ny
         end
         if yallmEnabled ~= true then
-            local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YALLMEnabled" }, "Enable adaptive learning", "Tracks your vocabulary to improve suggestion accuracy.", toggleCursor)
+            local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YALLMEnabled" }, "Enable adaptive learning",
+                "Tracks your vocabulary to improve suggestion accuracy.", toggleCursor)
             yallmT, yallmL = yt, yl
             toggleCursor = ny
         end
@@ -783,11 +795,19 @@ function Interface:CreateWhatsNewFrame()
         local function update()
             local activeSpell = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
             if activeSpell then
-                if acT then acT:Enable(); acL:SetTextColor(0.9, 0.9, 0.9, 1) end
-                if yallmT then yallmT:Enable(); yallmL:SetTextColor(0.9, 0.9, 0.9, 1) end
+                if acT then
+                    acT:Enable(); acL:SetTextColor(0.9, 0.9, 0.9, 1)
+                end
+                if yallmT then
+                    yallmT:Enable(); yallmL:SetTextColor(0.9, 0.9, 0.9, 1)
+                end
             else
-                if acT then acT:Disable(); acL:SetTextColor(0.5, 0.5, 0.5, 1) end
-                if yallmT then yallmT:Disable(); yallmL:SetTextColor(0.5, 0.5, 0.5, 1) end
+                if acT then
+                    acT:Disable(); acL:SetTextColor(0.5, 0.5, 0.5, 1)
+                end
+                if yallmT then
+                    yallmT:Disable(); yallmL:SetTextColor(0.5, 0.5, 0.5, 1)
+                end
             end
         end
         if spellT then spellT.OnToggle = update end
@@ -823,7 +843,7 @@ function Interface:PopulateWhatsNewContent(content, textW, limitToOne)
     for i, vStr in ipairs(sorted) do
         if limitToOne and i > 1 then break end
         local notes = WHATS_NEW[vStr]
-        
+
         -- Version Header
         local vHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         local vFont, _, vFlags = vHeader:GetFont()
@@ -863,7 +883,7 @@ end
 
 function Interface:RefreshWhatsNewContent()
     if not self.WhatsNewContent or not self.WhatsNewScroll then return end
-    
+
     -- Clear old fontstrings
     local regions = { self.WhatsNewContent:GetRegions() }
     for _, region in ipairs(regions) do
@@ -873,7 +893,7 @@ function Interface:RefreshWhatsNewContent()
             region:ClearAllPoints()
         end
     end
-    
+
     self:PopulateWhatsNewContent(self.WhatsNewContent, self.WhatsNewScroll:GetWidth() - 10, true)
     self:UpdateWhatsNewButtonScale()
 end

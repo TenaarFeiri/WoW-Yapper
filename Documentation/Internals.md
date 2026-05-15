@@ -664,13 +664,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
   - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L531`](`../Src/Multiline.lua#L531`))
-  - `Exit` ([`../Src/Multiline.lua#L661`](`../Src/Multiline.lua#L661`))
-  - `Submit` ([`../Src/Multiline.lua#L777`](`../Src/Multiline.lua#L777`))
-  - `Cancel` ([`../Src/Multiline.lua#L906`](`../Src/Multiline.lua#L906`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L932`](`../Src/Multiline.lua#L932`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L919`](`../Src/Multiline.lua#L919`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L941`](`../Src/Multiline.lua#L941`))
+  - `Enter` ([`../Src/Multiline.lua#L532`](`../Src/Multiline.lua#L532`))
+  - `Exit` ([`../Src/Multiline.lua#L662`](`../Src/Multiline.lua#L662`))
+  - `Submit` ([`../Src/Multiline.lua#L778`](`../Src/Multiline.lua#L778`))
+  - `Cancel` ([`../Src/Multiline.lua#L907`](`../Src/Multiline.lua#L907`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L933`](`../Src/Multiline.lua#L933`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L920`](`../Src/Multiline.lua#L920`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L942`](`../Src/Multiline.lua#L942`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -818,29 +818,29 @@ Builds and controls top-level frames.
 - Fields:
   - `_activeCategory` *private by convention; do not rely on* ([`../Src/Interface/Window.lua#L175`](../Src/Interface/Window.lua#L175)).
 - Methods:
-  - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L293`](../Src/Interface/Window.lua#L293))
-  - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L304`](../Src/Interface/Window.lua#L304))
-  - `CheckForChangelogUpdate` — Handshake that updates seen records and triggers popups. ([`../Src/Interface/Window.lua#L380`](../Src/Interface/Window.lua#L380))
-  - `PopulateWhatsNewContent` — Renders changelog notes into a container. ([`../Src/Interface/Window.lua#L816`](../Src/Interface/Window.lua#L816))
-  - `RefreshWhatsNewContent` — Wipes and re-renders the WhatsNew popup. ([`../Src/Interface/Window.lua#L864`](../Src/Interface/Window.lua#L864))
-  - `UpdateWhatsNewButtonScale` — Scales the 'Got it' button text. ([`../Src/Interface/Window.lua#L881`](../Src/Interface/Window.lua#L881))
-  - [NEW] `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L315`](../Src/Interface/Window.lua#L315))
+  - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L301`](../Src/Interface/Window.lua#L301))
+  - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L312`](../Src/Interface/Window.lua#L312))
+  - `CheckForChangelogUpdate` — Handshake that updates seen records and triggers popups. ([`../Src/Interface/Window.lua#L388`](../Src/Interface/Window.lua#L388))
+  - `PopulateWhatsNewContent` — Renders changelog notes into a container. ([`../Src/Interface/Window.lua#L836`](../Src/Interface/Window.lua#L836))
+  - `RefreshWhatsNewContent` — Wipes and re-renders the WhatsNew popup. ([`../Src/Interface/Window.lua#L884`](../Src/Interface/Window.lua#L884))
+  - `UpdateWhatsNewButtonScale` — Scales the 'Got it' button text. ([`../Src/Interface/Window.lua#L901`](../Src/Interface/Window.lua#L901))
+  - [NEW] `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L323`](../Src/Interface/Window.lua#L323))
   - `GetMainWindowPositionStore` ([`../Src/Interface/Window.lua#L31`](`../Src/Interface/Window.lua#L31`))
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
-  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L359`](`../Src/Interface/Window.lua#L359`))
-  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L371`](`../Src/Interface/Window.lua#L371`))
-  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L406`](`../Src/Interface/Window.lua#L406`))
-  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L410`](`../Src/Interface/Window.lua#L410`))
-  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L465`](`../Src/Interface/Window.lua#L465`))
-  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L659`](`../Src/Interface/Window.lua#L659`))
-  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L899`](`../Src/Interface/Window.lua#L899`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1084`](`../Src/Interface/Window.lua#L1084`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1103`](`../Src/Interface/Window.lua#L1103`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1109`](`../Src/Interface/Window.lua#L1109`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L1117`](`../Src/Interface/Window.lua#L1117`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1123`](`../Src/Interface/Window.lua#L1123`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1151`](`../Src/Interface/Window.lua#L1151`))
+  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L367`](`../Src/Interface/Window.lua#L367`))
+  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L379`](`../Src/Interface/Window.lua#L379`))
+  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L414`](`../Src/Interface/Window.lua#L414`))
+  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L418`](`../Src/Interface/Window.lua#L418`))
+  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L473`](`../Src/Interface/Window.lua#L473`))
+  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L668`](`../Src/Interface/Window.lua#L668`))
+  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L919`](`../Src/Interface/Window.lua#L919`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1104`](`../Src/Interface/Window.lua#L1104`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1123`](`../Src/Interface/Window.lua#L1123`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1129`](`../Src/Interface/Window.lua#L1129`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L1137`](`../Src/Interface/Window.lua#L1137`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1143`](`../Src/Interface/Window.lua#L1143`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1171`](`../Src/Interface/Window.lua#L1171`))
 
 ## Interface.Widgets
 

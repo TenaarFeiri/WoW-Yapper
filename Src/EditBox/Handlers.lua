@@ -40,8 +40,10 @@ function EditBox:SetupOverlayScripts()
     edit:SetScript("OnTextChanged", function(box, isUserInput)
         if updatingText then return end
 
-        if YapperTable.API then
-            YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
+        local function FireChanged()
+            if YapperTable.API then
+                YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
+            end
         end
 
         if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
@@ -95,6 +97,7 @@ function EditBox:SetupOverlayScripts()
             local boxW  = box.GetWidth and box:GetWidth() or 0
             if ml:ShouldAutoExpand(textW, boxW) then
                 ml:Enter(text, self.ChatType, self.Language, self.Target)
+                FireChanged()
                 return
             end
         end
@@ -106,6 +109,7 @@ function EditBox:SetupOverlayScripts()
                 YapperTable.Emotes:HideHint()
                 YapperTable.Emotes:HideMenu()
             end
+            FireChanged()
             return
         end
 
@@ -141,6 +145,7 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest or ""))
             end
+            FireChanged()
             return
         end
 
@@ -173,6 +178,7 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
                 box:SetCursorPosition(#(remainder or ""))
             end
+            FireChanged()
             return
         end
 
@@ -189,6 +195,7 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
                 box:SetCursorPosition(#(remainder or ""))
             end
+            FireChanged()
             return
         end
 
@@ -204,6 +211,7 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest2 or ""))
             end
+            FireChanged()
             return
         end
 
@@ -219,6 +227,7 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
                 box:SetCursorPosition(#(rest2 or ""))
             end
+            FireChanged()
             return
         end
 
@@ -254,8 +263,11 @@ function EditBox:SetupOverlayScripts()
             updatingText = false
             self:RefreshLabel()
             box:SetCursorPosition(#(rest2 or ""))
+            FireChanged()
             return
         end
+
+        FireChanged()
     end)
 
     edit:SetScript("OnEnterPressed", function(box)
