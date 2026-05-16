@@ -25,6 +25,7 @@
 # Patch notes
 
 ## 2.1.16
+  - HOPEFULLY fixed an issue where Yapper would freeze under focus change circumstances and become unresponsive.
   - New API:
     - Retrieve and set states via API;
     - Retrieve complete list of registered frames;
