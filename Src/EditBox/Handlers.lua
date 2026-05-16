@@ -452,6 +452,7 @@ function EditBox:SetupOverlayScripts()
                     YapperTable.History:AddChatHistory(trimmed, nil, nil)
                 end
                 self:ForwardSlashCommand(trimmed)
+                box:SetText("") -- Clear the box before hiding to prevent zombie drafts
                 self:Hide()
                 return
             end
