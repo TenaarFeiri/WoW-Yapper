@@ -212,10 +212,7 @@ function Multiline:CreateFrame()
 
 	edit:SetScript("OnMouseDown", function(_, button)
 		if button == "MiddleButton" then
-			local eb = YapperTable.EditBox
-			if eb and eb.HardRefocus then
-				eb:HardRefocus()
-			end
+			edit:SetFocus()
 		end
 	end)
 
@@ -275,7 +272,13 @@ function Multiline:CreateFrame()
 		-- ApplySuggestion, and HideSuggestions ran before we get here), the
 		-- transient _justAppliedSuggestion flag tells us not to send.
 		if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
-			return
+			-- Safety: If the flag is older than 100ms, it's stale and should not block input.
+			local appliedTime = YapperTable.Spellcheck._justAppliedSuggestion
+			if type(appliedTime) == "number" and GetTime() > (appliedTime + 0.1) then
+				YapperTable.Spellcheck._justAppliedSuggestion = nil
+			else
+				return
+			end
 		end
 		-- If a suggestion panel is still visible, Enter applies the selected
 		-- entry instead of submitting the message.
@@ -347,6 +350,12 @@ function Multiline:CreateFrame()
 
 	-- Snapshot on focus lost (mirrors the overlay's OnEditFocusLost hook).
 	edit:HookScript("OnEditFocusLost", function(box)
+		-- Don't re-save if we're closing clean (sent).
+		local editBox = YapperTable.EditBox
+		if editBox and editBox._closedClean then
+			return
+		end
+
 		if YapperTable.History then
 			YapperTable.History:AddSnapshot(box, true)
 		end
@@ -355,12 +364,18 @@ function Multiline:CreateFrame()
 		if State and State:IsMultiline() then
 			YapperAPI:SetState("IDLE")
 		end
+		if YapperTable.SyncActiveChatEditBox then
+			YapperTable.SyncActiveChatEditBox()
+		end
 	end)
 
 	edit:HookScript("OnEditFocusGained", function(box)
 		-- Resume typing signals when clicking back in.
 		if State and State:IsIdle() then
 			YapperAPI:SetState("MULTILINE")
+		end
+		if YapperTable.SyncActiveChatEditBox then
+			YapperTable.SyncActiveChatEditBox()
 		end
 	end)
 
@@ -784,6 +799,10 @@ function Multiline:Submit()
 	self._mlDraftCollapsed = nil
 
 	-- Draft pipeline: clear the saved draft since we're committing the text.
+	local eb = YapperTable.EditBox
+	if eb then
+		eb._closedClean = true
+	end
 	if YapperTable.History then
 		YapperTable.History:ClearDraft(self.EditBox)
 	end
@@ -820,6 +839,10 @@ function Multiline:Submit()
 	local eb = YapperTable.EditBox
 	if eb and eb.OverlayEdit then
 		eb.OverlayEdit:SetText("")
+	end
+
+	if self.EditBox then
+		self.EditBox:SetText("") -- Kill the storyteller zombie source
 	end
 
 	-- Run PRE_SEND filters once on the first post.

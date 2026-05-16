@@ -124,6 +124,7 @@ Loaded early; central orchestrator for the addon's operational mode.
 - Flags:
   - `SuppressNextEnter`: Session flag used to block the next native `OnEnterPressed` event (e.g. after selecting an emote with auto-send disabled).
 - Methods:
+  [MISSING] - [NEW] `State:Resume() → nil`: Return from CONFIG or other transient states. ([`../Src/State.lua#L312`](../Src/State.lua#L312))
   - [NEW] `State:ToConfig() → nil`: Transition to CONFIG (settings) state. ([`../Src/State.lua#L288`](../Src/State.lua#L288))
   - [NEW] `State:IsConfig() → boolean`: Is the settings/interface window open? ([`../Src/State.lua#L230`](../Src/State.lua#L230))
   - [NEW] `State:IsInitialised() → boolean`: Has the machine completed initialisation (i.e. not in INITIALISING state)? ([`../Src/State.lua#L188`](../Src/State.lua#L188))
@@ -385,17 +386,17 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:HardRefocus() → nil`: If the user has triggered a panic condition, ([`../Src/EditBoxCompat.lua#L118`](../Src/EditBoxCompat.lua#L118))
-  - [NEW] `YapperTable:InstallCompatMethods() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L34`](../Src/EditBoxCompat.lua#L34))
-  - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L58`](../Src/EditBoxCompat.lua#L58))
-  - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L56`](../Src/EditBoxCompat.lua#L56))
+  [MISSING] - [NEW] `EditBox:HardRefocus() → nil`: If the user has triggered a panic condition, ([`../Src/EditBoxCompat.lua#L125`](../Src/EditBoxCompat.lua#L125))
+  - [NEW] `YapperTable:InstallCompatMethods() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
+  - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L66`](../Src/EditBoxCompat.lua#L66))
+  - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L65`](../Src/EditBoxCompat.lua#L65))
   [MISSING] - [NEW] `Multiline:Create() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L73`](../Src/EditBoxCompat.lua#L73))
-  - [NEW] `box:UpdateHeader() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L54`](../Src/EditBoxCompat.lua#L54))
-  - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L48`](../Src/EditBoxCompat.lua#L48))
-  - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
-  - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
-  - `box:GetChannelTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
-  - `box:GetChatType() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L40`](../Src/EditBoxCompat.lua#L40))
+  - [NEW] `box:UpdateHeader() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L64`](../Src/EditBoxCompat.lua#L64))
+  - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
+  - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
+  - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
+  - `box:GetChannelTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L40`](../Src/EditBoxCompat.lua#L40))
+  - `box:GetChatType() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L38`](../Src/EditBoxCompat.lua#L38))
 
 Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
 
@@ -415,18 +416,18 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L38`](`../Src/EditBox.lua#L38`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L375`](`../Src/EditBox.lua#L375`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L376`](`../Src/EditBox.lua#L376`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L377`](`../Src/EditBox.lua#L377`))
-  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L269`](`../Src/EditBox.lua#L269`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L379`](`../Src/EditBox.lua#L379`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L376`](`../Src/EditBox.lua#L376`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L377`](`../Src/EditBox.lua#L377`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L378`](`../Src/EditBox.lua#L378`))
+  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L270`](`../Src/EditBox.lua#L270`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L380`](`../Src/EditBox.lua#L380`))
 - Methods:
   - `ClearLockdownState` ([`../Src/EditBox.lua#L65`](../Src/EditBox.lua#L65))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L81`](../Src/EditBox.lua#L81))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L112`](../Src/EditBox.lua#L112))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L298`](../Src/EditBox.lua#L298))
-  - `SetOnSend` ([`../Src/EditBox.lua#L381`](../Src/EditBox.lua#L381))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L387`](../Src/EditBox.lua#L387))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L299`](../Src/EditBox.lua#L299))
+  - `SetOnSend` ([`../Src/EditBox.lua#L382`](../Src/EditBox.lua#L382))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L388`](../Src/EditBox.lua#L388))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -467,18 +468,18 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Description: Show/hide lifecycle, handoff, hook glue, open guards.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
-  - `Hide` ([`../Src/EditBox/Hooks.lua#L391`](`../Src/EditBox/Hooks.lua#L391`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L441`](`../Src/EditBox/Hooks.lua#L441`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L481`](`../Src/EditBox/Hooks.lua#L481`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L575`](`../Src/EditBox/Hooks.lua#L575`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L748`](`../Src/EditBox/Hooks.lua#L748`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L786`](`../Src/EditBox/Hooks.lua#L786`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L834`](`../Src/EditBox/Hooks.lua#L834`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L856`](`../Src/EditBox/Hooks.lua#L856`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L881`](`../Src/EditBox/Hooks.lua#L881`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L956`](`../Src/EditBox/Hooks.lua#L956`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1023`](`../Src/EditBox/Hooks.lua#L1023`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1386`](`../Src/EditBox/Hooks.lua#L1386`))
+  - `Hide` ([`../Src/EditBox/Hooks.lua#L423`](`../Src/EditBox/Hooks.lua#L423`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L472`](`../Src/EditBox/Hooks.lua#L472`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L512`](`../Src/EditBox/Hooks.lua#L512`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L606`](`../Src/EditBox/Hooks.lua#L606`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L779`](`../Src/EditBox/Hooks.lua#L779`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L817`](`../Src/EditBox/Hooks.lua#L817`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L865`](`../Src/EditBox/Hooks.lua#L865`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L887`](`../Src/EditBox/Hooks.lua#L887`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L912`](`../Src/EditBox/Hooks.lua#L912`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L987`](`../Src/EditBox/Hooks.lua#L987`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1054`](`../Src/EditBox/Hooks.lua#L1054`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1455`](`../Src/EditBox/Hooks.lua#L1455`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -571,7 +572,7 @@ Called from `Chat:OnSend` for oversized messages.
 - Description: UTF-8 aware message splitting.
 - Methods:
   - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L351`](../Src/Chunking.lua#L351))
-  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L578`](../Src/Chunking.lua#L578))
+  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L579`](../Src/Chunking.lua#L579))
 
 ## Queue
 
@@ -594,6 +595,7 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L184`](`../Src/Queue.lua#L184`))
   - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L187`](`../Src/Queue.lua#L187`))
 - Methods:
+  - [NEW] `Queue:IsAcceptableAck() → nil`: No description provided. ([`../Src/Queue.lua#L510`](../Src/Queue.lua#L510))
   - `Init` ([`../Src/Queue.lua#L193`](../Src/Queue.lua#L193))
   - `Reset` ([`../Src/Queue.lua#L212`](../Src/Queue.lua#L212))
   - `IsOpenWorld` ([`../Src/Queue.lua#L229`](../Src/Queue.lua#L229))
@@ -612,19 +614,19 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - `HandleAck` ([`../Src/Queue.lua#L459`](../Src/Queue.lua#L459))
   - `AssumeAck` ([`../Src/Queue.lua#L467`](../Src/Queue.lua#L467))
   - `RawSend` ([`../Src/Queue.lua#L477`](../Src/Queue.lua#L477))
-  - `Complete` ([`../Src/Queue.lua#L501`](../Src/Queue.lua#L501))
-  - `OnChatEvent` ([`../Src/Queue.lua#L513`](../Src/Queue.lua#L513))
-  - `OnOpenChat` ([`../Src/Queue.lua#L586`](../Src/Queue.lua#L586))
-  - `TryContinue` ([`../Src/Queue.lua#L596`](../Src/Queue.lua#L596))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L614`](../Src/Queue.lua#L614))
-  - `CancelStallTimer` ([`../Src/Queue.lua#L632`](../Src/Queue.lua#L632))
-  - `OnStallTimeout` ([`../Src/Queue.lua#L639`](../Src/Queue.lua#L639))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L661`](../Src/Queue.lua#L661))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L721`](../Src/Queue.lua#L721))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L758`](../Src/Queue.lua#L758))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L769`](../Src/Queue.lua#L769))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L802`](../Src/Queue.lua#L802))
-  - `Cancel` ([`../Src/Queue.lua#L809`](../Src/Queue.lua#L809))
+  - `Complete` ([`../Src/Queue.lua#L498`](../Src/Queue.lua#L498))
+  - `OnChatEvent` ([`../Src/Queue.lua#L520`](../Src/Queue.lua#L520))
+  - `OnOpenChat` ([`../Src/Queue.lua#L596`](../Src/Queue.lua#L596))
+  - `TryContinue` ([`../Src/Queue.lua#L606`](../Src/Queue.lua#L606))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L624`](../Src/Queue.lua#L624))
+  - `CancelStallTimer` ([`../Src/Queue.lua#L642`](../Src/Queue.lua#L642))
+  - `OnStallTimeout` ([`../Src/Queue.lua#L649`](../Src/Queue.lua#L649))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L671`](../Src/Queue.lua#L671))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L731`](../Src/Queue.lua#L731))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L768`](../Src/Queue.lua#L768))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L779`](../Src/Queue.lua#L779))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L812`](../Src/Queue.lua#L812))
+  - `Cancel` ([`../Src/Queue.lua#L819`](../Src/Queue.lua#L819))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
@@ -664,13 +666,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
   - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L532`](`../Src/Multiline.lua#L532`))
-  - `Exit` ([`../Src/Multiline.lua#L662`](`../Src/Multiline.lua#L662`))
-  - `Submit` ([`../Src/Multiline.lua#L778`](`../Src/Multiline.lua#L778`))
-  - `Cancel` ([`../Src/Multiline.lua#L907`](`../Src/Multiline.lua#L907`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L933`](`../Src/Multiline.lua#L933`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L920`](`../Src/Multiline.lua#L920`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L942`](`../Src/Multiline.lua#L942`))
+  - `Enter` ([`../Src/Multiline.lua#L547`](`../Src/Multiline.lua#L547`))
+  - `Exit` ([`../Src/Multiline.lua#L677`](`../Src/Multiline.lua#L677`))
+  - `Submit` ([`../Src/Multiline.lua#L793`](`../Src/Multiline.lua#L793`))
+  - `Cancel` ([`../Src/Multiline.lua#L930`](`../Src/Multiline.lua#L930`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L956`](`../Src/Multiline.lua#L956`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L943`](`../Src/Multiline.lua#L943`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L965`](`../Src/Multiline.lua#L965`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -756,14 +758,14 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
   - `BuildConfigUI` ([`../Src/Interface.lua#L455`](`../Src/Interface.lua#L455`))
   - `ShowMainWindow` ([`../Src/Interface.lua#L750`](`../Src/Interface.lua#L750`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L771`](`../Src/Interface.lua#L771`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L792`](`../Src/Interface.lua#L792`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L824`](`../Src/Interface.lua#L824`))
-  - `CloseFrame` ([`../Src/Interface.lua#L859`](`../Src/Interface.lua#L859`))
-  - `Init` ([`../Src/Interface.lua#L870`](`../Src/Interface.lua#L870`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L905`](`../Src/Interface.lua#L905`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L775`](`../Src/Interface.lua#L775`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L800`](`../Src/Interface.lua#L800`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L832`](`../Src/Interface.lua#L832`))
+  - `CloseFrame` ([`../Src/Interface.lua#L867`](`../Src/Interface.lua#L867`))
+  - `Init` ([`../Src/Interface.lua#L878`](`../Src/Interface.lua#L878`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L913`](`../Src/Interface.lua#L913`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L846`](../Src/Interface.lua#L846)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L854`](../Src/Interface.lua#L854)).
 
 ## Interface.Schema
 

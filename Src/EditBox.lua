@@ -203,7 +203,8 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
 
 local function IsWhisperSlashPrefill(text)
     if type(text) ~= "string" then return false end
-    local trimmed = text:match("^%s*(.-)%s*$") or ""
+    local first = text:find("%S")
+    local trimmed = first and text:sub(first, text:find("%s*$", first) - 1) or ""
     if trimmed == "" then return false end
     local cmd = trimmed:match("^/([%w_]+)%s+")
     if not cmd then return false end
@@ -214,14 +215,14 @@ end
 
 local function ParseWhisperSlash(text)
     if type(text) ~= "string" then return nil end
-    local cmd, rest = text:match("^%s*/([%w_]+)%s+(.*)")
+    local cmd, rest = text:match("^%s*/([%w_]+)%s+([%s%S]*)")
     if not cmd then return nil end
     cmd = strlower(cmd)
     if cmd ~= "w" and cmd ~= "whisper" and cmd ~= "tell" and cmd ~= "t"
         and cmd ~= "cw" and cmd ~= "send" and cmd ~= "charwhisper" then
         return nil
     end
-    local target, remainder = (rest or ""):match("^(%S+)%s*(.*)")
+    local target, remainder = (rest or ""):match("^(%S+)%s*([%s%S]*)")
     if not target or target == "" then return nil end
     return target, remainder or ""
 end

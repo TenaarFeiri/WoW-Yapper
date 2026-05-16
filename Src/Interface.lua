@@ -761,7 +761,11 @@ function Interface:ShowMainWindow()
 
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
-    YapperAPI:SetState("CONFIG")
+    if YapperTable.State and type(YapperTable.State.ToConfig) == "function" then
+        YapperTable.State:ToConfig()
+    else
+        YapperAPI:SetState("CONFIG")
+    end
     
     Interface.MainWindowFrame:Show()
 end
@@ -784,7 +788,11 @@ function Interface:OpenToCategory(catId)
     Interface:BuildConfigUI()
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
-    YapperAPI:SetState("CONFIG")
+    if YapperTable.State and type(YapperTable.State.ToConfig) == "function" then
+        YapperTable.State:ToConfig()
+    else
+        YapperAPI:SetState("CONFIG")
+    end
     
     Interface.MainWindowFrame:Show()
 end

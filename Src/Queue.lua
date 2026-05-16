@@ -487,14 +487,11 @@ function Queue:RawSend(entry)
 
 
     if not ok then
-        -- Treat a declined/failed send as a stall. Re-queue the entry and
-        -- prompt rather than tight-loop retrying.
-        if self.PendingEntry then
-            table_insert(self.Entries, 1, self.PendingEntry)
-            self.PendingEntry = nil
-            self:ClearPendingAck()
-        end
-        self:ShowContinuePrompt()
+        -- A hard error occurred during send (e.g., Message Too Long, or invalid target).
+        -- Retrying will just fail again, so we cancel the sequence to prevent an infinite prompt loop.
+        self:Cancel()
+        YapperTable.Utils:Print("Yapper: Message delivery failed (API error). The text might be too long or contain an invalid link.")
+        return
     end
 end
 
@@ -509,6 +506,16 @@ end
 -- ===========================================================================
 -- Confirmation event handler
 -- ===========================================================================
+
+function Queue:IsAcceptableAck(expected, received)
+    if expected == received then return true end
+    if ACK_SIBLING[expected] == received then return true end
+    -- Fallbacks for RP addons (like TRP3) that convert says/yells to emotes mid-flight
+    if expected == "CHAT_MSG_SAY" and received == "CHAT_MSG_EMOTE" then return true end
+    if expected == "CHAT_MSG_YELL" and received == "CHAT_MSG_EMOTE" then return true end
+    if expected == "CHAT_MSG_EMOTE" and received == "CHAT_MSG_SAY" then return true end
+    return false
+end
 
 function Queue:OnChatEvent(event, ...)
     if not State:IsSending() then return end
@@ -530,8 +537,7 @@ function Queue:OnChatEvent(event, ...)
         return
     end
 
-    if event ~= self.PendingAckEvent
-        and ACK_SIBLING[self.PendingAckEvent] ~= event then
+    if not self:IsAcceptableAck(self.PendingAckEvent, event) then
         return
     end
 
@@ -561,13 +567,17 @@ function Queue:OnChatEvent(event, ...)
     end
 
     -- arg12 = sender GUID when available.
-    -- Notably, whisper inform events may provide the target's GUID (or no GUID)
+    -- notably, whisper inform events may provide the target's GUID (or no GUID)
     -- in this slot rather than the player's. Since we already matched the
     -- recipient name/ID above, we exempt them from the sender-match check.
     local guid = select(12, ...)
     local isWhisperInform = (event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM")
 
-    if guid and guid ~= self.PlayerGUID and not isWhisperInform then
+    if not self.PlayerGUID then
+        self.PlayerGUID = UnitGUID("player")
+    end
+
+    if guid and self.PlayerGUID and guid ~= self.PlayerGUID and not isWhisperInform then
         if YapperTable.Utils and YapperTable.Utils.DebugPrint then
             YapperTable.Utils:DebugPrint("  REJECTED: GUID mismatch",
                 tostring(guid), "vs", tostring(self.PlayerGUID))

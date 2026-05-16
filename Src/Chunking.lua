@@ -392,7 +392,8 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
     end
 
     -- Trim.
-    text = string_match(text, "^%s*(.-)%s*$") or ""
+    local first = text:find("%S")
+    text = first and text:sub(first, text:find("%s*$", first) - 1) or ""
 
     -- Fast path: already fits.
     if #text <= limit then

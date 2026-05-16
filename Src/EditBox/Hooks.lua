@@ -105,6 +105,14 @@ function EditBox:Show(origEditBox)
     self._openedFromBnetTransition   = openedFromBnetTransition
 
     self.OrigEditBox                 = origEditBox
+    
+    -- Satisfy Blizzard code that expects the editbox to belong to a specific chatFrame.
+    if origEditBox and origEditBox.chatFrame then
+        self.OverlayEdit.chatFrame = origEditBox.chatFrame
+        if self.ChannelLabel then
+            self.ChannelLabel.chatFrame = origEditBox.chatFrame
+        end
+    end
 
     -- Determine chat mode and target
     -- Two paths exist in Blizzard's code:
@@ -334,31 +342,53 @@ function EditBox:Show(origEditBox)
     local pending = self._pendingOpenChatText
     self._pendingOpenChatText = nil
 
-    if not draftText and pending and pending ~= "" then
-        if not (blizzHasTarget and IsWhisperSlashPrefill(pending)) then
-            local preTarget, preRemainder = ParseWhisperSlash(pending)
+    local externalText
+    local source = pending or blizzText
+    if source and source ~= "" then
+        if not (blizzHasTarget and IsWhisperSlashPrefill(source)) then
+            local preTarget, preRemainder = ParseWhisperSlash(source)
             if preTarget and not blizzHasTarget then
                 self.ChatType = "WHISPER"
                 self.Target = preTarget
-                draftText = preRemainder
+                externalText = preRemainder
             else
-                draftText = pending
-            end
-        end
-    elseif not draftText and blizzText and blizzText ~= "" then
-        if not (blizzHasTarget and IsWhisperSlashPrefill(blizzText)) then
-            local preTarget, preRemainder = ParseWhisperSlash(blizzText)
-            if preTarget and not blizzHasTarget then
-                self.ChatType = "WHISPER"
-                self.Target = preTarget
-                draftText = preRemainder
-            else
-                draftText = blizzText
+                externalText = source
             end
         end
     end
 
-    self.OverlayEdit:SetText(draftText or "")
+    -- Combine draft, existing overlay text, and external text
+    local existingText = self.OverlayEdit:GetText() or ""
+    if existingText ~= "" then
+        if not draftText then
+            draftText = existingText
+        elseif not string.find(draftText, existingText, 1, true) then
+            -- Avoid prefixing if the existing text is already at the start of the draft
+            draftText = existingText .. draftText
+        end
+    end
+
+    if externalText and externalText ~= "" then
+        if not draftText then
+            draftText = externalText
+        elseif not string.find(draftText, externalText, 1, true) then
+            -- If external text is already part of the draft (avoid duplicates from re-opens)
+            draftText = draftText .. externalText
+        end
+    end
+
+    -- Clear the watchdog now that we've grabbed everything
+    self._openingWatchdog = false
+
+    -- Set the text: restore a draft if found, otherwise clear the box
+    -- ONLY if we are coming from a hidden state. This prevents wipes
+    -- when refocusing an already-visible overlay.
+    if not overlay:IsShown() then
+        self.OverlayEdit:SetText(draftText or "")
+    elseif draftText then
+        self.OverlayEdit:SetText(draftText)
+    end
+
     if draftText then
         self.OverlayEdit:SetCursorPosition(#draftText)
     end
@@ -381,7 +411,9 @@ function EditBox:Show(origEditBox)
         origEditBox:SetText("")
     end
 
-    YapperAPI:SetState("EDITING")
+    if State and not State:IsMultiline() then
+        YapperAPI:SetState("EDITING")
+    end
 
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_SHOW", self.ChatType, self.Target)
@@ -425,9 +457,8 @@ function EditBox:Hide()
         end)
     end
 
-    -- Transition to IDLE state, but only if we're not busy (sending, stalled, lockdown)
-    -- or in multiline mode.
-    if not (State:IsBusy() or State:IsMultiline()) then
+    -- Transition to IDLE state, but only if we're not busy (sending, stalled, lockdown).
+    if not State:IsBusy() then
         YapperAPI:SetState("IDLE")
     end
 
@@ -1154,16 +1185,50 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
     end)
 
-    -- mirror Blizzard's SetText while we're overlaid so slash / prefill works
-    hooksecurefunc(blizzEditBox, "SetText", function(eb, text)
-        if self.OrigEditBox == eb and self.Overlay and self.Overlay:IsShown()
-            and self.OverlayEdit and not self._ignoreSetText then
-            local cur = self.OverlayEdit:GetText() or ""
-            if text and text ~= "" and text ~= cur then
-                self.OverlayEdit:Insert(text)
-            end
+    -- Mirror Blizzard's text changes while we're overlaid. This ensures that
+    -- programmatic updates (like item links or slash-command prefills) are
+    -- captured even if the addon targets a hidden Blizzard editbox.
+    local function ForwardTextToYapper(eb, text, isInsert)
+        if self._ignoreSetText then return end
+
+        local targetBox
+        local state = YapperTable.State
+        local ml = YapperTable.Multiline
+
+        -- Determine the active Yapper editor
+        if state and state.IsMultiline and state:IsMultiline()
+            and ml and ml.EditBox and ml.Frame and ml.Frame:IsShown() then
+            targetBox = ml.EditBox
+        elseif self.Overlay and (self.Overlay:IsShown() or self._inBlizzShowHook or self._openingWatchdog) and self.OverlayEdit then
+            targetBox = self.OverlayEdit
         end
+
+        if targetBox and text and text ~= "" then
+            -- Avoid recursive loops by ignoring the subsequent SetText("") on the source
+            self._ignoreSetText = true
+            if isInsert then
+                targetBox:Insert(text)
+            else
+                local cur = targetBox:GetText() or ""
+                if text ~= cur then
+                    targetBox:SetText(text)
+                end
+            end
+            -- Wipe the Blizzard source box so it doesn't hold stale data
+            eb:SetText("")
+            self._ignoreSetText = nil
+        end
+    end
+
+    hooksecurefunc(blizzEditBox, "SetText", function(eb, text)
+        ForwardTextToYapper(eb, text, false)
     end)
+
+    if blizzEditBox.Insert then
+        hooksecurefunc(blizzEditBox, "Insert", function(eb, text)
+            ForwardTextToYapper(eb, text, true)
+        end)
+    end
 
     -- Mirror language changes made via the chat menu button.
     -- Character language is treated as character-global; if changed on one
@@ -1205,18 +1270,17 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
             if self.Overlay and self.Overlay:IsShown() then
                 -- Overlay already visible — suppress Blizzard's editbox and
-                -- reclaim focus if needed. The Enter keypress that triggered
-                -- Blizzard's Show is consumed here; it never reaches our
-                -- OnEnterPressed.
-                C_Timer.After(0, function()
-                    if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit then
-                        self.OverlayEdit:SetFocus()
-                        if self.SyncActiveChatEditBox then
-                            self:SyncActiveChatEditBox()
-                        end
+                -- reclaim focus immediately.
+                if self.OverlayEdit then
+                    self.OverlayEdit:SetFocus()
+                    -- Catch any text passed via OpenChat while we were already shown
+                    -- (e.g. TRP3 falling back to OpenChat when it loses focus).
+                    if self._pendingOpenChatText then
+                        self.OverlayEdit:Insert(self._pendingOpenChatText)
+                        self._pendingOpenChatText = nil
                     end
-                    if eb and eb.Hide and eb:IsShown() then eb:Hide() end
-                end)
+                end
+                if eb and eb.Hide and eb:IsShown() then eb:Hide() end
 
                 return
             end
@@ -1337,12 +1401,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
                 self:Show(eb)
 
-                -- Hide Blizzard's editbox next frame.
-                C_Timer.After(0, function()
-                    if eb and eb.IsShown and eb:IsShown() and eb.Hide then
-                        eb:Hide()
-                    end
-                end)
+                -- Hide Blizzard's editbox in the same frame as Yapper's Show.
+                if eb and eb.IsShown and eb:IsShown() and eb.Hide then
+                    eb:Hide()
+                end
             end)
         end)
 
@@ -1368,6 +1430,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             C_Timer.After(0, function()
                 self._bnetDismissed = false
             end)
+        end
+
+        -- If we were manually bypassing Yapper, return the state machine to IDLE
+        -- now that the Blizzard box is hidden. This ensures Yapper is ready
+        -- to take over again on the next open.
+        if State and State:IsLockdown() and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+            YapperAPI:SetState("IDLE")
         end
     end)
 
@@ -1405,6 +1474,9 @@ function EditBox:HookAllChatFrames()
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, ...)
+            -- Signal that we are expecting a chat-show event shortly
+            self._openingWatchdog = true
+
             -- Panic Recovery: Heuristic for Enter-spamming
             if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit and not self.OverlayEdit:HasFocus() then
                 -- Only track panic if we aren't being suppressed by API or Manual Bypass.

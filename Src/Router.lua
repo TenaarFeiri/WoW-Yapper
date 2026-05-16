@@ -259,16 +259,18 @@ function Router:Send(msg, chatType, language, target)
             presenceID, bnetAccountID = self:ResolveBnetTarget(target)
         end
         if C_BattleNet and C_BattleNet.SendWhisper and bnetAccountID then
-            C_BattleNet.SendWhisper(bnetAccountID, msg)
-            return true
+            local ok, err = pcall(C_BattleNet.SendWhisper, bnetAccountID, msg)
+            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+            return ok
         end
         if not presenceID then
             YapperTable.Utils:DebugPrint("Router: BNet whisper with no valid presenceID.")
             return false
         end
         if self.BNSendWhisper then
-            self.BNSendWhisper(presenceID, msg)
-            return true
+            local ok, err = pcall(self.BNSendWhisper, presenceID, msg)
+            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+            return ok
         end
         return false
     end
@@ -278,8 +280,9 @@ function Router:Send(msg, chatType, language, target)
         local isClub, clubId, streamId = self:DetectCommunityChannel(target)
         if isClub and clubId and streamId then
             if self.ClubSendMessage then
-                self.ClubSendMessage(clubId, streamId, msg)
-                return true
+                local ok, err = pcall(self.ClubSendMessage, clubId, streamId, msg)
+                if not ok then YapperTable.Utils:DebugPrint("ClubSendMessage error: " .. tostring(err)) end
+                return ok
             end
             return false
         end
@@ -290,8 +293,9 @@ function Router:Send(msg, chatType, language, target)
         local clubId   = language
         local streamId = target
         if self.ClubSendMessage and clubId and streamId then
-            self.ClubSendMessage(clubId, streamId, msg)
-            return true
+            local ok, err = pcall(self.ClubSendMessage, clubId, streamId, msg)
+            if not ok then YapperTable.Utils:DebugPrint("ClubSendMessage error: " .. tostring(err)) end
+            return ok
         end
         return false
     end
@@ -304,8 +308,11 @@ function Router:Send(msg, chatType, language, target)
                 return false
             end
         end
-        self.SendChatMessage(msg, chatType, language, target)
-        return true
+        local ok, err = pcall(self.SendChatMessage, msg, chatType, language, target)
+        if not ok then
+            YapperTable.Utils:Print("Error sending message: " .. tostring(err))
+        end
+        return ok
     end
 
     return false

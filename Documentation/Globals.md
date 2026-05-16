@@ -24,8 +24,8 @@ See SavedVariables layout in [Architecture.md](Architecture.md#savedvariables-la
 ## Other `_G.*` registrations and mutations
 
 - `_G.YAPPER_UTILS = Utils` for debug/dev access ([`Src/Utils.lua#L94`](../Src/Utils.lua#L94)).
-- `_G.ChatEdit_InsertLink` is replaced by overlay-aware compatibility logic ([`Src/EditBoxCompat.lua#L264`](../Src/EditBoxCompat.lua#L264)).
-- `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L846`](../Src/Interface.lua#L846)).
+- `_G.ChatEdit_InsertLink` is replaced by overlay-aware compatibility logic ([`Src/EditBoxCompat.lua#L125`](../Src/EditBoxCompat.lua#L125)).
+- `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L854`](../Src/Interface.lua#L854)).
 
 ## Slash commands
 

@@ -131,7 +131,7 @@ function EditBox:SetupOverlayScripts()
         end
 
         -- Bare numeric channel: "/2 message"
-        local num, rest = strmatch(text, "^/(%d+)%s+(.*)")
+        local num, rest = strmatch(text, "^/(%d+)%s+([%s%S]*)")
         if num then
             local resolved = ResolveChannelName(tonumber(num))
             if resolved then
@@ -150,14 +150,14 @@ function EditBox:SetupOverlayScripts()
         end
 
         -- "/cmd rest" — need a space before we act.
-        local cmd, rest2 = strmatch(text, "^/([%w_]+)%s+(.*)")
+        local cmd, rest2 = strmatch(text, "^/([%w_]+)%s+([%s%S]*)")
         if not cmd then return end
         cmd = strlower(cmd)
 
         -- /c, /channel — wait for a space after the channel ID too,
         -- so we don't fire while the user is still typing it.
         if cmd == "c" or cmd == "channel" then
-            local ch, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
+            local ch, remainder = strmatch(rest2 or "", "^(%S+)%s+([%s%S]*)")
             if ch then
                 local chNum = tonumber(ch)
                 if chNum then
@@ -184,7 +184,7 @@ function EditBox:SetupOverlayScripts()
 
         if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t"
             or cmd == "cw" or cmd == "send" or cmd == "charwhisper" then
-            local target, remainder = strmatch(rest2 or "", "^(%S+)%s+(.*)")
+            local target, remainder = strmatch(rest2 or "", "^(%S+)%s+([%s%S]*)")
             if target then
                 self.ChatType = "WHISPER"
                 self.Target   = target
@@ -278,8 +278,15 @@ function EditBox:SetupOverlayScripts()
         end
 
         if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
-            return
+            -- Safety: If the flag is older than 100ms, it's stale and should not block input.
+            local appliedTime = YapperTable.Spellcheck._justAppliedSuggestion
+            if type(appliedTime) == "number" and GetTime() > (appliedTime + 0.1) then
+                YapperTable.Spellcheck._justAppliedSuggestion = nil
+            else
+                return
+            end
         end
+
         if State and State:GetFlag("SuppressNextEnter") then
             State:SetFlag("SuppressNextEnter", false)
             return
@@ -287,11 +294,12 @@ function EditBox:SetupOverlayScripts()
         -- Shift+Enter is consumed by OnKeyDown to enter multiline mode.
         -- Guard here too in case the key event fires OnEnterPressed anyway.
         if IsShiftKeyDown() then return end
-        -- Also bail if multiline transition just started.
-        local ml = YapperTable.Multiline
-        if State and State:IsMultiline() then return end
+
+        -- Panic recovery: If state is MULTILINE but the multiline frame is not shown,
+        -- we are in a zombie state that blocks the single-line Enter key.
         local text = box:GetText() or ""
-        local trimmed = strmatch(text, "^%s*(.-)%s*$") or ""
+        local first = text:find("%S")
+        local trimmed = first and text:sub(first, text:find("%s*$", first) - 1) or ""
 
         if trimmed == "" then
             if self._openedFromBnetTransition
@@ -312,7 +320,7 @@ function EditBox:SetupOverlayScripts()
         -- OnTextChanged because it waits for a trailing space. Handle
         -- those here before forwarding anything unrecognised to Blizzard.
         if strbyte(trimmed, 1) == 47 then -- '/'
-            local enterCmd, enterRest = strmatch(trimmed, "^/([%w_]+)%s*(.*)")
+            local enterCmd, enterRest = strmatch(trimmed, "^/([%w_]+)%s*([%s%S]*)")
             if enterCmd then
                 enterCmd = strlower(enterCmd)
 
@@ -514,6 +522,7 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.History then
             YapperTable.History:ClearDraft(box)
         end
+        box:SetText("") -- Kill the zombie source immediately
         self:PersistLastUsed()
         self:Hide()
     end)
@@ -668,7 +677,7 @@ function EditBox:SetupOverlayScripts()
 
     edit:SetScript("OnMouseDown", function(_, button)
         if button == "MiddleButton" then
-            self:HardRefocus()
+            edit:SetFocus()
         end
     end)
 
@@ -706,7 +715,6 @@ function EditBox:SetupOverlayScripts()
                 YapperTable.History:MarkDirty(true)
             end
         end
-        self._closedClean = false
     end)
 
     -- When focus leaves the overlay editbox (e.g. clicking the game world),
@@ -718,9 +726,12 @@ function EditBox:SetupOverlayScripts()
             YapperTable.Spellcheck:UpdateHint()
         end
 
-        -- If focus is lost (e.g. clicked game world), stop typing signals.
+        -- When focus is lost (e.g. clicked game world), stop typing signals.
         if State and State:IsEditing() then
             YapperAPI:SetState("IDLE")
+        end
+        if YapperTable.SyncActiveChatEditBox then
+            YapperTable.SyncActiveChatEditBox()
         end
     end)
 
@@ -733,6 +744,9 @@ function EditBox:SetupOverlayScripts()
         -- Resume typing signals when clicking back in.
         if State and State:IsIdle() then
             YapperAPI:SetState("EDITING")
+        end
+        if YapperTable.SyncActiveChatEditBox then
+            YapperTable.SyncActiveChatEditBox()
         end
     end)
 

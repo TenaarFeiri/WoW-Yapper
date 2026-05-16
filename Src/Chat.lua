@@ -138,8 +138,8 @@ function Chat:OnSend(text, chatType, language, target)
         YapperTable.History:AddChatHistory(text, chatType, target)
     end
 
-    -- Short — send directly.
-    if #text <= limit then
+    -- Short — send directly, UNLESS it contains newlines (which Blizzard truncates).
+    if #text <= limit and not text:find("\n", 1, true) then
         self:DirectSend(text, chatType, language, target)
         return
     end
@@ -175,7 +175,7 @@ function Chat:OnSend(text, chatType, language, target)
         limit = chunkPayload.limit
     end
 
-    local chunks = Chunking:Split(text, limit)
+    local chunks = Chunking:Split(text, limit, true)
 
 
 

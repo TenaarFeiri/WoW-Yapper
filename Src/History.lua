@@ -448,6 +448,15 @@ function History:HookOverlayEditBox()
     -- Snapshot on focus lost.
     eb:HookScript("OnEditFocusLost", function(box)
         if YapperTable.YAPPER_DISABLED then return end
+        
+        -- Don't re-save a draft if we are closing because the message was sent.
+        -- This prevents the "zombie draft" where a sent message reappears
+        -- due to focus-loss auto-saving it back into the DB during the hide animation.
+        local editBox = YapperTable.EditBox
+        if editBox and editBox._closedClean then
+            return
+        end
+
         self:AddSnapshot(box, true)
     end)
 end

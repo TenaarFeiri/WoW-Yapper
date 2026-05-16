@@ -978,7 +978,7 @@ function Spellcheck:NextSuggestionsPage()
     self._suggestionOffset = newOffset
     self.ActiveIndex = newOffset + 1
     self._lastPageTurnFrame = GetTime()
-    self._justAppliedSuggestion = true
+    self._justAppliedSuggestion = GetTime()
     C_Timer.After(0.05, function() self._justAppliedSuggestion = nil end)
     self:ShowSuggestions()
 end
@@ -1068,7 +1068,7 @@ function Spellcheck:ApplySuggestion(index)
 
     -- Mark that a suggestion was just applied so higher-level Enter
     -- handlers can swallow the following Enter (applied via keyboard).
-    self._justAppliedSuggestion = true
+    self._justAppliedSuggestion = GetTime()
     if C_Timer and C_Timer.NewTimer then
         C_Timer.NewTimer(0.05, function()
             self._justAppliedSuggestion = nil
