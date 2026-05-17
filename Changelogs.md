@@ -24,6 +24,12 @@
 
 # Patch notes
 
+## 2.1.19
+  - **FIXED LOCKDOWN TAINT ISSUE**
+  - **Yapper is now a citizen of Blizzard's UI!**
+    - So basically Yapper used to work kinda like a parasiting ghost, but it's now properly integrated into the UI.
+      In practice, this means snappier performance, better compatibility and you no longer have to see the Blizz editbox flicker.
+
 ## 2.1.17
   - Fixed an issue where Yapper would freeze under focus change circumstances and become unresponsive.
   - New API:
