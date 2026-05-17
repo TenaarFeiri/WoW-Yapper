@@ -51,9 +51,20 @@ function YapperTable.InstallCompatMethods(box)
 
     -- Satisfy addons (like TRP3) that expect the active editbox to have
     -- a parent chatFrame and a header.
-    if not box.chatFrame then
-        box.chatFrame = _G.DEFAULT_CHAT_FRAME
+    -- The shim's __index redirects .editBox back to Yapper's own box so
+    -- TRP3's shift-click name-replacement path (ChatFrame.lua:766) targets
+    -- the correct editor instead of Blizzard's ChatFrame1EditBox.
+    if not box._yapperChatFrameShim then
+        box._yapperChatFrameShim = setmetatable({}, {
+            __index = function(_, key)
+                if key == "editBox" then
+                    return box
+                end
+                return _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME[key]
+            end
+        })
     end
+    box.chatFrame = box._yapperChatFrameShim
     if not box.header then
         box.header = CreateFrame("Frame", nil, box)
     end
@@ -64,6 +75,8 @@ function YapperTable.InstallCompatMethods(box)
     box.UpdateHeader = box.UpdateHeader or function() end
     box.SetFocusRegionsShown = box.SetFocusRegionsShown or function() end
     box.UpdateNewcomerEditBoxHint = box.UpdateNewcomerEditBoxHint or function() end
+
+    box.supportsSlashCommands = true
 end
 
 -- Install on overlay at creation time.
@@ -91,105 +104,31 @@ if Multiline and Multiline.EditBox then
     YapperTable.InstallCompatMethods(Multiline.EditBox)
 end
 
-
--- Hook InsertLink: when a Yapper editor is active and focused, we insert the text
--- directly into our box and return 'true' to signal Blizzard that the link
--- has been handled. This prevents Blizzard's native fallback logic from
--- triggering.
-
-local origInsertLink = ChatFrameUtil.InsertLink
-local function overlayInsertLink(link)
-    -- Multiline editor takes priority: the overlay is hidden while it's open.
-    local state = YapperTable.State
-    local ml    = YapperTable.Multiline
-    if state and state.IsMultiline and state:IsMultiline()
-        and ml and ml.EditBox and ml.Frame and ml.Frame:IsShown() then
-        ml.EditBox:Insert(link)
-        return true
-    end
-
-    -- Single-line overlay.
-    -- We allow insertion even if focus is temporarily lost (e.g. to a TRP3 popup),
-    -- as long as the overlay is the intended recipient.
-    if EditBox.Overlay and EditBox.Overlay:IsShown() and EditBox.OverlayEdit then
-        EditBox.OverlayEdit:Insert(link)
-        return true
-    end
-    -- Fall back to original Blizzard logic if Yapper isn't active.
-    return origInsertLink(link)
-end
-
-ChatFrameUtil.InsertLink = overlayInsertLink
--- Keep the deprecated global alias in sync.
-if _G.ChatEdit_InsertLink then
-    _G.ChatEdit_InsertLink = overlayInsertLink
-end
-
--- Tell Blizz that Yapper is the active chat frame when focused.
--- This ensures Blizzard's ChatEdit_GetActiveWindow() returns Yapper,
--- which is required for certain native link-handling and UI behaviors.
-local function SyncActiveChatEditBox()
-    local ml = YapperTable.Multiline
-    -- Multiline priority: Claim only if focused to avoid zombie state locks.
-    if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox and ml.EditBox:HasFocus() then
-        _G.ACTIVE_CHAT_EDIT_BOX = ml.EditBox
-        return
-    end
-
-    -- Single-line overlay: Claim only if focused.
-    if EditBox.Overlay and EditBox.Overlay:IsShown()
-        and EditBox.OverlayEdit and EditBox.OverlayEdit:HasFocus() then
-        _G.ACTIVE_CHAT_EDIT_BOX = EditBox.OverlayEdit
-        return
-    end
-
-    -- If neither Yapper box is focused, clear the global.
-    local current = _G.ACTIVE_CHAT_EDIT_BOX
-    if current and current._yapperCompatInstalled then
-        _G.ACTIVE_CHAT_EDIT_BOX = nil
-    end
-end
-YapperTable.SyncActiveChatEditBox = SyncActiveChatEditBox
-
--- Compatibility Bridge: Some addons (like TRP3) use ChatFrameUtil.GetActiveWindow()
--- or the legacy ChatEdit_GetActiveWindow() to determine where to insert links.
--- We monkey-patch these to return Yapper if it's shown, even if it doesn't
--- currently have hardware focus. This ensures links from popups are routed
--- directly to Yapper without flickering or delays.
-local function YapperGetActiveWindow(...)
-    local ml = YapperTable.Multiline
-    if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox then
-        return ml.EditBox
-    end
-    local eb = YapperTable.EditBox
-    if eb and eb.Overlay and eb.Overlay:IsShown() and eb.OverlayEdit then
-        return eb.OverlayEdit
-    end
-    return nil
-end
-
+-- Hook GetActiveWindow: When Yapper is active, visible, and not bypassed,
+-- we route GetActiveWindow to Yapper's active editor (overlay or multiline).
+-- Under real combat lockdown, we immediately fall back to the native implementation.
+-- This ensures 100% compatibility with Shift-Clicking links and TRP3 link insertion,
+-- while keeping the native secure chat state completely untainted.
 if ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
-    local origGetActive = ChatFrameUtil.GetActiveWindow
-    ChatFrameUtil.GetActiveWindow = function(...)
-        local yapper = YapperGetActiveWindow(...)
-        if yapper then return yapper end
-        return origGetActive(...)
+    local origGetActiveWindow = ChatFrameUtil.GetActiveWindow
+    ChatFrameUtil.GetActiveWindow = function()
+        local eb = YapperTable.EditBox
+        if eb and eb.Overlay and eb.Overlay:IsShown() then
+            local bypass = eb._UserBypassingYapper and eb._UserBypassingYapper()
+            local preShow = eb._preShowSuppressed
+            if not bypass and not preShow and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                local ml = YapperTable.Multiline
+                if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox then
+                    return ml.EditBox
+                end
+                return eb.OverlayEdit
+            end
+        end
+        return origGetActiveWindow()
     end
+    _G.ChatEdit_GetActiveWindow = ChatFrameUtil.GetActiveWindow
 end
 
-if _G.ChatEdit_GetActiveWindow then
-    local origGetActive = _G.ChatEdit_GetActiveWindow
-    _G.ChatEdit_GetActiveWindow = function(...)
-        local yapper = YapperGetActiveWindow(...)
-        if yapper then return yapper end
-        return origGetActive(...)
-    end
-end
 
--- Hook into Yapper's internal API events to keep the global in sync.
--- This handles state transitions (e.g. from single-line to multiline).
-if _G.YapperAPI then
-    _G.YapperAPI:RegisterCallback("EDITBOX_SHOW", SyncActiveChatEditBox)
-    _G.YapperAPI:RegisterCallback("STATE_CHANGED", SyncActiveChatEditBox)
-    _G.YapperAPI:RegisterCallback("EDITBOX_HIDE", SyncActiveChatEditBox)
-end
+
+

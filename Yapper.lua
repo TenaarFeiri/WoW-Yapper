@@ -202,7 +202,14 @@ local function OnPlayerEnteringWorld()
 
     -- Final transition to IDLE: Boot sequence complete.
     if YapperTable.State then
-        YapperTable.State:ToIdle()
+        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+            YapperTable.State:ToLockdown()
+            if YapperTable.EditBox then
+                YapperTable.EditBox._lockdown.handedOff = true
+            end
+        else
+            YapperTable.State:ToIdle()
+        end
     end
 end
 

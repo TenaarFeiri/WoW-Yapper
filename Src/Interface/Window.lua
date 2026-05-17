@@ -457,6 +457,8 @@ local function CreatePopupToggle(parent, path, label, tip, y)
     fs:SetText(label)
     fs:SetTextColor(0.9, 0.9, 0.9, 1)
 
+
+
     if tip then
         local function OnEnter(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

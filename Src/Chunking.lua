@@ -206,7 +206,8 @@ local TRP3_DETECTED
 local function EnsureTRP3()
     if TRP3_DETECTED == nil then
         -- prefer the secure C_ API
-        TRP3_DETECTED = C_AddOns.IsAddOnLoaded("totalRP3")
+        local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+        TRP3_DETECTED = isLoaded and isLoaded("totalRP3") or false
     end
     return TRP3_DETECTED
 end

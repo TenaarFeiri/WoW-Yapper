@@ -72,6 +72,7 @@ Spellcheck._suggestOffsetY = 4
 Spellcheck._debounceTimer = nil
 Spellcheck.UserDictCache = {}
 Spellcheck._pendingLocaleLoads = {}
+Spellcheck._failedLocaleLoads = {}
 Spellcheck.DictionaryBuilders = {}
 -- Reusable buffers for EditDistance to avoid per-call allocations
 Spellcheck._ed_prev = {}

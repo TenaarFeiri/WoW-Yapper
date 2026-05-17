@@ -114,7 +114,11 @@ function Autocomplete:IsEnabled()
 			return false
 		end
 		-- Depends on spellcheck being active (dictionary data source).
-		if cfg.Spellcheck and cfg.Spellcheck.Enabled ~= true then
+		local sc = YapperTable.Spellcheck
+		if not sc or not sc:IsEnabled() then
+			return false
+		end
+		if not sc.Dictionaries or next(sc.Dictionaries) == nil then
 			return false
 		end
 	end

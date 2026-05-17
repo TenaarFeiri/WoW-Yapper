@@ -474,6 +474,8 @@ function EditBox:CreateOverlay()
             end)
         end
     end
+
+    self:UpdateFocusOverride()
 end
 
 -- ---------------------------------------------------------------------------

@@ -73,6 +73,25 @@ function EditBox:ClearLockdownState()
         ld.ticker = nil
     end
     ld.eventRunning = false
+    self._openingWatchdog = false
+end
+
+--- Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE
+--- based on whether Yapper is active, not in lockdown, and not bypassed.
+function EditBox:UpdateFocusOverride()
+    if ChatFrameUtil and ChatFrameUtil.SetChatFocusOverride then
+        local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+        local inCombat = InCombatLockdown and InCombatLockdown()
+        -- If we are in combat, but the overlay is currently shown and not handed off yet,
+        -- keep the override active so the user can finish typing.
+        local overlayActive = self.Overlay and self.Overlay:IsShown() and not self._lockdown.handedOff
+
+        if not UserBypassingYapper and not (inLockdown or (inCombat and not overlayActive)) and self.OverlayEdit then
+            ChatFrameUtil.SetChatFocusOverride(self.OverlayEdit)
+        else
+            ChatFrameUtil.ClearChatFocusOverride()
+        end
+    end
 end
 
 -- Reply-queue helpers
@@ -364,7 +383,12 @@ end
 
 -- Export shared locals for sub-files to re-localise.
 EditBox._UserBypassingYapper = function() return UserBypassingYapper end
-EditBox._SetUserBypassingYapper = function(val) UserBypassingYapper = val end
+EditBox._SetUserBypassingYapper = function(val)
+    UserBypassingYapper = val
+    if EditBox.UpdateFocusOverride then
+        EditBox:UpdateFocusOverride()
+    end
+end
 EditBox._BypassEditBox = function() return BypassEditBox end
 EditBox._SetBypassEditBox = function(val) BypassEditBox = val end
 EditBox._SLASH_MAP              = SLASH_MAP

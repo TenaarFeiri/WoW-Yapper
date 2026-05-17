@@ -131,6 +131,9 @@ end
 
 --- Returns true if YALLM is enabled in the configuration.
 function YALLM:IsEnabled()
+    local sc = YapperTable.Spellcheck
+    if not sc or not sc:IsEnabled() then return false end
+    if not sc.Dictionaries or next(sc.Dictionaries) == nil then return false end
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     return (cfg and cfg.YALLMEnabled ~= false)
 end

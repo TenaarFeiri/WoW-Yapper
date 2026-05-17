@@ -498,7 +498,15 @@ function Spellcheck:Notify(msg)
     end
 end
 
-function Spellcheck:EnsureLocale(locale)
+function Spellcheck:EnsureLocale(locale, force)
+    self._failedLocaleLoads = self._failedLocaleLoads or {}
+    if force then
+        self._failedLocaleLoads[locale] = nil
+    end
+    if self._failedLocaleLoads[locale] then
+        return false
+    end
+
     self:LoadDictionary(locale)
     if self:IsLocaleAvailable(locale) then
         return true
@@ -512,6 +520,7 @@ function Spellcheck:EnsureLocale(locale)
     -- time GetDictionary() is reached (e.g. on login when the user's
     -- saved locale points at an LOD addon they haven't installed).
     if addon and not self:HasLocaleAddon(locale) then
+        self._failedLocaleLoads[locale] = "MISSING"
         return false
     end
 
@@ -527,9 +536,11 @@ function Spellcheck:EnsureLocale(locale)
             end
 
             if loaded == false then
+                self._failedLocaleLoads[locale] = reason or "FAILED"
                 -- Only notify on real failures (corrupt, banned, etc.).
                 -- MISSING is handled by the early-return above.
-                if reason ~= "MISSING" and self.Notify then
+                -- DISABLED and MISSING_DEPENDENCY are user configuration/state, not real failures.
+                if reason ~= "MISSING" and reason ~= "DISABLED" and reason ~= "MISSING_DEPENDENCY" and self.Notify then
                     self:Notify("Yapper: failed to load " .. addon .. " (" .. tostring(reason) .. ").")
                 end
                 return false
@@ -539,6 +550,7 @@ function Spellcheck:EnsureLocale(locale)
                 -- race). Try one last load.
                 self:LoadDictionary(locale)
                 if not self:IsLocaleAvailable(locale) then
+                    self._failedLocaleLoads[locale] = "NOT_REGISTERED"
                     return false
                 end
             end

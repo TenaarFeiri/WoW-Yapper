@@ -528,7 +528,7 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
     local disabled = self:IsPathDisabledByTheme(path)
     if disabled then
         cb:SetEnabled(false)
-        text:SetTextColor(0.5, 0.5, 0.5, 1) -- Grey out if disabled
+        text:SetTextColor(0.5, 0.5, 0.5, 1)
     else
         cb:SetEnabled(true)
         text:SetTextColor(1, 1, 1, 1)
@@ -536,17 +536,6 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
 
     cb:SetScript("OnClick", function(selfFrame)
         local checked = selfFrame:GetChecked() == true
-        
-        -- Validation: If enabling spellcheck, ensure we have at least one dictionary addon.
-        if checked and path[1] == "Spellcheck" and path[2] == "Enabled" then
-            local spell = YapperTable and YapperTable.Spellcheck
-            if spell and spell.HasAnyDictionary and not spell:HasAnyDictionary() then
-                selfFrame:SetChecked(false)
-                StaticPopup_Show("YAPPER_DICTS_MISSING_LINK")
-                return
-            end
-        end
-
         Interface:SetLocalPath(path, checked)
     end)
 

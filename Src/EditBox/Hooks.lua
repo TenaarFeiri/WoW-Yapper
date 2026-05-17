@@ -478,6 +478,7 @@ function EditBox:HandoffToBlizzard(silent)
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
 
     YapperAPI:SetState("LOCKDOWN")
+    self:UpdateFocusOverride()
 
     -- Centralised lockdown cleanup (cancels timers/tickers).
     self:ClearLockdownState()
@@ -1190,6 +1191,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- captured even if the addon targets a hidden Blizzard editbox.
     local function ForwardTextToYapper(eb, text, isInsert)
         if self._ignoreSetText then return end
+        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
         local targetBox
         local state = YapperTable.State
@@ -1270,18 +1272,20 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
             if self.Overlay and self.Overlay:IsShown() then
                 -- Overlay already visible — suppress Blizzard's editbox and
-                -- reclaim focus immediately.
-                if self.OverlayEdit then
-                    self.OverlayEdit:SetFocus()
-                    -- Catch any text passed via OpenChat while we were already shown
-                    -- (e.g. TRP3 falling back to OpenChat when it loses focus).
-                    if self._pendingOpenChatText then
-                        self.OverlayEdit:Insert(self._pendingOpenChatText)
-                        self._pendingOpenChatText = nil
+                -- reclaim focus on the next frame to prevent secure-hook taint.
+                local pendingText = self._pendingOpenChatText
+                self._pendingOpenChatText = nil
+                C_Timer.After(0, function()
+                    if self.OverlayEdit then
+                        self.OverlayEdit:SetFocus()
+                        if pendingText then
+                            self.OverlayEdit:Insert(pendingText)
+                        end
                     end
-                end
-                if eb and eb.Hide and eb:IsShown() then eb:Hide() end
-
+                    if eb and eb.Hide and eb:IsShown() then
+                        eb:Hide()
+                    end
+                end)
                 return
             end
 
@@ -1300,7 +1304,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 if State and not State:IsLockdown() then
                     YapperAPI:SetState("LOCKDOWN")
                 end
-                if not self._lockdown.showHandled then
+                -- Under real combat lockdown, do NOT set attributes on the secure Blizzard box,
+                -- as that is a blocked/tainting operation. Let the secure box open natively.
+                if not isLockdown and not self._lockdown.showHandled then
                     self._lockdown.showHandled = true
                     local chosenCT = self.ChatType or (self.LastUsed and self.LastUsed.chatType) or "SAY"
                     chosenCT = self:GetResolvedChatType(chosenCT)
@@ -1473,7 +1479,8 @@ function EditBox:HookAllChatFrames()
     -- Capture the raw OpenChat argument so we can preserve leading slashes
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
-        hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, ...)
+        hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
+            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
             -- Signal that we are expecting a chat-show event shortly
             self._openingWatchdog = true
 
@@ -1510,6 +1517,10 @@ function EditBox:HookAllChatFrames()
             if type(text) == "string" and text ~= "" then
                 -- Store on the instance so EditBox:Show can prefer it.
                 self._pendingOpenChatText = text
+            end
+
+            if chatFrame == nil and not (UserBypassingYapper() or self._preShowSuppressed) then
+                self:Show(DEFAULT_CHAT_FRAME.editBox)
             end
         end)
         -- NOTE: Do NOT replace ChatFrameUtil.OpenChat with a tainted wrapper.

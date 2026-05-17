@@ -364,18 +364,12 @@ function Multiline:CreateFrame()
 		if State and State:IsMultiline() then
 			YapperAPI:SetState("IDLE")
 		end
-		if YapperTable.SyncActiveChatEditBox then
-			YapperTable.SyncActiveChatEditBox()
-		end
 	end)
 
 	edit:HookScript("OnEditFocusGained", function(box)
 		-- Resume typing signals when clicking back in.
 		if State and State:IsIdle() then
 			YapperAPI:SetState("MULTILINE")
-		end
-		if YapperTable.SyncActiveChatEditBox then
-			YapperTable.SyncActiveChatEditBox()
 		end
 	end)
 

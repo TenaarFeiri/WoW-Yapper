@@ -731,9 +731,6 @@ function EditBox:SetupOverlayScripts()
         if State and State:IsEditing() then
             YapperAPI:SetState("IDLE")
         end
-        if YapperTable.SyncActiveChatEditBox then
-            YapperTable.SyncActiveChatEditBox()
-        end
     end)
 
     edit:HookScript("OnEditFocusGained", function(box)
@@ -745,9 +742,6 @@ function EditBox:SetupOverlayScripts()
         -- Resume typing signals when clicking back in.
         if State and State:IsIdle() then
             YapperAPI:SetState("EDITING")
-        end
-        if YapperTable.SyncActiveChatEditBox then
-            YapperTable.SyncActiveChatEditBox()
         end
     end)
 
@@ -779,6 +773,7 @@ function EditBox:SetupOverlayScripts()
 
     frame:HookScript("OnEvent", function(_, event, ...)
         if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
+            self:UpdateFocusOverride()
             -- Helper: begin the deferred handoff.
             local function beginDeferredHandoff()
                 local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
@@ -840,6 +835,7 @@ function EditBox:SetupOverlayScripts()
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
             YapperAPI:SetState("IDLE")
+            self:UpdateFocusOverride()
             -- If we saved a draft during lockdown, poll until lockdown
             -- is truly over (checks every 1s for up to 5s).
             if self._lockdown.handedOff then
@@ -856,6 +852,7 @@ function EditBox:SetupOverlayScripts()
                         end
                         -- Allow Show-hook lockdown logic to run again after lockdown.
                         self._lockdown.showHandled = false
+                        self:UpdateFocusOverride()
                         YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
                         ticker:Cancel()
                         return
