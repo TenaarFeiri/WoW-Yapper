@@ -190,12 +190,19 @@ Interface._activeCategory = "general"
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
-    ["2.1.16"] = {
+    ["2.1.17"] = {
         {
             title = "API Changes",
             body = [[- New API has been added to better support external plugins.
 - With these changes, addons like CEBE can better support Yapper! :)
             ]],
+        },
+        {
+            title = "Bugfixes",
+            body = [[- Registered Yapper to Blizzard's system by recording ACTIVE_CHAT_EDIT_BOX. (as of 2.1.15)
+- Due to this change, several issues bubbled up which resulted in Yapper becoming unresponsive under certain conditions. This is now fixed.
+- Linking from other addons, like TRP3, should now work correctly.
+            ]]
         }
     },
     ["2.1.12"] = {
