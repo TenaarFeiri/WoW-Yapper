@@ -42,8 +42,16 @@ In Yapper 2.1.18 and newer, Yapper hooks `_G.ChatEdit_GetActiveWindow` and `Chat
 * **Impact**:
   * Standard helper functions like `ChatEdit_GetActiveWindow()` and `GetCurrentKeyBoardFocus()` will return the active Yapper editbox (`YapperOverlayEditBox`) instead of Blizzard's native `ChatFrame1EditBox` etc.
   * If your addon relies on resolving the native/source Blizzard edit box that Yapper is overlaying, checks like `isBlizzardChatEditBox(editBox)` will return `false`.
-* **Migration**:
-  * Proactively resolve the underlying source Blizzard edit box by querying Yapper's internal pointer: `_G.Yapper.EditBox.OrigEditBox`.
+  * **Immediate Hide Timing**: Because modern Yapper hides the native Blizzard edit box synchronously on show, any visibility-based loops (e.g. checking `editBox:IsShown()`) will fail to find the active native box.
+* **Migration & Best Practices**:
+  1. **Source Discovery**: Proactively resolve the underlying source Blizzard edit box by querying Yapper's internal pointer: `_G.Yapper.EditBox.OrigEditBox`.
+  2. **Timing-Proof Setup**: When setting up layouts inside callbacks (like `EDITBOX_SHOW`), verify and pull the target Blizzard box from `_G.Yapper.EditBox.OrigEditBox` if standard focus-based searches return `nil`.
+  3. **Visual Label Updates**: Use the official `"EDITBOX_LABEL_UPDATED"` callback to drive visual alignments and gutter calculations in real-time, replacing fragile hooks on `RefreshLabel`.
+     ```lua
+     YapperAPI:RegisterCallback("EDITBOX_LABEL_UPDATED", function()
+         -- Update custom gutter, labels, or alignment anchors here
+     end)
+     ```
 
 ## Compatibility note
 
