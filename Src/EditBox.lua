@@ -322,8 +322,9 @@ function EditBox:OpenBlizzardChat()
 
     -- Ensure any overlay state is handed off and saved first.
     -- Pass true (silent) so users bypassing intentionally don't see the lockdown message.
+    -- Pass true for bypassOpen so HandoffToBlizzard doesn't trigger its own deferred open.
     if self.Overlay and self.Overlay:IsShown() then
-        self:HandoffToBlizzard(true)
+        self:HandoffToBlizzard(true, true)
     end
 
     -- Defer the actual opening to the next frame so our Show-hook

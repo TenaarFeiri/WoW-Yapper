@@ -105,7 +105,7 @@ function EditBox:Show(origEditBox)
     self._openedFromBnetTransition   = openedFromBnetTransition
 
     self.OrigEditBox                 = origEditBox
-    
+
     -- Satisfy Blizzard code that expects the editbox to belong to a specific chatFrame.
     if origEditBox and origEditBox.chatFrame then
         self.OverlayEdit.chatFrame = origEditBox.chatFrame
@@ -132,11 +132,11 @@ function EditBox:Show(origEditBox)
     --   2. LastUsed sticky
     --   3. "SAY"
 
-    local cache                      = self._attrCache[origEditBox] or {}
-    local blizzType                  = cache.chatType
-    local blizzTell                  = cache.tellTarget
-    local blizzChan                  = cache.channelTarget
-    local blizzLang                  = cache.language or (origEditBox and origEditBox.languageID)
+    local cache     = self._attrCache[origEditBox] or {}
+    local blizzType = cache.chatType
+    local blizzTell = cache.tellTarget
+    local blizzChan = cache.channelTarget
+    local blizzLang = cache.language or (origEditBox and origEditBox.languageID)
     if not blizzLang and origEditBox and type(origEditBox.GetLanguageID) == "function" then
         blizzLang = origEditBox:GetLanguageID()
     end
@@ -469,13 +469,14 @@ function EditBox:Hide()
 end
 
 --- Save draft, close overlay, and notify during lockdown.
-function EditBox:HandoffToBlizzard(silent)
+function EditBox:HandoffToBlizzard(silent, bypassOpen)
     if not self.Overlay or not self.Overlay:IsShown() then
         YapperTable.Utils:DebugPrint("HandoffToBlizzard called but overlay hidden. Skipping.")
         return
     end
     YapperTable.Utils:DebugPrint("Executing HandoffToBlizzard...")
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+    local trimmed = text:match("^%s*(.-)%s*$") or ""
 
     YapperAPI:SetState("LOCKDOWN")
     self:UpdateFocusOverride()
@@ -505,6 +506,21 @@ function EditBox:HandoffToBlizzard(silent)
     if not silent then
         YapperTable.Utils:Print("info",
             "Chat in lockdown — your post has been saved. Press Enter after lockdown ends to continue.")
+    end
+
+    -- If there's an active draft and we are not bypassing the open,
+    -- immediately hand it off to Blizzard's editbox so the user can continue typing.
+    if trimmed ~= "" and not bypassOpen then
+        local eb = self.OrigEditBox or _G.ChatFrame1EditBox
+        C_Timer.After(0, function()
+            if ChatFrame_OpenChat then
+                pcall(ChatFrame_OpenChat, "", eb)
+                if eb and eb.SetFocus then eb:SetFocus() end
+            else
+                if eb and eb.Show then eb:Show() end
+                if eb and eb.SetFocus then eb:SetFocus() end
+            end
+        end)
     end
 end
 
@@ -773,6 +789,42 @@ function EditBox:RefreshLabel()
 
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_LABEL_UPDATED", label, resolvedR, resolvedG, resolvedB)
+    end
+
+    -- Organically synchronize active channel/target/language to Blizzard's editbox.
+    local eb = self.OrigEditBox
+    if eb and not (InCombatLockdown and InCombatLockdown()) then
+        local chosenCT = self.ChatType or "SAY"
+        local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
+
+        local currentTell = eb:GetAttribute("tellTarget")
+        local diffTell = true
+        pcall(function() diffTell = (currentTell ~= self.Target) end)
+        local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
+
+        if eb:GetAttribute("chatType") ~= overrideCT then
+            eb:SetAttribute("chatType", overrideCT)
+        end
+
+        if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
+            if diffTell then
+                eb:SetAttribute("tellTarget", self.Target)
+            end
+            eb:SetAttribute("channelTarget", nil)
+        elseif overrideCT == "CHANNEL" then
+            eb:SetAttribute("tellTarget", nil)
+            if diffChannel then
+                eb:SetAttribute("channelTarget", self.Target)
+            end
+        else
+            eb:SetAttribute("tellTarget", nil)
+            eb:SetAttribute("channelTarget", nil)
+        end
+        if self.Language then
+            eb:SetAttribute("language", self.Language)
+        else
+            eb:SetAttribute("language", nil)
+        end
     end
 end
 
@@ -1480,7 +1532,22 @@ function EditBox:HookAllChatFrames()
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
-            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+                -- Fix focus override getting stuck if lockdown started while chat was closed.
+                self:UpdateFocusOverride()
+                if self.OverlayEdit and self.OverlayEdit:HasFocus() then
+                    self.OverlayEdit:ClearFocus()
+                    self.OverlayEdit:Hide()
+                    local eb = self.OrigEditBox or (chatFrame and chatFrame.editBox) or _G.ChatFrame1EditBox
+                    C_Timer.After(0, function()
+                        if eb then
+                            if eb.Show then eb:Show() end
+                            if eb.SetFocus then eb:SetFocus() end
+                        end
+                    end)
+                end
+                return
+            end
             -- Signal that we are expecting a chat-show event shortly
             self._openingWatchdog = true
 
