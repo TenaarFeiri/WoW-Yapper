@@ -99,12 +99,12 @@ SlashCmdList["YAPPER"] = function(msg)
 
     if input == "export" then
         local sc = YapperTable.Spellcheck
-        if sc and sc.YALLM and sc.YALLM.Export then
+        if sc and sc.YAS and sc.YAS.Export then
             local locale = sc:GetLocale()
-            local report = sc.YALLM:Export(locale)
+            local report = sc.YAS:Export(locale)
             print(report)
         else
-            YapperTable.Utils:Print("warn", "YALLM module unavailable.")
+            YapperTable.Utils:Print("warn", "YAS module unavailable.")
         end
         return
     end
