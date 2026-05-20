@@ -1,6 +1,6 @@
 --[[
     Adversarial Stress Test R2: German Text in English Locale + User Dictionary
-    Force enUS locale and observe how YALLM + User Dictionary overcome language mismatch.
+    Force enUS locale and observe how YAS + User Dictionary overcome language mismatch.
 ]]
 
 -- Mock Globals
@@ -13,7 +13,7 @@ _G.table_remove = table.remove
 
 local YapperName, YapperTable = "Yapper", {
     Config = { 
-        Spellcheck = { Enabled = true, UseNgramIndex = true, YALLMAutoThreshold = 5, MaxSuggestions = 6 },
+        Spellcheck = { Enabled = true, UseNgramIndex = true, YASAutoThreshold = 5, MaxSuggestions = 6 },
         System = { DEBUG = false }
     },
     Utils = { Print = function(...) end },
@@ -49,11 +49,11 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
+LoadFile("Src/Spellcheck/YAS.lua")
 LoadFile("Src/Spellcheck/Engine.lua")
 
 local SC = YapperTable.Spellcheck
-local YALLM = SC.YALLM
+local YAS = SC.YAS
 
 -- Implement User Dictionary Logic in Mock
 function SC:GetUserDictStore()
@@ -118,7 +118,7 @@ SC.GetDictionary = function() return enDict end
 _G.SC_Addon_Internal = { ["enUS"] = { engine = enEngine } }
 
 _G.YapperDB = { SpellcheckLearned = {}, Spellcheck = { Dict = {} } }
-YALLM:Init()
+YAS:Init()
 
 local MobyText = [[
 Nenne mich Ismael. Hör zu, was ich dir zu erzählen habe. Es gibt Jahre ohne Gesicht, 
@@ -193,8 +193,8 @@ local function RunPass(passNum)
         end
 
         -- Record Selection bias even if we had to add it manually
-        YALLM:RecordSelection(typed, original, 0.5, "enUS")
-        YALLM:RecordUsage(original, "enUS")
+        YAS:RecordSelection(typed, original, 0.5, "enUS")
+        YAS:RecordUsage(original, "enUS")
     end
 
     print(string.format("Pass %d: Top 1 = %.1f%% | Top 3 = %.1f%% | Any = %.1f%%", 
@@ -205,14 +205,14 @@ for p = 1, 6 do
     RunPass(p)
 end
 
-local yallmSummary = YALLM:GetDataSummary("enUS")
+local yallmSummary = YAS:GetDataSummary("enUS")
 local userDict = SC:GetUserDict("enUS")
 
 print("\n--- Final enUS State ---")
-print(string.format("YALLM Entries:   %d", #yallmSummary.freq))
+print(string.format("YAS Entries:   %d", #yallmSummary.freq))
 print(string.format("User Dict Words: %d", #userDict.AddedWords))
 
-print("\nTop Learned Candidates (YALLM rank in enUS):")
+print("\nTop Learned Candidates (YAS rank in enUS):")
 table.sort(yallmSummary.freq, function(a, b) return a.count > b.count end)
 for i = 1, math.min(10, #yallmSummary.freq) do
     print(string.format("  [%d] %-15s (count: %d)", i, yallmSummary.freq[i].word, yallmSummary.freq[i].count))

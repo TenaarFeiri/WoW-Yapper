@@ -45,7 +45,7 @@ CreateFrame = function() return {
 local function load_module(path) assert(loadfile(path))(nil, YapperTable) end
 
 print("--- Initializing Production Engine ---")
-load_module("Src/Spellcheck.lua")
+load_module("../../Src/Spellcheck.lua")
 local Spellcheck = YapperTable.Spellcheck
 Spellcheck.EditBox, Spellcheck.Overlay, Spellcheck.MeasureFS = CreateFrame(), CreateFrame(), CreateFrame()
 load_module("Src/Spellcheck/Dicts/enBase.lua")

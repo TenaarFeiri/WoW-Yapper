@@ -42,8 +42,8 @@ loadFile("Src/Spellcheck.lua")
 loadFile("Src/Spellcheck/Engine.lua")
 loadFile("Src/Spellcheck/Dictionary.lua")
 loadFile("Src/Autocomplete.lua")
--- Mock YALLM initialization
-YapperTable.Spellcheck.YALLM = {
+-- Mock YAS initialization
+YapperTable.Spellcheck.YAS = {
     Init = function() end,
     RecordImplicitCorrection = function() end,
     ApplyState = function() end,
@@ -151,7 +151,7 @@ local function SimulateTyping(wordToType)
     local tCheckEnd = debugprofilestop()
     
     local suggestionsTime = 0
-    local YALLMTime = 0
+    local YASTime = 0
     local suggestions = {}
     
     if not isCorrect then
@@ -162,9 +162,9 @@ local function SimulateTyping(wordToType)
         
         if #suggestions > 0 then
             local tYStart = debugprofilestop()
-            SC.YALLM:RecordImplicitCorrection(wordToType, suggestions[1].value, suggestions)
+            SC.YAS:RecordImplicitCorrection(wordToType, suggestions[1].value, suggestions)
             local tYEnd = debugprofilestop()
-            YALLMTime = tYEnd - tYStart
+            YASTime = tYEnd - tYStart
         end
     end
     
@@ -175,7 +175,7 @@ local function SimulateTyping(wordToType)
         tAuto = totalAutoCompleteTime,
         tCheck = (tCheckEnd - tCheckStart),
         tSug = suggestionsTime,
-        tYALLM = YALLMTime,
+        tYAS = YASTime,
         suggs = suggestions,
         topIdx = foundInTopIdx,
         anyIdx = foundInAnyIdx,

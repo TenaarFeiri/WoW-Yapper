@@ -220,12 +220,12 @@ local r5 = Auto:SearchDictionary(words7, "application")
 check("prefix that is a full word → nil",      r5 == nil)
 
 -- ============================================================================
--- 8. SearchYALLM
+-- 8. SearchYAS
 -- ============================================================================
-section("8. Autocomplete: SearchYALLM")
+section("8. Autocomplete: SearchYAS")
 
--- Inject a mock YALLM with frequency data.
-SC.YALLM = {
+-- Inject a mock YAS with frequency data.
+SC.YAS = {
     db = {
         freq = {
             ["Stormwind"]  = { c = 10 },
@@ -235,23 +235,23 @@ SC.YALLM = {
     }
 }
 
-local y1 = Auto:SearchYALLM("sto")
+local y1 = Auto:SearchYAS("sto")
 check("highest-freq 'sto*' match",   y1 == "Stormwind")
 
-local y2 = Auto:SearchYALLM("storm")
+local y2 = Auto:SearchYAS("storm")
 check("prefix 'storm' → Stormwind",  y2 == "Stormwind")
 
 -- Boost Stormscale above Stormwind
-SC.YALLM.db.freq["Stormscale"] = { c = 20 }
-local y3 = Auto:SearchYALLM("storm")
+SC.YAS.db.freq["Stormscale"] = { c = 20 }
+local y3 = Auto:SearchYAS("storm")
 check("adapts to frequency change",  y3 == "Stormscale")
 
-local y4 = Auto:SearchYALLM("xyz")
+local y4 = Auto:SearchYAS("xyz")
 check("no match → nil",              y4 == nil)
 
 -- Entry is a raw number (legacy format), not a table
-SC.YALLM.db.freq["numericEntry"] = 7
-local y5 = Auto:SearchYALLM("num")
+SC.YAS.db.freq["numericEntry"] = 7
+local y5 = Auto:SearchYAS("num")
 check("numeric freq entry handled",  y5 == "numericEntry")
 
 -- ============================================================================
@@ -259,7 +259,7 @@ check("numeric freq entry handled",  y5 == "numericEntry")
 -- ============================================================================
 section("9. Autocomplete: GetSuggestion cascade")
 
-SC.YALLM = { db = { freq = { ["Stormwind"] = { c = 10 } } } }
+SC.YAS = { db = { freq = { ["Stormwind"] = { c = 10 } } } }
 SC.GetDictionary = function()
     return {
         words = { "stable", "stall", "star", "stork", "storm", "stormrage" },
@@ -268,16 +268,16 @@ SC.GetDictionary = function()
 end
 
 local g1 = Auto:GetSuggestion("sto")
-check("YALLM hit takes priority",         g1 == "Stormwind")
+check("YAS hit takes priority",         g1 == "Stormwind")
 
--- Remove the YALLM hit so it falls through to dict
-SC.YALLM.db.freq["Stormwind"] = nil
+-- Remove the YAS hit so it falls through to dict
+SC.YAS.db.freq["Stormwind"] = nil
 local g2 = Auto:GetSuggestion("sto")
 -- binary search on sorted list → first/shortest "sto*" word
 check("dict fallback works",              g2 ~= nil and g2:sub(1, 3):lower() == "sto")
 
 -- Test _base fallback
-SC.YALLM = nil  -- no YALLM
+SC.YAS = nil  -- no YAS
 SC.GetDictionary = function()
     return {
         words = { "apple", "apricot" },  -- no "bas*" words

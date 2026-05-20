@@ -50,7 +50,7 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
+LoadFile("Src/Spellcheck/YAS.lua")
 LoadFile("Src/Spellcheck/Engine.lua")
 LoadFile("Dictionaries/Yapper_Dict_deDE/Engine.lua")
 

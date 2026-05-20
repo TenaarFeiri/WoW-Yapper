@@ -1,5 +1,5 @@
 --[[
-    Moby Dick Stress Test: German Engine + YALLM (Locale-Partitioned)
+    Moby Dick Stress Test: German Engine + YAS (Locale-Partitioned)
     Simulates high-load typing with introduced errors and measures adaptive learning.
 ]]
 
@@ -12,7 +12,7 @@ _G.C_Timer = { After = function() end }
 
 local YapperName, YapperTable = "Yapper", {
     Config = { 
-        Spellcheck = { Enabled = true, UseNgramIndex = true, YALLMAutoThreshold = 5, MaxSuggestions = 6 },
+        Spellcheck = { Enabled = true, UseNgramIndex = true, YASAutoThreshold = 5, MaxSuggestions = 6 },
         System = { DEBUG = false }
     },
     Utils = { Print = function(...) end },
@@ -24,6 +24,7 @@ local YapperName, YapperTable = "Yapper", {
         _RAID_ICONS = {},
         Notify = function() end,
         GetLocale = function() return "deDE" end,
+        IsEnabled = function() return true end,
         GetActiveEngine = function() return nil end, -- Fallback to synthetic
         GetMaxSuggestions = function() return 6 end,
         GetMaxWrongLetters = function() return 4 end,
@@ -50,11 +51,11 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
-LoadFile("Src/Spellcheck/Engine.lua")
+LoadFile("../../Src/Spellcheck/Adaptive.lua")
+LoadFile("../../Src/Spellcheck/Engine.lua")
 
 local SC = YapperTable.Spellcheck
-local YALLM = SC.YALLM
+local YAS = SC.YAS
 
 -- Mock Dictionary Logic
 local MobyText = [[
@@ -101,7 +102,7 @@ SC.GetDictionary = function() return deDict end
 _G.SC_Addon_Internal = { ["deDE"] = { engine = deEngine } }
 
 _G.YapperDB = { SpellcheckLearned = {} }
-YALLM:Init()
+YAS:Init()
 
 -- Noise Generator
 local function ApplyNoise(word)
@@ -158,9 +159,9 @@ local function RunPass(passName)
         
         -- Simulator Feedback: User chooses the word
         if isError and foundAt > 0 then
-            YALLM:RecordSelection(typed, original, 0.5, "deDE")
+            YAS:RecordSelection(typed, original, 0.5, "deDE")
         end
-        YALLM:RecordUsage(original, "deDE")
+        YAS:RecordUsage(original, "deDE")
     end
 
     local avgLat = 0
@@ -175,14 +176,14 @@ local function RunPass(passName)
 end
 
 local pass1 = RunPass("Pass 1 (Cold)")
-local pass2 = RunPass("Pass 2 (Warm - YALLM)")
+local pass2 = RunPass("Pass 2 (Warm - YAS)")
 
-local summary = YALLM:GetDataSummary("deDE")
-print(string.format("\nYALLM Partition:   deDE [Learned %d items]", #summary.freq))
+local summary = YAS:GetDataSummary("deDE")
+print(string.format("\nYAS Partition:   deDE [Learned %d items]", #summary.freq))
 
 -- Verify Partitioning (Leakage Test)
 print("\n--- Leakage Case: English Test ---")
-local enSummary = YALLM:GetDataSummary("enUS")
+local enSummary = YAS:GetDataSummary("enUS")
 if not enSummary or #enSummary.freq == 0 then
     print("SUCCESS: No data leaked into enUS partition.")
 else

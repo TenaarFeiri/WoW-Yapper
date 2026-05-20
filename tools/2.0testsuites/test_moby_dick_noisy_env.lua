@@ -23,7 +23,7 @@ _G.GetTime = os.clock
 _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 
 local YapperName, YapperTable = "Yapper", {
-    Config = { Spellcheck = { Enabled = true, UseNgramIndex = true, YALLMAutoThreshold = 5, MaxSuggestions = 6 } },
+    Config = { Spellcheck = { Enabled = true, UseNgramIndex = true, YASAutoThreshold = 5, MaxSuggestions = 6 } },
     Utils = { Print = function(...) end },
     API = { Fire = function(...) end, RunFilter = function(_, _, p) return p end },
     Spellcheck = {
@@ -55,13 +55,13 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
+LoadFile("Src/Spellcheck/YAS.lua")
 LoadFile("Src/Spellcheck/Engine.lua")
 
 local SC = YapperTable.Spellcheck
-local YALLM = SC.YALLM
+local YAS = SC.YAS
 _G.YapperDB = { SpellcheckLearned = {} }
-YALLM:Init()
+YAS:Init()
 
 -- Load German Dict (Simulated)
 local deDict = { words = {}, set = {}, index = {}, phonetics = {}, ngramIndex2 = {} }
@@ -119,9 +119,9 @@ local function RunPass(passNum)
         table.insert(telemetry.latencies, (stop - start) * 1000)
         if suggestions[1] and suggestions[1].value:lower() == original:lower() then
             telemetry.hits = telemetry.hits + 1
-            YALLM:RecordSelection(original, original, 1.0, "deDE")
+            YAS:RecordSelection(original, original, 1.0, "deDE")
         end
-        YALLM:RecordUsage(original, "deDE")
+        YAS:RecordUsage(original, "deDE")
     end
 
     table.sort(telemetry.latencies)

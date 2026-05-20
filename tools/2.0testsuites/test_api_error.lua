@@ -31,7 +31,7 @@ YapperTable.Utils = {
     end,
 }
 
-local api_loader, lerr = loadfile("Src/API.lua")
+local api_loader, lerr = loadfile("../../Src/API.lua")
 if not api_loader then
     print("FATAL: failed to load Src/API.lua: " .. tostring(lerr))
     os.exit(1)

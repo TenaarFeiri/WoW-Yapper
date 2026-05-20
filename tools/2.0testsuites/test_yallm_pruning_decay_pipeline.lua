@@ -1,5 +1,5 @@
 --[[
-    YALLM Pruning, Decay & Pipeline Integration Test
+    YAS Pruning, Decay & Pipeline Integration Test
     Uses Moby Dick Chapters 1-2 excerpt as a corpus.
     Verifies:
       1. auto table pruning under cap
@@ -20,10 +20,10 @@ local YapperName, YapperTable = "Yapper", {
         Spellcheck = {
             Enabled = true,
             UseNgramIndex = true,
-            YALLMAutoThreshold = 3,
-            YALLMFreqCap = 100,
-            YALLMBiasCap = 100,
-            YALLMAutoCap = 20,
+            YASAutoThreshold = 3,
+            YASFreqCap = 100,
+            YASBiasCap = 100,
+            YASAutoCap = 20,
             MaxSuggestions = 6,
             UserDictWordCap = 50,
         },
@@ -51,7 +51,7 @@ local YapperName, YapperTable = "Yapper", {
         GetUserDict = function() return { AddedWords = {} } end,
         GetUserSets = function() return {}, {} end,
         GetIgnoredRanges = function() return {} end,
-        Dictionaries = { enUS = {} },  -- Non-empty dict for YALLM:IsEnabled()
+        Dictionaries = { enUS = {} },  -- Non-empty dict for YAS:IsEnabled()
         IsEnabled = function() return true end,
         GetUserDictStore = function() return _G.YapperDB.Spellcheck.Dict end,
         GetConfig = function() return YapperTable.Config.Spellcheck end,
@@ -73,18 +73,18 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck.lua")
-LoadFile("Src/Spellcheck/YALLM.lua")
-LoadFile("Src/Spellcheck/Engine.lua")
+LoadFile("../../Src/Spellcheck.lua")
+LoadFile("../../Src/Spellcheck/Adaptive.lua")
+LoadFile("../../Src/Spellcheck/Engine.lua")
 
 local SC = YapperTable.Spellcheck
-local YALLM = SC.YALLM
-if not YALLM then
-    print("[ERROR] YALLM not loaded - check file loading")
+local YAS = SC.YAS
+if not YAS then
+    print("[ERROR] YAS not loaded - check file loading")
     os.exit(1)
 end
 
--- Ensure Dictionaries is non-empty for YALLM:IsEnabled()
+-- Ensure Dictionaries is non-empty for YAS:IsEnabled()
 if not SC.Dictionaries or next(SC.Dictionaries) == nil then
     SC.Dictionaries = { enUS = {} }
 end
@@ -139,7 +139,7 @@ end
 SC.GetDictionary = function() return dict end
 
 _G.YapperDB = { SpellcheckLearned = {}, Spellcheck = { Dict = {} } }
-YALLM:Init()
+YAS:Init()
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -193,30 +193,30 @@ end
 -- Test 1: auto table pruning
 -- ---------------------------------------------------------------------------
 print("\n=== Test 1: auto table pruning ===")
-YALLM:Reset("enUS")
+YAS:Reset("enUS")
 math.randomseed(1)
 
 -- Fill auto with many distinct words (simulate typing many different words)
 for i = 1, 30 do
-    YALLM:RecordIgnored("autoword" .. i, "enUS")
+    YAS:RecordIgnored("autoword" .. i, "enUS")
 end
 
-local db = YALLM:GetLocaleDB("enUS")
-assert_true(db.autoCount <= YALLM:GetAutoCap(), "autoCount respects cap after prune")
+local db = YAS:GetLocaleDB("enUS")
+assert_true(db.autoCount <= YAS:GetAutoCap(), "autoCount respects cap after prune")
 assert_true(db.autoCount > 0, "autoCount still has entries after prune")
 
 -- Verify high-usage words survive pruning by recording one word many times
-YALLM:Reset("enUS")
+YAS:Reset("enUS")
 -- First, build up frequentword's count BEFORE hitting cap
 for i = 1, 10 do
-    YALLM:RecordIgnored("frequentword", "enUS")  -- this one 10 times first
+    YAS:RecordIgnored("frequentword", "enUS")  -- this one 10 times first
 end
 -- Then add rare words to trigger pruning
 for i = 1, 25 do
-    YALLM:RecordIgnored("rareword" .. i, "enUS")  -- each once
+    YAS:RecordIgnored("rareword" .. i, "enUS")  -- each once
 end
 
-local db = YALLM:GetLocaleDB("enUS")
+local db = YAS:GetLocaleDB("enUS")
 local foundFrequent = false
 local foundRare = false
 for w, _ in pairs(db.auto) do
@@ -231,18 +231,18 @@ print("  [INFO] auto table size after prune: " .. tostring(db.autoCount))
 -- Test 2: negBias time-based forgiveness decay
 -- ---------------------------------------------------------------------------
 print("\n=== Test 2: negBias forgiveness decay ===")
-YALLM:Reset("enUS")
-local db = YALLM:GetLocaleDB("enUS")
+YAS:Reset("enUS")
+local db = YAS:GetLocaleDB("enUS")
 
 -- Record a rejection
-YALLM:RecordRejection("teh", { { word = "the" }, { word = "they" } }, "enUS")
+YAS:RecordRejection("teh", { { word = "the" }, { word = "they" } }, "enUS")
 
-local bonusFresh = YALLM:GetBonus("the", "teh", nil, "enUS")
+local bonusFresh = YAS:GetBonus("the", "teh", nil, "enUS")
 
 -- Simulate 60 days passing by rewriting the timestamp
 db.negBias[negKey].t = db.negBias[negKey].t - (60 * 86400)
 
-local bonusAged = YALLM:GetBonus("the", "teh", nil, "enUS")
+local bonusAged = YAS:GetBonus("the", "teh", nil, "enUS")
 
 assert_true(bonusFresh > 0, "Fresh negBias produces a positive (penalty) bonus")
 assert_true(bonusAged > 0, "Aged negBias still produces positive bonus")
@@ -283,7 +283,7 @@ print("  [INFO] AddedWords size: " .. tostring(#userDict.AddedWords))
 -- Test 4: End-to-end pipeline (detection -> suggestion -> learning)
 -- ---------------------------------------------------------------------------
 print("\n=== Test 4: Detection -> Suggestion -> Learning Pipeline ===")
-YALLM:Reset("enUS")
+YAS:Reset("enUS")
 SC:ClearSuggestionCache()
 SC.UserDictCache = {}
 
@@ -317,11 +317,11 @@ local function simulate_pass(pass_name, learn)
                 if foundAt > 0 then stats.candidate = stats.candidate + 1 end
 
                 if learn and foundAt > 0 then
-                    YALLM:RecordSelection(typed, original, 0.5, "enUS")
+                    YAS:RecordSelection(typed, original, 0.5, "enUS")
                 end
             end
         end
-        YALLM:RecordUsage(original, "enUS")
+        YAS:RecordUsage(original, "enUS")
     end
     print(string.format("  %s: Top-1 %.1f%% | Top-3 %.1f%% | Candidate %.1f%% (N=%d)",
         pass_name,
@@ -344,16 +344,16 @@ assert_true(pass3.hits >= pass2.hits or pass3.hits >= pass1.hits,
 -- Test 5: Implicit correction learning
 -- ---------------------------------------------------------------------------
 print("\n=== Test 5: Implicit Correction Learning ===")
-YALLM:Reset("enUS")
+YAS:Reset("enUS")
 
 -- Simulate: user types "spleeen", suggestions appear, user manually corrects to "spleen"
 -- First, make sure "spleen" is in the dictionary suggestions
-local preImp = YALLM:GetBonus("spleen", "spleeen", nil, "enUS")
+local preImp = YAS:GetBonus("spleen", "spleeen", nil, "enUS")
 
 -- Record implicit: the correction wasn't in candidates, but is phonetically close
-YALLM:RecordImplicitCorrection("spleeen", "spleen", {}, "enUS")
+YAS:RecordImplicitCorrection("spleeen", "spleen", {}, "enUS")
 
-local postImp = YALLM:GetBonus("spleen", "spleeen", nil, "enUS")
+local postImp = YAS:GetBonus("spleen", "spleeen", nil, "enUS")
 assert_true(postImp < preImp, "Implicit correction strengthened bias (lower bonus = better ranking)")
 print(string.format("  [INFO] Bonus before implicit: %.4f, after: %.4f", preImp, postImp))
 
@@ -361,7 +361,7 @@ print(string.format("  [INFO] Bonus before implicit: %.4f, after: %.4f", preImp,
 -- Test 6: Auto-promotion threshold
 -- ---------------------------------------------------------------------------
 print("\n=== Test 6: Auto-promotion to user dictionary ===")
-YALLM:Reset("enUS")
+YAS:Reset("enUS")
 SC.UserDictCache = {}
 local addedWords = {}
 SC.AddUserWord = function(_, loc, word)
@@ -369,12 +369,12 @@ SC.AddUserWord = function(_, loc, word)
 end
 
 for i = 1, 2 do
-    YALLM:RecordIgnored("SpecialWord", "enUS")
+    YAS:RecordIgnored("SpecialWord", "enUS")
 end
 assert_eq(#addedWords, 0, "Not promoted before threshold (2 < 3)")
 
-YALLM:RecordIgnored("SpecialWord", "enUS")
+YAS:RecordIgnored("SpecialWord", "enUS")
 assert_eq(#addedWords, 1, "Auto-promoted after hitting threshold (3)")
 assert_eq(addedWords[1], "SpecialWord", "Promoted correct word")
 
-print("\n=== All YALLM pruning, decay & pipeline tests passed ===")
+print("\n=== All YAS pruning, decay & pipeline tests passed ===")

@@ -21,6 +21,7 @@ local YapperName, YapperTable = "Yapper", {
         GetMaxWrongLetters = function() return 4 end,
         GetMinWordLength = function() return 2 end,
         GetReshuffleAttempts = function() return 20 end,
+        IsEnabled = function() return true end,
         GetMeta = function() return {} end,
         GetIgnoredRanges = function() return {} end,
         Dictionaries = {},
@@ -41,8 +42,8 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
-LoadFile("Src/Spellcheck/Engine.lua")
+LoadFile("../../Src/Spellcheck/Adaptive.lua")
+LoadFile("../../Src/Spellcheck/Engine.lua")
 
 local SC = YapperTable.Spellcheck
 

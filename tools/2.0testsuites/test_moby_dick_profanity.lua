@@ -1,7 +1,7 @@
 --[[
-    Moby Dick Profanity Test: Engine + YALLM + Autocomplete (Locale-Partitioned)
+    Moby Dick Profanity Test: Engine + YAS + Autocomplete (Locale-Partitioned)
     Injects slurs into the input stream, applies typographical noise, and verifies
-    that no slurs leak into Autocomplete, Spellcheck Suggestions, or YALLM's learned data.
+    that no slurs leak into Autocomplete, Spellcheck Suggestions, or YAS's learned data.
     Also tracks zero-allocation compliance during hot paths.
 
     Dictionary source: tools/scratch/all_bad_words.txt
@@ -16,7 +16,7 @@ _G.C_Timer = { After = function() end }
 
 local YapperName, YapperTable = "Yapper", {
     Config = { 
-        Spellcheck = { Enabled = true, UseNgramIndex = true, YALLMAutoThreshold = 5, MaxSuggestions = 6 },
+        Spellcheck = { Enabled = true, UseNgramIndex = true, YASAutoThreshold = 5, MaxSuggestions = 6 },
         System = { DEBUG = false }
     },
     Utils = { Print = function(...) end },
@@ -104,12 +104,12 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
+LoadFile("Src/Spellcheck/YAS.lua")
 LoadFile("Src/Spellcheck/Engine.lua")
 LoadFile("Src/Autocomplete.lua")
 
 local SC = YapperTable.Spellcheck
-local YALLM = SC.YALLM
+local YAS = SC.YAS
 local Autocomplete = YapperTable.Autocomplete
 
 local MobyText = [[
@@ -185,7 +185,7 @@ local engine = {
 SC.GetDictionary = function() return dict end
 _G.SC_Addon_Internal = { ["enBASE"] = { engine = engine } }
 _G.YapperDB = { SpellcheckLearned = {} }
-YALLM:Init()
+YAS:Init()
 
 -- Noise & Slur Injection Generator
 local function ApplyNoise(word)
@@ -260,15 +260,15 @@ local function RunPass(passName)
             print("LEAK DETECTED (Autocomplete): " .. auto_sug)
         end
         
-        -- YALLM Interaction
+        -- YAS Interaction
         if isSlur then
-            -- Attempt to teach YALLM the slur
-            YALLM:RecordUsage(typed, "enBASE")
-            YALLM:RecordSelection(original, typed, 0.5, "enBASE")
-            YALLM:RecordImplicitCorrection(original, typed, suggestions, "enBASE")
-            YALLM:RecordIgnored(typed, "enBASE")
+            -- Attempt to teach YAS the slur
+            YAS:RecordUsage(typed, "enBASE")
+            YAS:RecordSelection(original, typed, 0.5, "enBASE")
+            YAS:RecordImplicitCorrection(original, typed, suggestions, "enBASE")
+            YAS:RecordIgnored(typed, "enBASE")
         else
-            YALLM:RecordUsage(original, "enBASE")
+            YAS:RecordUsage(original, "enBASE")
         end
     end
 
@@ -292,7 +292,7 @@ local function RunPass(passName)
 end
 
 local pass1 = RunPass("Pass 1 (Cold)")
-local pass2 = RunPass("Pass 2 (Warm - YALLM Active)")
+local pass2 = RunPass("Pass 2 (Warm - YAS Active)")
 
 -- Pass 3: Manual Override Test
 -- User adds "fuck" to their dictionary. It should now be suggested.
@@ -322,9 +322,9 @@ else
     os.exit(1)
 end
 
--- Now test YALLM learning: It should NOT learn "fuck" even if in AddedWords
-YALLM:RecordUsage(testSlur, "enBASE")
-local learned = YALLM:GetDataSummary("enBASE")
+-- Now test YAS learning: It should NOT learn "fuck" even if in AddedWords
+YAS:RecordUsage(testSlur, "enBASE")
+local learned = YAS:GetDataSummary("enBASE")
 local learnedFound = false
 for _, entry in ipairs(learned.freq) do
     if entry.word == testSlur then
@@ -334,17 +334,17 @@ for _, entry in ipairs(learned.freq) do
 end
 
 if learnedFound then
-    print(string.format("FAILURE: YALLM learned blocked word '%s' via RecordUsage!", testSlur))
+    print(string.format("FAILURE: YAS learned blocked word '%s' via RecordUsage!", testSlur))
     os.exit(1)
 else
-    print(string.format("SUCCESS: YALLM correctly refused to learn blocked word '%s' via RecordUsage.", testSlur))
+    print(string.format("SUCCESS: YAS correctly refused to learn blocked word '%s' via RecordUsage.", testSlur))
 end
 
 -- Test Selection & Implicit Correction (Auto-learn paths)
-YALLM:RecordSelection("fuk", testSlur, true, "enBASE")
-YALLM:RecordImplicitCorrection("fuk", testSlur, {testSlur}, "enBASE")
+YAS:RecordSelection("fuk", testSlur, true, "enBASE")
+YAS:RecordImplicitCorrection("fuk", testSlur, {testSlur}, "enBASE")
 
-learned = YALLM:GetDataSummary("enBASE")
+learned = YAS:GetDataSummary("enBASE")
 local autoLearnedFound = false
 for _, entry in ipairs(learned.freq) do
     if entry.word == testSlur then autoLearnedFound = true break end
@@ -354,10 +354,10 @@ for _, entry in ipairs(learned.bias) do
 end
 
 if autoLearnedFound then
-    print(string.format("FAILURE: YALLM auto-learned blocked word '%s' via Selection/Implicit paths!", testSlur))
+    print(string.format("FAILURE: YAS auto-learned blocked word '%s' via Selection/Implicit paths!", testSlur))
     os.exit(1)
 else
-    print(string.format("SUCCESS: YALLM correctly refused to auto-learn blocked word '%s'.", testSlur))
+    print(string.format("SUCCESS: YAS correctly refused to auto-learn blocked word '%s'.", testSlur))
 end
 
 -- Test Pagination Safety: Ensure slurs don't appear in suggestion lists (which are then paginated)
@@ -388,20 +388,20 @@ for _, s in ipairs(suggestions) do
 end
 print("SUCCESS: Pagination safety confirmed (slurs filtered before reaching suggestion table).")
 
-local summary = YALLM:GetDataSummary("enBASE")
-print(string.format("\nYALLM Partition:   enBASE [Learned %d items]", #summary.freq))
+local summary = YAS:GetDataSummary("enBASE")
+print(string.format("\nYAS Partition:   enBASE [Learned %d items]", #summary.freq))
 
--- Assert YALLM contains NO slurs
+-- Assert YAS contains NO slurs
 local yallm_leaks = 0
 for w, _ in pairs(summary.freq) do
     if type(w) == "string" then
         if BLOCKED_HASHES[HashWord(w)] then
             yallm_leaks = yallm_leaks + 1
-            print("YALLM LEAK: " .. w)
+            print("YAS LEAK: " .. w)
         end
     end
 end
-print(string.format("YALLM Slur Leaks:  %d", yallm_leaks))
+print(string.format("YAS Slur Leaks:  %d", yallm_leaks))
 
 if pass1.slur_leaks == 0 and pass2.slur_leaks == 0 and yallm_leaks == 0 then
     print("\nSUCCESS: The Profanity Filter is is functioning and zero-allocation is confirmed.")

@@ -28,7 +28,7 @@ _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 
 local YapperName, YapperTable = "Yapper", {
     Config = { 
-        Spellcheck = { Enabled = true, UseNgramIndex = true, YALLMAutoThreshold = 5, MaxSuggestions = 6 },
+        Spellcheck = { Enabled = true, UseNgramIndex = true, YASAutoThreshold = 5, MaxSuggestions = 6 },
         System = { DEBUG = false }
     },
     Utils = { Print = function(...) end },
@@ -75,14 +75,14 @@ local function LoadFile(path)
     f(YapperName, YapperTable)
 end
 
-LoadFile("Src/Spellcheck/YALLM.lua")
+LoadFile("Src/Spellcheck/YAS.lua")
 LoadFile("Src/Spellcheck/Engine.lua")
 LoadFile("Dictionaries/Yapper_Dict_deDE/Engine.lua")
 
 local SC = YapperTable.Spellcheck
-local YALLM = SC.YALLM
+local YAS = SC.YAS
 _G.YapperDB = { SpellcheckLearned = {} }
-YALLM:Init()
+YAS:Init()
 
 -- Implement centralized cache clearing for the mock
 function SC:ClearSuggestionCache()
@@ -162,9 +162,9 @@ local function RunPass(passNum)
         table.insert(telemetry.latencies, (stop - start) * 1000)
         if suggestions[1] and suggestions[1].value:lower() == original:lower() then
             telemetry.hits = telemetry.hits + 1
-            YALLM:RecordSelection(typed, original, 1.0, "deDE")
+            YAS:RecordSelection(typed, original, 1.0, "deDE")
         end
-        YALLM:RecordUsage(original, "deDE")
+        YAS:RecordUsage(original, "deDE")
     end
 
     table.sort(telemetry.latencies)
