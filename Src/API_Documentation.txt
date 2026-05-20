@@ -90,6 +90,22 @@
       Fires before the spellchecker runs on the current input.  Return false
       to skip spellchecking for this particular text.
 
+    PRE_SPELLCHECK_SUGGESTIONS  word, suggestions, locale     yes
+      Fires after the engine has scored, sorted, and formatted the suggestion
+      list for a misspelled word, but before the result is cached and shown.
+      Plugins may reorder, append, remove, or rewrite suggestions by mutating
+      the `suggestions` array and returning the payload.  Return false to
+      suppress the suggestion popup entirely.
+
+      Each entry in `suggestions` is a table:
+        { kind="word",    value=string, score=number, baseScore=number }
+        { kind="add",     value=string }
+        { kind="ignore",  value=string }
+        { kind="split",   value=string }
+
+      To force a refresh after changing plugin state, call
+      YapperAPI:ClearSuggestionCache().
+
     PRE_DELIVER       text, chatType, language,      yes
                       target
       Fires in DirectSend just before Router:Send.  A filter may return false
@@ -368,6 +384,11 @@
       Scan a block of text and return an array of misspelled word ranges.
       Each entry is { startPos: number, endPos: number, word: string }.
       Returns nil if spellcheck is disabled or no misspellings are found.
+
+    YapperAPI:ClearSuggestionCache() → boolean
+      Clears the spellcheck suggestion cache, forcing re-generation (and
+      re-filtering) on the next request.  Returns true if the cache was
+      cleared, false if spellcheck is unavailable.
 
     Autocomplete & Ghost Text:
 

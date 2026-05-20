@@ -1245,6 +1245,22 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
+    -- PRE_SPELLCHECK_SUGGESTIONS filter: plugins can mutate the suggestion list.
+    local API = YapperTable.API
+    if API then
+        local payload = API:RunFilter("PRE_SPELLCHECK_SUGGESTIONS", {
+            word = word,
+            suggestions = final,
+            locale = locale,
+        })
+        if payload == false then
+            return {}
+        end
+        if type(payload) == "table" and type(payload.suggestions) == "table" then
+            final = payload.suggestions
+        end
+    end
+
     local cacheCap = (type(self.GetSuggestionCacheSize) == "function") and self:GetSuggestionCacheSize() or 5000
     if cacheCap > 0 then
         if self._suggestionCacheCount >= cacheCap then

@@ -185,3 +185,8 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ### Language engine (public accessor)
 
 - `YapperAPI:GetLanguageEngine(familyId: string) → table|nil` ([`#L651`](../Src/API.lua#L651)) — returns the registered language engine for `familyId`, or `nil` if not found.
+
+## Public API
+
+- Methods:
+  - [NEW] `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1106`](../Src/API.lua#L1106))

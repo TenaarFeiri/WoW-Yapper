@@ -102,11 +102,11 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1125`](../Src/API.lua#L1125)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1136`](../Src/API.lua#L1136)).
 - Methods:
   - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L948`](../Src/API.lua#L948))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1111`](../Src/API.lua#L1111))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1146`](../Src/API.lua#L1146))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1122`](../Src/API.lua#L1122))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1157`](../Src/API.lua#L1157))
   - `API:GetStateLogCount() → number` ([`../Src/API.lua#L449`](../Src/API.lua#L449)) — returns the number of entries in the FSM state history.
   - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L440`](../Src/API.lua#L440)) — returns a specific state transition log entry.
   - `API:GetStateLogs() → table` ([`../Src/API.lua#L430`](../Src/API.lua#L430)) — returns the full circular buffer of state transitions.
@@ -246,8 +246,8 @@ Runs during suggestion/underline rebuild.
   - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L333`](`../Src/Spellcheck/Engine.lua#L333`))
   - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L414`](`../Src/Spellcheck/Engine.lua#L414`))
   - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L968`](`../Src/Spellcheck/Engine.lua#L968`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1263`](`../Src/Spellcheck/Engine.lua#L1263`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1335`](`../Src/Spellcheck/Engine.lua#L1335`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1279`](`../Src/Spellcheck/Engine.lua#L1279`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1351`](`../Src/Spellcheck/Engine.lua#L1351`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 

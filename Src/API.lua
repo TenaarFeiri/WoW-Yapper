@@ -1101,6 +1101,17 @@ function YapperAPI:SetSpellcheckTooltipOffset(hintX, hintY, suggestX, suggestY)
     end
 end
 
+--- Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering)
+--- on the next request. Useful for plugins that dynamically change suggestion lists.
+function YapperAPI:ClearSuggestionCache()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.ClearSuggestionCache then
+        sc:ClearSuggestionCache()
+        return true
+    end
+    return false
+end
+
 --- Run all filters for a hook point.
 --- Returns the (possibly modified) payload, or false if cancelled.
 --- If no filters are registered, returns the payload unchanged.
