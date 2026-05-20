@@ -795,41 +795,10 @@ function EditBox:RefreshLabel()
         YapperTable.API:Fire("EDITBOX_LABEL_UPDATED", label, resolvedR, resolvedG, resolvedB)
     end
 
-    -- Organically synchronize active channel/target/language to Blizzard's editbox.
-    local eb = self.OrigEditBox
-    if eb and not (InCombatLockdown and InCombatLockdown()) then
-        local chosenCT = self.ChatType or "SAY"
-        local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
-
-        local currentTell = eb:GetAttribute("tellTarget")
-        local diffTell = true
-        pcall(function() diffTell = (currentTell ~= self.Target) end)
-        local diffChannel = (eb:GetAttribute("channelTarget") ~= self.Target)
-
-        if eb:GetAttribute("chatType") ~= overrideCT then
-            eb:SetAttribute("chatType", overrideCT)
-        end
-
-        if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
-            if diffTell then
-                eb:SetAttribute("tellTarget", self.Target)
-            end
-            eb:SetAttribute("channelTarget", nil)
-        elseif overrideCT == "CHANNEL" then
-            eb:SetAttribute("tellTarget", nil)
-            if diffChannel then
-                eb:SetAttribute("channelTarget", self.Target)
-            end
-        else
-            eb:SetAttribute("tellTarget", nil)
-            eb:SetAttribute("channelTarget", nil)
-        end
-        if self.Language then
-            eb:SetAttribute("language", self.Language)
-        else
-            eb:SetAttribute("language", nil)
-        end
-    end
+    -- As a first-class citizen frame (CHAT_FOCUS_OVERRIDE), Yapper is the
+    -- authoritative editbox — no need to sync state back to Blizzard's box.
+    -- ForwardSlashCommand sets attributes explicitly when forwarding commands,
+    -- and lockdown handoff preserves state through drafts, not attribute sync.
 end
 
 --- Save selection for stickiness across show/hide.
@@ -1117,7 +1086,6 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- BNet whisper: attributes arrive BEFORE Show.
     -- WoW whisper:  attributes arrive one frame AFTER Show (deferred).
     -- The live-update path below handles the deferred case.
-    local _inSetAttrLiveUpdate = false
     hooksecurefunc(blizzEditBox, "SetAttribute", function(eb, key, value)
         local c = self._attrCache[eb]
         if not c then
@@ -1224,29 +1192,24 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             c._prevChatType = value
         end
 
-        -- Live update: attributes arrived after we already showed.
-        -- Guard with _inSetAttrLiveUpdate to prevent RefreshLabel -> SetAttribute
-        -- -> RefreshLabel infinite recursion (the whisper-prefill freeze).
-        if not _inSetAttrLiveUpdate
-            and self.OrigEditBox == eb
+        -- Live update: attributes arrived after we already showed
+        -- (WoW whisper deferred case). RefreshLabel is safe here because
+        -- it no longer syncs back to Blizzard's editbox.
+        if self.OrigEditBox == eb
             and self.Overlay and self.Overlay:IsShown() then
             local ct = c.chatType
             local tt = c.tellTarget
             local ch = c.channelTarget
 
             if (ct == "WHISPER" or ct == "BN_WHISPER") and tt and tt ~= "" then
-                _inSetAttrLiveUpdate = true
                 self.ChatType = ct
                 self.Target   = tt
                 self:RefreshLabel()
-                _inSetAttrLiveUpdate = false
             elseif ct == "CHANNEL" and ch and ch ~= "" then
-                _inSetAttrLiveUpdate = true
                 self.ChatType    = "CHANNEL"
                 self.Target      = ch
                 self.ChannelName = ResolveChannelName(tonumber(ch))
                 self:RefreshLabel()
-                _inSetAttrLiveUpdate = false
             end
         end
     end)
