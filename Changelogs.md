@@ -1,14 +1,14 @@
 # NEW FEATURES IN 2.0
 - Added a multiline editor, which supports editing long messages in a larger, resizable window with full Yapper features. Hit Shift-Enter while typing to activate the editor for easier edits. (added in 2.0.1)
-- YALLM (Yapper Adaptive Language Learning Model)
-  - Added adaptive YALLM learning to track common words, manual corrections, and improve autocomplete relevance over time. (added in 2.0.1)
-  - Added selection bias, implicit backtrack learning, rejection feedback, phonetic pattern learning, and anti-contamination filters to make YALLM correction learning smarter and more robust. (added in 2.0.1)
-  - Added YALLM-based ranking so your most-used words surface first and accepted suggestions improve ranking automatically. (added in 2.0.2)
-  - Added YALLM apostrophe-prefix matching so typing `that'` still surfaces `that's`. (added in 2.0.2)
+- YAS (Yapper Adaptive Language Learning Model)
+  - Added adaptive YAS learning to track common words, manual corrections, and improve autocomplete relevance over time. (added in 2.0.1)
+  - Added selection bias, implicit backtrack learning, rejection feedback, phonetic pattern learning, and anti-contamination filters to make YAS correction learning smarter and more robust. (added in 2.0.1)
+  - Added YAS-based ranking so your most-used words surface first and accepted suggestions improve ranking automatically. (added in 2.0.2)
+  - Added YAS apostrophe-prefix matching so typing `that'` still surfaces `that's`. (added in 2.0.2)
 - Autocomplete enhancements
   - Added ghost-text predictive word completion with a muted caret preview and Tab acceptance. (added in 2.0.2)
-  - Added a tiered autocomplete cascade using YALLM vocabulary, custom added words, locale dictionary search, and base fallback. (added in 2.0.2)
-  - Added support for custom dictionary words as a second autocomplete source immediately after YALLM. (added in 2.0.2)
+  - Added a tiered autocomplete cascade using YAS vocabulary, custom added words, locale dictionary search, and base fallback. (added in 2.0.2)
+  - Added support for custom dictionary words as a second autocomplete source immediately after YAS. (added in 2.0.2)
   - Added capitalisation mirroring for autocomplete suggestions so casing matches the typed prefix. (added in 2.0.2)
 - Spellcheck improvements
   - Added capitalised spellcheck suggestions so the suggestion popup mirrors the case of the misspelled word. (added in 2.0.2)
@@ -21,6 +21,21 @@
 - Compatibility and API
   - Added the public `_G.YapperAPI` addon API with filters, callbacks, readonly accessors, and structured `API_ERROR` reporting. (added in 2.0.1)
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
+
+# NEW FEATURES IN 2.2
+- **Naming Update: YAS → YAS**
+  - Renamed "Yapper Adaptive Language Learning Model" to "Yapper Adaptive Spellcheck" for more accurate technical terminology.
+  - **Automatic Migration**: All user configurations are automatically migrated from YAS* keys to YAS* keys without data loss.
+  - **API Changes**:
+    - `YALLM_WORD_LEARNED` callback is now an automatic alias for `YAS_WORD_LEARNED`
+    - External addons using the old callback name will receive events without code changes
+    - New `YAS_WORD_LEARNED` callback is the preferred going-forward API
+    - Configuration keys changed: `YALLMEnabled` → `YASEnabled`, `YALLMFreqCap` → `YASFreqCap`, etc.
+  - **Internal Changes**: 
+    - Renamed `Src/Spellcheck/YAS.lua` → `Src/Spellcheck/Adaptive.lua`
+    - Added detached `Src/Migrations.lua` module for future configuration migrations
+    - Schema version bumped to 2.2 to trigger one-time migration
+  - **Compatibility**: External addons using the old YALLM callback will continue to work during deprecation period
 
 # Patch notes
 
@@ -55,7 +70,7 @@
 
 ## 2.1.14
   - Added new locale-aware affix stripping for English dictionaries (resolves issues with "using", "ing", "ed" suffixes etc).
-  - YALLM will now intelligently learn missing words that were identified as valid post affix-processing.
+  - YAS will now intelligently learn missing words that were identified as valid post affix-processing.
   - Added "dog", "dogs" and several other common words back to enBase.
   - **Dictionary Audit**: Pruned the blocked hash list to unblock legitimate words (bog, yellow, zebra, brownie, etc.) that were over-zealously flagged.
   - Fixed "dog" being treated as a misspelling due to a blocklist hash collision.
@@ -91,7 +106,7 @@
 
 -- 2.1.10
   - *New Features & Improvements:*
-    - **YALLM Opt-out:** Added a toggle to opt out of YALLM (Yapper Adaptive Learning Language Model). This stops Yapper from recording your vocabulary and preferences.
+    - **YAS Opt-out:** Added a toggle to opt out of YAS (Yapper Adaptive Learning Language Model). This stops Yapper from recording your vocabulary and preferences.
     - **Factory Reset:** Added a button in Advanced Settings for a total "clean slate"—wipes all settings, learned data, and history.
     - **Improved Reset:** The standard "Reset to Defaults" is now more thorough, correctly clearing minimap and window positions.
     - **Scrollable Changelog:** The "What's New" popup is now scrollable, allowing you to review the full history of Yapper updates.
@@ -125,7 +140,7 @@
     - Fixed issues where languages did not (re)load properly when changing profiles (in cases where you had a different language active for different profiles)
 
   - *Tweaking*
-    - Tweaked YALLM's numbers.
+    - Tweaked YAS's numbers.
 
 -- 2.1.5
   - *Bug Fixes:*
@@ -154,7 +169,7 @@
 
 -- 2.1.1
   - *Performance:*
-    - **Faster autocomplete on every keystroke:** Rebuilt the personal-vocabulary (YALLM) lookup used for ghost-text predictions. Yapper previously scanned your entire learned vocabulary (up to 2,000 words) on every character typed. It now binary-searches a sorted index, so autocomplete stays smooth even when your YALLM is full and you're a fast typist.
+    - **Faster autocomplete on every keystroke:** Rebuilt the personal-vocabulary (YAS) lookup used for ghost-text predictions. Yapper previously scanned your entire learned vocabulary (up to 2,000 words) on every character typed. It now binary-searches a sorted index, so autocomplete stays smooth even when your YAS is full and you're a fast typist.
   - *Bug Fixes:*
     - **"Maximum chat history lines" setting now actually works.** The slider in the Advanced settings page was wired to a default constant rather than the configured value, so adjusting it did nothing — Yapper always kept 50 lines. It now respects your setting.
     - **API error reporting (developers only):** Fixed two latent error paths in `_G.YapperAPI` that would have thrown "attempt to call nil" if a third-party addon ever registered more than 50 filters or callbacks on the same hook. The cap has never been hit in practice, but the error handler itself is no longer broken.
@@ -182,7 +197,7 @@
 -- 2.0.3
   - *Bugfixes:*
     - Fixed issue where the post queue would get stuck if you posted to Party, Instance or Raid Chat while you were a leader in one or more of these.
-    - Fixed a bug where YALLM didn't correctly boost words to the autocompleter.
+    - Fixed a bug where YAS didn't correctly boost words to the autocompleter.
     - Fixed numerous visual bugs in the overlay, ghost text and the multiline editor.
     - Fixed minor alignment bugs in the settings dialog.
 

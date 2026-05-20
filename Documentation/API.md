@@ -50,8 +50,8 @@ Register/unregister:
 
 Register/unregister:
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L270`](../Src/API.lua#L270))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L311`](../Src/API.lua#L311))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L275`](../Src/API.lua#L275))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L319`](../Src/API.lua#L319))
 
 ### Event list
 
@@ -70,7 +70,8 @@ Register/unregister:
 - `SPELLCHECK_CLOSED()`
 - `SPELLCHECK_WORD_ADDED(word, locale)`
 - `SPELLCHECK_WORD_IGNORED(word, locale)`
-- `YALLM_WORD_LEARNED(word, locale)`
+- `YALLM_WORD_LEARNED(word, locale)` [DEPRECATED - Automatically aliased to YAS_WORD_LEARNED]
+- `YAS_WORD_LEARNED(word, locale)`
 - `QUEUE_STALL(chatType, policyClass, chunksRemaining)`
 - `QUEUE_COMPLETE()`
 - `ICON_GALLERY_SHOW(query)`
@@ -78,7 +79,7 @@ Register/unregister:
 - `ICON_GALLERY_SELECT(index, text, code)`
 - `API_ERROR(kind, hook, handlerInfo, errorMessage, data, ...)`
 
-Emission sites: [`Src/Chat.lua`](../Src/Chat.lua), [`Src/Queue.lua`](../Src/Queue.lua), [`Src/Interface/Config.lua`](../Src/Interface/Config.lua), [`Src/EditBox/Hooks.lua`](../Src/EditBox/Hooks.lua), [`Src/Theme.lua`](../Src/Theme.lua), [`Src/IconGallery.lua`](../Src/IconGallery.lua), [`Src/Spellcheck.lua`](../Src/Spellcheck.lua), [`Src/Spellcheck/UI.lua`](../Src/Spellcheck/UI.lua), [`Src/Spellcheck/YALLM.lua`](../Src/Spellcheck/YALLM.lua).
+Emission sites: [`Src/Chat.lua`](../Src/Chat.lua), [`Src/Queue.lua`](../Src/Queue.lua), [`Src/Interface/Config.lua`](../Src/Interface/Config.lua), [`Src/EditBox/Hooks.lua`](../Src/EditBox/Hooks.lua), [`Src/Theme.lua`](../Src/Theme.lua), [`Src/IconGallery.lua`](../Src/IconGallery.lua), [`Src/Spellcheck.lua`](../Src/Spellcheck.lua), [`Src/Spellcheck/UI.lua`](../Src/Spellcheck/UI.lua), [`Src/Spellcheck/Adaptive.lua`](../Src/Spellcheck/Adaptive.lua).
 
 ### `API_ERROR` ownership/scoping
 
@@ -189,4 +190,4 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1106`](../Src/API.lua#L1106))
+  - [NEW] `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1114`](../Src/API.lua#L1114))

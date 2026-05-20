@@ -16,7 +16,7 @@ Src/API.lua
 Src/State.lua
 Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
-Src/Spellcheck/YALLM.lua
+Src/Spellcheck/YAS.lua
 Src/Spellcheck/UI.lua
 Src/Spellcheck/Underline.lua
 Src/Spellcheck/Engine.lua
@@ -88,7 +88,7 @@ Code anchors:
 User input / WoW chat events
   ├─ EditBox overlay stack
   │   ├─ EditBox.Overlay / Handlers / Hooks / SkinProxy
-  │   ├─ Spellcheck (UI + Underline + Engine + Dictionary + YALLM)
+  │   ├─ Spellcheck (UI + Underline + Engine + Dictionary + YAS)
   │   ├─ Autocomplete
   │   └─ Multiline editor
   │
@@ -163,9 +163,9 @@ flowchart LR
     S --> U["Redraw underlines and hint"]
 ```
 
-## Detailed subsystem: YALLM learning model
+## Detailed subsystem: YAS learning model
 
-YALLM (`Src/Spellcheck/YALLM.lua`) is a per-locale adaptive layer that adjusts ranking and auto-learns persistent words.
+YAS (`Src/Spellcheck/YAS.lua`) is a per-locale adaptive layer that adjusts ranking and auto-learns persistent words.
 
 ### Storage model
 
@@ -180,7 +180,7 @@ Stored in `_G.YapperDB.SpellcheckLearned[locale]` with on-init migration for leg
 - `negBiasCount: number` cached count of `negBias` entries for O(1) cap enforcement.
 - `total` tracked unique vocabulary size for frequency-cap enforcement.
 
-Code anchors: [`Src/Spellcheck/YALLM.lua#L60-L100`](../Src/Spellcheck/YALLM.lua#L60-L100).
+Code anchors: [`Src/Spellcheck/YAS.lua#L60-L100`](../Src/Spellcheck/YAS.lua#L60-L100).
 
 ### Learning signals
 
@@ -197,7 +197,7 @@ Code anchors:
 
 ### Ranking impact in candidate scoring
 
-`Engine:GetSuggestions` calls `YALLM:GetBonus(candidate, typo, typoPhHash, locale)` and adds the returned score adjustment to base candidate score.
+`Engine:GetSuggestions` calls `YAS:GetBonus(candidate, typo, typoPhHash, locale)` and adds the returned score adjustment to base candidate score.
 
 Current bonus components (negative = better rank, positive = penalty):
 
@@ -208,28 +208,28 @@ Current bonus components (negative = better rank, positive = penalty):
 
 Code anchors:
 
-- YALLM score composition: [`Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419)
+- YAS score composition: [`Src/Spellcheck/YAS.lua#L381-L419`](../Src/Spellcheck/YAS.lua#L381-L419)
 - Engine integration point: [`Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)
 
 ### Guardrails and maintenance
 
 - `IsSaneWord` blocks noisy learning inputs (very short/long tokens, keyboard smash patterns, invalid consonant clusters, optional n-gram sanity).
 - Config-backed caps:
-  - `YALLMFreqCap` — max unique vocabulary words tracked.
-  - `YALLMBiasCap` — max typo→correction bias pairs.
-  - `YALLMNegBiasCap` — max rejected suggestion pairs (defaults to 500).
-  - `YALLMAutoThreshold` — sends before a word is auto-promoted to user dictionary.
-  - `YALLMAutoCap` — max pending auto-learn tracking entries (defaults to 500).
+  - `YASFreqCap` — max unique vocabulary words tracked.
+  - `YASBiasCap` — max typo→correction bias pairs.
+  - `YASNegBiasCap` — max rejected suggestion pairs (defaults to 500).
+  - `YASAutoThreshold` — sends before a word is auto-promoted to user dictionary.
+  - `YASAutoCap` — max pending auto-learn tracking entries (defaults to 500).
 - `Prune(tableName, limit)` keeps the highest relevance entries using `count * utility / age`.
 - `Reset(locale?)` clears learned state globally or per locale.
-- Auto-promotion emits `YALLM_WORD_LEARNED` after adding a word into user dictionary.
+- Auto-promotion emits `YAS_WORD_LEARNED` after adding a word into user dictionary.
 
 Code anchors:
 
-- Word sanity checks: [`Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147)
-- Cap accessors and defaults: [`Src/Spellcheck/YALLM.lua#L130-L170`](../Src/Spellcheck/YALLM.lua#L130-L170), [`Src/Core.lua#L217-L224`](../Src/Core.lua#L217-L224)
-- Pruning/reset: [`Src/Spellcheck/YALLM.lua#L427-L478`](../Src/Spellcheck/YALLM.lua#L427-L478)
-- Auto-learn event emission: [`Src/Spellcheck/YALLM.lua#L357-L370`](../Src/Spellcheck/YALLM.lua#L357-L370), [`Src/API.lua#L183-L185`](../Src/API.lua#L183-L185)
+- Word sanity checks: [`Src/Spellcheck/YAS.lua#L113-L147`](../Src/Spellcheck/YAS.lua#L113-L147)
+- Cap accessors and defaults: [`Src/Spellcheck/YAS.lua#L130-L170`](../Src/Spellcheck/YAS.lua#L130-L170), [`Src/Core.lua#L217-L224`](../Src/Core.lua#L217-L224)
+- Pruning/reset: [`Src/Spellcheck/YAS.lua#L427-L478`](../Src/Spellcheck/YAS.lua#L427-L478)
+- Auto-learn event emission: [`Src/Spellcheck/YAS.lua#L357-L370`](../Src/Spellcheck/YAS.lua#L357-L370), [`Src/API.lua#L183-L185`](../Src/API.lua#L183-L185)
 
 Code anchors:
 
