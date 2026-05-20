@@ -209,13 +209,19 @@
       index; total is the total number of suggestions.
 
     SPELLCHECK_WORD_ADDED    word, locale
-      Fires when a word is added to the user dictionary (manually or via YALLM).
+      Fires when a word is added to the user dictionary (manually or via YAS).
 
     SPELLCHECK_WORD_IGNORED  word, locale
       Fires when the user marks a word as "ignored".
 
     YALLM_WORD_LEARNED       word, locale
-      Fires when YALLM auto-promotes a word to the user dictionary after
+      [DEPRECATED - Use YAS_WORD_LEARNED instead]
+      Automatically aliased to YAS_WORD_LEARNED for backward compatibility.
+      External addons that register for YALLM_WORD_LEARNED will receive
+      YAS_WORD_LEARNED events. This alias will be removed in a future version.
+
+    YAS_WORD_LEARNED        word, locale
+      Fires when YAS auto-promotes a word to the user dictionary after
       persistent usage (reaching the auto-learn threshold).
 
     POST_CLAIMED             handle, text, chatType, language, target
@@ -394,7 +400,7 @@
 
     YapperAPI:GetAutocompleteSuggestion(word) → string|nil
       Returns the best autocomplete suggestion for the given partial word
-      based on YALLM and dictionary data.
+      based on YAS and dictionary data.
 
     YapperAPI:GetCaretOffset(editBox) → x, y, height
       Returns the current pixel offset of the cursor/caret within an EditBox.

@@ -217,11 +217,11 @@ end
 --- Send a single message through Router (or raw fallback).
 function Chat:DirectSend(msg, chatType, language, target)
     -- Record outgoing message for adaptive learning
-    if YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM then
+    if YapperTable.Spellcheck and YapperTable.Spellcheck.YAS then
         local sc = YapperTable.Spellcheck
-        local YALLM = sc.YALLM
+        local YAS = sc.YAS
         local locale = sc:GetLocale()
-        YALLM:RecordUsage(msg, locale)
+        YAS:RecordUsage(msg, locale)
 
         -- Check for "ignored" misspellings in the outgoing message
         local dict = sc:GetDictionary()

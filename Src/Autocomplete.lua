@@ -396,7 +396,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	-- Fetch negBias once for use by ScoreCandidate across all tiers.
 	local sc = YapperTable.Spellcheck
 	local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
-	local yallm = sc and sc.YALLM
+	local yallm = sc and sc.YAS
 	local yallmDB = yallm and yallm:GetLocaleDB(locale)
 	local yallmNeg = yallmDB and yallmDB.negBias or nil
 
@@ -719,7 +719,7 @@ function Autocomplete:OnTextChanged(editBox)
 	-- diverging keystroke). Only records if the dismissed suggestion was a
 	-- valid word so we don't pollute negBias with partial-word noise.
 	if isDirChange then
-		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
 		if yallm and yallm.RecordRejection then
 			-- RecordRejection expects a typo and a list of candidate objects.
 			-- Use the prefix as the "typo" and the suggestion as the only candidate.
@@ -737,7 +737,7 @@ function Autocomplete:OnTextChanged(editBox)
 		and string_lower(word) == string_lower(self.CurrentSugg)
 		and string_len(word) > string_len(self.CurrentPrefix)
 	then
-		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YALLM
+		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
 		if yallm then
 			local sc = YapperTable.Spellcheck
 			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
@@ -796,7 +796,7 @@ function Autocomplete:OnTabPressed(editBox)
 	-- Record the acceptance in YALLM: strong bias signal (prefix→suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
 	local sc = YapperTable.Spellcheck
-	local yallm = sc and sc.YALLM
+	local yallm = sc and sc.YAS
 	if yallm then
 		local locale = sc.GetLocale and sc:GetLocale() or "enBASE"
 		if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg, locale) end

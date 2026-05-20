@@ -16,7 +16,7 @@ local State      = YapperTable.State
 local DEFAULTS = {
     System = {
         -- Schema version for SavedVariables migration; bump only when data structure changes.
-        VERSION                   = 2.1,
+        VERSION                   = 2.2,
         WELCOME_VERSION           = 1,
 
         -- VERBOSE and DEBUG are largely for debugging.
@@ -214,13 +214,13 @@ local DEFAULTS = {
         HighlightColor      = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
         KeyboardLayout      = "QWERTY",
         Dict                = {},
-        YALLMEnabled        = true,
-        -- YALLM adaptive learning data caps
-        YALLMFreqCap        = 2000, -- Max unique vocabulary words tracked
-        YALLMBiasCap        = 500,  -- Max typo→correction pairs stored
-        YALLMNegBiasCap     = 500,  -- Max rejected suggestion pairs tracked (decays over time)
-        YALLMAutoThreshold  = 10,   -- Times a word must be sent before auto-adding to dictionary
-        YALLMAutoCap        = 500,  -- Max pending auto-learn tracking entries
+        YASEnabled          = true,
+        -- YAS adaptive learning data caps
+        YASFreqCap          = 2000, -- Max unique vocabulary words tracked
+        YASBiasCap          = 500,  -- Max typo→correction pairs stored
+        YASNegBiasCap       = 500,  -- Max rejected suggestion pairs tracked (decays over time)
+        YASAutoThreshold    = 10,   -- Times a word must be sent before auto-adding to dictionary
+        YASAutoCap          = 500,  -- Max pending auto-learn tracking entries
         SuggestionCacheSize = 50,   -- Max unique word suggestion results cached per session (0 = disabled)
     },
 }
@@ -468,6 +468,11 @@ function YapperTable.Core:InitSavedVars()
         SyncParity(_G.YapperDB, DEFAULTS)
     end
 
+    -- Run detached migrations for configuration key changes
+    if YapperTable.Migrations then
+        YapperTable.Migrations:RunMigrations(_G.YapperDB, "DB")
+    end
+
     -- Migration: older saved DBs may carry an incorrect WHISPER/BN_WHISPER
     -- colour from prior versions. Force-correct BN_WHISPER to the new
     -- default when the saved DB version predates this change.
@@ -502,6 +507,11 @@ function YapperTable.Core:InitSavedVars()
 
     if confVersion and currentVersion ~= confVersion then
         SyncParity(_G.YapperLocalConf, DEFAULTS)
+    end
+
+    -- Run detached migrations for configuration key changes
+    if YapperTable.Migrations then
+        YapperTable.Migrations:RunMigrations(_G.YapperLocalConf, "LOCAL")
     end
 
     _G.YapperLocalConf.System.VERSION = currentVersion

@@ -319,9 +319,9 @@ function Spellcheck:ResolveImplicitTrace(force)
         if currentWord ~= "" and currentWord ~= trace.word then
             -- IsSaneWord guards against keyboard-smash or junk.
             if self:IsWordCorrect(currentWord) then
-                if self.YALLM and self.YALLM.RecordImplicitCorrection then
+                if self.YAS and self.YAS.RecordImplicitCorrection then
                     local locale = self:GetLocale()
-                    self.YALLM:RecordImplicitCorrection(trace.word, currentWord, trace.suggestions, locale)
+                    self.YAS:RecordImplicitCorrection(trace.word, currentWord, trace.suggestions, locale)
                 end
             end
         end
@@ -658,7 +658,7 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
         normVowelsFn    = normVowelsFn,
         lowerVowels     = lowerVowels,
         locale          = locale,
-        YALLM           = self.YALLM,
+        YALLM           = self.YAS,
         self            = self,
     }
 end
@@ -818,8 +818,8 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
 
     -- Personalised learning bonus
     local baseScore = score
-    if ctx.YALLM and ctx.YALLM.GetBonus then
-        score = score + ctx.YALLM:GetBonus(candidate, lower, ctx.phoneticHash, ctx.locale)
+    if ctx.YAS and ctx.YAS.GetBonus then
+        score = score + ctx.YAS:GetBonus(candidate, lower, ctx.phoneticHash, ctx.locale)
     end
 
     out[#out + 1] = { word = candidate, dist = dist, score = score, baseScore = baseScore, bag = bagScore }
@@ -1004,7 +1004,7 @@ function Spellcheck:GetSuggestions(word)
     local sc = self._suggestionCache
     local userRevKey = (userRev == nil) and NIL_USER_REV_KEY or userRev
     -- Include YALLM db revision so learning writes invalidate cached scores.
-    local yallmDb = self.YALLM and self.YALLM:GetLocaleDB(locale)
+    local yallmDb = self.YAS and self.YAS:GetLocaleDB(locale)
     local yallmRev = (yallmDb and yallmDb._rev) or 0
     local cacheKey = lower ..
     "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yallmRev)
@@ -1030,8 +1030,8 @@ function Spellcheck:GetSuggestions(word)
     -- If YALLM has learned specific corrections for this typo, inject them
     -- directly into the pool to ensure they aren't starved by shard caps.
     local learnedCandidates                = {}
-    if self.YALLM and self.YALLM.GetBiasTargets then
-        local targets = self.YALLM:GetBiasTargets(lower, locale)
+    if self.YAS and self.YAS.GetBiasTargets then
+        local targets = self.YAS:GetBiasTargets(lower, locale)
         if targets then
             for _, t in ipairs(targets) do
                 table.insert(learnedCandidates, t)

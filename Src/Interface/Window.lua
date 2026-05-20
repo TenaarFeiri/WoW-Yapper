@@ -233,8 +233,8 @@ YapperTable.WHATS_NEW = {
     },
     ["2.1.10"] = {
         {
-            title = "Adaptive Learning (YALLM) Opt-Out",
-            body  = "You can now suspend YALLM's data collection and suggestion biasing "
+            title = "Adaptive Learning (YAS) Opt-Out",
+            body  = "You can now suspend YAS's data collection and suggestion biasing "
                 .. "while keeping the core spellchecker active. Toggle this in the "
                 .. "Adaptive Learning settings or the initial setup popup.",
         },
@@ -278,7 +278,7 @@ YapperTable.WHATS_NEW = {
         {
             title = "Spellchecking",
             body  = "Yapper now has a built-in spellchecker with per-locale dictionaries, "
-                .. "underline styles, and adaptive learning (YALLM) that picks up your "
+                .. "underline styles, and adaptive learning (YAS) that picks up your "
                 .. "vocabulary over time.",
         },
         {
@@ -636,7 +636,7 @@ function Interface:CreateWelcomeChoiceFrame()
 
     local yallmToggle, yallmLabel, nextY3 = CreatePopupToggle(
         frame,
-        { "Spellcheck", "YALLMEnabled" },
+        { "Spellcheck", "YASEnabled" },
         "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
         "Tracks your vocabulary and correction preferences to improve "
         .. "suggestion accuracy over time.",
@@ -738,7 +738,7 @@ function Interface:CreateWhatsNewFrame()
     local togglesAdded = false
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
-    local yallmEnabled = Interface:GetConfigPath({ "Spellcheck", "YALLMEnabled" })
+    local yallmEnabled = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" })
 
     local toggleCursor = -FRAME_H + 120
 
@@ -795,7 +795,7 @@ function Interface:CreateWhatsNewFrame()
             toggleCursor = ny
         end
         if yallmEnabled ~= true then
-            local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YALLMEnabled" }, "Enable adaptive learning",
+            local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YASEnabled" }, "Enable adaptive learning",
                 "Tracks your vocabulary to improve suggestion accuracy.", toggleCursor)
             yallmT, yallmL = yt, yl
             toggleCursor = ny

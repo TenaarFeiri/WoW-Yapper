@@ -196,8 +196,8 @@ function Spellcheck:Init(threads)
     if not self._ed_prev_prev then self._ed_prev_prev = {} end
 
     -- Ensure YALLM is initialized and hooks its SavedVariables
-    if self.YALLM and self.YALLM.Init then
-        self.YALLM:Init()
+    if self.YAS and self.YAS.Init then
+        self.YAS:Init()
     end
 
     -- Apply initial state based on current config

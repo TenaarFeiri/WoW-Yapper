@@ -46,13 +46,13 @@ function Interface:GetDefaultsRoot()
 end
 
 --- Reset all configuration settings to their default values.
---- Intentionally preserves learned dictionary data (YALLM) and chat history.
+--- Intentionally preserves learned dictionary data (YAS) and chat history.
 function Interface:ResetAllSettings()
     -- Clear per-character overrides entirely.
     _G.YapperLocalConf = {}
 
     -- Clear configuration keys from account-wide storage while keeping
-    -- the learned data (YALLM) and interface cache container intact.
+    -- the learned data (YAS) and interface cache container intact.
     if type(_G.YapperDB) == "table" then
         _G.YapperDB.EditBox       = nil
         _G.YapperDB.System        = nil

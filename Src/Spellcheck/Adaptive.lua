@@ -1,11 +1,11 @@
 --[[
-    YALLM: Yapper Adaptive Language Learning Model
+    YAS: Yapper Adaptive Spellcheck
     Personalized ranking and vocabulary tracking for the spellcheck engine.
 ]]
 
 local YapperName, YapperTable = ...
-local YALLM = {}
-YapperTable.Spellcheck.YALLM = YALLM -- Hook into internal table
+local YAS = {}
+YapperTable.Spellcheck.YAS = YAS -- Hook into internal table
 
 -- Tuning Constants (used as fallbacks when config is not yet available)
 local FREQ_CAP = 2000      -- Max unique words to track
@@ -61,7 +61,7 @@ local function VerifyFreqIndex(db)
     if not IsDebugEnabled() then return end
     if type(db) ~= "table" or type(db.freq) ~= "table" then return end
     if type(db.freqSorted) ~= "table" then
-        error("YALLM freqSorted invariant failed: missing sorted index")
+        error("YAS freqSorted invariant failed: missing sorted index")
     end
 
     local seen = {}
@@ -70,16 +70,16 @@ local function VerifyFreqIndex(db)
     for i = 1, #db.freqSorted do
         local w = db.freqSorted[i]
         if type(w) ~= "string" or w == "" then
-            error("YALLM freqSorted invariant failed: invalid word at index " .. tostring(i))
+            error("YAS freqSorted invariant failed: invalid word at index " .. tostring(i))
         end
         if prev and w < prev then
-            error("YALLM freqSorted invariant failed: non-monotonic order")
+            error("YAS freqSorted invariant failed: non-monotonic order")
         end
         if not db.freq[w] then
-            error("YALLM freqSorted invariant failed: index contains missing freq key '" .. tostring(w) .. "'")
+            error("YAS freqSorted invariant failed: index contains missing freq key '" .. tostring(w) .. "'")
         end
         if seen[w] then
-            error("YALLM freqSorted invariant failed: duplicate key '" .. tostring(w) .. "'")
+            error("YAS freqSorted invariant failed: duplicate key '" .. tostring(w) .. "'")
         end
         seen[w] = true
         prev = w
@@ -90,11 +90,11 @@ local function VerifyFreqIndex(db)
     for word in pairs(db.freq) do
         freqCount = freqCount + 1
         if not seen[word] then
-            error("YALLM freqSorted invariant failed: missing key '" .. tostring(word) .. "'")
+            error("YAS freqSorted invariant failed: missing key '" .. tostring(word) .. "'")
         end
     end
     if freqCount ~= count then
-        error("YALLM freqSorted invariant failed: cardinality mismatch")
+        error("YAS freqSorted invariant failed: cardinality mismatch")
     end
 end
 
@@ -131,41 +131,41 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Returns true if YALLM is enabled in the configuration.
-function YALLM:IsEnabled()
+function YAS:IsEnabled()
     local sc = YapperTable.Spellcheck
     if not sc or not sc:IsEnabled() then return false end
     if not sc.Dictionaries or next(sc.Dictionaries) == nil then return false end
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
-    return (cfg and cfg.YALLMEnabled ~= false)
+    return (cfg and cfg.YASEnabled ~= false)
 end
 
-function YALLM:GetFreqCap()
+function YAS:GetFreqCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
-    local v = tonumber(cfg and cfg.YALLMFreqCap) or FREQ_CAP
+    local v = tonumber(cfg and cfg.YASFreqCap) or FREQ_CAP
     return math_max(100, math_min(v, 10000))
 end
 
-function YALLM:GetBiasCap()
+function YAS:GetBiasCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
-    local v = tonumber(cfg and cfg.YALLMBiasCap) or MAX_BIAS_PAIRS
+    local v = tonumber(cfg and cfg.YASBiasCap) or MAX_BIAS_PAIRS
     return math_max(50, math_min(v, 5000))
 end
 
-function YALLM:GetAutoThreshold()
+function YAS:GetAutoThreshold()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
-    local v = tonumber(cfg and cfg.YALLMAutoThreshold) or AUTO_THRESHOLD
+    local v = tonumber(cfg and cfg.YASAutoThreshold) or AUTO_THRESHOLD
     return math_max(1, math_min(v, 200))
 end
 
-function YALLM:GetNegBiasCap()
+function YAS:GetNegBiasCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
-    local v = tonumber(cfg and cfg.YALLMNegBiasCap) or MAX_BIAS_PAIRS
+    local v = tonumber(cfg and cfg.YASNegBiasCap) or MAX_BIAS_PAIRS
     return math_max(100, math_min(v, 10000))
 end
 
-function YALLM:GetAutoCap()
+function YAS:GetAutoCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
-    local v = tonumber(cfg and cfg.YALLMAutoCap) or AUTO_CAP
+    local v = tonumber(cfg and cfg.YASAutoCap) or AUTO_CAP
     return math_max(50, math_min(v, 5000))
 end
 
@@ -173,7 +173,7 @@ end
 -- Initialization
 -- ---------------------------------------------------------------------------
 
-function YALLM:Init()
+function YAS:Init()
     if not _G.YapperDB then return end
 
     -- Structure: _G.YapperDB.SpellcheckLearned[locale] = { freq = {}, bias = {}, ... }
@@ -192,14 +192,14 @@ function YALLM:Init()
         end
         legacy["enBASE"] = oldCopy
         if YapperTable.Utils then
-            YapperTable.Utils:Print("info", "YALLM: Migrated legacy flat database to 'enBASE' partition.")
+            YapperTable.Utils:Print("info", "YAS: Migrated legacy flat database to 'enBASE' partition.")
         end
     end
 
     self.db = _G.YapperDB.SpellcheckLearned
 end
 
-function YALLM:GetLocaleDB(locale)
+function YAS:GetLocaleDB(locale)
     if not self.db then return nil end
     local loc = locale or "enBASE"
     if not self.db[loc] then
@@ -246,7 +246,7 @@ function YALLM:GetLocaleDB(locale)
     return db
 end
 
-function YALLM:EnsureFreqSorted(locale)
+function YAS:EnsureFreqSorted(locale)
     local db = self:GetLocaleDB(locale)
     if not db then return nil end
     if db.freqSortedDirty or type(db.freqSorted) ~= "table" then
@@ -266,7 +266,7 @@ local function Clean(s)
     return s:lower():gsub("[%p%c%s]", "")
 end
 
-function YALLM:IsSaneWord(w, locale)
+function YAS:IsSaneWord(w, locale)
     if not w then return false end
     -- Note: We expect 'w' to already be cleaned (lowercase, no punctuation)
     -- to avoid redundant allocations in RecordUsage.
@@ -308,7 +308,7 @@ function YALLM:IsSaneWord(w, locale)
 end
 
 --- Record usage frequency of words in a message
-function YALLM:RecordUsage(text, locale)
+function YAS:RecordUsage(text, locale)
     if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
@@ -355,7 +355,7 @@ function YALLM:RecordUsage(text, locale)
 end
 
 --- Record when a user picks a specific suggestion for a typo.
-function YALLM:RecordSelection(typo, correction, utilityGain, locale)
+function YAS:RecordSelection(typo, correction, utilityGain, locale)
     if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
@@ -437,7 +437,7 @@ end
 --- Record a correction that was made by the user manually retyping (implicit backtrack).
 --- Determines the appropriate learning strength based on whether the correction was
 --- already a known candidate and how phonetically/textually close it is to the typo.
-function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
+function YAS:RecordImplicitCorrection(typo, correction, candidates, locale)
     if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db then return end
@@ -533,7 +533,7 @@ function YALLM:RecordImplicitCorrection(typo, correction, candidates, locale)
 end
 
 --- Record when a user rejects a list of suggestions by clicking "More"
-function YALLM:RecordRejection(typo, candidates, locale)
+function YAS:RecordRejection(typo, candidates, locale)
     if not self:IsEnabled() then return end
     local db = self:GetLocaleDB(locale)
     if not db or not typo or type(candidates) ~= "table" then return end
@@ -567,7 +567,7 @@ function YALLM:RecordRejection(typo, candidates, locale)
 end
 
 --- Record high-repetition typos for auto-learning
-function YALLM:RecordIgnored(word, locale)
+function YAS:RecordIgnored(word, locale)
     if not locale then locale = self.Spellcheck and self.Spellcheck:GetLocale() end
     local db = self:GetLocaleDB(locale)
     if not db then return end
@@ -606,7 +606,7 @@ function YALLM:RecordIgnored(word, locale)
             end
             -- Notify external addons about the auto-learned word.
             if YapperTable.API then
-                YapperTable.API:Fire("YALLM_WORD_LEARNED", word, loc)
+                YapperTable.API:Fire("YAS_WORD_LEARNED", word, loc)
             end
         end
     end
@@ -617,7 +617,7 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Return the combined score bonus for a candidate using a pre-computed phonetic hash.
-function YALLM:GetBonus(cand, typo, typoPhHash, locale)
+function YAS:GetBonus(cand, typo, typoPhHash, locale)
     if not self:IsEnabled() then return 0 end
     local db = self:GetLocaleDB(locale)
     if not db then return 0 end
@@ -672,7 +672,7 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
 end
 
 --- Returns a list of candidate words that have been learned as corrections for the given typo.
-function YALLM:GetBiasTargets(typo, locale)
+function YAS:GetBiasTargets(typo, locale)
     if not self:IsEnabled() then return nil end
     local db = self:GetLocaleDB(locale)
     if not db or not db.bias then return nil end
@@ -718,7 +718,7 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Systematic pruning of a learning table
-function YALLM:Prune(tableName, limit, locale)
+function YAS:Prune(tableName, limit, locale)
     local db = self:GetLocaleDB(locale)
     if not db then
         -- Throw error if db is nil, because what???
@@ -777,7 +777,7 @@ function YALLM:Prune(tableName, limit, locale)
     end
 end
 
-function YALLM:Reset(locale)
+function YAS:Reset(locale)
     if not locale then
         _G.YapperDB.SpellcheckLearned = nil
     elseif _G.YapperDB.SpellcheckLearned then
@@ -790,7 +790,7 @@ end
 -- UI Helpers
 -- ---------------------------------------------------------------------------
 
-function YALLM:GetDataSummary(locale)
+function YAS:GetDataSummary(locale)
     locale = locale or (YapperTable.Spellcheck and YapperTable.Spellcheck:GetLocale())
     local db = self:GetLocaleDB(locale)
     if not db then return nil end
@@ -846,7 +846,7 @@ function YALLM:GetDataSummary(locale)
 end
 
 --- Export current learned data for a locale as a text block.
-function YALLM:Export(locale)
+function YAS:Export(locale)
     local db = self:GetLocaleDB(locale)
     if not db then return "No data for " .. tostring(locale) end
 
@@ -879,7 +879,7 @@ function YALLM:Export(locale)
     return table.concat(out, "\n")
 end
 
-function YALLM:ClearSpecificUsage(usageType, key, locale)
+function YAS:ClearSpecificUsage(usageType, key, locale)
     local db = self:GetLocaleDB(locale)
     if not db then return end
     if usageType == "freq" and db.freq[key] then

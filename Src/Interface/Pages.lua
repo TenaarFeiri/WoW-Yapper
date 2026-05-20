@@ -1,6 +1,6 @@
 --[[
     Interface/Pages.lua
-    Complex custom control pages: channel colour overrides, YALLM learning
+    Complex custom control pages: channel colour overrides, YAS learning
     summary, queue diagnostics, credits, spellcheck dropdowns, user
     dictionary editor, and theme selector.
 ]]
@@ -358,7 +358,7 @@ function Interface:CreateGlobalSyncControls(parent, cursor)
 end
 
 -- ---------------------------------------------------------------------------
--- YALLM Learning Page
+-- YAS Learning Page
 -- ---------------------------------------------------------------------------
 
 local TIME_UNITS = {
@@ -386,26 +386,26 @@ local function FormatRelativeTime(ts)
     return "Just now"
 end
 
-function Interface:CreateYALLMLearningPage(parent, cursor)
+function Interface:CreateYASLearningPage(parent, cursor)
     local sc = YapperTable.Spellcheck
-    local yallm = sc and sc.YALLM
-    if not yallm or not yallm.GetDataSummary then
-        self:CreateLabel(parent, "YALLM engine not initialized.", LAYOUT.WINDOW_PADDING, cursor:Y(), 400)
+    local yas = sc and sc.YAS
+    if not yas or not yas.GetDataSummary then
+        self:CreateLabel(parent, "YAS engine not initialized.", LAYOUT.WINDOW_PADDING, cursor:Y(), 400)
         return
     end
 
     local locale = sc:GetLocale()
-    local data = yallm:GetDataSummary(locale)
+    local data = yas:GetDataSummary(locale)
     if not data then return end
 
-    -- Title: Adaptive Learning (YALLM) - in yellow
+    -- Title: Adaptive Learning (YAS) - in yellow
     local titleFs = self:CreateLabel(
         parent,
-        string_format("Adaptive Learning (YALLM) - %s", locale or "Global"),
+        string_format("Adaptive Learning (YAS) - %s", locale or "Global"),
         LAYOUT.WINDOW_PADDING,
         cursor:Y(),
         400,
-        "Personalized typing patterns and correction biases stored by the YALLM engine.",
+        "Personalized typing patterns and correction biases stored by the YAS engine.",
         "GameFontNormal"
     )
     titleFs:SetTextColor(1, 0.82, 0) -- Yellow
@@ -486,7 +486,7 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
         local headerY = cursor:Y()
         local curX = LAYOUT.WINDOW_PADDING + 5
         for _, col in ipairs(headers) do
-            local fs = self:AcquireWidget("YALLMTableHead", parent, "GameFontNormalSmall", "FontString")
+            local fs = self:AcquireWidget("YASTableHead", parent, "GameFontNormalSmall", "FontString")
             fs:SetPoint("TOPLEFT", parent, "TOPLEFT", curX, headerY)
             fs:SetText(col.label)
             fs:SetTextColor(0.6, 0.6, 0.6)
@@ -504,12 +504,12 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
         local renderCursorY = cursor:Y()
 
         if useScroll then
-            local sf = self:AcquireWidget("YALLMTableScroll", parent, nil, "ScrollFrame")
+            local sf = self:AcquireWidget("YASTableScroll", parent, nil, "ScrollFrame")
             sf:SetSize(520, maxHeight)
             sf:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, renderCursorY)
             self:AddControl(sf)
 
-            local child = self:AcquireWidget("YALLMTableScrollChild", sf, nil, "Frame")
+            local child = self:AcquireWidget("YASTableScrollChild", sf, nil, "Frame")
             child:SetSize(500, totalContentHeight)
             child:SetPoint("TOPLEFT", sf, "TOPLEFT", 0, 0)
             sf:SetScrollChild(child)
@@ -542,7 +542,7 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
                     val = progress .. "%"
                 end
 
-                local fs = self:AcquireWidget("YALLMTableRow", container, "GameFontHighlightSmall", "FontString")
+                local fs = self:AcquireWidget("YASTableRow", container, "GameFontHighlightSmall", "FontString")
                 fs:SetPoint("TOPLEFT", container, "TOPLEFT", rX, rowY)
                 fs:SetSize(col.width - 5, 14)
                 fs:SetJustifyH("LEFT")
@@ -557,10 +557,10 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
 
     -- Full Correction Bias Table
     -- Utility > 1.0 means the user implicitly confirmed the correction was useful
-    -- (YALLM promoted a lower-ranked candidate above the natural #1 and the user accepted it).
+    -- (YAS promoted a lower-ranked candidate above the natural #1 and the user accepted it).
     self:CreateLabel(parent, "Correction Bias (Full)", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(15))
-    self:CreateLabel(parent, "|cffaaaaaa[Utility > 1.0 = implicitly learned — user accepted a YALLM-promoted candidate]|r",
+    self:CreateLabel(parent, "|cffaaaaaa[Utility > 1.0 = implicitly learned — user accepted a YAS-promoted candidate]|r",
         LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(14))
     renderTable(data.bias, {
@@ -573,7 +573,7 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
 
     -- Phonetic Bias Table
     -- These are generalised patterns learned by sound: if the user consistently
-    -- corrects words with the same phonetic shape to the same word, YALLM applies
+    -- corrects words with the same phonetic shape to the same word, YAS applies
     -- that generalised bias even to typos it has never seen before.
     self:CreateLabel(parent, "Phonetic Pattern Bias", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(15))
@@ -590,10 +590,10 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
     -- Rejection (Implicit Backtrack) Table
     -- Populated when the user clicks \"More...\" (explicit rejection), OR when
     -- ResolveImplicitTrace detects the user backtracked and manually retyped a word
-    -- that YALLM had suggested — i.e. the user silently disagreed with the suggestion.
+    -- that YAS had suggested — i.e. the user silently disagreed with the suggestion.
     self:CreateLabel(parent, "Rejected Suggestions / Implicit Backtracks", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(15))
-    self:CreateLabel(parent, "|cffaaaaaa[Populated when user clicks \"More...\" or manually retypes over a YALLM suggestion]|r",
+    self:CreateLabel(parent, "|cffaaaaaa[Populated when user clicks \"More...\" or manually retypes over a YAS suggestion]|r",
         LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(14))
     renderTable(data.negBias, {
@@ -620,7 +620,7 @@ function Interface:CreateYALLMLearningPage(parent, cursor)
     cursor:Advance(self:ScaledRow(20))
 
     -- Reset Button
-    local resetAllBtn = self:AcquireWidget("YALLMResetAll", parent, "UIPanelButtonTemplate", "Button")
+    local resetAllBtn = self:AcquireWidget("YASResetAll", parent, "UIPanelButtonTemplate", "Button")
     resetAllBtn:SetSize(180, 24)
     resetAllBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 10, cursor:Y() - 2)
     resetAllBtn:SetText(string_format("Reset %s Learning", locale or "All"))

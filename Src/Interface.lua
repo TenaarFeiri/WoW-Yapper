@@ -313,10 +313,10 @@ function Interface:InitPopups()
             button2 = "Cancel",
             OnAccept = function(selfFrame, locale)
                 local sc = YapperTable and YapperTable.Spellcheck
-                local yallm = sc and sc.YALLM
-                if yallm and yallm.Reset then
+                local yas = sc and sc.YAS
+                if yas and yas.Reset then
                     local resetLocale = (locale ~= "All") and locale or nil
-                    yallm:Reset(resetLocale)
+                    yas:Reset(resetLocale)
                     if Interface.MainWindowFrame and Interface.MainWindowFrame:IsShown() then
                         Interface:BuildConfigUI()
                     end
@@ -645,9 +645,9 @@ function Interface:BuildConfigUI()
         self:CreateTutorialPage(frame.ContentFrame, cursor)
     end
 
-    -- YALLM Learning.
+    -- YAS Learning.
     if customSet["yallmLearning"] then
-        self:CreateYALLMLearningPage(frame.ContentFrame, cursor)
+        self:CreateYASLearningPage(frame.ContentFrame, cursor)
     end
 
     -- Message Bridges.

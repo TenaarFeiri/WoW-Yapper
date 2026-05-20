@@ -26,6 +26,11 @@ local callbacks               = {} -- [event]     = array of {cb, handle}
 local handleSeq               = 0  -- monotonic handle counter
 local registeredLinkProtocols = {} -- [prefix] = true; populated by RegisterLinkProtocol
 
+-- Deprecated event name aliases for backward compatibility
+local EVENT_ALIASES = {
+    ["YALLM_WORD_LEARNED"] = "YAS_WORD_LEARNED",
+}
+
 local type                    = type
 local pairs                   = pairs
 local ipairs                  = ipairs
@@ -272,12 +277,15 @@ function YapperAPI:RegisterCallback(event, callback)
         return nil
     end
 
-    if not callbacks[event] then
-        callbacks[event] = {}
+    -- Map deprecated event names to current equivalents
+    local resolvedEvent = EVENT_ALIASES[event] or event
+
+    if not callbacks[resolvedEvent] then
+        callbacks[resolvedEvent] = {}
     end
 
-    if #callbacks[event] >= MAX_CALLBACKS_PER_EVT then
-        _report_api_error("CALLBACK", event, nil, "registration cap reached (" .. MAX_CALLBACKS_PER_EVT .. " callbacks)")
+    if #callbacks[resolvedEvent] >= MAX_CALLBACKS_PER_EVT then
+        _report_api_error("CALLBACK", resolvedEvent, nil, "registration cap reached (" .. MAX_CALLBACKS_PER_EVT .. " callbacks)")
         return nil
     end
 
@@ -297,7 +305,7 @@ function YapperAPI:RegisterCallback(event, callback)
         end
     end
 
-    table_insert(callbacks[event], {
+    table_insert(callbacks[resolvedEvent], {
         cb     = callback,
         handle = handle,
         owner  = owner,
@@ -1155,7 +1163,9 @@ end
 --- @param event string
 --- @param ... any
 function API:Fire(event, ...)
-    local list = callbacks[event]
+    -- Resolve event aliases for backward compatibility
+    local resolvedEvent = EVENT_ALIASES[event] or event
+    local list = callbacks[resolvedEvent]
     if not list or #list == 0 then
         return
     end

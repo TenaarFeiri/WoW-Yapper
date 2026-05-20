@@ -261,8 +261,8 @@ function Spellcheck:ApplyState(enabled, locale)
     if locale == nil then locale = self:GetLocale() end
 
     if enabled then
-        if self.YALLM and self.YALLM.Init then
-            self.YALLM:Init()
+        if self.YAS and self.YAS.Init then
+            self.YAS:Init()
         end
         if not self:EnsureLocale(locale, true) then
             -- If the addon is loaded but the locale is unavailable, it was purged.
@@ -961,14 +961,14 @@ function Spellcheck:NextSuggestionsPage()
     if not self.ActiveSuggestions then return end
 
     -- Record that the current suggestion page was skipped
-    if self.YALLM and self.YALLM.RecordRejection and self.ActiveWord then
+    if self.YAS and self.YAS.RecordRejection and self.ActiveWord then
         local offset = self._suggestionOffset or 0
         local rejected = {}
         for i = offset + 1, math_min(offset + 5, #self.ActiveSuggestions) do
             table_insert(rejected, self.ActiveSuggestions[i])
         end
         local locale = self:GetLocale()
-        self.YALLM:RecordRejection(self.ActiveWord, rejected, locale)
+        self.YAS:RecordRejection(self.ActiveWord, rejected, locale)
     end
 
     local total = #self.ActiveSuggestions
@@ -999,11 +999,11 @@ function Spellcheck:HideSuggestions()
     self._lastShownSuggestions = nil
 
     -- Prune old learning data when the suggestion UI closes
-    if self.YALLM and self.YALLM.Prune then
+    if self.YAS and self.YAS.Prune then
         -- Deferred so the prune runs after the frame has hidden
         C_Timer.After(0, function()
-            self.YALLM:Prune("freq", self.YALLM:GetFreqCap())
-            self.YALLM:Prune("bias", self.YALLM:GetBiasCap())
+            self.YAS:Prune("freq", self.YAS:GetFreqCap())
+            self.YAS:Prune("bias", self.YAS:GetBiasCap())
         end)
     end
 end
@@ -1061,10 +1061,10 @@ function Spellcheck:ApplySuggestion(index)
     end
 
     -- Selection Bias Tracking
-    if self.YALLM and self.YALLM.RecordSelection then
+    if self.YAS and self.YAS.RecordSelection then
         local locale = self:GetLocale()
         local selectedVal = entry.value or entry.word
-        self.YALLM:RecordSelection(original, selectedVal, isUseful, locale)
+        self.YAS:RecordSelection(original, selectedVal, isUseful, locale)
     end
 
     -- Mark that a suggestion was just applied so higher-level Enter
@@ -1182,9 +1182,9 @@ function Spellcheck:ApplySuggestion(index)
     self._textChangedFlag = true
 
     -- Record the accepted correction for adaptive learning
-    if self.YALLM and self.YALLM.RecordSelection then
+    if self.YAS and self.YAS.RecordSelection then
         local original = text:sub(startPos, endPos)
-        self.YALLM:RecordSelection(original, replacement, 0.5, self:GetLocale())
+        self.YAS:RecordSelection(original, replacement, 0.5, self:GetLocale())
     end
 
     -- Notify external addons that a spellcheck correction was applied.
