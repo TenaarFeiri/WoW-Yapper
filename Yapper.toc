@@ -1,7 +1,7 @@
 ## Interface: 120001, 120005
 ## Title: Yapper
 ## Notes: Accessibility-centric and encounter-safe editbox replacement for your chat, incl. post splitting.
-## Version: 2.1.20
+## Version: 2.1.22
 ## Author: Sara Schulze Øverby
 ## IconTexture: 6624474
 ## Category: Chat
@@ -22,6 +22,7 @@
 
 Src/Core.lua
 Src/Utils.lua
+Src/Migrations.lua
 Src/Error.lua
 Src/Frames.lua
 Src/Events.lua
@@ -33,7 +34,7 @@ Src/State.lua
 Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
 # English dicts moved to LOD addons: Dictionaries/Yapper_Dict_en, Yapper_Dict_enGB, Yapper_Dict_enUS
-Src/Spellcheck/YALLM.lua
+Src/Spellcheck/Adaptive.lua
 Src/Spellcheck/UI.lua
 Src/Spellcheck/Underline.lua
 Src/Spellcheck/Engine.lua
