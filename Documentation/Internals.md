@@ -469,18 +469,18 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Description: Show/hide lifecycle, handoff, hook glue, open guards.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
-  - `Hide` ([`../Src/EditBox/Hooks.lua#L423`](`../Src/EditBox/Hooks.lua#L423`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L472`](`../Src/EditBox/Hooks.lua#L472`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L530`](`../Src/EditBox/Hooks.lua#L530`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L624`](`../Src/EditBox/Hooks.lua#L624`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L833`](`../Src/EditBox/Hooks.lua#L833`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L871`](`../Src/EditBox/Hooks.lua#L871`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L919`](`../Src/EditBox/Hooks.lua#L919`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L941`](`../Src/EditBox/Hooks.lua#L941`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L966`](`../Src/EditBox/Hooks.lua#L966`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1041`](`../Src/EditBox/Hooks.lua#L1041`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1108`](`../Src/EditBox/Hooks.lua#L1108`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1514`](`../Src/EditBox/Hooks.lua#L1514`))
+  - `Hide` ([`../Src/EditBox/Hooks.lua#L420`](`../Src/EditBox/Hooks.lua#L420`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L476`](`../Src/EditBox/Hooks.lua#L476`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L533`](`../Src/EditBox/Hooks.lua#L533`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L627`](`../Src/EditBox/Hooks.lua#L627`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L836`](`../Src/EditBox/Hooks.lua#L836`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L874`](`../Src/EditBox/Hooks.lua#L874`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L922`](`../Src/EditBox/Hooks.lua#L922`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L944`](`../Src/EditBox/Hooks.lua#L944`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L969`](`../Src/EditBox/Hooks.lua#L969`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1044`](`../Src/EditBox/Hooks.lua#L1044`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1111`](`../Src/EditBox/Hooks.lua#L1111`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1540`](`../Src/EditBox/Hooks.lua#L1540`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:

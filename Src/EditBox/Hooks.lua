@@ -336,23 +336,20 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Carry over any text Blizzard pre-populated (chat links, etc.).
-    -- We also store any raw text passed through ChatFrameUtil.OpenChat in case
-    -- Blizzard doesn't set it on the editbox immediately.
-    local pending = self._pendingOpenChatText
-    self._pendingOpenChatText = nil
-
+    -- Carry over any text Blizzard pre-populated on the native editbox
+    -- (e.g. chat links, whisper prefills from friend-list clicks).
+    -- ForwardTextToYapper handles most of these asynchronously, but blizzText
+    -- covers the case where Show() is called before OnUpdate has fired.
     local externalText
-    local source = pending or blizzText
-    if source and source ~= "" then
-        if not (blizzHasTarget and IsWhisperSlashPrefill(source)) then
-            local preTarget, preRemainder = ParseWhisperSlash(source)
+    if blizzText and blizzText ~= "" then
+        if not (blizzHasTarget and IsWhisperSlashPrefill(blizzText)) then
+            local preTarget, preRemainder = ParseWhisperSlash(blizzText)
             if preTarget and not blizzHasTarget then
                 self.ChatType = "WHISPER"
                 self.Target = preTarget
                 externalText = preRemainder
             else
-                externalText = source
+                externalText = blizzText
             end
         end
     end
@@ -461,6 +458,13 @@ function EditBox:Hide()
     if not State:IsBusy() then
         YapperAPI:SetState("IDLE")
     end
+
+    -- Prevent Enter/Escape keybind propagation from immediately re-opening the
+    -- overlay in the same frame/tick.
+    self._justClosed = true
+    C_Timer.After(0, function()
+        self._justClosed = nil
+    end)
 
     -- EDITBOX_HIDE callback: notify external addons.
     if YapperTable.API then
@@ -1113,6 +1117,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- BNet whisper: attributes arrive BEFORE Show.
     -- WoW whisper:  attributes arrive one frame AFTER Show (deferred).
     -- The live-update path below handles the deferred case.
+    local _inSetAttrLiveUpdate = false
     hooksecurefunc(blizzEditBox, "SetAttribute", function(eb, key, value)
         local c = self._attrCache[eb]
         if not c then
@@ -1219,21 +1224,29 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             c._prevChatType = value
         end
 
-        -- Live update: attributes arrived after we already showed
-        if self.OrigEditBox == eb and self.Overlay and self.Overlay:IsShown() then
+        -- Live update: attributes arrived after we already showed.
+        -- Guard with _inSetAttrLiveUpdate to prevent RefreshLabel -> SetAttribute
+        -- -> RefreshLabel infinite recursion (the whisper-prefill freeze).
+        if not _inSetAttrLiveUpdate
+            and self.OrigEditBox == eb
+            and self.Overlay and self.Overlay:IsShown() then
             local ct = c.chatType
             local tt = c.tellTarget
             local ch = c.channelTarget
 
             if (ct == "WHISPER" or ct == "BN_WHISPER") and tt and tt ~= "" then
+                _inSetAttrLiveUpdate = true
                 self.ChatType = ct
                 self.Target   = tt
                 self:RefreshLabel()
+                _inSetAttrLiveUpdate = false
             elseif ct == "CHANNEL" and ch and ch ~= "" then
+                _inSetAttrLiveUpdate = true
                 self.ChatType    = "CHANNEL"
                 self.Target      = ch
                 self.ChannelName = ResolveChannelName(tonumber(ch))
                 self:RefreshLabel()
+                _inSetAttrLiveUpdate = false
             end
         end
     end)
@@ -1263,6 +1276,25 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             if isInsert then
                 targetBox:Insert(text)
             else
+                -- If Blizzard's deferred OnUpdate writes a whisper/channel slash prefill
+                -- (e.g. "/cw charname " from a friend-list click), parse and strip it
+                -- here rather than displaying the raw command in the overlay.
+                -- OnTextChanged won't do this because isUserInput=false skips slash handling.
+                if not isInsert and IsWhisperSlashPrefill(text) then
+                    local preTarget, preRemainder = ParseWhisperSlash(text)
+                    if preTarget then
+                        self._ignoreSetText = nil
+                        self.ChatType = "WHISPER"
+                        self.Target   = preTarget
+                        self._ignoreSetText = true
+                        targetBox:SetText(preRemainder or "")
+                        self._ignoreSetText = nil
+                        eb:SetText("")
+                        self:RefreshLabel()
+                        return
+                    end
+                end
+
                 local cur = targetBox:GetText() or ""
                 if text ~= cur then
                     targetBox:SetText(text)
@@ -1325,14 +1357,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             if self.Overlay and self.Overlay:IsShown() then
                 -- Overlay already visible — suppress Blizzard's editbox and
                 -- reclaim focus on the next frame to prevent secure-hook taint.
-                local pendingText = self._pendingOpenChatText
-                self._pendingOpenChatText = nil
                 C_Timer.After(0, function()
                     if self.OverlayEdit then
                         self.OverlayEdit:SetFocus()
-                        if pendingText then
-                            self.OverlayEdit:Insert(pendingText)
-                        end
                     end
                     if eb and eb.Hide and eb:IsShown() then
                         eb:Hide()
@@ -1532,6 +1559,10 @@ function EditBox:HookAllChatFrames()
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
+            if self._justClosed then
+                return
+            end
+
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                 -- Fix focus override getting stuck if lockdown started while chat was closed.
                 self:UpdateFocusOverride()
@@ -1548,47 +1579,39 @@ function EditBox:HookAllChatFrames()
                 end
                 return
             end
-            -- Signal that we are expecting a chat-show event shortly
-            self._openingWatchdog = true
 
-            -- Panic Recovery: Heuristic for Enter-spamming
-            if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit and not self.OverlayEdit:HasFocus() then
-                -- Only track panic if we aren't being suppressed by API or Manual Bypass.
-                if not (UserBypassingYapper() or (self._preShowSuppressed)) then
-                    local now = GetTime()
-                    self._panicTracking = self._panicTracking or { times = {}, lastFix = 0 }
-                    local track = self._panicTracking
+            -- When CHAT_FOCUS_OVERRIDE points at our overlay, Blizzard's OpenChat
+            -- body has already called SetFocus()+SetText() on the overlay directly.
+            -- SetFocus() is synchronous, so the triggering keybind's character event
+            -- fires on the overlay after all Lua returns (e.g. Shift-R -> "R" in box).
+            -- Fix: clear focus now (still sync, before the char event) and re-apply
+            -- it next frame so the char finds no focused editbox and is discarded.
+            local focusOverrideIntercepted = (_G.CHAT_FOCUS_OVERRIDE == self.OverlayEdit)
+                and (chatFrame == nil)
 
-                    -- Clean up timestamps older than 1 second.
-                    for i = #track.times, 1, -1 do
-                        if now - track.times[i] > 1.0 then
-                            table.remove(track.times, i)
-                        end
-                    end
-
-                    table.insert(track.times, now)
-
-                    -- If 3 attempts in 1 second, trigger the "Big Hammer".
-                    if #track.times >= 3 and (now - track.lastFix > 5.0) then
-                        track.lastFix = now
-                        wipe(track.times)
-
-                        -- Set suppression flag to debounce ghost-sends for 1 second.
-                        self._panicSuppression = now + 1.0
-
-                        self:HardRefocus()
-                    end
+            if focusOverrideIntercepted then
+                if not (self.Overlay and self.Overlay:IsShown()) then
+                    self:Show(DEFAULT_CHAT_FRAME.editBox)
                 end
+                if self.OverlayEdit then
+                    self.OverlayEdit:ClearFocus()
+                end
+                C_Timer.After(0, function()
+                    if self.OverlayEdit and self.Overlay and self.Overlay:IsShown() then
+                        self.OverlayEdit:SetFocus()
+                    end
+                end)
+                self._openingWatchdog = false
+                return
             end
 
-            if type(text) == "string" and text ~= "" then
-                -- Store on the instance so EditBox:Show can prefer it.
-                self._pendingOpenChatText = text
-            end
-
-            if chatFrame == nil and not (UserBypassingYapper() or self._preShowSuppressed) then
-                self:Show(DEFAULT_CHAT_FRAME.editBox)
-            end
+            -- For all other cases (slash-starting text, specific chatFrame opens, etc.)
+            -- just signal the watchdog so ForwardTextToYapper can route to the overlay
+            -- while it isn't shown yet. Do NOT call Show() or pre-populate
+            -- _pendingOpenChatText here — the blizzard editbox Show() hook handles
+            -- opening the overlay on the next frame, by which point the physical key
+            -- char has already been consumed by the blizzard editbox, not ours.
+            self._openingWatchdog = true
         end)
         -- NOTE: Do NOT replace ChatFrameUtil.OpenChat with a tainted wrapper.
         -- Doing so taints the arguments passed to Blizzard's secure code,

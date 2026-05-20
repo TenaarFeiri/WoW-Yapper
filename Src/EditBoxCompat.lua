@@ -76,7 +76,14 @@ function YapperTable.InstallCompatMethods(box)
     box.SetFocusRegionsShown = box.SetFocusRegionsShown or function() end
     box.UpdateNewcomerEditBoxHint = box.UpdateNewcomerEditBoxHint or function() end
 
-    box.supportsSlashCommands = true
+    -- supportsSlashCommands = false: we do NOT want Blizzard's CHAT_FOCUS_OVERRIDE
+    -- path to intercept slash-starting text (e.g. "/" key press, "/w name").
+    -- If set to true, Blizzard calls SetText("/") on the overlay AND the physical
+    -- keypress then fires OnChar on the now-focused overlay, producing "//".
+    -- With false, slash text goes to the normal Blizzard editbox path which our
+    -- Show() hook already intercepts cleanly, consuming the physical char first.
+    -- Non-slash content (item links, empty open) still flows through CHAT_FOCUS_OVERRIDE.
+    box.supportsSlashCommands = false
 end
 
 -- Install on overlay at creation time.
