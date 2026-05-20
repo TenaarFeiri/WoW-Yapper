@@ -218,7 +218,9 @@ local DEFAULTS = {
         -- YALLM adaptive learning data caps
         YALLMFreqCap        = 2000, -- Max unique vocabulary words tracked
         YALLMBiasCap        = 500,  -- Max typo→correction pairs stored
+        YALLMNegBiasCap     = 500,  -- Max rejected suggestion pairs tracked (decays over time)
         YALLMAutoThreshold  = 10,   -- Times a word must be sent before auto-adding to dictionary
+        YALLMAutoCap        = 500,  -- Max pending auto-learn tracking entries
         SuggestionCacheSize = 50,   -- Max unique word suggestion results cached per session (0 = disabled)
     },
 }

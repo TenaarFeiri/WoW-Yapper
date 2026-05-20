@@ -10,6 +10,7 @@ YapperTable.Spellcheck.YALLM = YALLM -- Hook into internal table
 -- Tuning Constants (used as fallbacks when config is not yet available)
 local FREQ_CAP = 2000      -- Max unique words to track
 local AUTO_THRESHOLD = 10  -- Times sent before auto-added to dict
+local AUTO_CAP = 500       -- Max auto-learn tracking entries
 local MAX_BIAS_PAIRS = 500 -- Max Typo -> Selection pairs to track
 local WEIGHTS = {
     freqBonus = -2.5,      -- High usage = lower score (better)
@@ -162,6 +163,12 @@ function YALLM:GetNegBiasCap()
     return math_max(100, math_min(v, 10000))
 end
 
+function YALLM:GetAutoCap()
+    local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
+    local v = tonumber(cfg and cfg.YALLMAutoCap) or AUTO_CAP
+    return math_max(50, math_min(v, 5000))
+end
+
 -- ---------------------------------------------------------------------------
 -- Initialization
 -- ---------------------------------------------------------------------------
@@ -202,6 +209,7 @@ function YALLM:GetLocaleDB(locale)
             freqSortedDirty = false, -- true when freq has changed and index must rebuild
             bias = {},    -- typo:correction -> { c, t, u }
             auto = {},    -- word -> { c, t }
+            autoCount = 0,-- cached count of auto entries
             phBias = {},  -- PhoneticHash(typo):correction -> { c, t }
             negBias = {}, -- typo:word -> { c, t }
             total = 0,    -- total unique words tracked
@@ -213,6 +221,13 @@ function YALLM:GetLocaleDB(locale)
         local count = 0
         for _ in pairs(db.freq) do count = count + 1 end
         db.total = count
+    end
+    if db.autoCount == nil then
+        local count = 0
+        if db.auto then
+            for _ in pairs(db.auto) do count = count + 1 end
+        end
+        db.autoCount = count
     end
     if db.negBiasCount == nil then
         local count = 0
@@ -565,6 +580,13 @@ function YALLM:RecordIgnored(word, locale)
     local now = time()
     if not db.auto[w] then
         db.auto[w] = { c = 1, t = now }
+        db.autoCount = (db.autoCount or 0) + 1
+        if db.autoCount >= self:GetAutoCap() then
+            self:Prune("auto", self:GetAutoCap(), locale)
+            local count = 0
+            for _ in pairs(db.auto) do count = count + 1 end
+            db.autoCount = count
+        end
     else
         local entry = db.auto[w]
         entry.c = entry.c + 1
@@ -636,11 +658,13 @@ function YALLM:GetBonus(cand, typo, typoPhHash, locale)
         end
     end
 
-    -- 4. Rejection Penalty
+    -- 4. Rejection Penalty (with time-based forgiveness decay)
     if db.negBias then
         local negEntry = db.negBias[key]
         if negEntry then
-            bonus = bonus + (WEIGHTS.negBias * math_min(negEntry.c, 5))
+            local ageDays = math_max(0, (time() - (negEntry.t or 0)) / 86400)
+            local decay = 1.0 / (ageDays / 30 + 1)  -- halves every ~30 days
+            bonus = bonus + (WEIGHTS.negBias * math_min(negEntry.c, 5) * decay)
         end
     end
 

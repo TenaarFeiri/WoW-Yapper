@@ -580,6 +580,11 @@ function Spellcheck:AddUserWord(locale, word)
         end
     end
     dict.AddedWords[#dict.AddedWords + 1] = word
+    -- Cap user dictionary: FIFO eviction of oldest additions
+    local maxAdded = self:GetUserDictWordCap()
+    while #dict.AddedWords > maxAdded do
+        table_remove(dict.AddedWords, 1)
+    end
     for i = #dict.IgnoredWords, 1, -1 do
         if NormaliseWord(dict.IgnoredWords[i]) == norm then
             table_remove(dict.IgnoredWords, i)
@@ -649,6 +654,11 @@ end
 function Spellcheck:GetMinWordLength()
     local cfg = self:GetConfig()
     return Clamp(tonumber(cfg.MinWordLength) or 2, 1, 10)
+end
+
+function Spellcheck:GetUserDictWordCap()
+    local cfg = self:GetConfig()
+    return Clamp(tonumber(cfg.UserDictWordCap) or 2000, 50, 10000)
 end
 
 function Spellcheck:GetUnderlineStyle()
