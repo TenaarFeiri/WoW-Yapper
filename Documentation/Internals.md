@@ -20,20 +20,20 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L277`](../Src/Core.lua#L277)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L279`](../Src/Core.lua#L279)).
 - Methods:
-  - [NEW] `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L318`](../Src/Core.lua#L318))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L740`](../Src/Core.lua#L740))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L537`](../Src/Core.lua#L537))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L297`](../Src/Core.lua#L297))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L282`](../Src/Core.lua#L282))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L433`](../Src/Core.lua#L433)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L560`](../Src/Core.lua#L560))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L564`](../Src/Core.lua#L564))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L568`](../Src/Core.lua#L568))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L581`](../Src/Core.lua#L581)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L647`](../Src/Core.lua#L647)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L761`](../Src/Core.lua#L761)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - [NEW] `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L320`](../Src/Core.lua#L320))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L742`](../Src/Core.lua#L742))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L539`](../Src/Core.lua#L539))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L299`](../Src/Core.lua#L299))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L284`](../Src/Core.lua#L284))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L435`](../Src/Core.lua#L435)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L562`](../Src/Core.lua#L562))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L566`](../Src/Core.lua#L566))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L570`](../Src/Core.lua#L570))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L583`](../Src/Core.lua#L583)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L649`](../Src/Core.lua#L649)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L763`](../Src/Core.lua#L763)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -124,7 +124,6 @@ Loaded early; central orchestrator for the addon's operational mode.
 - Flags:
   - `SuppressNextEnter`: Session flag used to block the next native `OnEnterPressed` event (e.g. after selecting an emote with auto-send disabled).
 - Methods:
-  [MISSING] - [NEW] `State:Resume() → nil`: Return from CONFIG or other transient states. ([`../Src/State.lua#L312`](../Src/State.lua#L312))
   - [NEW] `State:ToConfig() → nil`: Transition to CONFIG (settings) state. ([`../Src/State.lua#L288`](../Src/State.lua#L288))
   - [NEW] `State:IsConfig() → boolean`: Is the settings/interface window open? ([`../Src/State.lua#L230`](../Src/State.lua#L230))
   - [NEW] `State:IsInitialised() → boolean`: Has the machine completed initialisation (i.e. not in INITIALISING state)? ([`../Src/State.lua#L188`](../Src/State.lua#L188))
@@ -173,6 +172,7 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
   - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
 - Methods:
+  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L661`](../Src/Spellcheck.lua#L661))
   - [NEW] `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YALLM learning). ([`../Src/Spellcheck.lua#L552`](../Src/Spellcheck.lua#L552))
   - [NEW] `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L533`](../Src/Spellcheck.lua#L533))
   - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L437`](../Src/Spellcheck.lua#L437))
@@ -192,19 +192,19 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L493`](../Src/Spellcheck.lua#L493))
   - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L500`](../Src/Spellcheck.lua#L500))
   - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L514`](../Src/Spellcheck.lua#L514))
-  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L572`](../Src/Spellcheck.lua#L572))
-  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L595`](../Src/Spellcheck.lua#L595))
-  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L619`](../Src/Spellcheck.lua#L619))
-  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L624`](`../Src/Spellcheck.lua#L624`))
-  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L629`](`../Src/Spellcheck.lua#L629`))
-  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L634`](`../Src/Spellcheck.lua#L634`))
-  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L639`](`../Src/Spellcheck.lua#L639`))
-  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L644`](`../Src/Spellcheck.lua#L644`))
-  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L649`](`../Src/Spellcheck.lua#L649`))
-  - Accessors: `GetUnderlineStyle` ([`../Src/Spellcheck.lua#L654`](`../Src/Spellcheck.lua#L654`))
-  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L662`](`../Src/Spellcheck.lua#L662`))
-  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L672`](`../Src/Spellcheck.lua#L672`))
-  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L691`](`../Src/Spellcheck.lua#L691`))
+  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L572`](../Src/Spellcheck.lua#L572)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
+  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L600`](../Src/Spellcheck.lua#L600))
+  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L624`](../Src/Spellcheck.lua#L624))
+  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L629`](`../Src/Spellcheck.lua#L629`))
+  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L634`](`../Src/Spellcheck.lua#L634`))
+  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L639`](`../Src/Spellcheck.lua#L639`))
+  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L644`](`../Src/Spellcheck.lua#L644`))
+  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L649`](`../Src/Spellcheck.lua#L649`))
+  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L654`](`../Src/Spellcheck.lua#L654`))
+  - Accessors: `GetUnderlineStyle` ([`../Src/Spellcheck.lua#L664`](`../Src/Spellcheck.lua#L664`))
+  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L672`](`../Src/Spellcheck.lua#L672`))
+  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L682`](`../Src/Spellcheck.lua#L682`))
+  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L701`](`../Src/Spellcheck.lua#L701`))
 - Callbacks fired:
   - `SPELLCHECK_WORD_ADDED`, `SPELLCHECK_WORD_IGNORED`.
 
@@ -327,43 +327,46 @@ Initialised from `Spellcheck:Init` when present.
 - Fields:
   - `Spellcheck.YALLM: table` ([`../Src/Spellcheck/YALLM.lua#L8`](../Src/Spellcheck/YALLM.lua#L8)).
 - Locale store shape (`_G.YapperDB.SpellcheckLearned[locale]`):
-  - `freq[word] = { c, t }`
-  - `bias["typo:correction"] = { c, t, u }`
-  - `phBias["phoneticHash:correction"] = { c, t }`
-  - `negBias["typo:word"] = { c, t, u }`
-  - `auto[word] = { c, t }`
-  - `total: number`
+  - `freq[word] = { c, t }` — usage count and last-seen timestamp.
+  - `bias["typo:correction"] = { c, t, u }` — direct correction preference, count, timestamp, utility weight.
+  - `phBias["phoneticHash:correction"] = { c, t }` — generalised phonetic correction memory.
+  - `negBias["typo:word"] = { c, t, u }` — rejected suggestion penalties; penalty decays exponentially with age (~30-day half-life).
+  - `auto[word] = { c, t }` — repeated uncorrected words pending auto-promotion.
+  - `autoCount: number` — cached count of `auto` entries (maintained for O(1) cap checks).
+  - `negBiasCount: number` — cached count of `negBias` entries.
+  - `total: number` — tracked unique vocabulary size for frequency-cap enforcement.
   ([`../Src/Spellcheck/YALLM.lua#L63-L100`](../Src/Spellcheck/YALLM.lua#L63-L100)).
 - Methods:
-  - [NEW] `YALLM:GetNegBiasCap() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L159`](../Src/Spellcheck/YALLM.lua#L159))
-  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L825`](../Src/Spellcheck/YALLM.lua#L825))
-  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L651`](../Src/Spellcheck/YALLM.lua#L651))
-  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L234`](../Src/Spellcheck/YALLM.lua#L234))
-  - `IsEnabled() → boolean`: Returns true if YALLM is enabled in the configuration. ([`../Src/Spellcheck/YALLM.lua#L133`](../Src/Spellcheck/YALLM.lua#L133))
-  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L141`](`../Src/Spellcheck/YALLM.lua#L141`))
-  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L147`](`../Src/Spellcheck/YALLM.lua#L147`))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L153`](`../Src/Spellcheck/YALLM.lua#L153`))
-  - `Init` ([`../Src/Spellcheck/YALLM.lua#L169`](`../Src/Spellcheck/YALLM.lua#L169`))
-  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L195`](`../Src/Spellcheck/YALLM.lua#L195`))
-  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L254`](`../Src/Spellcheck/YALLM.lua#L254`))
-  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L296`](`../Src/Spellcheck/YALLM.lua#L296`))
-  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L343`](`../Src/Spellcheck/YALLM.lua#L343`))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L425`](`../Src/Spellcheck/YALLM.lua#L425`))
-  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L521`](`../Src/Spellcheck/YALLM.lua#L521`))
-  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L555`](`../Src/Spellcheck/YALLM.lua#L555`))
-  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L598`](`../Src/Spellcheck/YALLM.lua#L598`))
-  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L697`](`../Src/Spellcheck/YALLM.lua#L697`))
-  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L756`](`../Src/Spellcheck/YALLM.lua#L756`))
-  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L769`](`../Src/Spellcheck/YALLM.lua#L769`))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L858`](`../Src/Spellcheck/YALLM.lua#L858`))
+  - `YALLM:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YALLMAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/YALLM.lua#L168`](../Src/Spellcheck/YALLM.lua#L168))
+  - `YALLM:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YALLMNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/YALLM.lua#L162`](../Src/Spellcheck/YALLM.lua#L162))
+  - `YALLM:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/YALLM.lua#L849`](../Src/Spellcheck/YALLM.lua#L849))
+  - `YALLM:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/YALLM.lua#L675`](../Src/Spellcheck/YALLM.lua#L675))
+  - `YALLM:EnsureFreqSorted() → nil`: No description provided. ([`../Src/Spellcheck/YALLM.lua#L249`](../Src/Spellcheck/YALLM.lua#L249))
+  - `IsEnabled() → boolean`: Returns true if YALLM is enabled in the configuration. ([`../Src/Spellcheck/YALLM.lua#L134`](../Src/Spellcheck/YALLM.lua#L134))
+  - `GetFreqCap` ([`../Src/Spellcheck/YALLM.lua#L142`](`../Src/Spellcheck/YALLM.lua#L142`))
+  - `GetBiasCap` ([`../Src/Spellcheck/YALLM.lua#L148`](`../Src/Spellcheck/YALLM.lua#L148`))
+  - `GetAutoThreshold` ([`../Src/Spellcheck/YALLM.lua#L154`](`../Src/Spellcheck/YALLM.lua#L154`))
+  - `Init` ([`../Src/Spellcheck/YALLM.lua#L176`](`../Src/Spellcheck/YALLM.lua#L176`))
+  - `GetLocaleDB` ([`../Src/Spellcheck/YALLM.lua#L202`](`../Src/Spellcheck/YALLM.lua#L202`))
+  - `IsSaneWord` ([`../Src/Spellcheck/YALLM.lua#L269`](`../Src/Spellcheck/YALLM.lua#L269`))
+  - `RecordUsage` ([`../Src/Spellcheck/YALLM.lua#L311`](`../Src/Spellcheck/YALLM.lua#L311`))
+  - `RecordSelection` ([`../Src/Spellcheck/YALLM.lua#L358`](`../Src/Spellcheck/YALLM.lua#L358`))
+  - `RecordImplicitCorrection` ([`../Src/Spellcheck/YALLM.lua#L440`](`../Src/Spellcheck/YALLM.lua#L440`))
+  - `RecordRejection` ([`../Src/Spellcheck/YALLM.lua#L536`](`../Src/Spellcheck/YALLM.lua#L536`))
+  - `RecordIgnored` ([`../Src/Spellcheck/YALLM.lua#L570`](`../Src/Spellcheck/YALLM.lua#L570`))
+  - `GetBonus` ([`../Src/Spellcheck/YALLM.lua#L620`](`../Src/Spellcheck/YALLM.lua#L620`))
+  - `Prune` ([`../Src/Spellcheck/YALLM.lua#L721`](`../Src/Spellcheck/YALLM.lua#L721`))
+  - `Reset` ([`../Src/Spellcheck/YALLM.lua#L780`](`../Src/Spellcheck/YALLM.lua#L780`))
+  - `GetDataSummary` ([`../Src/Spellcheck/YALLM.lua#L793`](`../Src/Spellcheck/YALLM.lua#L793`))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/YALLM.lua#L882`](`../Src/Spellcheck/YALLM.lua#L882`))
 - Score model:
-  - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty (weighted, capped by repeat count) and returns an additive score adjustment used in candidate ranking ([`../Src/Spellcheck/YALLM.lua#L381-L419`](../Src/Spellcheck/YALLM.lua#L381-L419), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
+  - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty and returns an additive score adjustment used in candidate ranking. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. ([`../Src/Spellcheck/YALLM.lua#L620`](../Src/Spellcheck/YALLM.lua#L620), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
   - `Chat:DirectSend` records usage and ignored-word counts ([`../Src/Chat.lua#L199-L215`](../Src/Chat.lua#L199-L215)).
   - `Spellcheck.UI` records explicit suggestion picks/rejections ([`../Src/Spellcheck/UI.lua#L869-L962`](../Src/Spellcheck/UI.lua#L869-L962)).
   - `Spellcheck.Engine` records implicit corrections from retyped trace words ([`../Src/Spellcheck/Engine.lua#L236-L238`](../Src/Spellcheck/Engine.lua#L236-L238)).
 - Invariants / safeguards:
-  - `IsSaneWord` gates noisy tokens before learning; pruning preserves highest relevance entries by count/utility/recency score; caps/thresholds are clamped from config (`YALLMEnabled`, `YALLMFreqCap`, `YALLMBiasCap`, `YALLMAutoThreshold`) ([`../Src/Spellcheck/YALLM.lua#L38-L54`](../Src/Spellcheck/YALLM.lua#L38-L54), [`../Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147), [`../Src/Spellcheck/YALLM.lua#L427-L468`](../Src/Spellcheck/YALLM.lua#L427-L468), [`../Src/Core.lua#L209-L212`](../Src/Core.lua#L209-L212)).
+  - `IsSaneWord` gates noisy tokens before learning; pruning preserves highest relevance entries by count/utility/recency score; caps/thresholds are clamped from config (`YALLMEnabled`, `YALLMFreqCap`, `YALLMBiasCap`, `YALLMNegBiasCap`, `YALLMAutoThreshold`, `YALLMAutoCap`) ([`../Src/Spellcheck/YALLM.lua#L130-L170`](../Src/Spellcheck/YALLM.lua#L130-L170), [`../Src/Spellcheck/YALLM.lua#L269-L310`](../Src/Spellcheck/YALLM.lua#L269-L310), [`../Src/Core.lua#L217-L224`](../Src/Core.lua#L217-L224)).
 - Callbacks fired:
   - `YALLM_WORD_LEARNED`.
 
@@ -387,12 +390,10 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 ## EditBox
 - Methods:
   - [NEW] `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L81`](../Src/EditBox.lua#L81))
-  [MISSING] - [NEW] `EditBox:HardRefocus() → nil`: If the user has triggered a panic condition, ([`../Src/EditBoxCompat.lua#L125`](../Src/EditBoxCompat.lua#L125))
-  - [NEW] `YapperTable:InstallCompatMethods() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
-  - [NEW] `box:UpdateNewcomerEditBoxHint() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L77`](../Src/EditBoxCompat.lua#L77))
-  - [NEW] `box:SetFocusRegionsShown() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L76`](../Src/EditBoxCompat.lua#L76))
-  [MISSING] - [NEW] `Multiline:Create() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L73`](../Src/EditBoxCompat.lua#L73))
-  - [NEW] `box:UpdateHeader() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
+  - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
+  - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L119`](../Src/EditBoxCompat.lua#L119))
+  - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
+  - `box.UpdateNewcomerEditBoxHint`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
   - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))

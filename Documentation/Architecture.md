@@ -174,8 +174,10 @@ Stored in `_G.YapperDB.SpellcheckLearned[locale]` with on-init migration for leg
 - `freq[word] = { c, t }` user usage count and last-seen timestamp.
 - `bias["typo:correction"] = { c, t, u }` direct correction preferences and utility weight.
 - `phBias["phoneticHash:correction"] = { c, t }` generalized phonetic correction memory.
-- `negBias["typo:word"] = { c, t, u }` rejected suggestion penalties.
+- `negBias["typo:word"] = { c, t, u }` rejected suggestion penalties; penalty decays over time (~30-day half-life).
 - `auto[word] = { c, t }` repeated uncorrected words pending auto-promotion.
+- `autoCount: number` cached count of `auto` entries for O(1) cap enforcement.
+- `negBiasCount: number` cached count of `negBias` entries for O(1) cap enforcement.
 - `total` tracked unique vocabulary size for frequency-cap enforcement.
 
 Code anchors: [`Src/Spellcheck/YALLM.lua#L60-L100`](../Src/Spellcheck/YALLM.lua#L60-L100).
@@ -202,7 +204,7 @@ Current bonus components (negative = better rank, positive = penalty):
 - Frequency bonus (`freqBonus`) once a word has enough repeated usage.
 - Direct typo→correction bias bonus (`biasBonus`) scaled by repetition.
 - Phonetic-pattern bias bonus (`phBonus`) scaled by repetition.
-- Rejection penalty (`negBias`) to demote repeatedly rejected options.
+- Rejection penalty (`negBias`) to demote repeatedly rejected options; decays with time (`penalty × 1/(ageDays/30 + 1)`) so stale rejections do not permanently penalise good candidates.
 
 Code anchors:
 
@@ -213,9 +215,11 @@ Code anchors:
 
 - `IsSaneWord` blocks noisy learning inputs (very short/long tokens, keyboard smash patterns, invalid consonant clusters, optional n-gram sanity).
 - Config-backed caps:
-  - `YALLMFreqCap`
-  - `YALLMBiasCap`
-  - `YALLMAutoThreshold`
+  - `YALLMFreqCap` — max unique vocabulary words tracked.
+  - `YALLMBiasCap` — max typo→correction bias pairs.
+  - `YALLMNegBiasCap` — max rejected suggestion pairs (defaults to 500).
+  - `YALLMAutoThreshold` — sends before a word is auto-promoted to user dictionary.
+  - `YALLMAutoCap` — max pending auto-learn tracking entries (defaults to 500).
 - `Prune(tableName, limit)` keeps the highest relevance entries using `count * utility / age`.
 - `Reset(locale?)` clears learned state globally or per locale.
 - Auto-promotion emits `YALLM_WORD_LEARNED` after adding a word into user dictionary.
@@ -223,7 +227,7 @@ Code anchors:
 Code anchors:
 
 - Word sanity checks: [`Src/Spellcheck/YALLM.lua#L113-L147`](../Src/Spellcheck/YALLM.lua#L113-L147)
-- Cap accessors and defaults: [`Src/Spellcheck/YALLM.lua#L38-L54`](../Src/Spellcheck/YALLM.lua#L38-L54), [`Src/Core.lua#L209-L212`](../Src/Core.lua#L209-L212)
+- Cap accessors and defaults: [`Src/Spellcheck/YALLM.lua#L130-L170`](../Src/Spellcheck/YALLM.lua#L130-L170), [`Src/Core.lua#L217-L224`](../Src/Core.lua#L217-L224)
 - Pruning/reset: [`Src/Spellcheck/YALLM.lua#L427-L478`](../Src/Spellcheck/YALLM.lua#L427-L478)
 - Auto-learn event emission: [`Src/Spellcheck/YALLM.lua#L357-L370`](../Src/Spellcheck/YALLM.lua#L357-L370), [`Src/API.lua#L183-L185`](../Src/API.lua#L183-L185)
 
