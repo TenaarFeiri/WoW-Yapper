@@ -418,18 +418,18 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L38`](`../Src/EditBox.lua#L38`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L401`](`../Src/EditBox.lua#L401`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L402`](`../Src/EditBox.lua#L402`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L403`](`../Src/EditBox.lua#L403`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L433`](`../Src/EditBox.lua#L433`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L434`](`../Src/EditBox.lua#L434`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L435`](`../Src/EditBox.lua#L435`))
   - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L289`](`../Src/EditBox.lua#L289`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L405`](`../Src/EditBox.lua#L405`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L437`](`../Src/EditBox.lua#L437`))
 - Methods:
   - `ClearLockdownState` ([`../Src/EditBox.lua#L65`](../Src/EditBox.lua#L65))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L100`](../Src/EditBox.lua#L100))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L131`](../Src/EditBox.lua#L131))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L318`](../Src/EditBox.lua#L318))
-  - `SetOnSend` ([`../Src/EditBox.lua#L407`](../Src/EditBox.lua#L407))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L413`](../Src/EditBox.lua#L413))
+  - `SetOnSend` ([`../Src/EditBox.lua#L439`](../Src/EditBox.lua#L439))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L445`](../Src/EditBox.lua#L445))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -471,17 +471,17 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
   - `Hide` ([`../Src/EditBox/Hooks.lua#L420`](`../Src/EditBox/Hooks.lua#L420`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L476`](`../Src/EditBox/Hooks.lua#L476`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L533`](`../Src/EditBox/Hooks.lua#L533`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L627`](`../Src/EditBox/Hooks.lua#L627`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L805`](`../Src/EditBox/Hooks.lua#L805`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L843`](`../Src/EditBox/Hooks.lua#L843`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L891`](`../Src/EditBox/Hooks.lua#L891`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L913`](`../Src/EditBox/Hooks.lua#L913`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L938`](`../Src/EditBox/Hooks.lua#L938`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1013`](`../Src/EditBox/Hooks.lua#L1013`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1080`](`../Src/EditBox/Hooks.lua#L1080`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1503`](`../Src/EditBox/Hooks.lua#L1503`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L513`](`../Src/EditBox/Hooks.lua#L513`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L602`](`../Src/EditBox/Hooks.lua#L602`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L696`](`../Src/EditBox/Hooks.lua#L696`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L874`](`../Src/EditBox/Hooks.lua#L874`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L912`](`../Src/EditBox/Hooks.lua#L912`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L960`](`../Src/EditBox/Hooks.lua#L960`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L982`](`../Src/EditBox/Hooks.lua#L982`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1007`](`../Src/EditBox/Hooks.lua#L1007`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1082`](`../Src/EditBox/Hooks.lua#L1082`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1149`](`../Src/EditBox/Hooks.lua#L1149`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1572`](`../Src/EditBox/Hooks.lua#L1572`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
