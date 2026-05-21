@@ -130,7 +130,7 @@ end
 -- Config-driven cap accessors
 -- ---------------------------------------------------------------------------
 
---- Returns true if YALLM is enabled in the configuration.
+--- Returns true if YAS is enabled in the configuration.
 function YAS:IsEnabled()
     local sc = YapperTable.Spellcheck
     if not sc or not sc:IsEnabled() then return false end
@@ -380,7 +380,7 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
     end
 
     if IsDebugEnabled() then
-        YapperTable.Utils:Print("debug", string.format("YALLM: RecordSelection typo='%s' corr='%s' gain=%.2f", typo, correction, gain))
+        YapperTable.Utils:Print("debug", string.format("YAS: RecordSelection typo='%s' corr='%s' gain=%.2f", typo, correction, gain))
     end
 
     local now = time()
@@ -602,7 +602,7 @@ function YAS:RecordIgnored(word, locale)
             db.auto[w] = nil -- Reset now that it's in the dict
             if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
                 YapperTable.Utils:VerbosePrint("info",
-                    "YALLM: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
+                    "YAS: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
             end
             -- Notify external addons about the auto-learned word.
             if YapperTable.API then
@@ -725,7 +725,7 @@ function YAS:Prune(tableName, limit, locale)
         -- Note to future self: If you remove this check then
         -- it is possible for dbId top beyond nils. 
         -- In which case, also remove linter suppression for need-check-nil.
-        YapperTable.Error:Throw("UNKNOWN", "YALLM:Prune", "Could not obtain local db")
+        YapperTable.Error:Throw("UNKNOWN", "YAS:Prune", "Could not obtain local db")
     end
 
     -- Explicitly verify for linter that db is not nil
@@ -851,7 +851,7 @@ function YAS:Export(locale)
     if not db then return "No data for " .. tostring(locale) end
 
     local out = {}
-    table_insert(out, "Yapper YALLM Export - " .. tostring(locale))
+    table_insert(out, "Yapper YAS Export - " .. tostring(locale))
     table_insert(out, "------------------------------------------")
 
     local fCount = 0

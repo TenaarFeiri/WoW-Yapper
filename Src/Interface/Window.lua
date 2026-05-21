@@ -634,7 +634,7 @@ function Interface:CreateWelcomeChoiceFrame()
         nextY
     )
 
-    local yallmToggle, yallmLabel, nextY3 = CreatePopupToggle(
+    local yasToggle, yasLabel, nextY3 = CreatePopupToggle(
         frame,
         { "Spellcheck", "YASEnabled" },
         "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
@@ -648,13 +648,13 @@ function Interface:CreateWelcomeChoiceFrame()
         if spellEnabled then
             acToggle:Enable()
             acLabel:SetTextColor(0.9, 0.9, 0.9, 1)
-            yallmToggle:Enable()
-            yallmLabel:SetTextColor(0.9, 0.9, 0.9, 1)
+            yasToggle:Enable()
+            yasLabel:SetTextColor(0.9, 0.9, 0.9, 1)
         else
             acToggle:Disable()
             acLabel:SetTextColor(0.5, 0.5, 0.5, 1)
-            yallmToggle:Disable()
-            yallmLabel:SetTextColor(0.5, 0.5, 0.5, 1)
+            yasToggle:Disable()
+            yasLabel:SetTextColor(0.5, 0.5, 0.5, 1)
         end
     end
 
@@ -738,7 +738,7 @@ function Interface:CreateWhatsNewFrame()
     local togglesAdded = false
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
-    local yallmEnabled = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" })
+    local yasEnabled = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" })
 
     local toggleCursor = -FRAME_H + 120
 
@@ -772,7 +772,7 @@ function Interface:CreateWhatsNewFrame()
         end
     end)
 
-    if spellEnabled ~= true or acEnabled ~= true or yallmEnabled ~= true then
+    if spellEnabled ~= true or acEnabled ~= true or yasEnabled ~= true then
         local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         togLabel:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", PAD + 4, 120)
         togLabel:SetText("New Features — Try Them Out")
@@ -780,7 +780,7 @@ function Interface:CreateWhatsNewFrame()
         toggleCursor = toggleCursor - 24
         togglesAdded = true
 
-        local acT, acL, yallmT, yallmL, spellT
+        local acT, acL, yasT, yasL, spellT
 
         if spellEnabled ~= true then
             local st, _, ny = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck",
@@ -794,10 +794,10 @@ function Interface:CreateWhatsNewFrame()
             acT, acL = at, al
             toggleCursor = ny
         end
-        if yallmEnabled ~= true then
+        if yasEnabled ~= true then
             local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YASEnabled" }, "Enable adaptive learning",
                 "Tracks your vocabulary to improve suggestion accuracy.", toggleCursor)
-            yallmT, yallmL = yt, yl
+            yasT, yasL = yt, yl
             toggleCursor = ny
         end
 
@@ -807,15 +807,15 @@ function Interface:CreateWhatsNewFrame()
                 if acT then
                     acT:Enable(); acL:SetTextColor(0.9, 0.9, 0.9, 1)
                 end
-                if yallmT then
-                    yallmT:Enable(); yallmL:SetTextColor(0.9, 0.9, 0.9, 1)
+                if yasT then
+                    yasT:Enable(); yasL:SetTextColor(0.9, 0.9, 0.9, 1)
                 end
             else
                 if acT then
                     acT:Disable(); acL:SetTextColor(0.5, 0.5, 0.5, 1)
                 end
-                if yallmT then
-                    yallmT:Disable(); yallmL:SetTextColor(0.5, 0.5, 0.5, 1)
+                if yasT then
+                    yasT:Disable(); yasL:SetTextColor(0.5, 0.5, 0.5, 1)
                 end
             end
         end

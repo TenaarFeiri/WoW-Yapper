@@ -1030,7 +1030,7 @@ function Spellcheck:ApplySuggestion(index)
     local entry = self.ActiveSuggestions[sugIndex]
     if not entry then return end
 
-    -- Was YALLM actually helpful here?
+    -- Was YAS actually helpful here?
     local isUseful = false
     if self.ActiveSuggestions[1] then
         -- Find the "Natural" #1 candidate by looking for the best baseScore.
@@ -1054,7 +1054,7 @@ function Spellcheck:ApplySuggestion(index)
                 -- This was already the natural #1 or at least no worse.
                 isUseful = false
             elseif entry.baseScore and entry.baseScore > naturalRank1.baseScore then
-                -- This was worse than #1 naturally, but YALLM saved it.
+                -- This was worse than #1 naturally, but YAS saved it.
                 isUseful = true
             end
         end
@@ -1104,10 +1104,10 @@ function Spellcheck:ApplySuggestion(index)
         return
     elseif type(entry) == "table" and entry.kind == "split" then
         -- Apply compound split as a direct text replacement.
-        -- YALLM recording is intentionally skipped: both halves are already
+        -- YAS recording is intentionally skipped: both halves are already
         -- valid dictionary words, so there is nothing for the learner to store.
         -- (The first RecordSelection call above receives entry.word = nil and
-        -- safely no-ops via YALLM's own empty-string guard.)
+        -- safely no-ops via YAS's own empty-string guard.)
         local splitReplacement = entry.value
         if not splitReplacement then return end
         local splitText  = self.EditBox and self.EditBox:GetText() or ""

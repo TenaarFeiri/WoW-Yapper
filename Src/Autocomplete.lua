@@ -3,11 +3,11 @@
 	Predictive word completion with ghost-text preview and Tab acceptance.
 
 	Data cascade:
-		Tier 1 — YALLM personal lexicon  (freq table, ≤2000 entries)
+		Tier 1 — YAS personal lexicon  (freq table, ≤2000 entries)
 		         Prioritises the user's own vocabulary: character names,
 		         guild jargon, favourite descriptors.
 		Tier 2 — Spellcheck dictionary    (sorted array, binary search)
-		         Falls back to the full dictionary when YALLM has no match.
+		         Falls back to the full dictionary when YAS has no match.
 
 	Ghost text:
 		A non-interactive FontString overlaid on the EditBox, rendered in a
@@ -16,7 +16,7 @@
 		suggestion; any other key dismisses or refines it.
 
 	Performance:
-		YALLM tier uses binary search over a sorted personal-frequency index.
+		YAS tier uses binary search over a sorted personal-frequency index.
 		Dictionary tier uses binary search on the alphabetically sorted
 		`dict.words` array — ~17 iterations for 130k words ($O(\log N)$).
 ]]
@@ -245,16 +245,16 @@ end
 --- Score a candidate word given the typed prefix.
 --- Higher is better.  Used to pick the single best match from the candidate pool.
 ---   +10  per character of prefix (longer prefix = more anchored)
----   +N   YALLM frequency bonus (log-scaled, personalised vocabulary)
+---   +N   YAS frequency bonus (log-scaled, personalised vocabulary)
 ---   -1   per extra character beyond the prefix (prefer shorter completions)
 ---   -N   negBias penalty when the user has repeatedly dismissed this word
 ---@param word        string
 ---@param lowerPrefix string
 ---@param prefixLen   number
----@param yallmFreq   table|nil  yallm.db.freq table, or nil.
----@param yallmNeg    table|nil  yallm.db.negBias table, or nil.
+---@param yasFreq   table|nil  yas.db.freq table, or nil.
+---@param yasNeg    table|nil  yas.db.negBias table, or nil.
 ---@return number
-local function ScoreCandidate(word, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
+local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg)
 	local score = prefixLen * 10
 
 	-- Penalise length: shorter completions are preferred.
@@ -262,9 +262,9 @@ local function ScoreCandidate(word, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
 
 	local lword = string_lower(word)
 
-	-- YALLM frequency bonus: words the user sends often rise to the top.
-	if yallmFreq then
-		local entry = yallmFreq[lword]
+	-- YAS frequency bonus: words the user sends often rise to the top.
+	if yasFreq then
+		local entry = yasFreq[lword]
 		local freq  = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
 		if freq > 0 then
 			-- log-scale so one very frequent word doesn't bury all others.
@@ -274,9 +274,9 @@ local function ScoreCandidate(word, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
 
 	-- negBias penalty: words the user has dismissed for this prefix sink lower.
 	-- Key format matches RecordRejection: Clean(prefix) .. ":" .. Clean(word).
-	if yallmNeg then
+	if yasNeg then
 		local key   = lowerPrefix:gsub("[%p%c%s]", "") .. ":" .. lword:gsub("[%p%c%s]", "")
-		local entry = yallmNeg[key]
+		local entry = yasNeg[key]
 		if entry then
 			local dismissals = type(entry) == "table" and (entry.c or 0) or 0
 			-- Each dismissal costs 3 points, capped so the word can still surface
@@ -293,15 +293,15 @@ end
 ---@param words       table   Sorted string array (dict.words or dict._base.words).
 ---@param phonetics   table|nil  Dict phonetics table for this word list.
 ---@param prefix      string  The user's typed partial word (original casing).
----@param yallmFreq   table|nil
----@param yallmNeg    table|nil  yallm.db.negBias table, or nil.
+---@param yasFreq   table|nil
+---@param yasNeg    table|nil  yas.db.negBias table, or nil.
 ---@param broad       boolean|nil  When true, use widest scan + force phonetics (direction-change retry).
 ---@param addedSet    table|nil  Optional set of user-added words (overrides blocks).
 ---@param userBlockedSet table|nil  Optional set of user-blocked words.
 ---@param engineHashes table|nil  Optional set of engine-blocked hashes.
 ---@param engineHashFn function|nil  Optional hashing function.
 ---@return string?
-function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet, userBlockedSet,
+function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg, broad, addedSet, userBlockedSet,
 									   engineHashes, engineHashFn)
 	if not words or #words == 0 then return nil end
 
@@ -362,7 +362,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yallmFreq, yall
 			end
 
 			if not isBlocked then
-				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yallmFreq, yallmNeg)
+				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yasFreq, yasNeg)
 				if s > bestScore then
 					bestScore = s
 					bestWord  = w
@@ -378,7 +378,7 @@ end
 -- Cascade lookup
 -- ---------------------------------------------------------------------------
 
---- Run the full tiered lookup: YALLM first, then dictionary with
+--- Run the full tiered lookup: YAS first, then dictionary with
 --- confidence-narrowing based on prefix length.
 ---@param prefix string        The partial word the user is typing.
 ---@param broad  boolean|nil   When true, force widest scan + phonetics (direction-change retry).
@@ -396,12 +396,12 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	-- Fetch negBias once for use by ScoreCandidate across all tiers.
 	local sc = YapperTable.Spellcheck
 	local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
-	local yallm = sc and sc.YAS
-	local yallmDB = yallm and yallm:GetLocaleDB(locale)
-	local yallmNeg = yallmDB and yallmDB.negBias or nil
+	local yas = sc and sc.YAS
+	local yasDB = yas and yas:GetLocaleDB(locale)
+	local yasNeg = yasDB and yasDB.negBias or nil
 
-	-- Tier 1: personal lexicon (YALLM) — exact prefix scan.
-	local yallmFreq = yallmDB and yallmDB.freq or nil
+	-- Tier 1: personal lexicon (YAS) — exact prefix scan.
+	local yasFreq = yasDB and yasDB.freq or nil
 	local cleanPrefix = lowerPrefix:gsub("[%p%c%s]", "")
 
 	-- Fetch block data for this suggestion pass.
@@ -410,8 +410,8 @@ function Autocomplete:GetSuggestion(prefix, broad)
 		addedSet, userBlockedSet, engineHashes, engineHashFn = sc:GetBlockData(locale)
 	end
 
-	if yallmFreq then
-		local freqSorted     = yallm and yallm.EnsureFreqSorted and yallm:EnsureFreqSorted(locale)
+	if yasFreq then
+		local freqSorted     = yas and yas.EnsureFreqSorted and yas:EnsureFreqSorted(locale)
 		local prefixLen      = string_len(lowerPrefix)
 		local cleanPrefixLen = string_len(cleanPrefix)
 		if freqSorted and #freqSorted > 0 then
@@ -441,7 +441,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 			local bestWord = nil
 			local bestScore = -math_huge
 			for _, word in ipairs(candidates) do
-				-- Filter out blocked words from YALLM suggestions.
+				-- Filter out blocked words from YAS suggestions.
 				local isBlocked = false
 				if addedSet and addedSet[word] then
 					-- explicit override
@@ -455,7 +455,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 				end
 
 				if not isBlocked then
-					local entry = yallmFreq[word]
+					local entry = yasFreq[word]
 					local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
 					if freq > bestScore then
 						bestScore = freq
@@ -491,7 +491,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local dict = sc:GetDictionary()
 	if not dict then return nil end
 
-	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet,
+	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yasFreq, yasNeg, broad, addedSet,
 		userBlockedSet, engineHashes, engineHashFn)
 	if hit then
 		return prefixIsCapital and CapFirst(hit) or hit
@@ -501,7 +501,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	if dict.extends and sc.Dictionaries then
 		local base = sc.Dictionaries[dict.extends]
 		if base and type(base.words) == "table" then
-			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yallmFreq, yallmNeg, broad, addedSet,
+			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yasFreq, yasNeg, broad, addedSet,
 				userBlockedSet, engineHashes, engineHashFn)
 		end
 	end
@@ -719,13 +719,13 @@ function Autocomplete:OnTextChanged(editBox)
 	-- diverging keystroke). Only records if the dismissed suggestion was a
 	-- valid word so we don't pollute negBias with partial-word noise.
 	if isDirChange then
-		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
-		if yallm and yallm.RecordRejection then
+		local yas = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
+		if yas and yas.RecordRejection then
 			-- RecordRejection expects a typo and a list of candidate objects.
 			-- Use the prefix as the "typo" and the suggestion as the only candidate.
 			local sc = YapperTable.Spellcheck
 			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
-			yallm:RecordRejection(self.CurrentPrefix, { self.CurrentSugg }, locale)
+			yas:RecordRejection(self.CurrentPrefix, { self.CurrentSugg }, locale)
 		end
 	end
 
@@ -737,14 +737,14 @@ function Autocomplete:OnTextChanged(editBox)
 		and string_lower(word) == string_lower(self.CurrentSugg)
 		and string_len(word) > string_len(self.CurrentPrefix)
 	then
-		local yallm = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
-		if yallm then
+		local yas = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
+		if yas then
 			local sc = YapperTable.Spellcheck
 			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
-			if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg, locale) end
+			if yas.RecordUsage then yas:RecordUsage(self.CurrentSugg, locale) end
 			-- Moderate bias: the user preferred this exact spelling.
-			if yallm.RecordSelection then
-				yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.15, locale)
+			if yas.RecordSelection then
+				yas:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.15, locale)
 			end
 		end
 	end
@@ -793,15 +793,15 @@ function Autocomplete:OnTabPressed(editBox)
 		YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
 	end
 
-	-- Record the acceptance in YALLM: strong bias signal (prefix→suggestion)
+	-- Record the acceptance in YAS: strong bias signal (prefix→suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
 	local sc = YapperTable.Spellcheck
-	local yallm = sc and sc.YAS
-	if yallm then
+	local yas = sc and sc.YAS
+	if yas then
 		local locale = sc.GetLocale and sc:GetLocale() or "enBASE"
-		if yallm.RecordUsage then yallm:RecordUsage(self.CurrentSugg, locale) end
-		if yallm.RecordSelection then
-			yallm:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.5, locale)
+		if yas.RecordUsage then yas:RecordUsage(self.CurrentSugg, locale) end
+		if yas.RecordSelection then
+			yas:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.5, locale)
 		end
 	end
 

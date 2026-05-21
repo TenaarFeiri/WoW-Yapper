@@ -154,7 +154,7 @@ function Spellcheck:CollectMisspellings(text, dict)
 end
 
 --- Scans text for words recognized via affix-stripping.
---- These are candidates for auto-learning in YALLM.
+--- These are candidates for auto-learning in YAS.
 function Spellcheck:CollectAffixMatches(text, dict)
     local out = {}
     if not text or text == "" then return out end
@@ -658,7 +658,7 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
         normVowelsFn    = normVowelsFn,
         lowerVowels     = lowerVowels,
         locale          = locale,
-        YALLM           = self.YAS,
+        YAS           = self.YAS,
         self            = self,
     }
 end
@@ -998,16 +998,16 @@ function Spellcheck:GetSuggestions(word)
     -- Resolve the active language engine once for this suggestion pass.
     local engine = GetEngineFor(self)
 
-    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount+yallmRev.
+    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount+yasRev.
     self._suggestionCache = self._suggestionCache or {}
     self._suggestionCacheCount = self._suggestionCacheCount or 0
     local sc = self._suggestionCache
     local userRevKey = (userRev == nil) and NIL_USER_REV_KEY or userRev
-    -- Include YALLM db revision so learning writes invalidate cached scores.
-    local yallmDb = self.YAS and self.YAS:GetLocaleDB(locale)
-    local yallmRev = (yallmDb and yallmDb._rev) or 0
+    -- Include YAS db revision so learning writes invalidate cached scores.
+    local yasDb = self.YAS and self.YAS:GetLocaleDB(locale)
+    local yasRev = (yasDb and yasDb._rev) or 0
     local cacheKey = lower ..
-    "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yallmRev)
+    "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yasRev)
     if sc[cacheKey] then
         return sc[cacheKey]
     end
@@ -1026,8 +1026,8 @@ function Spellcheck:GetSuggestions(word)
 
     local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
-    -- ── YALLM Bias Injection ─────────────────────────────────────────
-    -- If YALLM has learned specific corrections for this typo, inject them
+    -- ── YAS Bias Injection ─────────────────────────────────────────
+    -- If YAS has learned specific corrections for this typo, inject them
     -- directly into the pool to ensure they aren't starved by shard caps.
     local learnedCandidates                = {}
     if self.YAS and self.YAS.GetBiasTargets then
@@ -1111,7 +1111,7 @@ function Spellcheck:GetSuggestions(word)
 
     local aborted = false
 
-    -- 1. User-added words and YALLM-learned bias targets (highest priority)
+    -- 1. User-added words and YAS-learned bias targets (highest priority)
     if (addedCandidates and #addedCandidates > 0) or (#learnedCandidates > 0) then
         if addedCandidates then aborted = tryCandidates(addedCandidates) end
         if not aborted and #learnedCandidates > 0 then
@@ -1217,7 +1217,7 @@ function Spellcheck:GetSuggestions(word)
 
     -- ── Compound split detection ─────────────────────────────────────────
     -- Check if the misspelled token is two valid dictionary words run together
-    -- (e.g. "I'msupposed" → "I'm supposed"). Exact splits only; YALLM is
+    -- (e.g. "I'msupposed" → "I'm supposed"). Exact splits only; YAS is
     -- intentionally bypassed for these entries since both halves are already
     -- valid words and there is nothing for the learner to remember.
     local minSplitLen = math_max(2, self:GetMinWordLength())

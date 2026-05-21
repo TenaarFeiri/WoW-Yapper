@@ -301,7 +301,7 @@ local CATEGORIES                    = {
             "Spellcheck.YASBiasCap",
             "Spellcheck.YASAutoThreshold",
         },
-        custom = { "yallmLearning" },
+        custom = { "yasLearning" },
     },
     {
         id     = "diagnostics",

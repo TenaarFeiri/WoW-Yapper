@@ -195,7 +195,7 @@ function Spellcheck:Init(threads)
     if not self._ed_cur then self._ed_cur = {} end
     if not self._ed_prev_prev then self._ed_prev_prev = {} end
 
-    -- Ensure YALLM is initialized and hooks its SavedVariables
+    -- Ensure YAS is initialized and hooks its SavedVariables
     if self.YAS and self.YAS.Init then
         self.YAS:Init()
     end
@@ -543,11 +543,11 @@ function Spellcheck:GetBlockData(locale)
     return addedSet, userBlockedSet, engineHashes, engineHashFn
 end
 
---- Convenience function for checking a single word (e.g., during YALLM learning).
+--- Convenience function for checking a single word (e.g., during YAS learning).
 --- Do not use this in inner loops (like Autocomplete); use GetBlockData and local logic instead.
 --- @param word string
 --- @param locale string
---- @param ignoreManual boolean? If true, ignores AddedWords override (used by YALLM)
+--- @param ignoreManual boolean? If true, ignores AddedWords override (used by YAS)
 --- @return boolean
 function Spellcheck:IsWordBlocked(word, locale, ignoreManual)
     local w = NormaliseWord(word)
@@ -560,7 +560,7 @@ function Spellcheck:IsWordBlocked(word, locale, ignoreManual)
         if engineHashes[engineHashFn(w)] then return true end
         
         -- Need a local copy of Deleet if not present, but we can do it inline or depend on the caller.
-        -- Actually, Deleet is only locally defined in Autocomplete/Engine/YALLM right now.
+        -- Actually, Deleet is only locally defined in Autocomplete/Engine/YAS right now.
         -- Let's define a simple Deleet for IsWordBlocked here.
         local dw = w:gsub("0", "o"):gsub("1", "i"):gsub("3", "e"):gsub("4", "a"):gsub("5", "s"):gsub("7", "t"):gsub("%$", "s"):gsub("!", "i"):gsub("%+", "t")
         if engineHashes[engineHashFn(dw)] then return true end

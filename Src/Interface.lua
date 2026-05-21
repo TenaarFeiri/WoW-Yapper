@@ -646,7 +646,7 @@ function Interface:BuildConfigUI()
     end
 
     -- YAS Learning.
-    if customSet["yallmLearning"] then
+    if customSet["yasLearning"] then
         self:CreateYASLearningPage(frame.ContentFrame, cursor)
     end
 

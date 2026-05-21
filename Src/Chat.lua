@@ -230,16 +230,16 @@ function Chat:DirectSend(msg, chatType, language, target)
             if typos then
                 for _, item in ipairs(typos) do
                     local word = msg:sub(item.startPos, item.endPos)
-                    YALLM:RecordIgnored(word, locale)
+                    YAS:RecordIgnored(word, locale)
                 end
             end
 
-            -- Also record correctly affixed words so YALLM can auto-learn them
+            -- Also record correctly affixed words so YAS can auto-learn them
             -- into the user's personal dictionary over time.
             local affixMatches = sc:CollectAffixMatches(msg, dict)
             if affixMatches then
                 for _, item in ipairs(affixMatches) do
-                    YALLM:RecordIgnored(item.word, locale)
+                    YAS:RecordIgnored(item.word, locale)
                 end
             end
         end
