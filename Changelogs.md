@@ -22,7 +22,7 @@
   - Added the public `_G.YapperAPI` addon API with filters, callbacks, readonly accessors, and structured `API_ERROR` reporting. (added in 2.0.1)
   - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
 
-# NEW FEATURES IN 2.2
+# NEW FEATURES IN 2.1.20
 - **Naming Update: YAS → YAS**
   - Renamed "Yapper Adaptive Language Learning Model" to "Yapper Adaptive Spellcheck" for more accurate technical terminology.
   - **Automatic Migration**: All user configurations are automatically migrated from YAS* keys to YAS* keys without data loss.
@@ -36,6 +36,8 @@
     - Added detached `Src/Migrations.lua` module for future configuration migrations
     - Schema version bumped to 2.2 to trigger one-time migration
   - **Compatibility**: External addons using the old YALLM callback will continue to work during deprecation period
+  - **Dictionary Update**:
+    - Added 61 missing words to the base English dictionary.
 
 # Patch notes
 
