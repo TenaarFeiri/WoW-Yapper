@@ -1233,6 +1233,28 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     if savedEB and savedEB.Hide and savedEB:IsShown() then
                         savedEB:Hide()
                     end
+
+                    -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
+                    -- can inspect the pending open and cancel it.
+                    if YapperTable.API then
+                        local cache = self._attrCache[savedEB] or {}
+                        local filterCT = newChatType or cache.chatType or (savedEB.GetAttribute and savedEB:GetAttribute("chatType"))
+                        local filterTarget = cache.tellTarget or cache.channelTarget
+                        local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
+                            chatType = filterCT,
+                            target   = filterTarget,
+                        })
+                        if result == false then
+                            -- If we are suppressing the overlay open (e.g. WIM taking focus),
+                            -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                            if State and not State:IsIdle() then
+                                YapperAPI:SetState("IDLE")
+                            end
+                            self._bnetEditBox = nil
+                            return
+                        end
+                    end
+
                     self._nextShowFromBnetTransition = true
                     self:Show(savedEB)
 
@@ -1623,7 +1645,28 @@ function EditBox:HookAllChatFrames()
 
             if focusOverrideIntercepted then
                 if not (self.Overlay and self.Overlay:IsShown()) then
-                    self:Show(DEFAULT_CHAT_FRAME.editBox)
+                    -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
+                    -- can inspect the pending open and cancel it.
+                    local eb = DEFAULT_CHAT_FRAME.editBox
+                    if YapperTable.API then
+                        local cache = self._attrCache[eb] or {}
+                        local filterCT = cache.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
+                        local filterTarget = cache.tellTarget or cache.channelTarget
+                        local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
+                            chatType = filterCT,
+                            target   = filterTarget,
+                        })
+                        if result == false then
+                            -- If we are suppressing the overlay open (e.g. WIM taking focus),
+                            -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                            if State and not State:IsIdle() then
+                                YapperAPI:SetState("IDLE")
+                            end
+                            self._openingWatchdog = false
+                            return
+                        end
+                    end
+                    self:Show(eb)
                 end
                 if self.OverlayEdit then
                     self.OverlayEdit:ClearFocus()
