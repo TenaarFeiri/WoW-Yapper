@@ -582,7 +582,7 @@ function YapperTable.Core:SetVerbose(bool)
         YapperTable.Error:PrintError("BAD_ARG", "SetVerbose", "boolean", type(bool))
         return
     end
-    YapperTable.Config.System.VERBOSE = bool
+    self:SaveSetting("System", "VERBOSE", bool)
     YapperTable.Utils:Print("Verbose mode " .. (bool and "enabled." or "disabled."))
 end
 
