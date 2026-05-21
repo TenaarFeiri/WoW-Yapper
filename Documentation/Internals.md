@@ -474,14 +474,14 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
   - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L476`](`../Src/EditBox/Hooks.lua#L476`))
   - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L533`](`../Src/EditBox/Hooks.lua#L533`))
   - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L627`](`../Src/EditBox/Hooks.lua#L627`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L836`](`../Src/EditBox/Hooks.lua#L836`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L874`](`../Src/EditBox/Hooks.lua#L874`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L922`](`../Src/EditBox/Hooks.lua#L922`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L944`](`../Src/EditBox/Hooks.lua#L944`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L969`](`../Src/EditBox/Hooks.lua#L969`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1044`](`../Src/EditBox/Hooks.lua#L1044`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1111`](`../Src/EditBox/Hooks.lua#L1111`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1540`](`../Src/EditBox/Hooks.lua#L1540`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L805`](`../Src/EditBox/Hooks.lua#L805`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L843`](`../Src/EditBox/Hooks.lua#L843`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L891`](`../Src/EditBox/Hooks.lua#L891`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L913`](`../Src/EditBox/Hooks.lua#L913`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L938`](`../Src/EditBox/Hooks.lua#L938`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1013`](`../Src/EditBox/Hooks.lua#L1013`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1080`](`../Src/EditBox/Hooks.lua#L1080`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1503`](`../Src/EditBox/Hooks.lua#L1503`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
