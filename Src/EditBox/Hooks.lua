@@ -431,6 +431,43 @@ function EditBox:Hide()
     if self.Overlay then
         self.Overlay:Hide()
     end
+
+    -- Sync Yapper's final state to Blizzard's editbox so it has correct
+    -- attributes if it needs to show (e.g., during handoff or user bypass).
+    -- This is a transition sync, not a continuous one - we only sync when
+    -- Yapper hides, not on every RefreshLabel like the old parasite pattern.
+    if prevOrig and not (InCombatLockdown and InCombatLockdown()) then
+        local chosenCT = self.ChatType or "SAY"
+        local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
+
+        if prevOrig:GetAttribute("chatType") ~= overrideCT then
+            prevOrig:SetAttribute("chatType", overrideCT)
+        end
+
+        if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
+            if self.Target and self.Target ~= "" then
+                if prevOrig:GetAttribute("tellTarget") ~= self.Target then
+                    prevOrig:SetAttribute("tellTarget", self.Target)
+                end
+            end
+            prevOrig:SetAttribute("channelTarget", nil)
+        elseif overrideCT == "CHANNEL" then
+            if self.Target then
+                if prevOrig:GetAttribute("channelTarget") ~= self.Target then
+                    prevOrig:SetAttribute("channelTarget", self.Target)
+                end
+            end
+            prevOrig:SetAttribute("tellTarget", nil)
+        else
+            prevOrig:SetAttribute("tellTarget", nil)
+            prevOrig:SetAttribute("channelTarget", nil)
+        end
+        if self.Language then
+            prevOrig:SetAttribute("language", self.Language)
+        else
+            prevOrig:SetAttribute("language", nil)
+        end
+    end
     self.OverlayEdit:ClearFocus()
     self.OrigEditBox = nil
 
@@ -517,6 +554,38 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen)
     if trimmed ~= "" and not bypassOpen then
         local eb = self.OrigEditBox or _G.ChatFrame1EditBox
         C_Timer.After(0, function()
+            -- Sync attributes before opening Blizzard's editbox
+            local chosenCT = self.ChatType or "SAY"
+            local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
+
+            if eb:GetAttribute("chatType") ~= overrideCT then
+                eb:SetAttribute("chatType", overrideCT)
+            end
+
+            if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
+                if self.Target and self.Target ~= "" then
+                    if eb:GetAttribute("tellTarget") ~= self.Target then
+                        eb:SetAttribute("tellTarget", self.Target)
+                    end
+                end
+                eb:SetAttribute("channelTarget", nil)
+            elseif overrideCT == "CHANNEL" then
+                if self.Target then
+                    if eb:GetAttribute("channelTarget") ~= self.Target then
+                        eb:SetAttribute("channelTarget", self.Target)
+                    end
+                end
+                eb:SetAttribute("tellTarget", nil)
+            else
+                eb:SetAttribute("tellTarget", nil)
+                eb:SetAttribute("channelTarget", nil)
+            end
+            if self.Language then
+                eb:SetAttribute("language", self.Language)
+            else
+                eb:SetAttribute("language", nil)
+            end
+
             if ChatFrame_OpenChat then
                 pcall(ChatFrame_OpenChat, "", eb)
                 if eb and eb.SetFocus then eb:SetFocus() end

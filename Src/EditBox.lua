@@ -330,6 +330,38 @@ function EditBox:OpenBlizzardChat()
     -- Defer the actual opening to the next frame so our Show-hook
     -- observes `UserBypassingYapper` and lets Blizzard's editbox win.
     C_Timer.After(0, function()
+        -- Sync attributes before opening Blizzard's editbox
+        local chosenCT = self.ChatType or "SAY"
+        local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
+
+        if eb:GetAttribute("chatType") ~= overrideCT then
+            eb:SetAttribute("chatType", overrideCT)
+        end
+
+        if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
+            if self.Target and self.Target ~= "" then
+                if eb:GetAttribute("tellTarget") ~= self.Target then
+                    eb:SetAttribute("tellTarget", self.Target)
+                end
+            end
+            eb:SetAttribute("channelTarget", nil)
+        elseif overrideCT == "CHANNEL" then
+            if self.Target then
+                if eb:GetAttribute("channelTarget") ~= self.Target then
+                    eb:SetAttribute("channelTarget", self.Target)
+                end
+            end
+            eb:SetAttribute("tellTarget", nil)
+        else
+            eb:SetAttribute("tellTarget", nil)
+            eb:SetAttribute("channelTarget", nil)
+        end
+        if self.Language then
+            eb:SetAttribute("language", self.Language)
+        else
+            eb:SetAttribute("language", nil)
+        end
+
         -- Prefer using Blizzard's ChatFrame_OpenChat so Blizzard/ChatFrameUtil
         -- callbacks (focus gained, etc.) run and other addons (e.g. Chattery)
         -- can observe the editbox properly.
