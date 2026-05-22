@@ -465,12 +465,14 @@ function EditBox:SetupOverlayScripts()
         -- we're already in lockdown, NOT when the lockdown initiates during
         -- user input.
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+            YapperTable.Utils:DebugPrint("OnEnterPressed: IsChatLockdown=true, calling HandoffToBlizzard")
             self:HandoffToBlizzard()
             return
         end
 
         -- If user is manually bypassing Yapper, hand off to Blizzard
         if UserBypassingYapper() then
+            YapperTable.Utils:DebugPrint("OnEnterPressed: UserBypassingYapper=true, calling HandoffToBlizzard")
             SetUserBypassingYapper(false)
             self:HandoffToBlizzard()
             return
@@ -494,6 +496,8 @@ function EditBox:SetupOverlayScripts()
         end
 
         local lang = YapperTable.Core:GetCharacterLanguage(self.Language or (self.LastUsed and self.LastUsed.language))
+
+        YapperTable.Utils:DebugPrint("OnEnterPressed: SENDING text=" .. tostring(trimmed):sub(1,40) .. ", chatType=" .. tostring(self.ChatType))
 
         if self.OnSend then
             self.OnSend(trimmed, self.ChatType or "SAY", lang, self.Target)

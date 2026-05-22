@@ -831,3 +831,12 @@ function Queue:Cancel()
         YapperTable.API:Fire("QUEUE_COMPLETE")
     end
 end
+
+-- Register callback to hide overlay after queue completion (when user had to press Enter to continue chunks)
+if _G.YapperAPI and type(_G.YapperAPI.RegisterCallback) == "function" then
+    _G.YapperAPI:RegisterCallback("QUEUE_COMPLETE", function()
+        if YapperTable.EditBox and YapperTable.EditBox.Overlay and YapperTable.EditBox.Overlay:IsShown() then
+            YapperTable.EditBox:Hide()
+        end
+    end)
+end

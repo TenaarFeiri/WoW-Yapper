@@ -86,7 +86,7 @@ function EditBox:UpdateFocusOverride()
         -- keep the override active so the user can finish typing.
         local overlayActive = self.Overlay and self.Overlay:IsShown() and not self._lockdown.handedOff
 
-        if not UserBypassingYapper and not (inLockdown or (inCombat and not overlayActive)) and self.OverlayEdit then
+        if not UserBypassingYapper and not BypassEditBox and not (inLockdown or (inCombat and not overlayActive)) and self.OverlayEdit then
             ChatFrameUtil.SetChatFocusOverride(self.OverlayEdit)
         else
             ChatFrameUtil.ClearChatFocusOverride()

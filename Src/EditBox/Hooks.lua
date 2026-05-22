@@ -100,6 +100,10 @@ function EditBox:Show(origEditBox)
     end
     self:CreateOverlay()
 
+    -- If we're legitimately opening, cancel ghost suppression flags.
+    self._suppressPostSendReopen = nil
+    self._ghostShowDetected = nil
+
     local openedFromBnetTransition   = self._nextShowFromBnetTransition == true
     self._nextShowFromBnetTransition = false
     self._openedFromBnetTransition   = openedFromBnetTransition
@@ -303,6 +307,9 @@ function EditBox:Show(origEditBox)
     -- Stay on top of the original.
     local origLevel = origEditBox:GetFrameLevel() or 0
     overlay:SetFrameLevel(origLevel + 5)
+    if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+        YapperTable.Utils:DebugPrint("Show: overlay frameLevel=" .. overlay:GetFrameLevel() .. ", orig frameLevel=" .. origLevel)
+    end
     pcall(function()
         -- Wear Blizzard's skin.
         self:AttachBlizzardSkinProxy(origEditBox, finalH)
@@ -391,7 +398,20 @@ function EditBox:Show(origEditBox)
     end
     self:RefreshLabel()
     overlay:Show()
+
+    -- Clear stale bypass state so subsequent Shows don't short-circuit.
+    if BypassEditBox() then
+        SetBypassEditBox(nil)
+    end
+
+    -- Focus the overlay. If an external addon (e.g. Chattynator) aggressively
+    -- steals focus back via DeactivateChat hooks, reclaim it on the next frame.
     self.OverlayEdit:SetFocus()
+    C_Timer.After(0, function()
+        if self.Overlay and self.Overlay:IsShown() and not self.OverlayEdit:HasFocus() then
+            self.OverlayEdit:SetFocus()
+        end
+    end)
 
     -- If the recovered draft came from the multiline editor, transition
     -- directly into multiline so hard newlines are preserved.  The overlay
@@ -417,7 +437,7 @@ function EditBox:Show(origEditBox)
     end
 end
 
-function EditBox:Hide()
+function EditBox:Hide(isHandoff)
     local prevOrig = self.OrigEditBox
     self._overlayUnfocused = false
 
@@ -436,7 +456,10 @@ function EditBox:Hide()
     -- attributes if it needs to show (e.g., during handoff or user bypass).
     -- This is a transition sync, not a continuous one - we only sync when
     -- Yapper hides, not on every RefreshLabel like the old parasite pattern.
-    if prevOrig and not (InCombatLockdown and InCombatLockdown()) then
+    -- IMPORTANT: Only sync when explicitly handing off to Blizzard (isHandoff=true).
+    -- Normal hide operations (send complete, escape) should NOT sync, as this
+    -- interferes with external addons like TRP3 that may do post-send cleanup.
+    if isHandoff and prevOrig and not (InCombatLockdown and InCombatLockdown()) then
         local chosenCT = self.ChatType or "SAY"
         local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
 
@@ -503,6 +526,28 @@ function EditBox:Hide()
         self._justClosed = nil
     end)
 
+    -- Suppress phantom Blizzard reopens that fire ~1s after close.
+    -- External addons (e.g. TRP3's FocusActiveWindow) can trigger Blizzard's
+    -- sticky-chat restore, which re-shows the editbox + calls OpenChat(nil,nil).
+    -- _justClosed only lasts one frame, so this longer guard catches the deferred ghost.
+    -- Skip suppression when handoff to Blizzard (isHandoff=true) since that's an
+    -- intentional transition, not a close that should trigger ghost suppression.
+    if not isHandoff then
+        self._suppressPostSendReopen = true
+        C_Timer.After(2, function()
+            self._suppressPostSendReopen = nil
+        end)
+
+        -- Re-set CHAT_FOCUS_OVERRIDE next frame so the user's next open routes
+        -- through the focusOverrideIntercepted path (calls Show() directly),
+        -- which is distinguishable from the ghost pattern (Shows before OpenChat).
+        C_Timer.After(0, function()
+            if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                self:UpdateFocusOverride()
+            end
+        end)
+    end
+
     -- EDITBOX_HIDE callback: notify external addons.
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_HIDE")
@@ -512,10 +557,8 @@ end
 --- Save draft, close overlay, and notify during lockdown.
 function EditBox:HandoffToBlizzard(silent, bypassOpen)
     if not self.Overlay or not self.Overlay:IsShown() then
-        YapperTable.Utils:DebugPrint("HandoffToBlizzard called but overlay hidden. Skipping.")
         return
     end
-    YapperTable.Utils:DebugPrint("Executing HandoffToBlizzard...")
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
     local trimmed = text:match("^%s*(.-)%s*$") or ""
 
@@ -541,7 +584,7 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen)
     if self.OverlayEdit then
         self.OverlayEdit:SetText("")
     end
-    self:Hide()
+    self:Hide(true)
 
     self._lockdown.handedOff = true
     if not silent then
@@ -556,7 +599,7 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen)
         C_Timer.After(0, function()
             -- Sync attributes before opening Blizzard's editbox
             local chosenCT = self.ChatType or "SAY"
-            local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
+                local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
 
             if eb:GetAttribute("chatType") ~= overrideCT then
                 eb:SetAttribute("chatType", overrideCT)
@@ -1388,6 +1431,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
         local ok, err = pcall(function()
             local ebName = eb:GetName()
+
             if self._suppressNextShowFor == ebName then
                 self._suppressNextShowFor = nil
                 return
@@ -1398,7 +1442,6 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     SetBypassEditBox(ebName)
                 end
                 if BypassEditBox() == ebName then
-                    SetUserBypassingYapper(false)
                     return
                 end
             end
@@ -1533,7 +1576,29 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
             end
 
+            -- Ghost detection: Blizzard's sticky-chat restore fires Shows on
+            -- the editbox BEFORE it fires OpenChat. A legitimate user open fires
+            -- OpenChat first (which routes through CHAT_FOCUS_OVERRIDE without
+            -- preceding Shows). Tag this Show so the OpenChat hook can distinguish.
+            -- Skip ghost detection during bypass sessions (TRP3 link insertion is expected).
+            if not (BypassEditBox() or UserBypassingYapper()) then
+                self._ghostShowDetected = true
+                C_Timer.After(0, function() self._ghostShowDetected = nil end)
+            end
+
+            if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                YapperTable.Utils:DebugPrint("Show: queuing deferred callback")
+            end
+
             C_Timer.After(0, function()
+                if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                    YapperTable.Utils:DebugPrint("Show deferred START - _suppressPostSendReopen=" .. tostring(self._suppressPostSendReopen) .. ", ebShown=" .. tostring(eb and eb:IsShown()))
+                end
+                if self._suppressPostSendReopen then
+                    -- Ghost reopen from Blizzard's sticky-chat: hide the editbox and bail.
+                    if eb and eb.Hide and eb:IsShown() then eb:Hide() end
+                    return
+                end
                 if not eb or not eb:IsShown() then return end
                 if not eb.HasFocus or not eb:HasFocus() then return end
                 if self.Overlay and self.Overlay:IsShown() then return end
@@ -1559,6 +1624,12 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         if BypassEditBox() == ebName then
             SetBypassEditBox(nil)
             SetUserBypassingYapper(false)
+            -- Re-set CHAT_FOCUS_OVERRIDE so Yapper takes over on next open
+            C_Timer.After(0, function()
+                if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                    self:UpdateFocusOverride()
+                end
+            end)
         end
 
         if self._bnetEditBox == eb then
@@ -1582,9 +1653,14 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- clear bypass if focus leaves the bypassed editbox without a Hide.
     if blizzEditBox and blizzEditBox.HookScript then
         blizzEditBox:HookScript("OnEditFocusLost", function(eb)
-            if BypassEditBox() == eb:GetName() then
+            if UserBypassingYapper() then
                 SetBypassEditBox(nil)
                 SetUserBypassingYapper(false)
+                C_Timer.After(0, function()
+                    if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                        self:UpdateFocusOverride()
+                    end
+                end)
             end
         end)
     end
@@ -1643,30 +1719,55 @@ function EditBox:HookAllChatFrames()
             local focusOverrideIntercepted = (_G.CHAT_FOCUS_OVERRIDE == self.OverlayEdit)
                 and (chatFrame == nil)
 
-            if focusOverrideIntercepted then
-                if not (self.Overlay and self.Overlay:IsShown()) then
-                    -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
-                    -- can inspect the pending open and cancel it.
-                    local eb = DEFAULT_CHAT_FRAME.editBox
-                    if YapperTable.API then
-                        local cache = self._attrCache[eb] or {}
-                        local filterCT = cache.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
-                        local filterTarget = cache.tellTarget or cache.channelTarget
-                        local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
-                            chatType = filterCT,
-                            target   = filterTarget,
-                        })
-                        if result == false then
-                            -- If we are suppressing the overlay open (e.g. WIM taking focus),
-                            -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
-                            if State and not State:IsIdle() then
-                                YapperAPI:SetState("IDLE")
-                            end
-                            self._openingWatchdog = false
-                            return
-                        end
+            -- Also intercept if overlay is already shown (e.g., TRP3 calling OpenChat after send).
+            -- In this case, reclaim focus immediately instead of deferring through watchdog.
+            local overlayAlreadyShown = (self.Overlay and self.Overlay:IsShown())
+                and (chatFrame == nil)
+
+            -- If user is bypassing Yapper:
+            -- - NOT in lockdown: kick back to Yapper (clear bypass, force intercept)
+            -- - IN lockdown: stay in Blizzard's box (return early)
+            if UserBypassingYapper() then
+                local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+                if inLockdown then
+                    -- Stay in Blizzard's box during lockdown
+                    self._openingWatchdog = false
+                    return
+                else
+                    -- Kick back to Yapper when not in lockdown
+                    SetUserBypassingYapper(false)
+                    SetBypassEditBox(nil)
+                    self:UpdateFocusOverride()
+                    -- Force the intercept to run so Yapper actually opens
+                    focusOverrideIntercepted = true
+                end
+            end
+
+            if focusOverrideIntercepted or overlayAlreadyShown then
+
+                -- Ghost pattern: Blizzard's sticky-chat restore fires Shows on
+                -- the editbox BEFORE OpenChat.  A user pressing Enter fires
+                -- OpenChat directly (CHAT_FOCUS_OVERRIDE routes it without a
+                -- preceding Show).  If we saw a Show while overlay was hidden,
+                -- this OpenChat is part of the ghost — suppress it.
+                if self._ghostShowDetected and not overlayAlreadyShown then
+                    self._ghostShowDetected = nil
+                    self._openingWatchdog = false
+                    return
+                end
+
+                if overlayAlreadyShown then
+                    -- Overlay already shown (TRP3 case): just reclaim focus immediately
+                    if self.OverlayEdit then
+                        self.OverlayEdit:SetFocus()
                     end
-                    self:Show(eb)
+                    self._openingWatchdog = false
+                    return
+                end
+
+                -- Focus override case: need to clear and re-apply to prevent char event capture
+                if not (self.Overlay and self.Overlay:IsShown()) then
+                    self:Show(DEFAULT_CHAT_FRAME.editBox)
                 end
                 if self.OverlayEdit then
                     self.OverlayEdit:ClearFocus()
@@ -1711,6 +1812,46 @@ function EditBox:HookAllChatFrames()
             end
         end)
         self._replyTell2Hooked = true
+    end
+
+    -- Counteract addons like Chattynator that force ChatFrame1EditBox to stay
+    -- shown after DeactivateChat (via the KEEP_EDIT_BOX_VISIBLE option).
+    -- This causes focus conflicts when Yapper expects the editbox to be hidden.
+    -- We hook DeactivateChat after other addons and force-hide the editbox
+    -- if Yapper is not in bypass mode and the overlay is hidden.
+    if ChatFrameUtil and ChatFrameUtil.DeactivateChat and not self._deactivateChatHooked then
+        hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
+            -- Run on the next frame to ensure we run after all other hooks
+            -- (hooksecurefunc runs in LIFO order, but we defer to be safe)
+            C_Timer.After(0, function()
+                if editBox == _G.ChatFrame1EditBox
+                    and not UserBypassingYapper()
+                    and not BypassEditBox()
+                    and self.Overlay and not self.Overlay:IsShown() then
+                    editBox:Hide()
+                    if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                        YapperTable.Utils:DebugPrint("DeactivateChat hook: forced hide of ChatFrame1EditBox (counteracting addon interference)")
+                    end
+                end
+            end)
+        end)
+        self._deactivateChatHooked = true
+    end
+
+    -- Handle Native ChatEdit_InsertLink Bypass
+    -- TRP3 natively calls ChatEdit_InsertLink when shift-clicking links.
+    -- If Yapper is closed, this bypasses ChatFrame_OpenChat entirely,
+    -- inserting text into the hidden YapperOverlayEditBox and failing SetFocus.
+    if not self._insertLinkHooked then
+        hooksecurefunc("ChatEdit_InsertLink", function(text)
+            if CHAT_FOCUS_OVERRIDE and CHAT_FOCUS_OVERRIDE == self.OverlayEdit then
+                if not (self.Overlay and self.Overlay:IsShown()) then
+                    self:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                    self.OverlayEdit:SetFocus()
+                end
+            end
+        end)
+        self._insertLinkHooked = true
     end
 end
 
