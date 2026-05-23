@@ -483,7 +483,7 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
   - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1048`](`../Src/EditBox/Hooks.lua#L1048`))
   - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1123`](`../Src/EditBox/Hooks.lua#L1123`))
   - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1190`](`../Src/EditBox/Hooks.lua#L1190`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1443`](`../Src/EditBox/Hooks.lua#L1443`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1489`](`../Src/EditBox/Hooks.lua#L1489`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:

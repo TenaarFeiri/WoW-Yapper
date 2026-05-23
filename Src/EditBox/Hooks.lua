@@ -1423,6 +1423,52 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end)
     end
 
+    -- Hook Show to catch programmatic opens (Friends list, addon calls, etc.)
+    -- The keybind system only intercepts key presses; this catches everything else.
+    hooksecurefunc(blizzEditBox, "Show", function()
+        if self._ignoreNextShow then
+            self._ignoreNextShow = nil
+            return
+        end
+
+        -- Skip if we're already shown, in bypass mode, or in lockdown
+        if self.Overlay and self.Overlay:IsShown() then
+            return
+        end
+        if UserBypassingYapper() then
+            return
+        end
+        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+            return
+        end
+
+        -- Skip if Queue is handling this (hardware event capture)
+        if self.PreShowCheck and self.PreShowCheck(blizzEditBox) then
+            return
+        end
+
+        -- Defer by one frame to allow Blizzard's OnUpdate to set attributes
+        -- (WoW friend whispers: Show fires first, attributes arrive one frame later)
+        C_Timer.After(0, function()
+            -- Check again in case state changed during defer
+            if self.Overlay and self.Overlay:IsShown() then
+                return
+            end
+            if UserBypassingYapper() then
+                return
+            end
+            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+                return
+            end
+            if not blizzEditBox:IsShown() then
+                return
+            end
+
+            -- Open Yapper's overlay
+            self:Show(blizzEditBox)
+        end)
+    end)
+
     -- clear bypass if focus leaves the bypassed editbox without a Hide.
     if blizzEditBox and blizzEditBox.HookScript then
         blizzEditBox:HookScript("OnEditFocusLost", function(eb)

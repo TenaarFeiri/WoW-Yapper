@@ -65,6 +65,12 @@ This file tracks hooks that have been removed from Yapper as part of the hook re
 - Added comprehensive removal comment documenting lost functionality
 - Hook preserved in comments for potential restoration
 
+**RESTORED (2026-05-23)**:
+- Minimal Show hook restored to catch programmatic opens (Friends list, addon calls)
+- Keybind system only intercepts key presses; Show hook catches everything else
+- Restored with basic guards: ignore if overlay shown, bypass mode, lockdown, or Queue handling
+- Does not restore full original functionality (bypass session, ghost detection, etc.)
+
 ### 3. blizzEditBox.Hide Hook
 **File**: `Src/EditBox/Hooks.lua`  
 **Lines Removed**: 1611-1643  
