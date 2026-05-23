@@ -804,7 +804,6 @@ function Multiline:Submit()
 	-- Empty editor: close entirely (do not return to the overlay).
 	if #posts == 0 then
 		local eb = YapperTable.EditBox
-		YapperAPI:SetState("IDLE")
 		if self.Frame then self.Frame:Hide() end
 		if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 			YapperTable.Spellcheck:UnbindMultiline()

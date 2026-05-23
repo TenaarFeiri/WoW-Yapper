@@ -190,4 +190,5 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1114`](../Src/API.lua#L1114))
+  - [NEW] `YapperAPI:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/API.lua#L877`](../Src/API.lua#L877))
+  - [NEW] `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1125`](../Src/API.lua#L1125))

@@ -86,7 +86,7 @@ local function Tokenise(text)
                     pos = pos + 2
                 end
 
-            elseif b2 == 84 or b2 == 116 then -- "T" or "t"
+            elseif char2 == "t" then
                 -- Texture: |T<path>|t
                 local closePos = string_find(text, "|t", pos + 2, true)
                 if closePos then
@@ -97,7 +97,7 @@ local function Tokenise(text)
                     pos = pos + 2
                 end
 
-            elseif b2 == 65 then -- "A"
+            elseif char2 == "a" then
                 -- Atlas marker: |A<name>|a
                 local closePos = string_find(text, "|a", pos + 2, true)
                 if closePos then

@@ -43,23 +43,7 @@ local math_log           = math.log
 local math_huge          = math.huge
 local string_gsub        = string.gsub
 
---- Convert leetspeak characters back to their base alphabet equivalents.
---- Used to ensure blocked words can't be bypassed with common substitutions.
---- @param word string
---- @return string
-local function Deleet(word)
-	-- a=4, e=3, i=1/!, o=0, s=5/$, t=7/+
-	word = string_gsub(word, "0", "o")
-	word = string_gsub(word, "1", "i")
-	word = string_gsub(word, "3", "e")
-	word = string_gsub(word, "4", "a")
-	word = string_gsub(word, "5", "s")
-	word = string_gsub(word, "7", "t")
-	word = string_gsub(word, "%$", "s")
-	word = string_gsub(word, "!", "i")
-	word = string_gsub(word, "%+", "t")
-	return word
-end
+local Utils = YapperTable.Utils
 
 --- Capitalise the first letter of `s`, leaving the rest unchanged.
 local function CapFirst(s)
@@ -356,7 +340,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg
 				isBlocked = true
 			elseif engineHashes and engineHashFn then
 				local nw = sc and sc.NormaliseWord and sc.NormaliseWord(lw) or lw
-				if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
+				if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Utils.Deleet(nw))] then
 					isBlocked = true
 				end
 			end
@@ -449,7 +433,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 					isBlocked = true
 				elseif engineHashes and engineHashFn then
 					local nw = sc and sc.NormaliseWord and sc.NormaliseWord(word) or word
-					if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
+					if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Utils.Deleet(nw))] then
 						isBlocked = true
 					end
 				end

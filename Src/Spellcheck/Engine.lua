@@ -40,22 +40,7 @@ local string_match    = string.match
 local string_char     = string.char
 local string_format   = string.format
 
---- Convert leetspeak characters back to their base alphabet equivalents.
---- @param word string
---- @return string
-local function Deleet(word)
-    -- a=4, e=3, i=1/!, o=0, s=5/$, t=7/+
-    word = string_gsub(word, "0", "o")
-    word = string_gsub(word, "1", "i")
-    word = string_gsub(word, "3", "e")
-    word = string_gsub(word, "4", "a")
-    word = string_gsub(word, "5", "s")
-    word = string_gsub(word, "7", "t")
-    word = string_gsub(word, "%$", "s")
-    word = string_gsub(word, "!", "i")
-    word = string_gsub(word, "+", "t")
-    return word
-end
+local Utils = YapperTable.Utils
 
 -- ---------------------------------------------------------------------------
 -- Engine accessor helper
@@ -839,7 +824,7 @@ local function InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engi
             local isBlocked = false
             if engineHashes and engineHashFn then
                 local nw = sc and sc.NormaliseWord and sc.NormaliseWord(varWord) or varWord
-                if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
+                if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Utils.Deleet(nw))] then
                     isBlocked = true
                 end
             end
@@ -949,7 +934,7 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap,
             if dist and dist <= maxDist then
                 local isBlocked = false
                 if engineHashes and engineHashFn then
-                    if engineHashes[engineHashFn(var)] or engineHashes[engineHashFn(Deleet(var))] then
+                    if engineHashes[engineHashFn(var)] or engineHashes[engineHashFn(Utils.Deleet(var))] then
                         isBlocked = true
                     end
                 end
@@ -1077,14 +1062,9 @@ function Spellcheck:GetSuggestions(word)
                     isBlocked = true
                 elseif engineHashes and engineHashFn then
                     local nw = sc and sc.NormaliseWord and sc.NormaliseWord(candidate) or candidate
-                    if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Deleet(nw))] then
+                    if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Utils.Deleet(nw))] then
                         isBlocked = true
                     end
-                end
-
-                if candidate == "fuck" then
-                    local h = engineHashFn and engineHashFn(candidate) or "nil"
-                    print("DEBUG: tryCandidates('fuck') hash=" .. tostring(h) .. " isBlocked=" .. tostring(isBlocked))
                 end
 
                 if not isBlocked and not (ignoredSet and ignoredSet[candidate]) then

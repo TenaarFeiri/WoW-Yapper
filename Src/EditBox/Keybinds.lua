@@ -138,6 +138,21 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
     
+    -- Fire PRE_EDITBOX_SHOW filter so external addons (CEBE, WIMBridge, etc.)
+    -- can inspect and react before the overlay opens.  This mirrors the filter
+    -- call in HookBlizzardEditBox so addons see a consistent activation path.
+    if YapperTable.API then
+        local filterCT = (EditBox.LastUsed and EditBox.LastUsed.chatType) or "SAY"
+        local filterTarget = (EditBox.LastUsed and EditBox.LastUsed.target) or nil
+        local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
+            chatType = filterCT,
+            target   = filterTarget,
+        })
+        if result == false then
+            return
+        end
+    end
+
     YapperTable.Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
     EditBox:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
     

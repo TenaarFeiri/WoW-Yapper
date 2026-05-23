@@ -118,3 +118,21 @@ end
 -- ---------------------------------------------------------------------------
 -- String helpers
 -- ---------------------------------------------------------------------------
+
+--- Convert leetspeak characters back to their base alphabet equivalents.
+--- Used to ensure blocked words can't be bypassed with common substitutions.
+--- @param word string
+--- @return string
+function Utils.Deleet(word)
+    -- a=4, e=3, i=1/!, o=0, s=5/$, t=7/+
+    word = word:gsub("0", "o")
+    word = word:gsub("1", "i")
+    word = word:gsub("3", "e")
+    word = word:gsub("4", "a")
+    word = word:gsub("5", "s")
+    word = word:gsub("7", "t")
+    word = word:gsub("%$", "s")
+    word = word:gsub("!", "i")
+    word = word:gsub("%+", "t")
+    return word
+end

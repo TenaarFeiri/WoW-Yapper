@@ -103,8 +103,6 @@ function Spellcheck:RegisterDictionary(locale, data)
     local set = existing and existing.set or {}
     local index = existing and existing.index or {}
     local outWords = (existing and existing.words) or (not data.extends and words) or {}
-    local ngramIndex2 = existing and existing.ngramIndex2 or {}
-    local ngramIndex3 = existing and existing.ngramIndex3 or {}
     local phonetics = data.phonetics or (existing and existing.phonetics) or {}
 
     local cfg = YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck or {}
@@ -175,7 +173,6 @@ function Spellcheck:RegisterDictionary(locale, data)
             extends         = data.extends,
             affixRules      = data.affixRules, -- Support locale-specific rules
             _metaCache      = {},
-            _metaUsageTimer = 0,
             _metaCacheSize  = 0,
         }
     end

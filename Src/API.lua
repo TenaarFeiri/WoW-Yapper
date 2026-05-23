@@ -871,6 +871,17 @@ function YapperAPI:IsSecret(value)
     return false
 end
 
+--- Convert leetspeak characters back to their base alphabet equivalents.
+--- @param word string
+--- @return string
+function YapperAPI:Deleet(word)
+    local u = YapperTable.Utils
+    if u and u.Deleet then
+        return u.Deleet(word)
+    end
+    return word
+end
+
 --- Returns the correct UI parent frame for chat-related UI.
 --- Respects fullscreen panels such as the housing editor.
 function YapperAPI:GetChatParent()

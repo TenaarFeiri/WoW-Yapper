@@ -393,17 +393,11 @@ end
 function Spellcheck:GetMeta(dict, word)
     if type(dict) ~= "table" or type(word) ~= "string" or word == "" then return nil end
     dict._metaCache = dict._metaCache or {}
-    dict._metaUsageTimer = dict._metaUsageTimer or 0
     dict._metaCacheSize = dict._metaCacheSize or 0
     local cache = dict._metaCache
 
-    -- update usage counter
-    dict._metaUsageTimer = dict._metaUsageTimer + 1
-    local entry = cache[word]
-    if entry then
-        entry.lastUsed = dict._metaUsageTimer
-        return entry.meta
-    end
+    local cached = cache[word]
+    if cached then return cached end
 
     -- build metadata (letter frequencies and bigrams)
     -- Use byte keys for the bag to avoid per-character string allocation
@@ -421,7 +415,7 @@ function Spellcheck:GetMeta(dict, word)
     end
     local meta = { len = #word, bag = bag, bigrams = bigrams }
 
-    cache[word] = { meta = meta, lastUsed = dict._metaUsageTimer }
+    cache[word] = meta
     dict._metaCacheSize = (dict._metaCacheSize or 0) + 1
 
     local cfg = (YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck) or {}
@@ -559,10 +553,8 @@ function Spellcheck:IsWordBlocked(word, locale, ignoreManual)
     if engineHashes and engineHashFn then
         if engineHashes[engineHashFn(w)] then return true end
         
-        -- Need a local copy of Deleet if not present, but we can do it inline or depend on the caller.
-        -- Actually, Deleet is only locally defined in Autocomplete/Engine/YAS right now.
-        -- Let's define a simple Deleet for IsWordBlocked here.
-        local dw = w:gsub("0", "o"):gsub("1", "i"):gsub("3", "e"):gsub("4", "a"):gsub("5", "s"):gsub("7", "t"):gsub("%$", "s"):gsub("!", "i"):gsub("%+", "t")
+        -- Deleet is now on Utils — consolidated from 4 copies.
+        local dw = YapperTable.Utils.Deleet(w)
         if engineHashes[engineHashFn(dw)] then return true end
     end
     
