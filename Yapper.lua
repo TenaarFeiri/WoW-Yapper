@@ -155,6 +155,11 @@ local function OnAddonLoaded(addonName)
         YapperTable.History:InitDB()
     end
 
+    -- Initialise keybind system if enabled.
+    if YapperTable.EditBox then
+        YapperTable.EditBox:InitKeybinds()
+    end
+
     YapperTable.Events:Unregister("PARENT_FRAME", "ADDON_LOADED")
 end
 
@@ -170,6 +175,11 @@ local function OnPlayerEnteringWorld()
     -- Hook all Blizzard chat editboxes with our taint-free overlay.
     if YapperTable.EditBox then
         YapperTable.EditBox:HookAllChatFrames()
+    end
+
+    -- Register keybind overrides if enabled.
+    if YapperTable.EditBox then
+        YapperTable.EditBox:RegisterKeybindOverrides()
     end
 
     -- Boot the chat pipeline (Chat → Router + Queue).

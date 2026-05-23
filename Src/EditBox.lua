@@ -445,3 +445,26 @@ end
 function EditBox:SetPreShowCheck(fn)
     self.PreShowCheck = fn
 end
+
+--- Initialize keybind override system.
+--- Called during addon boot.
+function EditBox:InitKeybinds()
+    if not self.Keybinds or not self.Keybinds.Init then
+        return
+    end
+
+    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+        YapperTable.Utils:VerbosePrint("Initializing keybind system")
+    end
+    self.Keybinds:Init()
+end
+
+--- Register keybind overrides when timing is safe.
+--- Called on PLAYER_ENTERING_WORLD.
+function EditBox:RegisterKeybindOverrides()
+    if not self.Keybinds or not self.Keybinds.RegisterOverrides then
+        return
+    end
+
+    self.Keybinds:RegisterOverrides()
+end

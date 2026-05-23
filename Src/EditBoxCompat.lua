@@ -136,6 +136,26 @@ if ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
     _G.ChatEdit_GetActiveWindow = ChatFrameUtil.GetActiveWindow
 end
 
+-- Hook FocusActiveWindow: TRP3 calls this before inserting links, which calls
+-- ActivateChat -> ClearChatFocusOverride, breaking Yapper's focus override.
+-- We prevent clearing when Yapper is active to maintain compatibility.
+if ChatFrameUtil and ChatFrameUtil.FocusActiveWindow then
+    local origFocusActiveWindow = ChatFrameUtil.FocusActiveWindow
+    ChatFrameUtil.FocusActiveWindow = function()
+        local eb = YapperTable.EditBox
+        -- If Yapper overlay is active, manually focus it and skip the Blizzard path
+        if eb and eb.Overlay and eb.Overlay:IsShown() and eb.OverlayEdit then
+            local bypass = eb._UserBypassingYapper and eb._UserBypassingYapper()
+            local preShow = eb._preShowSuppressed
+            if not bypass and not preShow and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                eb.OverlayEdit:SetFocus()
+                return -- Skip Blizzard's FocusActiveWindow to preserve our override
+            end
+        end
+        return origFocusActiveWindow()
+    end
+end
+
 
 
 

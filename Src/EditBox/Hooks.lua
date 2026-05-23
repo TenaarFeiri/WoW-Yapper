@@ -175,16 +175,8 @@ function EditBox:Show(origEditBox)
     --   2. Lockdown draft — restore the channel the user was on mid-combat.
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
-    local pendingRWType          = self._pendingReWhisperType
-    local pendingRWTarget        = self._pendingReWhisperTarget
-    self._pendingReWhisperType   = nil
-    self._pendingReWhisperTarget = nil
-
-    if pendingRWType and pendingRWTarget and pendingRWTarget ~= "" and not self._lockdown.savedDraft then
-        self.ChatType = pendingRWType
-        self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
-        self.Target   = pendingRWTarget
-    elseif blizzHasTarget and not self._lockdown.savedDraft then
+    -- REMOVED: Pending re-whisper priority (was #1) - ReplyTell2 hook removed
+    if blizzHasTarget and not self._lockdown.savedDraft then
         self.ChatType = blizzType
         self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target   = blizzTell or blizzChan or nil
@@ -498,6 +490,11 @@ function EditBox:Hide(isHandoff)
     -- if the user finished their post normally or escaped out.
     self:ClearLockdownState()
     self._lockdown.handedOff = false
+
+    -- Clear CHAT_FOCUS_OVERRIDE when closing Yapper
+    if ChatFrameUtil and ChatFrameUtil.ClearChatFocusOverride then
+        ChatFrameUtil.ClearChatFocusOverride()
+    end
 
     -- Suppress one immediate Blizzard Show for the same editbox to avoid
     -- hide/show contention on outside-click dismissals.
@@ -1425,6 +1422,25 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end)
     end
 
+    -- REMOVED: blizzEditBox.Show hook (lines 1420-1609)
+    -- Originally handled main show interception and overlay activation.
+    -- Functionality now handled by keybind system (OPENCHAT/OPENCHATSLASH/REPLYTELL2 overrides).
+    -- Removed as part of hook reduction effort - keybind system provides primary path.
+    -- Potential impact: Loss of bypass session management, lockdown transitions, Queue integration,
+    -- external addon compatibility (WIM, etc.), ghost detection, and PRE_EDITBOX_SHOW filter.
+    -- 
+    -- Original functionality included:
+    -- - Bypass session management and suppression
+    -- - Overlay suppression when already shown
+    -- - BNet whisper dismissal tracking
+    -- - Lockdown state transitions and attribute handling
+    -- - LastUsed seeding from Blizzard attributes
+    -- - Queue PreShowCheck integration
+    -- - PRE_EDITBOX_SHOW filter for external addons
+    -- - Ghost detection for sticky-chat restore
+    -- - Deferred overlay activation
+
+    --[[
     hooksecurefunc(blizzEditBox, "Show", function(eb)
         if self._inBlizzShowHook then return end
         self._inBlizzShowHook = true
@@ -1615,7 +1631,21 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         self._inBlizzShowHook = false
         if not ok then error(err) end
     end)
+    --]]
 
+    -- REMOVED: blizzEditBox.Hide hook (lines 1611-1643)
+    -- Originally handled hide tracking and bypass session cleanup.
+    -- Functionality now handled by keybind system and alternative mechanisms.
+    -- Removed as part of hook reduction effort - keybind system provides primary path.
+    -- Potential impact: Loss of bypass session cleanup, BNet editbox dismissal tracking,
+    -- and state machine return to IDLE on hide.
+    --
+    -- Original functionality included:
+    -- - Bypass session cleanup on editbox close
+    -- - BNet editbox dismissal tracking
+    -- - State machine return to IDLE when Blizzard box hidden
+
+    --[[
     -- Track when the user Escapes out of a BNet whisper so we don't
     -- immediately re-open Yapper when Blizzard re-shows the editbox.
     hooksecurefunc(blizzEditBox, "Hide", function(eb)
@@ -1649,6 +1679,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             YapperAPI:SetState("IDLE")
         end
     end)
+    --]]
 
     -- clear bypass if focus leaves the bypassed editbox without a Hide.
     if blizzEditBox and blizzEditBox.HookScript then
@@ -1797,22 +1828,11 @@ function EditBox:HookAllChatFrames()
         self._openChatHooked = true
     end
 
-    -- Intercept the Re-Whisper keybind (ChatFrameUtil.ReplyTell2) so it opens
-    -- Yapper instead of Blizzard's editbox. We prime ChatType and Target directly
-    -- before ReplyTell2 calls OpenChat, giving our Show-hook guaranteed values
-    -- regardless of the attribute-cache timing race.
-    if ChatFrameUtil and ChatFrameUtil.ReplyTell2 and not self._replyTell2Hooked then
-        hooksecurefunc(ChatFrameUtil, "ReplyTell2", function()
-            local lastType, lastTold = GetLastToldTargetInfo()
-            if lastTold and lastTold ~= "" then
-                -- Prime the overlay so EditBox:Show picks these up with
-                -- highest priority, overriding any stale attribute-cache values.
-                self._pendingReWhisperType   = lastType
-                self._pendingReWhisperTarget = lastTold
-            end
-        end)
-        self._replyTell2Hooked = true
-    end
+    -- REMOVED: ChatFrameUtil.ReplyTell2 hook (lines 1800-1817)
+    -- Originally intercepted Re-Whisper keybind to open Yapper instead of Blizzard's editbox.
+    -- Functionality now handled by keybind system (REPLYTELL2 override in Keybinds.lua).
+    -- Removed as part of hook reduction effort - keybind system provides primary path.
+    -- Potential impact: Addons that call ReplyTell2 programmatically may not trigger Yapper overlay.
 
     -- Counteract addons like Chattynator that force ChatFrame1EditBox to stay
     -- shown after DeactivateChat (via the KEEP_EDIT_BOX_VISIBLE option).
