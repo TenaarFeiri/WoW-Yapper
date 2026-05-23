@@ -10,9 +10,9 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L243`](../Yapper.lua#L243)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L256`](../Yapper.lua#L256)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L238`](../Yapper.lua#L238)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L251`](../Yapper.lua#L251)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -759,17 +759,17 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L110`](../Src/Interface.lua#L110))
   - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L106`](../Src/Interface.lua#L106))
   - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L102`](../Src/Interface.lua#L102))
-  - `InitPopups` ([`../Src/Interface.lua#L308`](`../Src/Interface.lua#L308`))
-  - `BuildConfigUI` ([`../Src/Interface.lua#L455`](`../Src/Interface.lua#L455`))
-  - `ShowMainWindow` ([`../Src/Interface.lua#L750`](`../Src/Interface.lua#L750`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L775`](`../Src/Interface.lua#L775`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L800`](`../Src/Interface.lua#L800`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L832`](`../Src/Interface.lua#L832`))
-  - `CloseFrame` ([`../Src/Interface.lua#L867`](`../Src/Interface.lua#L867`))
-  - `Init` ([`../Src/Interface.lua#L878`](`../Src/Interface.lua#L878`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L913`](`../Src/Interface.lua#L913`))
+  - `InitPopups` ([`../Src/Interface.lua#L314`](`../Src/Interface.lua#L314`))
+  - `BuildConfigUI` ([`../Src/Interface.lua#L461`](`../Src/Interface.lua#L461`))
+  - `ShowMainWindow` ([`../Src/Interface.lua#L756`](`../Src/Interface.lua#L756`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L781`](`../Src/Interface.lua#L781`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L806`](`../Src/Interface.lua#L806`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L838`](`../Src/Interface.lua#L838`))
+  - `CloseFrame` ([`../Src/Interface.lua#L873`](`../Src/Interface.lua#L873`))
+  - `Init` ([`../Src/Interface.lua#L884`](`../Src/Interface.lua#L884`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L919`](`../Src/Interface.lua#L919`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L854`](../Src/Interface.lua#L854)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L860`](../Src/Interface.lua#L860)).
 
 ## Interface.Schema
 

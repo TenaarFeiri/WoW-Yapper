@@ -129,15 +129,28 @@ local function OnAddonLoaded(addonName)
         YapperTable.Interface:InitPopups()
     end
 
-    -- Restore the previously selected theme so Theme._current is valid for the
-    -- entire session.  SetTheme re-seeds non-overridden colour values from the
-    -- theme into YapperLocalConf.EditBox.*, but honours _themeOverrides so any
-    -- colours the user explicitly changed are kept intact.
-    if YapperTable.Theme and _G.YapperLocalConf then
-        local savedTheme = _G.YapperLocalConf.System
-                       and _G.YapperLocalConf.System.ActiveTheme
-        if type(savedTheme) == "string" and savedTheme ~= "" then
-            pcall(function() YapperTable.Theme:SetTheme(savedTheme) end)
+    -- Restore the previously selected theme name so Theme:GetTheme() reflects
+    -- the active choice for this session.
+    --
+    -- Important: do NOT call SetTheme() during boot; SetTheme re-seeds colour
+    -- fields into config and can stomp user-saved colours on reload. Colours
+    -- are already persisted in SavedVariables and applied from config.
+    if YapperTable.Theme then
+        local savedTheme = nil
+        if type(_G.YapperLocalConf) == "table"
+            and type(_G.YapperLocalConf.System) == "table" then
+            savedTheme = _G.YapperLocalConf.System.ActiveTheme
+        end
+        if (type(savedTheme) ~= "string" or savedTheme == "")
+            and type(_G.YapperDB) == "table"
+            and type(_G.YapperDB.System) == "table" then
+            savedTheme = _G.YapperDB.System.ActiveTheme
+        end
+        if type(savedTheme) == "string"
+            and savedTheme ~= ""
+            and YapperTable.Theme.GetTheme
+            and YapperTable.Theme:GetTheme(savedTheme) then
+            YapperTable.Theme._current = savedTheme
         end
     end
 

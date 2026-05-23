@@ -228,12 +228,18 @@ local function SetPathValue(root, path, value)
     local cursor = root
     for i = 1, #path - 1 do
         local key = path[i]
-        if type(cursor[key]) ~= "table" then
-            cursor[key] = {}
+        -- Important: use raw access so we never walk inherited tables.
+        -- In Global Profile mode, local config tables inherit from global via
+        -- metatables; following __index here would accidentally write/clear the
+        -- global table while trying to touch local overrides.
+        local child = rawget(cursor, key)
+        if type(child) ~= "table" then
+            child = {}
+            rawset(cursor, key, child)
         end
-        cursor = cursor[key]
+        cursor = child
     end
-    cursor[path[#path]] = value
+    rawset(cursor, path[#path], value)
 end
 
 -- Keep split marker settings visually consistent while user edits either side.
@@ -1036,4 +1042,3 @@ function Interface:CreateLauncher()
         self:ApplyMinimapButtonVisibility()
     end
 end
-
