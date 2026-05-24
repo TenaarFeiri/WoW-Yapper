@@ -280,21 +280,68 @@ YapperTable.Config = DEFAULTS
 
 -- Add a cache for player languages.
 YapperTable.SpokenLanguages = {}
+YapperTable._languageCacheHash = nil
 
 function YapperTable.Core:BuildLanguageCache()
     -- Wipe the cache so we can repopulate.
     YapperTable.SpokenLanguages = {}
+    YapperTable._languageCacheHash = nil
 
-    for i = 1, GetNumLanguages() do
+    local count = GetNumLanguages()
+    if not count or count == 0 then
+        YapperTable.Utils:DebugPrint("BuildLanguageCache: No languages available")
+        return
+    end
+
+    local hash = 0
+    for i = 1, count do
         local langStr, langId = GetLanguageByIndex(i)
         if langId and langStr then
+            -- Store both original and uppercase versions for case-insensitive lookup
             YapperTable.SpokenLanguages[langStr] = langId
+            YapperTable.SpokenLanguages[langStr:upper()] = langId
+            -- Simple hash: sum of language IDs (efficient for comparison)
+            hash = hash + langId
         end
     end
+
+    YapperTable._languageCacheHash = hash
+    YapperTable.Utils:DebugPrint("BuildLanguageCache: Cached " .. count .. " languages (hash: " .. hash .. ")")
+end
+
+--- Check if the language cache is still valid for the current character.
+--- Returns true if cache matches current languages, false if it needs rebuilding.
+--- @return boolean isValid
+function YapperTable.Core:IsLanguageCacheValid()
+    local currentCount = GetNumLanguages()
+    if not currentCount or currentCount == 0 then
+        return false
+    end
+
+    -- Quick count check first
+    local cachedCount = 0
+    for _ in pairs(YapperTable.SpokenLanguages) do
+        cachedCount = cachedCount + 1
+    end
+    -- Since we store both original and uppercase, cachedCount should be 2x currentCount
+    if cachedCount ~= (currentCount * 2) then
+        return false
+    end
+
+    -- Hash comparison for efficient validation
+    local currentHash = 0
+    for i = 1, currentCount do
+        local _, langId = GetLanguageByIndex(i)
+        if langId then
+            currentHash = currentHash + langId
+        end
+    end
+
+    return currentHash == YapperTable._languageCacheHash
 end
 
 --- Get the language or defaults if not present.
---- @param lang string|number|nil lang is case-sensitive. Capitalise language names ("Common", not "common", etc.)
+--- @param lang string|number|nil lang is case-insensitive. "Common", "common", "COMMON" all work.
 --- @return number langId
 function YapperTable.Core:GetCharacterLanguage(lang)
     if type(lang) ~= "string" then
@@ -303,13 +350,25 @@ function YapperTable.Core:GetCharacterLanguage(lang)
         end
     end
 
-    -- Find language in cache
+    -- Ensure cache is valid before lookup
+    if not self:IsLanguageCacheValid() then
+        self:BuildLanguageCache()
+    end
+
+    -- Find language in cache (case-insensitive via uppercase fallback)
     if YapperTable.SpokenLanguages[lang] then
         return YapperTable.SpokenLanguages[lang]
+    end
+    -- Try uppercase version for case-insensitive match
+    if lang and YapperTable.SpokenLanguages[lang:upper()] then
+        return YapperTable.SpokenLanguages[lang:upper()]
     end
 
     -- If not present, use default.
     local _, langId = GetDefaultLanguage()
+    if lang and lang ~= "" then
+        YapperTable.Utils:DebugPrint("GetCharacterLanguage: '" .. lang .. "' not found, using default")
+    end
     return langId
 end
 

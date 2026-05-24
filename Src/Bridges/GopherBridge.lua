@@ -136,6 +136,10 @@ function GopherBridge:Send(msg, chatType, language, target)
         return false
     end
 
+    -- Normalise language parameter to match Router's behaviour
+    -- This ensures racial languages and other custom languages are properly resolved
+    language = YapperTable.Core:GetCharacterLanguage(language)
+
     -- Everything else (SAY, EMOTE, YELL, PARTY, RAID, WHISPER, CHANNEL…)
     C_ChatInfo.SendChatMessage(msg, chatType, language, target)
     return true

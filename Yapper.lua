@@ -223,6 +223,19 @@ local function OnPlayerEnteringWorld()
     -- After unregistering, build the language cache.
     YapperTable.Core:BuildLanguageCache()
 
+    -- Register for language change events to keep cache current
+    if YapperTable.Events then
+        YapperTable.Events:Register("PARENT_FRAME", "LANGUAGE_LIST_CHANGED", function()
+            YapperTable.Utils:DebugPrint("LANGUAGE_LIST_CHANGED: Rebuilding language cache")
+            YapperTable.Core:BuildLanguageCache()
+        end)
+
+        YapperTable.Events:Register("PARENT_FRAME", "CAN_PLAYER_SPEAK_LANGUAGE_CHANGED", function()
+            YapperTable.Utils:DebugPrint("CAN_PLAYER_SPEAK_LANGUAGE_CHANGED: Rebuilding language cache")
+            YapperTable.Core:BuildLanguageCache()
+        end)
+    end
+
     -- Final transition to IDLE: Boot sequence complete.
     if YapperTable.State then
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then

@@ -10,9 +10,9 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L256`](../Yapper.lua#L256)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L269`](../Yapper.lua#L269)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L251`](../Yapper.lua#L251)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L264`](../Yapper.lua#L264)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -22,18 +22,19 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 - Fields:
   - `Yapper.Config: table` live config root ([`../Src/Core.lua#L279`](../Src/Core.lua#L279)).
 - Methods:
-  - [NEW] `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L320`](../Src/Core.lua#L320))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L752`](../Src/Core.lua#L752))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L549`](../Src/Core.lua#L549))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L299`](../Src/Core.lua#L299))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L284`](../Src/Core.lua#L284))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L435`](../Src/Core.lua#L435)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L572`](../Src/Core.lua#L572))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L576`](../Src/Core.lua#L576))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L580`](../Src/Core.lua#L580))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L593`](../Src/Core.lua#L593)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L659`](../Src/Core.lua#L659)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L773`](../Src/Core.lua#L773)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - [NEW] `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L315`](../Src/Core.lua#L315))
+  - [NEW] `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L379`](../Src/Core.lua#L379))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L811`](../Src/Core.lua#L811))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L608`](../Src/Core.lua#L608))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L346`](../Src/Core.lua#L346))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L285`](../Src/Core.lua#L285))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L494`](../Src/Core.lua#L494)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L631`](../Src/Core.lua#L631))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L635`](../Src/Core.lua#L635))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L639`](../Src/Core.lua#L639))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L652`](../Src/Core.lua#L652)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L718`](../Src/Core.lua#L718)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L832`](../Src/Core.lua#L832)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -472,18 +473,18 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Description: Show/hide lifecycle, handoff, hook glue, open guards.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
-  - `Hide` ([`../Src/EditBox/Hooks.lua#L433`](`../Src/EditBox/Hooks.lua#L433`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L556`](`../Src/EditBox/Hooks.lua#L556`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L643`](`../Src/EditBox/Hooks.lua#L643`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L737`](`../Src/EditBox/Hooks.lua#L737`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L915`](`../Src/EditBox/Hooks.lua#L915`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L953`](`../Src/EditBox/Hooks.lua#L953`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1001`](`../Src/EditBox/Hooks.lua#L1001`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1023`](`../Src/EditBox/Hooks.lua#L1023`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1048`](`../Src/EditBox/Hooks.lua#L1048`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1123`](`../Src/EditBox/Hooks.lua#L1123`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1190`](`../Src/EditBox/Hooks.lua#L1190`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1489`](`../Src/EditBox/Hooks.lua#L1489`))
+  - `Hide` ([`../Src/EditBox/Hooks.lua#L437`](`../Src/EditBox/Hooks.lua#L437`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L560`](`../Src/EditBox/Hooks.lua#L560`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L647`](`../Src/EditBox/Hooks.lua#L647`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L741`](`../Src/EditBox/Hooks.lua#L741`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L919`](`../Src/EditBox/Hooks.lua#L919`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L957`](`../Src/EditBox/Hooks.lua#L957`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1005`](`../Src/EditBox/Hooks.lua#L1005`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1027`](`../Src/EditBox/Hooks.lua#L1027`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1052`](`../Src/EditBox/Hooks.lua#L1052`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1127`](`../Src/EditBox/Hooks.lua#L1127`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1194`](`../Src/EditBox/Hooks.lua#L1194`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1499`](`../Src/EditBox/Hooks.lua#L1499`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -503,8 +504,8 @@ Initialised by `Chat:Init`.
   - `Init` ([`../Src/Bridges/GopherBridge.lua#L54`](`../Src/Bridges/GopherBridge.lua#L54`))
   - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L76`](`../Src/Bridges/GopherBridge.lua#L76`))
   - `Send` ([`../Src/Bridges/GopherBridge.lua#L104`](`../Src/Bridges/GopherBridge.lua#L104`))
-  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L148`](`../Src/Bridges/GopherBridge.lua#L148`))
-  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L155`](`../Src/Bridges/GopherBridge.lua#L155`))
+  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L152`](`../Src/Bridges/GopherBridge.lua#L152`))
+  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L159`](`../Src/Bridges/GopherBridge.lua#L159`))
 
 ## TypingTrackerBridge
 
@@ -794,24 +795,24 @@ Handles config reads/writes and side-effect fan-out.
   - `Interface:ResetAllSettings() → nil`: Reset all configuration settings to their default values. ([`../Src/Interface/Config.lua#L50`](../Src/Interface/Config.lua#L50))
   - `GetLocalConfigRoot` ([`../Src/Interface/Config.lua#L34`](`../Src/Interface/Config.lua#L34`))
   - `GetDefaultsRoot` ([`../Src/Interface/Config.lua#L41`](`../Src/Interface/Config.lua#L41`))
-  - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L92`](`../Src/Interface/Config.lua#L92`))
-  - `PurgeRenderCache` ([`../Src/Interface/Config.lua#L103`](`../Src/Interface/Config.lua#L103`))
-  - `SetDirty` ([`../Src/Interface/Config.lua#L109`](`../Src/Interface/Config.lua#L109`))
-  - `IsDirty` ([`../Src/Interface/Config.lua#L114`](`../Src/Interface/Config.lua#L114`))
-  - `SetSettingsChanged` ([`../Src/Interface/Config.lua#L119`](`../Src/Interface/Config.lua#L119`))
-  - `GetConfigPath` ([`../Src/Interface/Config.lua#L127`](`../Src/Interface/Config.lua#L127`))
-  - `GetDefaultPath` ([`../Src/Interface/Config.lua#L135`](`../Src/Interface/Config.lua#L135`))
-  - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L139`](`../Src/Interface/Config.lua#L139`))
-  - `SetLocalPath` ([`../Src/Interface/Config.lua#L143`](`../Src/Interface/Config.lua#L143`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L339`](`../Src/Interface/Config.lua#L339`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L347`](`../Src/Interface/Config.lua#L347`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L360`](`../Src/Interface/Config.lua#L360`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L364`](`../Src/Interface/Config.lua#L364`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L380`](`../Src/Interface/Config.lua#L380`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L397`](`../Src/Interface/Config.lua#L397`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L437`](`../Src/Interface/Config.lua#L437`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L462`](`../Src/Interface/Config.lua#L462`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L491`](`../Src/Interface/Config.lua#L491`))
+  - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L98`](`../Src/Interface/Config.lua#L98`))
+  - `PurgeRenderCache` ([`../Src/Interface/Config.lua#L109`](`../Src/Interface/Config.lua#L109`))
+  - `SetDirty` ([`../Src/Interface/Config.lua#L115`](`../Src/Interface/Config.lua#L115`))
+  - `IsDirty` ([`../Src/Interface/Config.lua#L120`](`../Src/Interface/Config.lua#L120`))
+  - `SetSettingsChanged` ([`../Src/Interface/Config.lua#L125`](`../Src/Interface/Config.lua#L125`))
+  - `GetConfigPath` ([`../Src/Interface/Config.lua#L133`](`../Src/Interface/Config.lua#L133`))
+  - `GetDefaultPath` ([`../Src/Interface/Config.lua#L141`](`../Src/Interface/Config.lua#L141`))
+  - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L145`](`../Src/Interface/Config.lua#L145`))
+  - `SetLocalPath` ([`../Src/Interface/Config.lua#L149`](`../Src/Interface/Config.lua#L149`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L345`](`../Src/Interface/Config.lua#L345`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L353`](`../Src/Interface/Config.lua#L353`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L370`](`../Src/Interface/Config.lua#L370`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L386`](`../Src/Interface/Config.lua#L386`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L403`](`../Src/Interface/Config.lua#L403`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L443`](`../Src/Interface/Config.lua#L443`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L468`](`../Src/Interface/Config.lua#L468`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L497`](`../Src/Interface/Config.lua#L497`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.

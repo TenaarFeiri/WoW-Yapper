@@ -80,6 +80,12 @@ function Interface:FactoryReset()
     _G.YapperLocalConf = {}
     _G.YapperLocalHistory = {}
 
+    -- Clear runtime language cache
+    if YapperTable then
+        YapperTable.SpokenLanguages = {}
+        YapperTable._languageCacheHash = nil
+    end
+
     -- Re-run the Core initialisation to re-seed tables with defaults.
     if YapperTable.Core and YapperTable.Core.InitSavedVars then
         YapperTable.Core:InitSavedVars()

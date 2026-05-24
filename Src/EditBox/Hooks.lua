@@ -144,6 +144,10 @@ function EditBox:Show(origEditBox)
     if not blizzLang and origEditBox and type(origEditBox.GetLanguageID) == "function" then
         blizzLang = origEditBox:GetLanguageID()
     end
+    -- Normalise language to ensure we have a valid language ID
+    if blizzLang and type(blizzLang) == "string" then
+        blizzLang = YapperTable.Core:GetCharacterLanguage(blizzLang)
+    end
     local blizzText = origEditBox and origEditBox.GetText and origEditBox:GetText()
 
     -- One-shot BN guard expiry: if we open normally a couple times without
@@ -1416,10 +1420,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- editbox, apply it to the sticky LastUsed state for all future opens.
     if blizzEditBox.SetGameLanguage then
         hooksecurefunc(blizzEditBox, "SetGameLanguage", function(eb, language, languageId)
-            self.Language = languageId or language or nil
+            -- Normalise to ensure we store a valid language ID
+            local normalisedLang = languageId or language
+            if normalisedLang and type(normalisedLang) == "string" then
+                normalisedLang = YapperTable.Core:GetCharacterLanguage(normalisedLang)
+            end
+            self.Language = normalisedLang
             if self.LastUsed then
                 self.LastUsed.language = self.Language
             end
+            YapperTable.Utils:VerbosePrint("SetGameLanguage: " .. tostring(self.Language))
         end)
     end
 
