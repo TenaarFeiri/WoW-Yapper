@@ -41,6 +41,21 @@
 
 # Patch notes
 
+## 2.1.24
+  - Added TRP3 language tracking
+    - Hooked into TRP3's API to track when they do language swaps to ensure parity with Yapper.
+  - Fixed issue where Yapper would sometimes not correctly open the Blizzard editbox under lockdown.
+  - Fixed issue where Yapper would sometimes be unable to pick up on the selected character language.
+  - Fixed issue where Yapper would lock up when linking TRP3 items (and presumably other custom links) while using Chattynator.
+  - Improved language caching.
+  - Update language cache when user learns a new language.
+  - Fixed issue where whispering from the friends list no longer worked.
+  - Fixed issue where certain colour choices did not propagate up through to the global profile.
+  
+  - **New Yapper pipeline**
+    - Yapper now uses keybind overrides to open and is no longer dependent entirely on the editbox.
+    - This change may have regressed some old bug fixes but it's being worked on.
+
 ## 2.1.19a
   - **FIXED LOCKDOWN TAINT ISSUE**
   - **Yapper is now a citizen of Blizzard's UI!**
