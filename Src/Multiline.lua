@@ -61,6 +61,8 @@ Multiline.ChatType                   = nil -- current channel type (SAY, YELL, â
 Multiline.Language                   = nil -- language index
 Multiline.Target                     = nil -- whisper / channel target
 Multiline._autoScrollSuppressedUntil = 0
+Multiline._lockdownIdleTimer         = nil -- combat lockdown idle timer (1.5s wait after last keystroke)
+Multiline._lockdownTextHooked        = false -- whether OnTextChanged hook is installed for lockdown
 
 -- ---------------------------------------------------------------------------
 -- Label helpers
@@ -486,7 +488,23 @@ function Multiline:CreateFrame()
 		if YapperTable.API and type(YapperTable.API.Fire) == "function" then
 			YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
 		end
+
+		-- Reset lockdown idle timer while user keeps typing
+		if Multiline._lockdownIdleTimer then
+			Multiline:ResetLockdownIdleTimer()
+		end
 	end)
+
+		-- Register combat lockdown events
+		f:RegisterEvent("PLAYER_REGEN_DISABLED")
+		f:RegisterEvent("PLAYER_REGEN_ENABLED")
+		f:SetScript("OnEvent", function(_, event)
+			if event == "PLAYER_REGEN_DISABLED" then
+				Multiline:OnLockdownStart()
+			elseif event == "PLAYER_REGEN_ENABLED" then
+				Multiline:OnLockdownEnd()
+			end
+		end)
 
 end
 
@@ -673,7 +691,8 @@ end
 
 --- Close the expanded editor and return to the single-line overlay.
 ---@param restoreText boolean?  If true, push the current text back to the overlay.
-function Multiline:Exit(restoreText)
+---@param suppressOverlay boolean?  If true, don't show the single-line overlay (used during lockdown).
+function Multiline:Exit(restoreText, suppressOverlay)
 	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
 
 	-- Hide icon gallery if open.
@@ -741,12 +760,14 @@ function Multiline:Exit(restoreText)
 			eb:PersistLastUsed()
 		end
 
-		-- Re-show the overlay and return focus to it.
-		if eb.Overlay then
-			eb.Overlay:Show()
-		end
-		if eb.OverlayEdit then
-			eb.OverlayEdit:SetFocus()
+		-- Re-show the overlay and return focus to it, unless suppressed (lockdown).
+		if not suppressOverlay then
+			if eb.Overlay then
+				eb.Overlay:Show()
+			end
+			if eb.OverlayEdit then
+				eb.OverlayEdit:SetFocus()
+			end
 		end
 	end
 end
@@ -791,6 +812,19 @@ end
 --- After sending, the overlay is closed entirely.
 function Multiline:Submit()
 	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
+
+	-- If in lockdown, save draft and close instead of attempting to send.
+	if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+		if self.EditBox and YapperTable.History then
+			local text = self.EditBox:GetText() or ""
+			if text ~= "" then
+				YapperTable.History:SaveDraft(self.EditBox, true)
+				YapperTable.History:MarkDirty(true)
+			end
+		end
+		self:Exit(false, true)
+		return
+	end
 
 	local rawText          = self.EditBox and self.EditBox:GetText() or ""
 	local posts            = CollapseText(rawText)
@@ -927,6 +961,58 @@ end
 --- Cancel editing â€” return to the single-line overlay with the draft intact.
 function Multiline:Cancel()
 	self:Exit(true)
+end
+
+-- ---------------------------------------------------------------------------
+-- Combat lockdown handling
+-- ---------------------------------------------------------------------------
+
+--- Reset the lockdown idle timer to 1.5s from now.
+--- Called when combat starts and on each keystroke while the timer is active.
+function Multiline:ResetLockdownIdleTimer()
+	if self._lockdownIdleTimer then
+		self._lockdownIdleTimer:Cancel()
+	end
+	self._lockdownIdleTimer = C_Timer.NewTimer(1.5, function()
+		self._lockdownIdleTimer = nil
+		if not (self.Frame and self.Frame:IsShown()) then return end
+
+		-- Save the multiline draft for recovery after lockdown
+		if self.EditBox then
+			local text = self.EditBox:GetText() or ""
+			if text ~= "" and YapperTable.History then
+				YapperTable.History:SaveDraft(self.EditBox, true)
+				YapperTable.History:MarkDirty(true)
+			end
+		end
+
+		-- Close multiline without restoring text or showing the single-line overlay
+		self:Exit(false, true)
+	end)
+end
+
+--- Called when combat starts (PLAYER_REGEN_DISABLED).
+--- Starts the lockdown idle timer if multiline is active.
+function Multiline:OnLockdownStart()
+	if not (self.Frame and self.Frame:IsShown()) then return end
+	if not State:IsMultiline() then return end
+
+	local text = self.EditBox and self.EditBox:GetText() or ""
+	if text == "" then
+		self:Exit(false, true)
+		return
+	end
+
+	self:ResetLockdownIdleTimer()
+end
+
+--- Called when combat ends (PLAYER_REGEN_ENABLED).
+--- Cancels the lockdown idle timer.
+function Multiline:OnLockdownEnd()
+	if self._lockdownIdleTimer then
+		self._lockdownIdleTimer:Cancel()
+		self._lockdownIdleTimer = nil
+	end
 end
 
 -- ---------------------------------------------------------------------------
