@@ -17,8 +17,6 @@ local math_abs   = math.abs
 function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     local cfg = YapperTable.Config.EditBox or {}
     if cfg.UseBlizzardSkinProxy == false then
-        -- Config toggled off: clean up any existing proxy so Yapper's own
-        -- fill can re-appear, then bail.
         if self._skinProxyTextures then
             self:DetachBlizzardSkinProxy()
         end
@@ -28,58 +26,74 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         return
     end
 
-    -- Textures already exist for this exact source editbox.
-    -- The overlay was just hidden and re-shown, so the textures are already
-    -- children of the overlay frame and came back visible with it.
-    -- Nothing to rebuild — just refresh the tint in case config changed.
-    if self._skinProxyTextures and self._skinProxySourceEB == origEditBox then
-        local inputBg = cfg.InputBg or {}
-        self:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
-        -- Ensure our own fill/border stay suppressed.
-        if self.Overlay._yapperSolidFill then self.Overlay._yapperSolidFill:Hide() end
-        if self.Overlay.Border then self.Overlay.Border:Hide() end
-        return
+    -- -----------------------------------------------------------------------
+    -- Helpers
+    -- -----------------------------------------------------------------------
+    local function IsRenderable(tex)
+        if not tex then return false end
+        local ok, atlas = pcall(tex.GetAtlas, tex)
+        if ok and atlas and atlas ~= "" then return true end
+        local ok2, file = pcall(tex.GetTexture, tex)
+        if ok2 and file and file ~= "" then return true end
+        -- ColorTexture: no atlas/file, but has non-zero vertex alpha.
+        local ok3, _, _, _, a = pcall(tex.GetVertexColor, tex)
+        if ok3 and a and a > 0 then return true end
+        return false
     end
 
-    -- Source editbox changed (e.g. ChatFrame2) or first attach: rebuild.
+    local function AnyRenderable(clones)
+        if not clones then return false end
+        for i = 1, #clones do
+            if IsRenderable(clones[i]) then return true end
+        end
+        return false
+    end
+
+    -- -----------------------------------------------------------------------
+    -- Fast-path with stale-proxy guard
+    -- -----------------------------------------------------------------------
+    if self._skinProxyTextures and self._skinProxySourceEB == origEditBox then
+        if AnyRenderable(self._skinProxyTextures) then
+            local inputBg = cfg.InputBg or {}
+            self:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
+            if self.Overlay._yapperSolidFill then self.Overlay._yapperSolidFill:Hide() end
+            if self.Overlay.Border then self.Overlay.Border:Hide() end
+            return
+        end
+        -- Clones are dead (source textures destroyed or reskinned). Force rebuild.
+        self:DetachBlizzardSkinProxy()
+    end
+
+    -- -----------------------------------------------------------------------
+    -- Rebuild
+    -- -----------------------------------------------------------------------
     self:DetachBlizzardSkinProxy()
 
     local overlay       = self.Overlay
     local clones        = {}
 
-    -- When our overlay is taller than Blizzard’s editbox we compute two
-    -- scales.  One keeps anchor points aligned to the real ratio, the
-    -- other grows texture heights with a margin so the skin’s corner caps
-    -- aren’t squashed and text doesn’t spill past the inset.
     local origH         = origEditBox:GetHeight() or 0
     local vScaleAnchors = 1
     local vScaleSize    = 1
     if origH > 0 and overlayHeight and overlayHeight > 0 then
         local baseScale = overlayHeight / origH
         vScaleAnchors = math_max(1, baseScale)
-        -- Extra margin: 50% of the growth beyond 1× for texture sizes.
         local margin = math_max(0, (baseScale - 1) * 0.5)
         vScaleSize = math_max(1, baseScale + margin)
     end
 
-    -- Reattach every anchor from the original box to our overlay; y offsets
-    -- are scaled by the true height ratio while texture size uses the
-    -- boosted scale so visuals keep up.
     local function mirrorAnchors(tex, region)
         tex:ClearAllPoints()
         local numPoints = region:GetNumPoints() or 0
         if numPoints == 0 then
-            -- No anchors at all, fall back to stretching.
             tex:SetAllPoints(overlay)
             return
         end
         for pi = 1, numPoints do
             local point, relTo, relPoint, xOfs, yOfs = region:GetPoint(pi)
             if relTo == origEditBox then
-                relTo = overlay -- remap to our overlay
+                relTo = overlay
             end
-            -- Scale Y offsets by the real ratio so anchors track the
-            -- actual frame size -- not the boosted texture size.
             local scaledYOfs = yOfs
             if vScaleAnchors > 1 then
                 scaledYOfs = yOfs * vScaleAnchors
@@ -88,75 +102,140 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         end
     end
 
-    -- Clone each visible Texture region from the editbox onto our overlay.
+    --- Clone a single Texture region onto the overlay.
+    local function CloneRegion(region)
+        local ok = pcall(function()
+            local drawLayer, subLevel = region:GetDrawLayer()
+            local tex = overlay:CreateTexture(nil, drawLayer or "BACKGROUND", nil, subLevel or 0)
+
+            local atlas = region.GetAtlas and region:GetAtlas()
+            if atlas and atlas ~= "" then
+                tex:SetAtlas(atlas, region.IsAtlasUsingSize and region:IsAtlasUsingSize() or false)
+            else
+                local file = region.GetTexture and region:GetTexture()
+                if file then
+                    tex:SetTexture(file)
+                    pcall(function()
+                        tex:SetTexCoord(region:GetTexCoord())
+                    end)
+                else
+                    -- ColorTexture fallback (Chattynator Dark, etc.)
+                    local r, g, b, a = region:GetVertexColor()
+                    tex:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
+                end
+            end
+
+            tex:SetVertexColor(1, 1, 1, 1)
+            pcall(function()
+                tex:SetAlpha(region:GetAlpha())
+            end)
+            pcall(function()
+                local blend = region:GetBlendMode()
+                if blend then tex:SetBlendMode(blend) end
+            end)
+            pcall(function()
+                local w, h = region:GetSize()
+                if w and w > 0 then tex:SetWidth(w) end
+                if h and h > 0 then tex:SetHeight(h * vScaleSize) end
+            end)
+            mirrorAnchors(tex, region)
+            tex:Show()
+
+            -- Discard clones that failed to acquire any texture data.
+            if IsRenderable(tex) then
+                clones[#clones + 1] = tex
+            else
+                tex:Hide()
+                tex:SetTexture(nil)
+            end
+        end)
+    end
+
+    -- Phase 1: Direct child regions of the editbox.
     local regions = { origEditBox:GetRegions() }
     for i = 1, #regions do
         local region = regions[i]
         if region and region.GetObjectType and region:GetObjectType() == "Texture" then
-            local ok = pcall(function()
-                -- Preserve sub-layer ordering within the same draw layer.
-                local drawLayer, subLevel = region:GetDrawLayer()
-                local tex = overlay:CreateTexture(nil, drawLayer or "BACKGROUND", nil, subLevel or 0)
-
-                -- Copy atlas or file texture.
-                local atlas = region.GetAtlas and region:GetAtlas()
-                if atlas and atlas ~= "" then
-                    tex:SetAtlas(atlas, region.IsAtlasUsingSize and region:IsAtlasUsingSize() or false)
-                else
-                    local file = region.GetTexture and region:GetTexture()
-                    if file then
-                        tex:SetTexture(file)
-                        pcall(function()
-                            tex:SetTexCoord(region:GetTexCoord())
-                        end)
-                    end
-                end
-
-                -- Always use white (SAY) vertex colour so the proxy skin
-                -- isn't tinted by whatever chat type was active at snapshot.
-                tex:SetVertexColor(1, 1, 1, 1)
-
-                -- Copy alpha.
-                pcall(function()
-                    tex:SetAlpha(region:GetAlpha())
-                end)
-
-                -- Copy blend mode.
-                pcall(function()
-                    local blend = region:GetBlendMode()
-                    if blend then tex:SetBlendMode(blend) end
-                end)
-
-                -- Copy explicit size.  Heights are scaled by the boosted
-                -- factor so the skin visually covers beyond the frame edge.
-                pcall(function()
-                    local w, h = region:GetSize()
-                    if w and w > 0 then tex:SetWidth(w) end
-                    if h and h > 0 then tex:SetHeight(h * vScaleSize) end
-                end)
-
-                -- Mirror anchor points: remap editbox references → overlay.
-                mirrorAnchors(tex, region)
-
-                tex:Show()
-                clones[#clones + 1] = tex
-            end)
-            -- If a single region fails, skip it and keep going.
+            CloneRegion(region)
         end
     end
 
+    -- Phase 2: Named global textures (reparented but not destroyed).
     if #clones == 0 then
-        return -- nothing to adopt
+        local name = origEditBox.GetName and origEditBox:GetName()
+        if name then
+            for _, suffix in ipairs({"Left", "Right", "Mid", "FocusLeft", "FocusRight", "FocusMid"}) do
+                local tex = _G[name .. suffix]
+                if tex and tex.GetObjectType and tex:GetObjectType() == "Texture" then
+                    CloneRegion(tex)
+                end
+            end
+        end
+    end
+
+    -- Phase 3: Generic addon replacement detection
+    -- GetChildren() returns child Frames (e.g. ElvUI's `backdrop` frame).
+    -- Recurse one level: clone any Texture regions belonging to those children,
+    -- and read their backdrop colour as a final fallback.
+    if #clones == 0 then
+        local children = { origEditBox:GetChildren() }
+        for i = 1, #children do
+            local child = children[i]
+            if child and child.GetRegions then
+                local subRegions = { child:GetRegions() }
+                for j = 1, #subRegions do
+                    local r = subRegions[j]
+                    if r and r.GetObjectType and r:GetObjectType() == "Texture" then
+                        CloneRegion(r)
+                    end
+                end
+                if #clones == 0 and child.GetBackdropColor then
+                    pcall(function()
+                        local cr, cg, cb, ca = child:GetBackdropColor()
+                        if ca and ca > 0 then
+                            local tex = overlay:CreateTexture(nil, "BACKGROUND")
+                            tex:SetColorTexture(cr, cg, cb, ca)
+                            tex:SetAllPoints(overlay)
+                            tex:Show()
+                            clones[#clones + 1] = tex
+                        end
+                    end)
+                end
+            end
+        end
+    end
+
+    -- Phase 4: Fallback to backdrop color if no textures were found.
+    -- Many addons only change the backdrop color instead of creating new textures.
+    if #clones == 0 and origEditBox.GetBackdropColor then
+        pcall(function()
+            local r, g, b, a = origEditBox:GetBackdropColor()
+            -- Only use the backdrop color if it's sensible (non-zero alpha).
+            if a and a > 0 then
+                local tex = overlay:CreateTexture(nil, "BACKGROUND")
+                tex:SetColorTexture(r or 0.1, g or 0.1, b or 0.1, a or 0.8)
+                tex:SetAllPoints(overlay)
+                tex:Show()
+                clones[#clones + 1] = tex
+            end
+        end)
+    end
+
+    -- -----------------------------------------------------------------------
+    -- Hardened fallback: nothing usable found → clear proxy state entirely
+    -- so RefreshOverlayVisuals falls back to Yapper's own solid fill.
+    -- -----------------------------------------------------------------------
+    if #clones == 0 then
+        self:DetachBlizzardSkinProxy()
+        return
     end
 
     self._skinProxyTextures = clones
     self._skinProxySourceEB = origEditBox
 
-    -- Apply user's backdrop colour as a tint over the cloned textures.
-    local inputBg           = cfg.InputBg or {}
+    local inputBg = cfg.InputBg or {}
     self:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
 
-    -- Suppress Yapper's own solid fill and border so the cloned skin shows.
     if overlay._yapperSolidFill then
         overlay._yapperSolidFill:Hide()
     end
