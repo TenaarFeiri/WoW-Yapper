@@ -334,6 +334,11 @@ function Multiline:CreateFrame()
 					Multiline.ChatType = eb.ChatType
 					Multiline.Target   = eb.Target
 					RefreshMLLabel(Multiline)
+					-- Persist the new channel choice so it syncs back to single-line overlay
+					if type(eb.PersistLastUsed) == "function" then
+						eb.Language = Multiline.Language
+						eb:PersistLastUsed()
+					end
 				end
 			end
 		end
