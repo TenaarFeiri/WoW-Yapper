@@ -880,7 +880,7 @@ function EditBox:SetupOverlayScripts()
     end)
 end
 
-function EditBox:ResetLockdownIdleTimer()
+function EditBox:ResetLockdownIdleTimer(isMultiline)
     if self._lockdown.idleTimer then
         self._lockdown.idleTimer:Cancel()
     end
@@ -896,6 +896,6 @@ function EditBox:ResetLockdownIdleTimer()
 
         YapperTable.Utils:DebugPrint("Lockdown idle timer fired!")
         self._lockdown.idleTimer = nil
-        self:HandoffToBlizzard()
+        self:HandoffToBlizzard(false, true, isMultiline)
     end)
 end

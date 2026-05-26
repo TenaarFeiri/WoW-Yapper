@@ -62,7 +62,6 @@ Multiline.Language                   = nil -- language index
 Multiline.Target                     = nil -- whisper / channel target
 Multiline._autoScrollSuppressedUntil = 0
 Multiline._lockdownIdleTimer         = nil -- combat lockdown idle timer (1.5s wait after last keystroke)
-Multiline._lockdownTextHooked        = false -- whether OnTextChanged hook is installed for lockdown
 
 -- ---------------------------------------------------------------------------
 -- Label helpers
@@ -977,17 +976,17 @@ function Multiline:ResetLockdownIdleTimer()
 		self._lockdownIdleTimer = nil
 		if not (self.Frame and self.Frame:IsShown()) then return end
 
-		-- Save the multiline draft for recovery after lockdown
-		if self.EditBox then
-			local text = self.EditBox:GetText() or ""
-			if text ~= "" and YapperTable.History then
-				YapperTable.History:SaveDraft(self.EditBox, true)
-				YapperTable.History:MarkDirty(true)
-			end
-		end
+		-- Collapse to single-line overlay. This saves the full multiline draft
+		-- (with multiline=true flag) via History:SaveDraft(self.EditBox, true).
+		self:Exit(true, false)
 
-		-- Close multiline without restoring text or showing the single-line overlay
-		self:Exit(false, true)
+		-- Immediately handoff to Blizzard lockdown flow (skip overlay timer).
+		-- Pass isMultiline=true so HandoffToBlizzard skips re-saving the draft.
+		-- Pass bypassOpen=true so Blizzard's editbox is not opened automatically.
+		local eb = YapperTable.EditBox
+		if eb and type(eb.HandoffToBlizzard) == "function" then
+			eb:HandoffToBlizzard(false, true, true)
+		end
 	end)
 end
 

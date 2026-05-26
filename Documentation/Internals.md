@@ -474,17 +474,17 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
   - `Hide` ([`../Src/EditBox/Hooks.lua#L437`](`../Src/EditBox/Hooks.lua#L437`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L560`](`../Src/EditBox/Hooks.lua#L560`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L647`](`../Src/EditBox/Hooks.lua#L647`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L741`](`../Src/EditBox/Hooks.lua#L741`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L919`](`../Src/EditBox/Hooks.lua#L919`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L957`](`../Src/EditBox/Hooks.lua#L957`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1005`](`../Src/EditBox/Hooks.lua#L1005`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1027`](`../Src/EditBox/Hooks.lua#L1027`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1052`](`../Src/EditBox/Hooks.lua#L1052`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1127`](`../Src/EditBox/Hooks.lua#L1127`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1194`](`../Src/EditBox/Hooks.lua#L1194`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1499`](`../Src/EditBox/Hooks.lua#L1499`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L563`](`../Src/EditBox/Hooks.lua#L563`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L659`](`../Src/EditBox/Hooks.lua#L659`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L753`](`../Src/EditBox/Hooks.lua#L753`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L931`](`../Src/EditBox/Hooks.lua#L931`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L969`](`../Src/EditBox/Hooks.lua#L969`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1017`](`../Src/EditBox/Hooks.lua#L1017`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1039`](`../Src/EditBox/Hooks.lua#L1039`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1064`](`../Src/EditBox/Hooks.lua#L1064`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1139`](`../Src/EditBox/Hooks.lua#L1139`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1206`](`../Src/EditBox/Hooks.lua#L1206`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1511`](`../Src/EditBox/Hooks.lua#L1511`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -664,22 +664,22 @@ Lazy frame creation; active only when user enters multiline mode.
   - `ScrollFrame` ([`../Src/Multiline.lua#L57`](`../Src/Multiline.lua#L57`))
   - `EditBox` ([`../Src/Multiline.lua#L58`](`../Src/Multiline.lua#L58`))
   - `LabelFS` ([`../Src/Multiline.lua#L59`](`../Src/Multiline.lua#L59`))
-  - `Active` ([`../Src/Multiline.lua#L200`](`../Src/Multiline.lua#L200`))
+  - `Active` ([`../Src/Multiline.lua#L199`](`../Src/Multiline.lua#L199`))
   - `ChatType` ([`../Src/Multiline.lua#L60`](`../Src/Multiline.lua#L60`))
   - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - [NEW] `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1011`](../Src/Multiline.lua#L1011))
-  - [NEW] `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L996`](../Src/Multiline.lua#L996))
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L114`](`../Src/Multiline.lua#L114`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L147`](`../Src/Multiline.lua#L147`))
-  - `Enter` ([`../Src/Multiline.lua#L564`](`../Src/Multiline.lua#L564`))
-  - `Exit` ([`../Src/Multiline.lua#L695`](`../Src/Multiline.lua#L695`))
-  - `Submit` ([`../Src/Multiline.lua#L813`](`../Src/Multiline.lua#L813`))
-  - `Cancel` ([`../Src/Multiline.lua#L962`](`../Src/Multiline.lua#L962`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1040`](`../Src/Multiline.lua#L1040`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L1027`](`../Src/Multiline.lua#L1027`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1049`](`../Src/Multiline.lua#L1049`))
+  - [NEW] `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1010`](../Src/Multiline.lua#L1010))
+  - [NEW] `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L995`](../Src/Multiline.lua#L995))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L113`](`../Src/Multiline.lua#L113`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L146`](`../Src/Multiline.lua#L146`))
+  - `Enter` ([`../Src/Multiline.lua#L563`](`../Src/Multiline.lua#L563`))
+  - `Exit` ([`../Src/Multiline.lua#L694`](`../Src/Multiline.lua#L694`))
+  - `Submit` ([`../Src/Multiline.lua#L812`](`../Src/Multiline.lua#L812`))
+  - `Cancel` ([`../Src/Multiline.lua#L961`](`../Src/Multiline.lua#L961`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1039`](`../Src/Multiline.lua#L1039`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L1026`](`../Src/Multiline.lua#L1026`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1048`](`../Src/Multiline.lua#L1048`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 

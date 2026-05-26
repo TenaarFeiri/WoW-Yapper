@@ -557,7 +557,15 @@ function EditBox:Hide(isHandoff)
 end
 
 --- Save draft, close overlay, and notify during lockdown.
-function EditBox:HandoffToBlizzard(silent, bypassOpen)
+--- @param silent boolean: if true, skip the user message
+--- @param bypassOpen boolean: if true, skip opening Blizzard's editbox with the draft (default true)
+--- @param isMultiline boolean: if true, draft was already saved by multiline mode, skip saving again
+function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
+    -- Default bypassOpen to true: don't auto-open Blizzard's editbox during lockdown.
+    -- The user can press Enter after lockdown ends to resume typing.
+    if bypassOpen == nil then
+        bypassOpen = true
+    end
     if not self.Overlay or not self.Overlay:IsShown() then
         return
     end
@@ -571,11 +579,15 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen)
     self:ClearLockdownState()
 
     -- Save as dirty draft for recovery on next open.
-    if text ~= "" and YapperTable.History then
+    -- Skip if isMultiline=true (draft already saved by Multiline:Exit with full multiline text).
+    if text ~= "" and YapperTable.History and not isMultiline then
         YapperTable.History:SaveDraft(self.OverlayEdit)
         YapperTable.History:MarkDirty(true)
         -- Mark that this draft was saved due to lockdown so callers
         -- can decide whether to restore it to Blizzard's editbox.
+        self._lockdown.savedDraft = true
+    elseif isMultiline then
+        -- Draft was already saved by multiline mode. Just mark it as a lockdown draft.
         self._lockdown.savedDraft = true
     end
 
