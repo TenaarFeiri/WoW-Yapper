@@ -82,11 +82,11 @@ function EditBox:UpdateFocusOverride()
     if ChatFrameUtil and ChatFrameUtil.SetChatFocusOverride then
         local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
         local inCombat = InCombatLockdown and InCombatLockdown()
-        -- If we are in combat, but the overlay is currently shown and not handed off yet,
-        -- keep the override active so the user can finish typing.
+        -- If we are in combat or lockdown, but the overlay is currently shown and not handed off yet,
+        -- keep the override active so the user can finish typing (during the 1.5s idle timer).
         local overlayActive = self.Overlay and self.Overlay:IsShown() and not self._lockdown.handedOff
 
-        if not UserBypassingYapper and not BypassEditBox and not (inLockdown or (inCombat and not overlayActive)) and self.OverlayEdit then
+        if not UserBypassingYapper and not BypassEditBox and not ((inLockdown or inCombat) and not overlayActive) and self.OverlayEdit then
             ChatFrameUtil.SetChatFocusOverride(self.OverlayEdit)
         else
             ChatFrameUtil.ClearChatFocusOverride()

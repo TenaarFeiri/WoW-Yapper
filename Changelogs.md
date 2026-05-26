@@ -42,9 +42,15 @@
 # Patch notes
 
 ## 2.1.25
+  - **Proxy skin fixes**:
+    - Fixed texture repeat artifacts at the edges of the Blizzard chat editbox in vanilla UI.
+    - Fixed darker middle section appearing in the Blizzard chat editbox in vanilla UI.
+    - Fixed gray rectangle appearing when using reskinners like Chattynator in proxy mode.
+    - Improved handling of addon-modified editboxes to prevent incorrect texture overlays (best efforts).
+  - **Lockdown focus fix**:
+    - Fixed focus loss in the single-line overlay when entering combat lockdown while typing.
   - Added lockdown logic to multiline mode.
   - Fix multiline not syncing across Yapper and Blizzard.
-  - Speculative fix inability to obtain reskinned Blizzard editbox appearance for proxy mode.
 
 ## 2.1.24
   - Added TRP3 language tracking
