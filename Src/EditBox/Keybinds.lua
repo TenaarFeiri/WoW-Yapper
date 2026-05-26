@@ -93,7 +93,15 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     if not (EditBox and EditBox.Show) then
         return
     end
-    
+
+    -- If the post queue is stalled and waiting for Enter to continue,
+    -- progress the queue instead of opening Yapper.
+    local Queue = YapperTable.Queue
+    if Queue and Queue.TryContinue and Queue:TryContinue() then
+        Queue:SendNext(true)
+        return
+    end
+
     -- Check for chat messaging lockdown before opening Yapper
     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
         -- Save Yapper's LastUsed state for restoration after lockdown
@@ -104,12 +112,12 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
                 language = EditBox.LastUsed.language
             }
         end
-        
+
         -- Sync attributes if requested
         if syncAttributes then
             SyncAttributesToBlizzard()
         end
-        
+
         if ChatFrameUtil and ChatFrameUtil.OpenChat then
             ChatFrameUtil.OpenChat()
         end

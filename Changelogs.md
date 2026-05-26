@@ -49,6 +49,8 @@
     - Improved handling of addon-modified editboxes to prevent incorrect texture overlays (best efforts).
   - **Lockdown focus fix**:
     - Fixed focus loss in the single-line overlay when entering combat lockdown while typing.
+  - **Post queue fix**:
+    - Fixed post queue progression with the new keybind system — Enter now correctly progresses stalled queues instead of opening Yapper.
   - Added lockdown logic to multiline mode.
   - Fix multiline not syncing across Yapper and Blizzard.
 
