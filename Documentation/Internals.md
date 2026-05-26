@@ -443,8 +443,8 @@ Attached during overlay show lifecycle.
 - Description: Mirrors Blizzard editbox visual skin.
 - Methods:
   - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L17`](`../Src/EditBox/SkinProxy.lua#L17`))
-  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L175`](`../Src/EditBox/SkinProxy.lua#L175`))
-  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L210`](`../Src/EditBox/SkinProxy.lua#L210`))
+  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L254`](`../Src/EditBox/SkinProxy.lua#L254`))
+  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L289`](`../Src/EditBox/SkinProxy.lua#L289`))
 
 ## EditBox.Overlay
 
@@ -664,20 +664,22 @@ Lazy frame creation; active only when user enters multiline mode.
   - `ScrollFrame` ([`../Src/Multiline.lua#L57`](`../Src/Multiline.lua#L57`))
   - `EditBox` ([`../Src/Multiline.lua#L58`](`../Src/Multiline.lua#L58`))
   - `LabelFS` ([`../Src/Multiline.lua#L59`](`../Src/Multiline.lua#L59`))
-  - `Active` ([`../Src/Multiline.lua#L198`](`../Src/Multiline.lua#L198`))
+  - `Active` ([`../Src/Multiline.lua#L200`](`../Src/Multiline.lua#L200`))
   - `ChatType` ([`../Src/Multiline.lua#L60`](`../Src/Multiline.lua#L60`))
   - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L112`](`../Src/Multiline.lua#L112`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L145`](`../Src/Multiline.lua#L145`))
-  - `Enter` ([`../Src/Multiline.lua#L541`](`../Src/Multiline.lua#L541`))
-  - `Exit` ([`../Src/Multiline.lua#L671`](`../Src/Multiline.lua#L671`))
-  - `Submit` ([`../Src/Multiline.lua#L787`](`../Src/Multiline.lua#L787`))
-  - `Cancel` ([`../Src/Multiline.lua#L923`](`../Src/Multiline.lua#L923`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L949`](`../Src/Multiline.lua#L949`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L936`](`../Src/Multiline.lua#L936`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L958`](`../Src/Multiline.lua#L958`))
+  - [NEW] `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1011`](../Src/Multiline.lua#L1011))
+  - [NEW] `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L996`](../Src/Multiline.lua#L996))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L114`](`../Src/Multiline.lua#L114`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L147`](`../Src/Multiline.lua#L147`))
+  - `Enter` ([`../Src/Multiline.lua#L564`](`../Src/Multiline.lua#L564`))
+  - `Exit` ([`../Src/Multiline.lua#L695`](`../Src/Multiline.lua#L695`))
+  - `Submit` ([`../Src/Multiline.lua#L813`](`../Src/Multiline.lua#L813`))
+  - `Cancel` ([`../Src/Multiline.lua#L962`](`../Src/Multiline.lua#L962`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1040`](`../Src/Multiline.lua#L1040`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ShouldAutoExpand` ([`../Src/Multiline.lua#L1027`](`../Src/Multiline.lua#L1027`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1049`](`../Src/Multiline.lua#L1049`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 

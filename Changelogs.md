@@ -41,6 +41,11 @@
 
 # Patch notes
 
+## 2.1.25
+  - Added lockdown logic to multiline mode.
+  - Fix multiline not syncing across Yapper and Blizzard.
+  - Speculative fix inability to obtain reskinned Blizzard editbox appearance for proxy mode.
+
 ## 2.1.24
   - Added TRP3 language tracking
     - Hooked into TRP3's API to track when they do language swaps to ensure parity with Yapper.
