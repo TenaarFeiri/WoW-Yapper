@@ -52,45 +52,37 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local shadCol     = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
     local shadSz      = cfg.ShadowSize or 4
 
-    -- When the Blizzard skin proxy is active, make the overlay background fully
-    -- transparent so the cloned skin textures show through.
-    local proxyActive = editBox._skinProxyTextures
-    local fillR, fillG, fillB, fillA
-    if proxyActive then
-        fillR, fillG, fillB, fillA = 0, 0, 0, 0
-        -- Re-tint cloned textures with the user's backdrop colour so live
-        -- config changes are reflected immediately.
-        editBox:TintSkinProxyTextures(inputBg.r, inputBg.g, inputBg.b, inputBg.a)
-    else
-        fillR = inputBg.r or 0.05
-        fillG = inputBg.g or 0.05
-        fillB = inputBg.b or 0.05
-        fillA = inputBg.a or 1.0
-    end
-
     -- Input background fill + dynamic inset so it never bleeds outside the border.
-    SetFrameFillColour(overlay, fillR, fillG, fillB, fillA, rounded)
-    local activeFill = rounded and overlay._yapperRoundedFill or overlay._yapperSolidFill
+    -- When the Blizzard skin proxy is active, we still show the fill as a background
+    -- behind the cloned textures (they may be semi-transparent and rely on a dark
+    -- background, just as they rely on the chat frame's background in the native UI).
+    -- The fill was created before the clones, so it is always below them in draw order.
+    local proxyActive = editBox._skinProxyTextures
+    local fillR = inputBg.r or 0.05
+    local fillG = inputBg.g or 0.05
+    local fillB = inputBg.b or 0.05
+    local fillA = inputBg.a or 1.0
+    -- Proxy mode always uses solid fill (no rounded corners), matching Blizzard's geometry.
+    SetFrameFillColour(overlay, fillR, fillG, fillB, fillA, proxyActive and false or rounded)
+    local activeFill = (not proxyActive and rounded) and overlay._yapperRoundedFill or overlay._yapperSolidFill
     if activeFill then
-        if proxyActive then
-            -- Keep hidden; cloned skin textures replace the solid fill.
-            activeFill:Hide()
+        activeFill:Show()
+        activeFill:ClearAllPoints()
+        if pad > 0 then
+            activeFill:SetPoint("TOPLEFT", overlay, "TOPLEFT", pad, -pad)
+            activeFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
         else
-            activeFill:Show()
-            activeFill:ClearAllPoints()
-            if pad > 0 then
-                activeFill:SetPoint("TOPLEFT", overlay, "TOPLEFT", pad, -pad)
-                activeFill:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
-            else
-                activeFill:SetAllPoints(overlay)
-            end
+            activeFill:SetAllPoints(overlay)
+        end
+        if proxyActive and overlay._yapperRoundedFill then
+            overlay._yapperRoundedFill:Hide()
         end
     end
 
     -- Label background fill + position (inset matches fill when border active).
     -- Hidden when skin proxy is active so cloned skin textures show.
     if proxyActive then
-        SetFrameFillColour(labelBg, 0, 0, 0, 0, rounded)
+        -- Hide any existing Yapper fills on the label background.
         if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Hide() end
         if labelBg._yapperRoundedFill then labelBg._yapperRoundedFill:Hide() end
     else

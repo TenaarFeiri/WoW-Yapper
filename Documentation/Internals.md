@@ -443,8 +443,8 @@ Attached during overlay show lifecycle.
 - Description: Mirrors Blizzard editbox visual skin.
 - Methods:
   - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L17`](`../Src/EditBox/SkinProxy.lua#L17`))
-  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L254`](`../Src/EditBox/SkinProxy.lua#L254`))
-  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L289`](`../Src/EditBox/SkinProxy.lua#L289`))
+  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L430`](`../Src/EditBox/SkinProxy.lua#L430`))
+  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L465`](`../Src/EditBox/SkinProxy.lua#L465`))
 
 ## EditBox.Overlay
 
@@ -454,7 +454,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
 - Methods:
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L350`](../Src/EditBox/Overlay.lua#L350)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L342`](../Src/EditBox/Overlay.lua#L342)).
 
 ## EditBox.Handlers
 
