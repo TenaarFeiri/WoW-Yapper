@@ -1,6 +1,6 @@
 # Yapper public API (`_G.YapperAPI`)
 
-> ⚠️ `_G.YapperAPI` is the stable interaction point between integrating addons and Yapper's platform. Prefer this over internals where possible, ask for new API if you feel it would be appropriate.
+> ⚠️ `_G.YapperAPI` is the stable interaction point between integrating add-ons and Yapper's platform. Prefer this over internals where possible, ask for new API if you feel it would be appropriate.
 > When API is updated or calls are slated to be changed or removed, existing API will be protected in the codebase for up to **6 months** either as an alias (common for renames) or as a wrapper around
 > new API slated to replace old (for example in cases of consolidation, etc.). An in-game notice about deprecated API usage will appear once per session.
 > Once the 6-month grace period ends, deprecated API calls are no longer protected and may be removed or rendered unusable at any time.
@@ -12,7 +12,7 @@ Source of truth: [`Src/API.lua`](../Src/API.lua).
 
 ## Stability and usage
 
-- Public object is created at [`Src/API.lua#L540-L543`](../Src/API.lua#L540-L543).
+- Public object is created at [`Src/API.lua#L191`](../Src/API.lua#L191).
 - Registrations are sandboxed (`pcall`) so consumer errors do not crash Yapper.
 - Filters are cancellable pre-hooks; callbacks are post events.
 
