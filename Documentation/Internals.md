@@ -380,12 +380,12 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 - Methods:
   - `Init` ([`../Src/IconGallery.lua#L19`](../Src/IconGallery.lua#L19))
   - `Show` ([`../Src/IconGallery.lua#L78`](../Src/IconGallery.lua#L78))
-  - `Hide` ([`../Src/IconGallery.lua#L99`](../Src/IconGallery.lua#L99))
-  - `Filter` ([`../Src/IconGallery.lua#L111`](../Src/IconGallery.lua#L111))
-  - `Select` ([`../Src/IconGallery.lua#L137`](../Src/IconGallery.lua#L137))
-  - `HandleKeyDown` ([`../Src/IconGallery.lua#L163`](../Src/IconGallery.lua#L163))
-  - `_GetIconMeta` ([`../Src/IconGallery.lua#L206`](../Src/IconGallery.lua#L206))
-  - `OnTextChanged` ([`../Src/IconGallery.lua#L217`](../Src/IconGallery.lua#L217))
+  - `Hide` ([`../Src/IconGallery.lua#L110`](../Src/IconGallery.lua#L110))
+  - `Filter` ([`../Src/IconGallery.lua#L122`](../Src/IconGallery.lua#L122))
+  - `Select` ([`../Src/IconGallery.lua#L148`](../Src/IconGallery.lua#L148))
+  - `HandleKeyDown` ([`../Src/IconGallery.lua#L174`](../Src/IconGallery.lua#L174))
+  - `_GetIconMeta` ([`../Src/IconGallery.lua#L217`](../Src/IconGallery.lua#L217))
+  - `OnTextChanged` ([`../Src/IconGallery.lua#L228`](../Src/IconGallery.lua#L228))
 - Callbacks fired:
   - `ICON_GALLERY_SHOW`, `ICON_GALLERY_HIDE`, `ICON_GALLERY_SELECT`.
 

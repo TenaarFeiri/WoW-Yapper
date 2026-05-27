@@ -78,6 +78,17 @@ end
 function IconGallery:Show(rawEditBox, anchorFrame, query)
     -- anchorFrame is the frame to anchor the popup below/above.
     -- rawEditBox is the actual EditBox widget whose text we modify.
+    if YapperTable.API then
+        local payload = YapperTable.API:RunFilter("PRE_ICON_GALLERY_SHOW", {
+            rawEditBox = rawEditBox,
+            query = query or ""
+        })
+        if payload == false then
+            return
+        end
+        query = payload.query
+        rawEditBox = payload.rawEditBox
+    end
     local parent = anchorFrame or rawEditBox
     self:Init()
     self._rawEditBox  = rawEditBox

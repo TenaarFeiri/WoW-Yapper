@@ -123,6 +123,11 @@
       error attributing the failure to the claiming addon.
       Emission site: Src/Chat.lua#L251.
 
+    PRE_ICON_GALLERY_SHOW  rawEditBox, query            yes
+      Fires before the raid-icon gallery popup is shown.
+      Modify `query` to change the pre-filter string or return false to suppress.
+      Emission site: Src/IconGallery.lua#L81.
+
 ---------------------------------------------------------------------------
 2.  CALLBACKS (post-hooks / event notifications)
 ---------------------------------------------------------------------------

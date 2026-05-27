@@ -71,6 +71,13 @@ Register/unregister:
 - Fires before the expanded multiline editor opens.
 - Modify payload to change initial text/channel or return false to block.
 
+### `PRE_ICON_GALLERY_SHOW`
+
+- Payload: `{ rawEditBox: EditBox, query: string }`
+- Fired from [`Src/IconGallery.lua#L81`](../Src/IconGallery.lua#L81).
+- Fires before the raid-icon gallery popup is shown.
+- Modify `query` to change the pre-filter string or return false to suppress the gallery.
+
 ## Callbacks
 
 Register/unregister:
