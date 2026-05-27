@@ -1,5 +1,13 @@
 # Yapper public API (`_G.YapperAPI`)
 
+> ⚠️ `_G.YapperAPI` is the stable interaction point between integrating addons and Yapper's platform. Prefer this over internals where possible, ask for new API if you feel it would be appropriate.
+> When API is updated or calls are slated to be changed or removed, existing API will be protected in the codebase for up to 6 months either as an alias (common for renames) or as a wrapper around
+> new API slated to replace old (for example in cases of consolidation, etc.). An in-game notice about deprecated API usage will appear once per session.
+> Once the 6-month grace period ends, deprecated API calls are no longer protected and may be removed or rendered unusable at any time.
+>
+> Every effort will be made to keep the API a stable interface between Yapper and other add-ons for as long as reasonably possible. If you use a deprecated API function and receive a notice about it
+> in-game, please update your add-on ASAP to prevent future interruption of service.
+
 Source of truth: [`Src/API.lua`](../Src/API.lua).
 
 ## Stability and usage
