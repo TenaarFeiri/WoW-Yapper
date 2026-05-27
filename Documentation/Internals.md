@@ -1,6 +1,7 @@
 # Internals reference (`_G.Yapper` / `YapperTable`)
 
-> ⚠️ Everything documented here is **internal**. Use `YapperAPI` (see `API.md`) when possible. Internals are documented because third-party addons sometimes need them, but they may change without notice. If you find yourself relying on an internal, please open an issue proposing an addition to the public API.
+> ⚠️ Everything documented here is **internal**. Use `YapperAPI` (see `API.md`) when possible.
+> By interacting with, using and/or modifying internals directly (e.g. through `_G.Yapper`), you accept that these internals may change or be removed at any time, without notice, and that you are solely responsible for maintenance. Always prefer API over internals, and if you find yourself missing critical surface area for which it makes sense to create API, please reach out.
 
 All sections below follow TOC load order from [`Yapper.toc`](../Yapper.toc).
 
