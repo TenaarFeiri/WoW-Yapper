@@ -668,6 +668,14 @@ function Multiline:Enter(text, chatType, language, target)
 		self.Frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 140)
 	end
 
+	-- Wholesale proxy mode: the original Blizzard editbox is visible behind
+	-- Yapper's overlay. Hide it for the duration of multiline so it doesn't
+	-- show through. Exit() re-shows it when we return to the overlay.
+	-- _proxyPrevState is preserved so EditBox:Hide can still restore it.
+	if eb and eb._proxyOrigEditBox then
+		pcall(function() eb._proxyOrigEditBox:Hide() end)
+	end
+
 	self.Frame:Show()
 	-- Recalculate the label gap now that the frame is visible and the layout
 	-- has been committed.  On first open GetStringHeight() returns 0 for a
@@ -763,6 +771,11 @@ function Multiline:Exit(restoreText, suppressOverlay)
 		if not suppressOverlay then
 			if eb.Overlay then
 				eb.Overlay:Show()
+			end
+			-- Wholesale proxy mode: also re-show the underlying Blizzard editbox
+			-- that Enter() hid, so the addon skin reappears under the overlay.
+			if eb._proxyOrigEditBox then
+				pcall(function() eb._proxyOrigEditBox:Show() end)
 			end
 			if eb.OverlayEdit then
 				eb.OverlayEdit:SetFocus()

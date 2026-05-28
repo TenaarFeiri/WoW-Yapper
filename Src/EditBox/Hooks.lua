@@ -307,10 +307,24 @@ function EditBox:Show(origEditBox)
     if YapperTable.Utils and YapperTable.Utils.DebugPrint then
         YapperTable.Utils:DebugPrint("Show: overlay frameLevel=" .. overlay:GetFrameLevel() .. ", orig frameLevel=" .. origLevel)
     end
-    pcall(function()
-        -- Wear Blizzard's skin.
-        self:AttachBlizzardSkinProxy(origEditBox, finalH)
-    end)
+    if cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+        -- Wholesale proxy: keep the original Blizzard editbox visible underneath.
+        -- If a multiline draft is pending, Multiline:Enter (called at the end of Show)
+        -- will Hide() the original editbox within the same Lua callback, so the user
+        -- never sees it flicker visible. _proxyPrevState remains intact so Multiline:Exit
+        -- can re-show it when the user returns to the single-line overlay.
+        pcall(function() self:ApplyProxyMode(origEditBox) end)
+    else
+        pcall(function()
+            -- Legacy: clone Blizzard's textures onto Yapper's overlay.
+            self:AttachBlizzardSkinProxy(origEditBox, finalH)
+        end)
+        if not self._skinProxyTextures and cfg.UseBlizzardSkinProxy == true then
+            if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                YapperTable.Utils:DebugPrint("Show: AttachBlizzardSkinProxy failed (no textures attached despite config=true)")
+            end
+        end
+    end
 
     -- Visual refresh.
     do
@@ -437,6 +451,13 @@ end
 function EditBox:Hide(isHandoff)
     local prevOrig = self.OrigEditBox
     self._overlayUnfocused = false
+
+    -- Wholesale proxy mode: restore the original Blizzard editbox to its
+    -- pre-Yapper state (mouse, header visibility, shown/hidden).
+    -- Safe to call when proxy mode wasn't active.
+    if self.RestoreProxyMode then
+        pcall(function() self:RestoreProxyMode() end)
+    end
 
     -- NOTE: DetachBlizzardSkinProxy() is intentionally NOT called here.
     -- Proxy textures are children of the overlay frame; they hide automatically
@@ -735,6 +756,11 @@ function EditBox:ApplyConfigToLiveOverlay(force)
             pcall(function()
                 self:AttachBlizzardSkinProxy(self.OrigEditBox, resolvedH)
             end)
+            if not self._skinProxyTextures and cfg.UseBlizzardSkinProxy == true then
+                if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+                    YapperTable.Utils:DebugPrint("ApplyConfigToLiveOverlay: AttachBlizzardSkinProxy failed (no textures attached despite config=true)")
+                end
+            end
         end
     end
 
@@ -925,6 +951,31 @@ function EditBox:RefreshLabel()
     -- authoritative editbox — no need to sync state back to Blizzard's box.
     -- ForwardSlashCommand sets attributes explicitly when forwarding commands,
     -- and lockdown handoff preserves state through drafts, not attribute sync.
+
+    -- Wholesale proxy mode exception: addons like Prat hook ChatEdit_UpdateHeader
+    -- to recolour the editbox border per channel. Since the original Blizzard
+    -- editbox is now visible underneath Yapper, mirror our chat type onto it
+    -- (outside combat) so those hooks fire and the skin reflects the channel.
+    if cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+        and self.OrigEditBox and not (InCombatLockdown and InCombatLockdown()) then
+        local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType] or self.ChatType
+        pcall(function()
+            if self.OrigEditBox:GetAttribute("chatType") ~= overrideCT then
+                self.OrigEditBox:SetAttribute("chatType", overrideCT)
+            end
+            if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
+                if self.Target and self.Target ~= ""
+                    and self.OrigEditBox:GetAttribute("tellTarget") ~= self.Target then
+                    self.OrigEditBox:SetAttribute("tellTarget", self.Target)
+                end
+            elseif overrideCT == "CHANNEL" then
+                if self.Target
+                    and self.OrigEditBox:GetAttribute("channelTarget") ~= self.Target then
+                    self.OrigEditBox:SetAttribute("channelTarget", self.Target)
+                end
+            end
+        end)
+    end
 end
 
 --- Save selection for stickiness across show/hide.

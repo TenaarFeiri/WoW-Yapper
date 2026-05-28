@@ -26,6 +26,17 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         return
     end
 
+    -- Wholesale proxy mode: the new approach keeps the original Blizzard editbox
+    -- visible behind a transparent Yapper overlay (see EditBox:ApplyProxyMode).
+    -- Texture cloning is deprecated and only runs when the legacy flag is set.
+    if cfg.UseLegacyCloneProxy ~= true then
+        -- Clean up any leftover clones from a previous legacy session.
+        if self._skinProxyTextures then
+            self:DetachBlizzardSkinProxy()
+        end
+        return
+    end
+
     local overlay = self.Overlay
 
     -- -----------------------------------------------------------------------
@@ -39,8 +50,15 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         end
     end
 
+    local ebName = origEditBox.GetName and origEditBox:GetName() or "<unknown>"
+    Log(string.format("AttachBlizzardSkinProxy: cfg=%s, eb=%s, overlayH=%.1f",
+        tostring(cfg.UseBlizzardSkinProxy), ebName, overlayHeight or 0))
+
     local function IsRenderable(tex)
         if not tex then return false end
+        local shown = true
+        pcall(function() shown = tex:IsShown() end)
+        if not shown then return false end
         local ok, atlas = pcall(tex.GetAtlas, tex)
         if ok and atlas and atlas ~= "" then return true end
         local ok2, file = pcall(tex.GetTexture, tex)
@@ -64,10 +82,16 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     -- -----------------------------------------------------------------------
     if self._skinProxyTextures and self._skinProxySourceEB == origEditBox then
         if AnyRenderable(self._skinProxyTextures) then
+            -- Ensure all clones are actually shown (they may have been hidden)
+            for i = 1, #self._skinProxyTextures do
+                pcall(function() self._skinProxyTextures[i]:Show() end)
+            end
             if overlay.Border then overlay.Border:Hide() end
+            Log("Fast-path: reusing existing proxy textures.")
             return
         end
         -- Clones are stale — force a full rebuild below.
+        Log("Fast-path: clones are stale, forcing rebuild.")
         self:DetachBlizzardSkinProxy()
     end
 
@@ -239,7 +263,8 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         local hasProper = false
         for i = 1, #list do
             local region = list[i]
-            if region and region.GetObjectType and region:GetObjectType() == "Texture" then
+            local ok, objType = pcall(function() return region and region.GetObjectType and region:GetObjectType() end)
+            if ok and objType == "Texture" then
                 local shown = true
                 pcall(function() shown = region:IsShown() end)
                 if shown then
@@ -274,17 +299,35 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     -- -----------------------------------------------------------------------
     local regions = { origEditBox:GetRegions() }
     clones = CloneVisibleRegions(regions)
-    -- addonSkinDetected: Stage 1 found regions but couldn't clone any of them.
-    -- This signals the editbox was modified by an addon skin.  Used below to
-    -- prevent Stage 2 (named globals) and Stage 3 (child frame textures) from
-    -- incorrectly applying Blizzard or unrelated child textures over the skin.
-    local addonSkinDetected = (#regions > 0 and #clones == 0)
+    -- addonSkinDetected: Only true when Stage 1 found *visible* non-stock textures
+    -- or visible Frame regions that have replaced the stock UI. Hidden stock textures
+    -- alone must not block Stage 3.
+    local addonSkinDetected = false
+    if #regions > 0 and #clones == 0 then
+        -- Check if any visible regions are non-Texture (e.g., Frame regions from addon skins)
+        local hasVisibleNonTexture = false
+        for i = 1, #regions do
+            local region = regions[i]
+            if region then
+                local shown = false
+                pcall(function() shown = region:IsShown() end)
+                if shown then
+                    local ok, objType = pcall(function() return region.GetObjectType and region:GetObjectType() end)
+                    if ok and objType and objType ~= "Texture" then
+                        hasVisibleNonTexture = true
+                        break
+                    end
+                end
+            end
+        end
+        addonSkinDetected = hasVisibleNonTexture
+    end
     if #clones > 0 then
         Log(string.format("Stage 1 success: %d visible region(s) cloned.", #clones))
     elseif addonSkinDetected then
-        Log(string.format("Stage 1: %d region(s) found but all skipped (addon skin detected).", #regions))
+        Log(string.format("Stage 1: visible non-Texture regions found (addon skin detected), skipping Stage 3."))
     else
-        Log("Stage 1: no regions on editbox — trying Stage 2.")
+        Log("Stage 1: no cloneable regions — trying Stage 2.")
     end
 
     -- -----------------------------------------------------------------------
@@ -314,12 +357,10 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     end
 
     -- -----------------------------------------------------------------------
-    -- Stage 3: Child frame regions + backdrop color fallback.
-    -- Handles addons (ElvUI, etc.) that attach textures to child frames rather
-    -- than directly on the editbox.  Also reads GetBackdropColor() from the
-    -- editbox and its children as a last-resort solid-colour clone.
-    -- Child-frame texture cloning is skipped when addonSkinDetected: those
-    -- child textures belong to the addon skin and look wrong on our overlay.
+    -- Stage 3: Child frame regions + backdrop cloning.
+    -- Handles addons (Prat, ElvUI, etc.) that attach textures to child frames
+    -- or use BackdropTemplate backdrops. Child-frame texture cloning is skipped
+    -- when addonSkinDetected: those child textures belong to the addon skin.
     -- -----------------------------------------------------------------------
     if #clones == 0 then
         local children = { origEditBox:GetChildren() }
@@ -337,29 +378,48 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         if #clones > 0 then
             Log(string.format("Stage 3 success: %d region(s) cloned from child frames.", #clones))
         else
-            -- No textures anywhere — try backdrop color as a plain solid clone.
+            -- No textures anywhere — try backdrop cloning for addons like Prat.
             local backdropSources = { origEditBox }
             for _, ch in ipairs(children) do backdropSources[#backdropSources + 1] = ch end
 
             for _, src in ipairs(backdropSources) do
-                if #clones == 0 and src.GetBackdropColor then
+                if #clones == 0 and src.GetBackdrop then
                     pcall(function()
-                        local cr, cg, cb, ca = src:GetBackdropColor()
-                        if ca and ca > 0 then
-                            local t = overlay:CreateTexture(nil, "BACKGROUND")
-                            t:SetColorTexture(cr, cg, cb, ca)
-                            t:SetAllPoints(overlay)
-                            t:Show()
-                            clones[#clones + 1] = t
-                            Log(string.format("Stage 3 backdrop color: r=%.2f g=%.2f b=%.2f a=%.2f",
-                                cr, cg, cb, ca))
+                        local backdrop = src:GetBackdrop()
+                        if backdrop and (backdrop.bgFile or backdrop.edgeFile) then
+                            -- Copy the full backdrop to Yapper's overlay Border frame
+                            if overlay.Border then
+                                overlay.Border:SetBackdrop(backdrop)
+                                local cr, cg, cb, ca = src:GetBackdropColor()
+                                if cr then overlay.Border:SetBackdropColor(cr, cg, cb, ca) end
+                                local br, bg, bb, ba = src:GetBackdropBorderColor()
+                                if br then overlay.Border:SetBackdropBorderColor(br, bg, bb, ba) end
+                                overlay.Border:Show()
+                                -- Mark that we used backdrop cloning so RefreshOverlayVisuals doesn't hide it
+                                overlay._yapperBackdropProxy = true
+                                clones[#clones + 1] = overlay.Border  -- Track as a "clone" for cleanup
+                                Log(string.format("Stage 3 backdrop cloning: bgFile=%s, edgeFile=%s",
+                                    tostring(backdrop.bgFile), tostring(backdrop.edgeFile)))
+                            end
+                        elseif src.GetBackdropColor then
+                            -- Fallback to solid color only (no backdrop defined)
+                            local cr, cg, cb, ca = src:GetBackdropColor()
+                            if ca and ca > 0 then
+                                local t = overlay:CreateTexture(nil, "BACKGROUND")
+                                t:SetColorTexture(cr, cg, cb, ca)
+                                t:SetAllPoints(overlay)
+                                t:Show()
+                                clones[#clones + 1] = t
+                                Log(string.format("Stage 3 backdrop color: r=%.2f g=%.2f b=%.2f a=%.2f",
+                                    cr, cg, cb, ca))
+                            end
                         end
                     end)
                 end
             end
 
             if #clones == 0 then
-                Log("Stage 3: no child regions or backdrop color found.")
+                Log("Stage 3: no child regions or backdrop found.")
             end
         end
     end
@@ -372,6 +432,8 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         Log("Stage 4: all stages exhausted — using Yapper config fill.")
         return
     end
+
+    Log(string.format("AttachBlizzardSkinProxy complete: %d clone(s) active.", #clones))
 
     -- -----------------------------------------------------------------------
     -- Post-build: tint atlas/file clones with the source editbox's backdrop
@@ -475,9 +537,114 @@ function EditBox:DetachBlizzardSkinProxy()
     self._skinProxyTextures = nil
     self._skinProxySourceEB = nil
 
+    -- Clear backdrop proxy flag and hide Border if it was used for backdrop cloning
+    if self.Overlay then
+        self.Overlay._yapperBackdropProxy = nil
+        if self.Overlay.Border then
+            pcall(function() self.Overlay.Border:SetBackdrop(nil) end)
+            self.Overlay.Border:Hide()
+        end
+    end
+
     -- Re-show Yapper's own fill (RefreshOverlayVisuals will recolour it).
     if self.Overlay and self.Overlay._yapperSolidFill then
         self.Overlay._yapperSolidFill:Show()
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Wholesale proxy mode: keep the original Blizzard editbox visible underneath
+-- a transparent Yapper overlay so the addon-supplied skin renders natively.
+-- ---------------------------------------------------------------------------
+
+--- Names of Blizzard editbox sub-elements that show the channel header text.
+--- Hidden by ApplyProxyMode so our own ChannelLabel is the only visible prefix.
+local PROXY_HIDE_KEYS = { "header", "headerSuffix", "prompt", "NewcomerHint", "languageHeader" }
+
+--- Activate wholesale proxy mode: keep the Blizzard editbox visible underneath.
+--- Saves the editbox's pre-state on self._proxyPrevState so RestoreProxyMode
+--- can put it back when Yapper closes.
+function EditBox:ApplyProxyMode(origEditBox)
+    if not origEditBox then return end
+
+    -- Save pre-state so we can restore exactly what we changed.
+    local prev = {
+        wasShown        = origEditBox:IsShown(),
+        mouseEnabled    = origEditBox.IsMouseEnabled and origEditBox:IsMouseEnabled() or nil,
+        alpha           = origEditBox:GetAlpha(),
+        hidden          = {},
+    }
+
+    -- Hide the Blizzard header/prompt FontStrings so our ChannelLabel is the only prefix.
+    for _, key in ipairs(PROXY_HIDE_KEYS) do
+        local part = origEditBox[key]
+        if part and part.IsShown then
+            local wasPartShown = part:IsShown()
+            prev.hidden[key] = wasPartShown
+            if wasPartShown then pcall(function() part:Hide() end) end
+        end
+    end
+
+    -- Disable mouse so the original doesn't steal focus or clicks from our overlay.
+    if origEditBox.EnableMouse then
+        pcall(function() origEditBox:EnableMouse(false) end)
+    end
+
+    -- Clear any stale text on the original; we don't want it ghost-rendering content.
+    if origEditBox.SetText then
+        pcall(function() origEditBox:SetText("") end)
+    end
+
+    -- Force-show the original so its skin (Blizzard / Prat / Chattynator / ElvUI) renders.
+    if not prev.wasShown and origEditBox.Show then
+        pcall(function() origEditBox:Show() end)
+    end
+
+    self._proxyPrevState = prev
+    self._proxyOrigEditBox = origEditBox
+
+    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+        YapperTable.Utils:VerbosePrint(string.format(
+            "[ProxyMode] ApplyProxyMode on %s (wasShown=%s, mouse=%s).",
+            (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
+            tostring(prev.wasShown), tostring(prev.mouseEnabled)))
+    end
+end
+
+--- Restore the original editbox to the state we found it in.
+--- Idempotent: safe to call when proxy mode wasn't active.
+function EditBox:RestoreProxyMode()
+    local prev = self._proxyPrevState
+    local origEditBox = self._proxyOrigEditBox
+    self._proxyPrevState = nil
+    self._proxyOrigEditBox = nil
+    if not prev or not origEditBox then return end
+
+    -- Re-enable mouse if it was on before.
+    if prev.mouseEnabled and origEditBox.EnableMouse then
+        pcall(function() origEditBox:EnableMouse(true) end)
+    end
+
+    -- Restore header/prompt visibility.
+    for key, wasShown in pairs(prev.hidden) do
+        local part = origEditBox[key]
+        if part and wasShown then
+            pcall(function() part:Show() end)
+        end
+    end
+
+    -- Restore alpha and shown state.
+    if prev.alpha and origEditBox.SetAlpha then
+        pcall(function() origEditBox:SetAlpha(prev.alpha) end)
+    end
+    if not prev.wasShown and origEditBox.Hide then
+        pcall(function() origEditBox:Hide() end)
+    end
+
+    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
+        YapperTable.Utils:VerbosePrint(string.format(
+            "[ProxyMode] RestoreProxyMode on %s.",
+            (origEditBox.GetName and origEditBox:GetName()) or "<unknown>"))
     end
 end
 
