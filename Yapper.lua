@@ -16,8 +16,7 @@ local function GetBypassBindingHint()
         -- Primary lookup: binding name as defined in Bindings.xml.
         key1, key2 = GetBindingKey("Bypass Yapper")
         if not key1 then
-            -- Fallback in case client indexes by command text.
-            key1, key2 = GetBindingKey("Yapper.EditBox:OpenBlizzardChat()")
+            return "Bypass Yapper keybind (currently unbound; default Shift+Enter)" -- but how???
         end
     end
 
