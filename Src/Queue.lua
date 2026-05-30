@@ -507,6 +507,11 @@ end
 -- Confirmation event handler
 -- ===========================================================================
 
+--- Check if a received chat event is an acceptable acknowledgement for an expected event.
+--- Handles sibling events (e.g., SAY ↔ YELL) and RP addon conversions (SAY → EMOTE).
+---@param expected string The expected event type (e.g., "CHAT_MSG_SAY").
+---@param received string The actual received event type.
+---@return boolean isAcceptable True if the received event is an acceptable ack.
 function Queue:IsAcceptableAck(expected, received)
     if expected == received then return true end
     if ACK_SIBLING[expected] == received then return true end

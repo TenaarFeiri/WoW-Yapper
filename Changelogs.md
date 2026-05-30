@@ -41,6 +41,12 @@
 
 # Patch notes
 
+## 2.1.26
+  - **Proxy Mode now uses the native editbox frame**
+    - This should hopefully improve compatibility, but I can't test it against everything.
+  
+  - Removed dead code.
+
 ## 2.1.25
   - **Proxy skin fixes**:
     - Fixed texture repeat artifacts at the edges of the Blizzard chat editbox in vanilla UI.

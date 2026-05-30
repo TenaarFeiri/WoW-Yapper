@@ -130,8 +130,6 @@ local MAX_LABEL_FONT_SIZE = 16
 local function GetConfig()
 	local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
 	return {
-		autoExpand    = cfg.StorytellerAutoExpand ~= false,
-		showHint      = cfg.StorytellerShowHint == true,
 		slideSpeed    = (YapperTable.Config and YapperTable.Config.System
 			and YapperTable.Config.System.StorytellerSlideSpeed) or 0.25,
 		defaultWidth  = cfg.StorytellerWidth or 400,
@@ -1025,24 +1023,6 @@ function Multiline:OnLockdownEnd()
 		self._lockdownIdleTimer:Cancel()
 		self._lockdownIdleTimer = nil
 	end
-end
-
--- ---------------------------------------------------------------------------
--- Auto-expand detection
--- ---------------------------------------------------------------------------
-
---- Called by EditBox when the text approaches or exceeds the visible width.
---- Returns true if auto-expand is enabled and the transition should occur.
----@param textWidth  number  Pixel width of the current text.
----@param boxWidth   number  Pixel width of the single-line overlay.
----@return boolean
-function Multiline:ShouldAutoExpand(textWidth, boxWidth)
-	local cfg = GetConfig()
-	if not cfg.autoExpand then return false end
-	if State:IsMultiline() then return false end
-
-	-- Trigger when text fills ≥95 % of the available width.
-	return textWidth >= (boxWidth * 0.95)
 end
 
 -- ---------------------------------------------------------------------------

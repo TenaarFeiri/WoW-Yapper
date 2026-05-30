@@ -90,18 +90,6 @@ function EditBox:SetupOverlayScripts()
             YapperTable.IconGallery:OnTextChanged(box, frame)
         end
 
-        -- Auto-expand into multiline when text fills the overlay.
-        local ml = YapperTable.Multiline
-        if ml and type(ml.ShouldAutoExpand) == "function" and not (State and State:IsMultiline()) then
-            local textW = box.GetStringWidth and box:GetStringWidth() or 0
-            local boxW  = box.GetWidth and box:GetWidth() or 0
-            if ml:ShouldAutoExpand(textW, boxW) then
-                ml:Enter(text, self.ChatType, self.Language, self.Target)
-                FireChanged()
-                return
-            end
-        end
-
         if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil

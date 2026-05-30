@@ -134,10 +134,6 @@ local SETTING_TOOLTIPS              = {
     "Toggle integration with Gopher (CrossRP compatibility). |cFFFF4444Disabling this WHILE using a Gopher-powered addon like CrossRP is a BAD idea and will cause stalls and chat problems.|r",
     ["System.EnableTypingTrackerBridge"] =
     "Toggle integration with Simply_RP_Typing_Tracker. Disabling this stops typing indicators from being sent.",
-    ["EditBox.StorytellerAutoExpand"] =
-    "When enabled, the chat box smoothly slides and expands into multi-line mode as soon as your text reaches the edge of the screen. Great for long-form storyteller posts!",
-    ["EditBox.StorytellerShowHint"] =
-    "If automatic expansion is off, Yapper can show a subtle glow and a reminder text (once per session) to let you know you can trigger multi-line mode manually with your bind.",
     ["System.StorytellerSlideSpeed"] =
     "How fast the chat box should slide and expand when entering storyteller mode. Lower values are snappier.",
     ["System.UseGlobalProfile"] =
@@ -195,8 +191,6 @@ local FRIENDLY_LABELS               = {
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.EmoteAutoSend"] = "Auto-send chosen emotes",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
-    ["EditBox.StorytellerAutoExpand"] = "Automatic expansion",
-    ["EditBox.StorytellerShowHint"] = "Show storyteller mode hint",
     ["System.StorytellerSlideSpeed"] = "Animation duration",
     ["System.UseGlobalProfile"] = "Use Global Profile",
 }
@@ -360,7 +354,6 @@ function Interface:BuildRenderSchema()
             or full == "System.FRAME_ID_PARENT"
             or full == "System._welcomeShown"
             or full == "System._lastSeenVersion"
-            or full == "EditBox._multilineHintShown"
             or full == "FrameSettings.MouseWheelStepRate"
             or full == "FrameSettings.MainWindowPosition"
             or full == "FrameSettings.UIFontOffset"

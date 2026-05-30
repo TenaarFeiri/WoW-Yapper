@@ -167,11 +167,6 @@ local DEFAULTS = {
         -- When false, ESC adds to text history but does not save drafts.
         RecoverOnEscape       = false,
 
-        -- Storyteller configuration
-        StorytellerAutoExpand = true,
-        StorytellerShowHint   = true,
-        _multilineHintShown   = false, -- Session flag (persisted as false on reload)
-
         -- Storyteller manual dimensions
         StorytellerWidth      = 400,
         StorytellerHeight     = 250,

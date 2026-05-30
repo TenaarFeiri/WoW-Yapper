@@ -16,7 +16,7 @@ Src/API.lua
 Src/State.lua
 Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
-Src/Spellcheck/YAS.lua
+Src/Spellcheck/Adaptive.lua
 Src/Spellcheck/UI.lua
 Src/Spellcheck/Underline.lua
 Src/Spellcheck/Engine.lua
@@ -165,7 +165,7 @@ flowchart LR
 
 ## Detailed subsystem: YAS learning model
 
-YAS (`Src/Spellcheck/YAS.lua`) is a per-locale adaptive layer that adjusts ranking and auto-learns persistent words.
+YAS (`Src/Spellcheck/Adaptive.lua`) is a per-locale adaptive layer that adjusts ranking and auto-learns persistent words.
 
 ### Storage model
 
@@ -180,7 +180,7 @@ Stored in `_G.YapperDB.SpellcheckLearned[locale]` with on-init migration for leg
 - `negBiasCount: number` cached count of `negBias` entries for O(1) cap enforcement.
 - `total` tracked unique vocabulary size for frequency-cap enforcement.
 
-Code anchors: [`Src/Spellcheck/YAS.lua#L60-L100`](../Src/Spellcheck/YAS.lua#L60-L100).
+Code anchors: [`Src/Spellcheck/Adaptive.lua#L8-L100`](../Src/Spellcheck/Adaptive.lua#L8-L100).
 
 ### Learning signals
 
@@ -208,7 +208,7 @@ Current bonus components (negative = better rank, positive = penalty):
 
 Code anchors:
 
-- YAS score composition: [`Src/Spellcheck/YAS.lua#L381-L419`](../Src/Spellcheck/YAS.lua#L381-L419)
+- YAS score composition: [`Src/Spellcheck/Adaptive.lua#L603-L660`](../Src/Spellcheck/Adaptive.lua#L603-L660)
 - Engine integration point: [`Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)
 
 ### Guardrails and maintenance
@@ -226,10 +226,10 @@ Code anchors:
 
 Code anchors:
 
-- Word sanity checks: [`Src/Spellcheck/YAS.lua#L113-L147`](../Src/Spellcheck/YAS.lua#L113-L147)
-- Cap accessors and defaults: [`Src/Spellcheck/YAS.lua#L130-L170`](../Src/Spellcheck/YAS.lua#L130-L170), [`Src/Core.lua#L217-L224`](../Src/Core.lua#L217-L224)
-- Pruning/reset: [`Src/Spellcheck/YAS.lua#L427-L478`](../Src/Spellcheck/YAS.lua#L427-L478)
-- Auto-learn event emission: [`Src/Spellcheck/YAS.lua#L357-L370`](../Src/Spellcheck/YAS.lua#L357-L370), [`Src/API.lua#L183-L185`](../Src/API.lua#L183-L185)
+- Word sanity checks: [`Src/Spellcheck/Adaptive.lua#L252-L289`](../Src/Spellcheck/Adaptive.lua#L252-L289)
+- Cap accessors and defaults: [`Src/Spellcheck/Adaptive.lua#L125-L153`](../Src/Spellcheck/Adaptive.lua#L125-L153), [`Src/Core.lua#L217-L224`](../Src/Core.lua#L217-L224)
+- Pruning/reset: [`Src/Spellcheck/Adaptive.lua#L704-L763`](../Src/Spellcheck/Adaptive.lua#L704-L763)
+- Auto-learn event emission: [`Src/Spellcheck/Adaptive.lua#L587-L596`](../Src/Spellcheck/Adaptive.lua#L587-L596), [`Src/API.lua#L183-L185`](../Src/API.lua#L183-L185)
 
 Code anchors:
 

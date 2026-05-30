@@ -122,30 +122,35 @@ function YAS:IsEnabled()
     return (cfg and cfg.YASEnabled ~= false)
 end
 
+--- Returns the maximum number of unique vocabulary words to track.
 function YAS:GetFreqCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YASFreqCap) or FREQ_CAP
     return math_max(100, math_min(v, 10000))
 end
 
+--- Returns the maximum number of typo→correction bias pairs to track.
 function YAS:GetBiasCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YASBiasCap) or MAX_BIAS_PAIRS
     return math_max(50, math_min(v, 5000))
 end
 
+--- Returns the number of sends before a word is auto-promoted to the user dictionary.
 function YAS:GetAutoThreshold()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YASAutoThreshold) or AUTO_THRESHOLD
     return math_max(1, math_min(v, 200))
 end
 
+--- Returns the maximum number of rejected suggestion pairs to track.
 function YAS:GetNegBiasCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YASNegBiasCap) or MAX_BIAS_PAIRS
     return math_max(100, math_min(v, 10000))
 end
 
+--- Returns the maximum number of pending auto-learn tracking entries.
 function YAS:GetAutoCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YASAutoCap) or AUTO_CAP
@@ -156,6 +161,7 @@ end
 -- Initialization
 -- ---------------------------------------------------------------------------
 
+--- Initialize the YAS learning system and migrate legacy data if needed.
 function YAS:Init()
     if not _G.YapperDB then return end
 
@@ -182,6 +188,9 @@ function YAS:Init()
     self.db = _G.YapperDB.SpellcheckLearned
 end
 
+--- Returns the locale-specific learning database, creating it if necessary.
+---@param locale string|nil The locale key (e.g., "enBASE"). Defaults to current spellcheck locale.
+---@return table|nil db The locale database or nil if not initialized.
 function YAS:GetLocaleDB(locale)
     if not self.db then return nil end
     local loc = locale or "enBASE"
@@ -229,6 +238,9 @@ function YAS:GetLocaleDB(locale)
     return db
 end
 
+--- Ensures the frequency-sorted index is up-to-date, rebuilding if dirty.
+---@param locale string|nil The locale key.
+---@return table|nil freqSorted The sorted frequency array or nil if db is unavailable.
 function YAS:EnsureFreqSorted(locale)
     local db = self:GetLocaleDB(locale)
     if not db then return nil end
@@ -249,6 +261,10 @@ local function Clean(s)
     return s:lower():gsub("[%p%c%s]", "")
 end
 
+--- Checks if a word passes sanity filters for learning (length, consonant clusters, keyboard smash, n-gram anchors).
+---@param w string The word to check (should be lowercase, no punctuation).
+---@param locale string|nil The locale key for n-gram checking.
+---@return boolean isSane True if the word is safe to learn.
 function YAS:IsSaneWord(w, locale)
     if not w then return false end
     -- Note: We expect 'w' to already be cleaned (lowercase, no punctuation)
@@ -760,6 +776,8 @@ function YAS:Prune(tableName, limit, locale)
     end
 end
 
+--- Clears learned data, either globally or for a specific locale.
+---@param locale string|nil If provided, only clears that locale's data. Otherwise clears all.
 function YAS:Reset(locale)
     if not locale then
         _G.YapperDB.SpellcheckLearned = nil
@@ -773,6 +791,9 @@ end
 -- UI Helpers
 -- ---------------------------------------------------------------------------
 
+--- Returns a summary of learned data for a locale (counts, caps, top words).
+---@param locale string|nil The locale key.
+---@return table|nil summary Data table with freq, bias, auto, total, cap, threshold fields.
 function YAS:GetDataSummary(locale)
     locale = locale or (YapperTable.Spellcheck and YapperTable.Spellcheck:GetLocale())
     local db = self:GetLocaleDB(locale)
@@ -862,6 +883,10 @@ function YAS:Export(locale)
     return table.concat(out, "\n")
 end
 
+--- Clears a specific entry from a learning table by type and key.
+---@param usageType string One of: "freq", "bias", "auto", "phBias".
+---@param key string The entry key to remove.
+---@param locale string|nil The locale key.
 function YAS:ClearSpecificUsage(usageType, key, locale)
     local db = self:GetLocaleDB(locale)
     if not db then return end
