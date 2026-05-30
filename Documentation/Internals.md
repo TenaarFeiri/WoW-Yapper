@@ -542,19 +542,6 @@ Initialised by `Chat:Init`.
   - `IsLoaded` ([`../Src/Bridges/WIMBridge.lua#L42`](`../Src/Bridges/WIMBridge.lua#L42`))
   - `Init` ([`../Src/Bridges/WIMBridge.lua#L50`](`../Src/Bridges/WIMBridge.lua#L50`))
 
-## ElvUIBridge
-
-Syncs theme colours based on ElvUI state when enabled.
-
-- Description: Optional ElvUI theme adaptation bridge.
-- Fields:
-  - `active: boolean` ([`../Src/Bridges/ElvUIBridge.lua#L110`](../Src/Bridges/ElvUIBridge.lua#L110)).
-- Methods:
-  - `Activate` ([`../Src/Bridges/ElvUIBridge.lua#L115`](`../Src/Bridges/ElvUIBridge.lua#L115`))
-  - `Deactivate` ([`../Src/Bridges/ElvUIBridge.lua#L159`](`../Src/Bridges/ElvUIBridge.lua#L159`))
-  - `RefreshColors` ([`../Src/Bridges/ElvUIBridge.lua#L218`](`../Src/Bridges/ElvUIBridge.lua#L218`))
-  - `Sync` ([`../Src/Bridges/ElvUIBridge.lua#L238`](`../Src/Bridges/ElvUIBridge.lua#L238`))
-
 ## Router
 
 Initialised by `Chat:Init`.
