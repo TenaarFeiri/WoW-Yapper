@@ -41,6 +41,12 @@
 
 # Patch notes
 
+## 2.1.27
+  - **Bugfixes**:
+    - Fixed issue where long emotes would stall if they managed to hit Blizzard's chat queue, becoming unable to advance.
+    - Fixed issue where the tooltip hint for the emote picker did not scale with font size.
+    - Fixed issue where addons using Gopher would cause post queue to stall due to the new chat opening pipeline.
+
 ## 2.1.26
   - **Proxy Mode now uses the native editbox frame**
     - This should hopefully improve compatibility, but I can't test it against everything.
