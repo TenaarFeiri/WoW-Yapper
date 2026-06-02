@@ -104,6 +104,16 @@ function EditBox:Show(origEditBox)
     self._suppressPostSendReopen = nil
     self._ghostShowDetected = nil
 
+    -- Apply pending tab switch info if available (from FCF_Tab_OnClick hook)
+    local pendingTabSwitch = self._pendingTabSwitch
+    if pendingTabSwitch then
+        self._pendingTabSwitch = nil
+        YapperTable.Utils:VerbosePrint("Applying pending tab switch: chatType="..tostring(pendingTabSwitch.chatType).." target="..tostring(pendingTabSwitch.target))
+        if pendingTabSwitch.editBox and pendingTabSwitch.editBox ~= origEditBox then
+            origEditBox = pendingTabSwitch.editBox
+        end
+    end
+
     local openedFromBnetTransition   = self._nextShowFromBnetTransition == true
     self._nextShowFromBnetTransition = false
     self._openedFromBnetTransition   = openedFromBnetTransition
@@ -180,7 +190,15 @@ function EditBox:Show(origEditBox)
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
     -- REMOVED: Pending re-whisper priority (was #1) - ReplyTell2 hook removed
-    if blizzHasTarget and not self._lockdown.savedDraft then
+    if pendingTabSwitch and pendingTabSwitch.chatType then
+        -- Highest priority: a tab was clicked while Yapper was closed
+        -- (whisper tab via Blizzard chatTarget, or per-tab channel memory).
+        self.ChatType    = pendingTabSwitch.chatType
+        self.Language    = pendingTabSwitch.language
+            or blizzLang or (self.LastUsed and self.LastUsed.language) or nil
+        self.Target      = pendingTabSwitch.target
+        self.ChannelName = pendingTabSwitch.channelName
+    elseif blizzHasTarget and not self._lockdown.savedDraft then
         self.ChatType = blizzType
         self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target   = blizzTell or blizzChan or nil
@@ -978,6 +996,28 @@ function EditBox:RefreshLabel()
     end
 end
 
+--- Record the current channel for the active tab (session-only).
+--- Skips whisper tabs, which are handled by Blizzard's chatTarget.
+--- @param entry table|nil  Explicit values to store; defaults to current state.
+function EditBox:RecordTabChannel(entry)
+    local chatFrame = self.OrigEditBox and self.OrigEditBox.chatFrame
+        or DEFAULT_CHAT_FRAME
+    if not (chatFrame and chatFrame.GetName) then return end
+    local key = chatFrame:GetName()
+    if not key then return end
+
+    local ct = entry and entry.chatType or self.ChatType
+    -- Whisper tabs are restored from Blizzard's chatTarget; don't record them.
+    if ct == "WHISPER" or ct == "BN_WHISPER" then return end
+
+    self._tabChannelMemory[key] = {
+        chatType    = ct,
+        target      = entry and entry.target or self.Target,
+        channelName = entry and entry.channelName or self.ChannelName,
+        language    = entry and entry.language or self.Language,
+    }
+end
+
 --- Save selection for stickiness across show/hide.
 function EditBox:PersistLastUsed()
     -- Don't make YELL sticky — but don't clear LastUsed either,
@@ -1004,6 +1044,9 @@ function EditBox:PersistLastUsed()
             self.LastUsed.chatType = "SAY"
             self.LastUsed.target   = nil
             self.LastUsed.language = nil
+            -- Mirror the reset into per-tab memory so the tab doesn't
+            -- resurrect a stale channel either.
+            self:RecordTabChannel({ chatType = "SAY" })
             return
         end
     end
@@ -1011,6 +1054,9 @@ function EditBox:PersistLastUsed()
     self.LastUsed.chatType = self.ChatType
     self.LastUsed.target   = self.Target
     self.LastUsed.language = self.Language
+
+    -- Session-only per-tab channel memory (non-whisper tabs).
+    self:RecordTabChannel()
 end
 
 -- ---------------------------------------------------------------------------
@@ -1504,8 +1550,37 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
-        -- Skip if we're already shown, in bypass mode, or in lockdown
+        -- Skip if this editbox is being suppressed (tab click while Yapper closed)
+        if self._suppressNextShowFor and blizzEditBox.GetName and blizzEditBox:GetName() == self._suppressNextShowFor then
+            return
+        end
+
+        -- If Yapper is already shown and a different editbox is showing (tab switch),
+        -- update OrigEditBox and refresh the label to adapt to the new tab's context.
         if self.Overlay and self.Overlay:IsShown() then
+            if blizzEditBox ~= self.OrigEditBox then
+                self.OrigEditBox = blizzEditBox
+                -- Satisfy Blizzard code that expects the editbox to belong to a specific chatFrame.
+                if blizzEditBox and blizzEditBox.chatFrame then
+                    self.OverlayEdit.chatFrame = blizzEditBox.chatFrame
+                    if self.ChannelLabel then
+                        self.ChannelLabel.chatFrame = blizzEditBox.chatFrame
+                    end
+                end
+                -- Re-read attributes from chatFrame and refresh label
+                local chatFrame = blizzEditBox:GetParent() or blizzEditBox.chatFrame
+                if chatFrame then
+                    local cfType = chatFrame.chatType
+                    local cfTarget = chatFrame.chatTarget
+                    if cfType then
+                        self.ChatType = cfType
+                    end
+                    if cfTarget and cfTarget ~= "" then
+                        self.Target = cfTarget
+                    end
+                end
+                self:RefreshLabel()
+            end
             return
         end
         if UserBypassingYapper() then
@@ -1679,7 +1754,30 @@ function EditBox:HookAllChatFrames()
             -- _pendingOpenChatText here — the blizzard editbox Show() hook handles
             -- opening the overlay on the next frame, by which point the physical key
             -- char has already been consumed by the blizzard editbox, not ours.
-            self._openingWatchdog = true
+            --
+            -- Exception: tab clicks (chatFrame ~= nil) should NOT open Yapper if it's closed.
+            -- If Yapper is already open, we still set the watchdog so text routing works.
+            if chatFrame ~= nil then
+                -- Tab click case
+                if self.Overlay and self.Overlay:IsShown() then
+                    -- Yapper is open: allow text routing via watchdog
+                    self._openingWatchdog = true
+                else
+                    -- Yapper is closed: suppress the open
+                    local eb = chatFrame.editBox
+                    if eb and eb.GetName then
+                        self._suppressNextShowFor = eb:GetName()
+                        C_Timer.After(0, function()
+                            if self._suppressNextShowFor == eb:GetName() then
+                                self._suppressNextShowFor = nil
+                            end
+                        end)
+                    end
+                end
+            else
+                -- Normal Enter-to-chat or other cases
+                self._openingWatchdog = true
+            end
         end)
         -- NOTE: Do NOT replace ChatFrameUtil.OpenChat with a tainted wrapper.
         -- Doing so taints the arguments passed to Blizzard's secure code,
@@ -1733,6 +1831,82 @@ function EditBox:HookAllChatFrames()
             end
         end)
         self._insertLinkHooked = true
+    end
+
+    -- Hook FCF_Tab_OnClick to detect tab switches while Yapper is open or about
+    -- to open. Tab clicks don't trigger the editbox Show() hook, so we hook the
+    -- tab UI directly. Whisper tabs use Blizzard's chatType/chatTarget; other
+    -- tabs use Yapper's session-only per-tab channel memory.
+    if FCF_Tab_OnClick and not self._tabClickHooked then
+        local editBox = self
+
+        -- Apply a resolved switch immediately (Yapper open) or stash it for the
+        -- next open (Yapper closed).
+        local function ApplyOrStashSwitch(chatFrame, switch)
+            if editBox.Overlay and editBox.Overlay:IsShown() then
+                editBox.ChatType    = switch.chatType
+                editBox.Target      = switch.target
+                editBox.ChannelName = switch.channelName
+                if switch.language then editBox.Language = switch.language end
+                local newEditBox = chatFrame.editBox
+                if newEditBox and newEditBox ~= editBox.OrigEditBox then
+                    editBox.OrigEditBox = newEditBox
+                    if newEditBox.chatFrame then
+                        editBox.OverlayEdit.chatFrame = newEditBox.chatFrame
+                        if editBox.ChannelLabel then
+                            editBox.ChannelLabel.chatFrame = newEditBox.chatFrame
+                        end
+                    end
+                end
+                editBox:RefreshLabel()
+                YapperTable.Utils:VerbosePrint("Applied tab switch immediately: chatType="..tostring(switch.chatType).." target="..tostring(switch.target))
+            else
+                editBox._pendingTabSwitch = {
+                    chatType    = switch.chatType,
+                    target      = switch.target,
+                    channelName = switch.channelName,
+                    language    = switch.language,
+                    chatFrame   = chatFrame,
+                    editBox     = chatFrame.editBox,
+                }
+                editBox._suppressNextShowFor = nil
+                YapperTable.Utils:VerbosePrint("Stored pending tab switch: chatType="..tostring(switch.chatType).." target="..tostring(switch.target))
+            end
+        end
+
+        hooksecurefunc("FCF_Tab_OnClick", function(tab, button)
+            -- Only process left-clicks
+            if button ~= "LeftButton" then return end
+
+            local chatFrame = FCF_GetChatFrameByID(tab:GetID())
+            if not chatFrame then return end
+
+            local cfType = chatFrame.chatType
+            local cfTarget = chatFrame.chatTarget
+            YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..tostring(cfType).." chatTarget="..tostring(cfTarget))
+
+            if cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
+                and cfTarget and cfTarget ~= "" then
+                -- Whisper tab: restore from Blizzard's chatTarget.
+                ApplyOrStashSwitch(chatFrame, {
+                    chatType = cfType,
+                    target   = cfTarget,
+                })
+            else
+                -- Non-whisper tab: restore from session-only per-tab memory.
+                local key = chatFrame.GetName and chatFrame:GetName()
+                local mem = key and editBox._tabChannelMemory[key]
+                if mem and mem.chatType then
+                    ApplyOrStashSwitch(chatFrame, {
+                        chatType    = mem.chatType,
+                        target      = mem.target,
+                        channelName = mem.channelName,
+                        language    = mem.language,
+                    })
+                end
+            end
+        end)
+        self._tabClickHooked = true
     end
 end
 

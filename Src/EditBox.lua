@@ -39,6 +39,11 @@ EditBox.HistoryCache       = nil
 EditBox.PreShowCheck       = nil
 EditBox._attrCache         = {}
 
+-- Session-only per-tab channel memory for non-whisper tabs.
+-- Keyed by chatFrame:GetName(); value: { chatType, target, channelName, language }.
+-- Not persisted across reloads.
+EditBox._tabChannelMemory  = {}
+
 -- Lockdown state (combat / M+ handoff FSM).
 -- Grouped to keep the state machine self-contained.
 EditBox._lockdown = {

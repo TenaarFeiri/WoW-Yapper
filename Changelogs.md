@@ -42,10 +42,15 @@
 # Patch notes
 
 ## 2.1.27
+  - **New Feature**:
+    - Added support for per-tab channel memory. When you switch tabs, Yapper now remembers the channel you were on and restores it when you return. (May not work with some Chat-altering addons like Chattynator)
+    - Opening a whisper tab will now automatically select the whisper target.
   - **Bugfixes**:
     - Fixed issue where long emotes would stall if they managed to hit Blizzard's chat queue, becoming unable to advance.
     - Fixed issue where the tooltip hint for the emote picker did not scale with font size.
     - Fixed issue where addons using Gopher would cause post queue to stall due to the new chat opening pipeline.
+    - Fixed issue where the chat editbox would not properly handle tab clicks when Yapper was closed.
+    - Fixed issue where Yapper wouldn't adopt the DM target of a whisper tab.
 
 ## 2.1.26
   - **Proxy Mode now uses the native editbox frame**
