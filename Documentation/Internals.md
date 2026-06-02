@@ -504,11 +504,11 @@ Initialised by `Chat:Init`.
   - `active: boolean` ([`../Src/Bridges/GopherBridge.lua#L25`](`../Src/Bridges/GopherBridge.lua#L25`))
   - `_gopher: table|nil` ([`../Src/Bridges/GopherBridge.lua#L26`](`../Src/Bridges/GopherBridge.lua#L26`))
 - Methods:
-  - `Init` ([`../Src/Bridges/GopherBridge.lua#L54`](`../Src/Bridges/GopherBridge.lua#L54`))
-  - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L76`](`../Src/Bridges/GopherBridge.lua#L76`))
-  - `Send` ([`../Src/Bridges/GopherBridge.lua#L104`](`../Src/Bridges/GopherBridge.lua#L104`))
-  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L152`](`../Src/Bridges/GopherBridge.lua#L152`))
-  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L159`](`../Src/Bridges/GopherBridge.lua#L159`))
+  - `Init` ([`../Src/Bridges/GopherBridge.lua#L55`](`../Src/Bridges/GopherBridge.lua#L55`))
+  - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L112`](`../Src/Bridges/GopherBridge.lua#L112`))
+  - `Send` ([`../Src/Bridges/GopherBridge.lua#L144`](`../Src/Bridges/GopherBridge.lua#L144`))
+  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L192`](`../Src/Bridges/GopherBridge.lua#L192`))
+  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L199`](`../Src/Bridges/GopherBridge.lua#L199`))
 
 ## TypingTrackerBridge
 
@@ -638,7 +638,7 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
   - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L100`](../Src/Chat.lua#L100))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L218`](../Src/Chat.lua#L218))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L214`](../Src/Chat.lua#L214))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:

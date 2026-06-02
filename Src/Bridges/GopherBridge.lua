@@ -24,6 +24,7 @@ local pcall    = pcall
 
 GopherBridge.active           = false -- true after a successful Init
 GopherBridge._gopher          = nil
+GopherBridge._filterHandle    = nil -- PRE_EDITBOX_SHOW filter handle
 
 -- A chunk size large enough that Gopher will never re-split our text.
 local PASSTHROUGH_CHUNK_SIZE  = 6000
@@ -68,6 +69,41 @@ function GopherBridge:Init()
     self._gopher = gopher
     self.active  = true
 
+    -- Register PRE_EDITBOX_SHOW filter to suppress Yapper while Gopher is busy
+    if _G.YapperAPI then
+        self._filterHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_SHOW", function(payload)
+            if self:IsBusy() then
+                -- Nudge Gopher to continue since we override OpenChat keybind
+                local gopher = self._gopher
+                if gopher then
+                    -- Try internal TryContinuePrompt first (hides frame and advances)
+                    if gopher.Internal and type(gopher.Internal.TryContinuePrompt) == "function" then
+                        gopher.Internal.TryContinuePrompt()
+                    -- Fallback to PipeThrottlerKeystroke
+                    elseif gopher.Internal and type(gopher.Internal.PipeThrottlerKeystroke) == "function" then
+                        gopher.Internal.PipeThrottlerKeystroke()
+                    -- Fallback to public StartQueue
+                    elseif type(gopher.StartQueue) == "function" then
+                        gopher.StartQueue()
+                    end
+                end
+                -- Check again after nudge - if Gopher finished, allow Yapper to open
+                if not self:IsBusy() then
+                    return payload
+                end
+                return false
+            end
+            -- Hide Blizzard editboxes which Gopher may have shown.
+            for i = 1, 10 do
+                local editBox = _G["ChatFrame" .. i .. "EditBox"]
+                if editBox then
+                    editBox:Hide()
+                end
+            end
+            return payload
+        end)
+    end
+
     YapperTable.Utils:VerbosePrint("GopherBridge: LibGopher detected — sending through Gopher's pipeline.")
     return true
 end
@@ -78,6 +114,10 @@ function GopherBridge:UpdateState()
 
     if not enabled and self.active then
         self.active = false
+        if self._filterHandle and _G.YapperAPI then
+            _G.YapperAPI:UnregisterFilter(self._filterHandle)
+            self._filterHandle = nil
+        end
         YapperTable.Utils:VerbosePrint("GopherBridge: Disabled by user setting.")
     elseif enabled and not self.active then
         -- Attempt to re-init if available

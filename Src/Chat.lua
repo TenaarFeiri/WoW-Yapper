@@ -120,18 +120,14 @@ function Chat:OnSend(text, chatType, language, target)
     -- Non-splittable types (e.g. WHISPER/BN_WHISPER) are allowed; for long
     -- whispers we truncate to the character limit rather than queueing.
 
-    -- Don't interleave with an active Yapper queue (not relevant when
-    -- GopherBridge is active — Gopher manages its own queue).
-    local bridge = YapperTable.GopherBridge
-    if not (bridge and bridge:IsActive()) then
-        if State and State:IsBusy() then
-            if YapperTable.Queue and YapperTable.Queue.NeedsContinue then
-                YapperTable.Queue:OnOpenChat()
-                return
-            end
-            YapperTable.Utils:Print("Please wait — still sending previous message.")
+    -- Don't interleave with an active send (Yapper queue or GopherBridge).
+    if State and State:IsBusy() then
+        if YapperTable.Queue and YapperTable.Queue.NeedsContinue then
+            YapperTable.Queue:OnOpenChat()
             return
         end
+        YapperTable.Utils:Print("Please wait — still sending previous message.")
+        return
     end
 
     if YapperTable.History then
