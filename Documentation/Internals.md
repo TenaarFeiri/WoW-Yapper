@@ -11,9 +11,9 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L269`](../Yapper.lua#L269)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L268`](../Yapper.lua#L268)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L264`](../Yapper.lua#L264)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L263`](../Yapper.lua#L263)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -590,7 +590,7 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L184`](`../Src/Queue.lua#L184`))
   - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L187`](`../Src/Queue.lua#L187`))
 - Methods:
-  - `Queue:IsAcceptableAck() → nil`: Check if a received chat event is an acceptable acknowledgement for an expected event. ([`../Src/Queue.lua#L515`](../Src/Queue.lua#L515))
+  - `Queue:IsAcceptableAck() → nil`: Check if a received chat event is an acceptable acknowledgement for an expected event. ([`../Src/Queue.lua#L516`](../Src/Queue.lua#L516))
   - `Init` ([`../Src/Queue.lua#L193`](../Src/Queue.lua#L193))
   - `Reset` ([`../Src/Queue.lua#L212`](../Src/Queue.lua#L212))
   - `IsOpenWorld` ([`../Src/Queue.lua#L229`](../Src/Queue.lua#L229))
@@ -607,21 +607,21 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - `SendNext` ([`../Src/Queue.lua#L397`](../Src/Queue.lua#L397))
   - `BeginEntry` ([`../Src/Queue.lua#L433`](../Src/Queue.lua#L433))
   - `HandleAck` ([`../Src/Queue.lua#L459`](../Src/Queue.lua#L459))
-  - `AssumeAck` ([`../Src/Queue.lua#L467`](../Src/Queue.lua#L467))
-  - `RawSend` ([`../Src/Queue.lua#L477`](../Src/Queue.lua#L477))
-  - `Complete` ([`../Src/Queue.lua#L498`](../Src/Queue.lua#L498))
-  - `OnChatEvent` ([`../Src/Queue.lua#L525`](../Src/Queue.lua#L525))
-  - `OnOpenChat` ([`../Src/Queue.lua#L601`](../Src/Queue.lua#L601))
-  - `TryContinue` ([`../Src/Queue.lua#L611`](../Src/Queue.lua#L611))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L629`](../Src/Queue.lua#L629))
+  - `AssumeAck` ([`../Src/Queue.lua#L468`](../Src/Queue.lua#L468))
+  - `RawSend` ([`../Src/Queue.lua#L478`](../Src/Queue.lua#L478))
+  - `Complete` ([`../Src/Queue.lua#L499`](../Src/Queue.lua#L499))
+  - `OnChatEvent` ([`../Src/Queue.lua#L526`](../Src/Queue.lua#L526))
+  - `OnOpenChat` ([`../Src/Queue.lua#L602`](../Src/Queue.lua#L602))
+  - `TryContinue` ([`../Src/Queue.lua#L612`](../Src/Queue.lua#L612))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L630`](../Src/Queue.lua#L630))
   - `CancelStallTimer` ([`../Src/Queue.lua#L647`](../Src/Queue.lua#L647))
   - `OnStallTimeout` ([`../Src/Queue.lua#L654`](../Src/Queue.lua#L654))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L676`](../Src/Queue.lua#L676))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L736`](../Src/Queue.lua#L736))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L773`](../Src/Queue.lua#L773))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L784`](../Src/Queue.lua#L784))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L817`](../Src/Queue.lua#L817))
-  - `Cancel` ([`../Src/Queue.lua#L824`](../Src/Queue.lua#L824))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L674`](../Src/Queue.lua#L674))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L734`](../Src/Queue.lua#L734))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L771`](../Src/Queue.lua#L771))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L782`](../Src/Queue.lua#L782))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L815`](../Src/Queue.lua#L815))
+  - `Cancel` ([`../Src/Queue.lua#L822`](../Src/Queue.lua#L822))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.

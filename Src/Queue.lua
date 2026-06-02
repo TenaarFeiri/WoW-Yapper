@@ -461,6 +461,7 @@ function Queue:HandleAck()
     self:ClearPendingAck()
     self:CancelStallTimer()
     self:HideContinuePrompt()
+    State:ToSending()
     self:SendNext(false)
 end
 
@@ -523,7 +524,7 @@ function Queue:IsAcceptableAck(expected, received)
 end
 
 function Queue:OnChatEvent(event, ...)
-    if not State:IsSending() then return end
+    if not State:IsSending() and not State:IsStalled() then return end
     if not self.PendingEntry then return end
 
 
@@ -628,7 +629,6 @@ end
 
 function Queue:ResetStallTimer(entry)
     self:CancelStallTimer()
-    if not State:IsSending() then return end
 
     -- Community channels have higher latency; use policy multiplier.
     local timeout = self.StallTimeout
@@ -652,8 +652,6 @@ function Queue:CancelStallTimer()
 end
 
 function Queue:OnStallTimeout()
-    if not State:IsSending() then return end
-
     if not self.PendingEntry then return end
     local entry        = self.PendingEntry
     local policyClass  = self.PendingAckPolicyClass  -- capture before ClearPendingAck

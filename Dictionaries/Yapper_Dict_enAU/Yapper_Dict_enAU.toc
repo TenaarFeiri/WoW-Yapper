@@ -1,4 +1,4 @@
-## Interface: 120001, 120005
+## Interface: 120005, 120007
 ## Title: Yapper Dictionary — English (AU)
 ## Notes: Australian English regional dictionary for Yapper.
 ## Version: 1.0.0
