@@ -201,9 +201,6 @@ function Emotes:EnsureHintUI()
     hfs:SetPoint("LEFT", hint, "LEFT", 6, 0)
     hfs:SetTextColor(0.8, 0.8, 0.8, 1)
     hfs:SetText("Tab: browse emotes")
-    if YapperTable.Spellcheck and type(YapperTable.Spellcheck.ApplyOverlayFont) == "function" then
-        YapperTable.Spellcheck:ApplyOverlayFont(hfs)
-    end
     hint._fs = hfs
     self.HintFrame = hint
 end
@@ -219,8 +216,18 @@ function Emotes:ShowHint(editBox)
     if not self.HintFrame or self.HintFrame:IsShown() or self:IsActive() then return end
     
     self._anchorBox = editBox
-    local w = self.HintFrame._fs:GetStringWidth() + 12
-    self.HintFrame:SetSize(w, 20)
+    
+    -- Apply overlay font to match current editbox font size
+    if YapperTable.Spellcheck and type(YapperTable.Spellcheck.ApplyOverlayFont) == "function" then
+        local fontSize = YapperTable.Spellcheck:ApplyOverlayFont(self.HintFrame._fs, 22)
+        local hintHeight = math_max(20, fontSize + 8)
+        local w = self.HintFrame._fs:GetStringWidth() + 12
+        self.HintFrame:SetSize(w, hintHeight)
+    else
+        local w = self.HintFrame._fs:GetStringWidth() + 12
+        self.HintFrame:SetSize(w, 20)
+    end
+    
     self.HintFrame:ClearAllPoints()
     self.HintFrame:SetPoint("TOPLEFT", editBox, "BOTTOMLEFT", 0, -2)
     self.HintFrame:Show()
