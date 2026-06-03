@@ -188,6 +188,24 @@ local function registerConfigCallback()
     end)
 end
 
+--- Hook FCF_Tab_OnClick to hide editboxes when tabs are clicked.
+local function hookTabClick()
+    if not _G.FCF_Tab_OnClick then
+        return
+    end
+
+    hooksecurefunc("FCF_Tab_OnClick", function(tab, button)
+        if not Bridge:IsLoaded() then
+            return
+        end
+        hideAllBlizzardEditBoxes()
+        
+        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
+            YapperTable.Utils:DebugPrint("CEBEBridge: Hid editboxes on tab click")
+        end
+    end)
+end
+
 -- ---------------------------------------------------------------------------
 -- Initialisation (called from Chat:Init)
 -- ---------------------------------------------------------------------------
@@ -209,6 +227,9 @@ function Bridge:Init()
 
     -- Register config change callback to override editbox visibility settings
     registerConfigCallback()
+
+    -- Hook tab clicks to hide editboxes
+    hookTabClick()
 
     if YapperTable.Utils and YapperTable.Utils.DebugPrint then
         YapperTable.Utils:DebugPrint("CEBEBridge: Initialized with CEBE_ACTIVE_HIDE=" .. tostring(CEBE_ACTIVE_HIDE))
