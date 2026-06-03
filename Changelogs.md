@@ -48,6 +48,8 @@
   - **Bugfixes**:
     - Fixed issue where Prat's frame sometimes didn't appear when in proxy mode.
     - Fixed issue where cycling tabs in IM Style would automatically open and focus Yapper.
+  - **Compatibility Improvement**:
+    - Added a bridge to better support CEBE's integration due to changes in pipeline.
 
 ## 2.1.27
   - **New Feature**:
