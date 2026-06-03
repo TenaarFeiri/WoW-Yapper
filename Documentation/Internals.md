@@ -21,21 +21,21 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L277`](../Src/Core.lua#L277)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L279`](../Src/Core.lua#L279)).
 - Methods:
-  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L313`](../Src/Core.lua#L313))
-  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L377`](../Src/Core.lua#L377))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L809`](../Src/Core.lua#L809))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L606`](../Src/Core.lua#L606))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L344`](../Src/Core.lua#L344))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L283`](../Src/Core.lua#L283))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L492`](../Src/Core.lua#L492)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L629`](../Src/Core.lua#L629))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L633`](../Src/Core.lua#L633))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L637`](../Src/Core.lua#L637))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L650`](../Src/Core.lua#L650)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L716`](../Src/Core.lua#L716)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L830`](../Src/Core.lua#L830)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L315`](../Src/Core.lua#L315))
+  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L379`](../Src/Core.lua#L379))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L811`](../Src/Core.lua#L811))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L608`](../Src/Core.lua#L608))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L346`](../Src/Core.lua#L346))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L285`](../Src/Core.lua#L285))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L494`](../Src/Core.lua#L494)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L631`](../Src/Core.lua#L631))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L635`](../Src/Core.lua#L635))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L639`](../Src/Core.lua#L639))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L652`](../Src/Core.lua#L652)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L718`](../Src/Core.lua#L718)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L832`](../Src/Core.lua#L832)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -458,7 +458,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
 - Methods:
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L384`](../Src/EditBox/Overlay.lua#L384)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L392`](../Src/EditBox/Overlay.lua#L392)).
 
 ## EditBox.Handlers
 
@@ -481,14 +481,14 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
   - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L607`](`../Src/EditBox/Hooks.lua#L607`))
   - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L703`](`../Src/EditBox/Hooks.lua#L703`))
   - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L802`](`../Src/EditBox/Hooks.lua#L802`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L1027`](`../Src/EditBox/Hooks.lua#L1027`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L1071`](`../Src/EditBox/Hooks.lua#L1071`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1119`](`../Src/EditBox/Hooks.lua#L1119`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1141`](`../Src/EditBox/Hooks.lua#L1141`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1166`](`../Src/EditBox/Hooks.lua#L1166`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1241`](`../Src/EditBox/Hooks.lua#L1241`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1308`](`../Src/EditBox/Hooks.lua#L1308`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1699`](`../Src/EditBox/Hooks.lua#L1699`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L1070`](`../Src/EditBox/Hooks.lua#L1070`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L1114`](`../Src/EditBox/Hooks.lua#L1114`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1162`](`../Src/EditBox/Hooks.lua#L1162`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1184`](`../Src/EditBox/Hooks.lua#L1184`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1209`](`../Src/EditBox/Hooks.lua#L1209`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1284`](`../Src/EditBox/Hooks.lua#L1284`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1351`](`../Src/EditBox/Hooks.lua#L1351`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1742`](`../Src/EditBox/Hooks.lua#L1742`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -655,21 +655,21 @@ Lazy frame creation; active only when user enters multiline mode.
   - `ScrollFrame` ([`../Src/Multiline.lua#L57`](`../Src/Multiline.lua#L57`))
   - `EditBox` ([`../Src/Multiline.lua#L58`](`../Src/Multiline.lua#L58`))
   - `LabelFS` ([`../Src/Multiline.lua#L59`](`../Src/Multiline.lua#L59`))
-  - `Active` ([`../Src/Multiline.lua#L197`](`../Src/Multiline.lua#L197`))
+  - `Active` ([`../Src/Multiline.lua#L237`](`../Src/Multiline.lua#L237`))
   - `ChatType` ([`../Src/Multiline.lua#L60`](`../Src/Multiline.lua#L60`))
   - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1021`](../Src/Multiline.lua#L1021))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1006`](../Src/Multiline.lua#L1006))
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L113`](`../Src/Multiline.lua#L113`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L144`](`../Src/Multiline.lua#L144`))
-  - `Enter` ([`../Src/Multiline.lua#L561`](`../Src/Multiline.lua#L561`))
-  - `Exit` ([`../Src/Multiline.lua#L700`](`../Src/Multiline.lua#L700`))
-  - `Submit` ([`../Src/Multiline.lua#L823`](`../Src/Multiline.lua#L823`))
-  - `Cancel` ([`../Src/Multiline.lua#L972`](`../Src/Multiline.lua#L972`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1032`](`../Src/Multiline.lua#L1032`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1041`](`../Src/Multiline.lua#L1041`))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1066`](../Src/Multiline.lua#L1066))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1051`](../Src/Multiline.lua#L1051))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L153`](`../Src/Multiline.lua#L153`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L184`](`../Src/Multiline.lua#L184`))
+  - `Enter` ([`../Src/Multiline.lua#L606`](`../Src/Multiline.lua#L606`))
+  - `Exit` ([`../Src/Multiline.lua#L745`](`../Src/Multiline.lua#L745`))
+  - `Submit` ([`../Src/Multiline.lua#L868`](`../Src/Multiline.lua#L868`))
+  - `Cancel` ([`../Src/Multiline.lua#L1017`](`../Src/Multiline.lua#L1017`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1077`](`../Src/Multiline.lua#L1077`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1086`](`../Src/Multiline.lua#L1086`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -772,10 +772,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L514)).
 - Methods:
-  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L345`](`../Src/Interface/Schema.lua#L345`))
-  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L491`](`../Src/Interface/Schema.lua#L491`))
-  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L499`](`../Src/Interface/Schema.lua#L499`))
-  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L505`](`../Src/Interface/Schema.lua#L505`))
+  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L347`](`../Src/Interface/Schema.lua#L347`))
+  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L493`](`../Src/Interface/Schema.lua#L493`))
+  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L501`](`../Src/Interface/Schema.lua#L501`))
+  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L507`](`../Src/Interface/Schema.lua#L507`))
 
 ## Interface.Config
 
@@ -872,18 +872,18 @@ Per-category page builders called by `BuildConfigUI`.
 
 - Description: Concrete settings page construction routines.
 - Methods:
-  - `CreateChangelogPage` — Builds the scrollable version history settings tab. ([`../Src/Interface/Pages.lua#L951`](../Src/Interface/Pages.lua#L951))
+  - `CreateChangelogPage` — Builds the scrollable version history settings tab. ([`../Src/Interface/Pages.lua#L962`](../Src/Interface/Pages.lua#L962))
   - `CreateChannelOverrideControls` ([`../Src/Interface/Pages.lua#L41`](`../Src/Interface/Pages.lua#L41`))
-  - `CreateGlobalSyncControls` ([`../Src/Interface/Pages.lua#L332`](`../Src/Interface/Pages.lua#L332`))
-  - `CreateYASLearningPage` ([`../Src/Interface/Pages.lua#L389`](`../Src/Interface/Pages.lua#L389`))
-  - `CreateQueueDiagnostics` ([`../Src/Interface/Pages.lua#L634`](`../Src/Interface/Pages.lua#L634`))
-  - `CreateTutorialPage` ([`../Src/Interface/Pages.lua#L738`](`../Src/Interface/Pages.lua#L738`))
-  - `CreateCreditsPage` ([`../Src/Interface/Pages.lua#L883`](`../Src/Interface/Pages.lua#L883`))
-  - `CreateSpellcheckLocaleDropdown` ([`../Src/Interface/Pages.lua#L991`](`../Src/Interface/Pages.lua#L991`))
-  - `CreateSpellcheckKeyboardLayoutDropdown` ([`../Src/Interface/Pages.lua#L1092`](`../Src/Interface/Pages.lua#L1092`))
-  - `CreateSpellcheckUnderlineDropdown` ([`../Src/Interface/Pages.lua#L1141`](`../Src/Interface/Pages.lua#L1141`))
-  - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1205`](`../Src/Interface/Pages.lua#L1205`))
-  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1371`](`../Src/Interface/Pages.lua#L1371`))
+  - `CreateGlobalSyncControls` ([`../Src/Interface/Pages.lua#L343`](`../Src/Interface/Pages.lua#L343`))
+  - `CreateYASLearningPage` ([`../Src/Interface/Pages.lua#L400`](`../Src/Interface/Pages.lua#L400`))
+  - `CreateQueueDiagnostics` ([`../Src/Interface/Pages.lua#L645`](`../Src/Interface/Pages.lua#L645`))
+  - `CreateTutorialPage` ([`../Src/Interface/Pages.lua#L749`](`../Src/Interface/Pages.lua#L749`))
+  - `CreateCreditsPage` ([`../Src/Interface/Pages.lua#L894`](`../Src/Interface/Pages.lua#L894`))
+  - `CreateSpellcheckLocaleDropdown` ([`../Src/Interface/Pages.lua#L1002`](`../Src/Interface/Pages.lua#L1002`))
+  - `CreateSpellcheckKeyboardLayoutDropdown` ([`../Src/Interface/Pages.lua#L1103`](`../Src/Interface/Pages.lua#L1103`))
+  - `CreateSpellcheckUnderlineDropdown` ([`../Src/Interface/Pages.lua#L1152`](`../Src/Interface/Pages.lua#L1152`))
+  - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1216`](`../Src/Interface/Pages.lua#L1216`))
+  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1382`](`../Src/Interface/Pages.lua#L1382`))
 - Invariants:
   - Dropdown handlers assume config roots are initialised.
 

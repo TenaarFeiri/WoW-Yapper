@@ -621,7 +621,7 @@ function Interface:BuildConfigUI()
 
     -- Channel colour overrides.
     if customSet["channelOverrides"] then
-        if type(self:GetDefaultPath({ "EditBox", "ChannelColorOverrides" })) == "table" then
+        if type(self:GetDefaultPath({ "EditBox", "ChannelColorMode" })) == "table" then
             self:CreateChannelOverrideControls(frame.ContentFrame, cursor)
         end
     end

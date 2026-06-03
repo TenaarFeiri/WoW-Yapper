@@ -16,7 +16,7 @@ local State      = YapperTable.State
 local DEFAULTS = {
     System = {
         -- Schema version for SavedVariables migration; bump only when data structure changes.
-        VERSION                   = 2.2,
+        VERSION                   = 2.3,
         WELCOME_VERSION           = 1,
 
         -- VERBOSE and DEBUG are largely for debugging.
@@ -124,21 +124,23 @@ local DEFAULTS = {
         -- Optional border colour for themes that expose a border element.
         BorderColor           = { r = 0.00, g = 0.00, b = 0.00, a = 0 },
         ChannelColorMaster    = "",
-        ChannelColorOverrides = {
-            SAY = false,
-            YELL = false,
-            PARTY = false,
-            WHISPER = false,
-            BN_WHISPER = false,
-            CHANNEL = false,
-            CLUB = false,
-            INSTANCE_CHAT = false,
-            RAID = false,
-            RAID_WARNING = false,
+        ChannelColorMode = {
+            SAY = "blizzard",
+            EMOTE = "blizzard",
+            YELL = "blizzard",
+            PARTY = "blizzard",
+            WHISPER = "blizzard",
+            BN_WHISPER = "blizzard",
+            CHANNEL = "blizzard",
+            CLUB = "blizzard",
+            INSTANCE_CHAT = "blizzard",
+            RAID = "blizzard",
+            RAID_WARNING = "blizzard",
         },
 
         ChannelTextColors     = {
             SAY = { r = 1.00, g = 1.00, b = 1.00, a = 1 },
+            EMOTE = { r = 1.00, g = 0.50, b = 0.25, a = 1 },
             YELL = { r = 1.00, g = 0.25, b = 0.25, a = 1 },
             PARTY = { r = 0.67, g = 0.67, b = 1.00, a = 1 },
             WHISPER = { r = 1.00, g = 0.50, b = 1.00, a = 1 },
@@ -542,8 +544,8 @@ function YapperTable.Core:InitSavedVars()
             _G.YapperDB.EditBox.ChannelTextColors.BN_WHISPER = {
                 r = teal.r, g = teal.g, b = teal.b, a = (teal.a ~= nil and teal.a or 1),
             }
-            if type(_G.YapperDB.EditBox.ChannelColorOverrides) ~= "table" then _G.YapperDB.EditBox.ChannelColorOverrides = {} end
-            _G.YapperDB.EditBox.ChannelColorOverrides.BN_WHISPER = false
+            if type(_G.YapperDB.EditBox.ChannelColorMode) ~= "table" then _G.YapperDB.EditBox.ChannelColorMode = {} end
+            _G.YapperDB.EditBox.ChannelColorMode.BN_WHISPER = "custom"
             if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
                 pcall(function()
                     YapperTable.Utils:Print("Migrated BN_WHISPER colour to defaults for older SavedVariables.")

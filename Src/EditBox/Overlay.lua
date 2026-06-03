@@ -267,9 +267,17 @@ local function BuildLabelText(chatType, target, channelName)
 
     -- Colour from ChatTypeInfo.
     local r, g, b = 1, 0.82, 0 -- gold fallback
-    if chatType and ChatTypeInfo and ChatTypeInfo[chatType] then
-        local info = ChatTypeInfo[chatType]
-        r, g, b = info.r or r, info.g or g, info.b or b
+    if chatType and ChatTypeInfo then
+        local info
+        if chatType == "CHANNEL" and target then
+            info = ChatTypeInfo["CHANNEL" .. tostring(target)]
+        end
+        if not info then
+            info = ChatTypeInfo[chatType]
+        end
+        if info then
+            r, g, b = info.r or r, info.g or g, info.b or b
+        end
     end
 
     return label, r, g, b

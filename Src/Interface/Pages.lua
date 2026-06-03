@@ -68,10 +68,12 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             if IsColourTable(def) then
                 setChannelColor(option.key, CopyColour(def))
             end
+            self:SetLocalPath({ "EditBox", "ChannelColorMode", option.key }, "custom")
         end
         for _, row in ipairs(rows) do
             if row.refreshColor then row.refreshColor() end
         end
+        refreshRows()
     end
 
     local resetAllBtn = self:CreateResetButton(parent, 290, y - 2, function()
@@ -85,24 +87,8 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
     y = cursor:Y()
 
     self:CreateLabel(parent, "Colour", 136, y, 60)
-    self:CreateLabel(parent, "Master", 252, y, 50, self:GetTooltip("CHANNEL.MASTER"))
-    self:CreateLabel(parent, "Override", 322, y, 60, self:GetTooltip("CHANNEL.OVERRIDE"))
-
-    local masterHelp = self:AcquireWidget("HelpButton", parent, "UIPanelButtonTemplate", "Button")
-    masterHelp:SetSize(14, 14)
-    masterHelp:SetPoint("TOPLEFT", parent, "TOPLEFT", 236, y + 2)
-    masterHelp:SetText("?")
-    masterHelp:SetScript("OnEnter", function(selfFrame)
-        GameTooltip:SetOwner(selfFrame, "ANCHOR_RIGHT")
-        ---@diagnostic disable-next-line: missing-parameter
-        GameTooltip:SetText("Master Channel")
-        GameTooltip:AddLine("Choose one channel as the colour source.", 0.9, 0.9, 0.9)
-        GameTooltip:AddLine("Channels with Override checked", 0.9, 0.9, 0.9)
-        GameTooltip:AddLine("use the master's colour.", 0.9, 0.9, 0.9)
-        GameTooltip:Show()
-    end)
-    masterHelp:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    self:AddControl(masterHelp)
+    self:CreateLabel(parent, "Master", 252, y, 40, self:GetTooltip("CHANNEL.MASTER"))
+    self:CreateLabel(parent, "Mode", 298, y, 110, self:GetTooltip("CHANNEL.MODE"))
 
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHANNEL_LABELS))
     y = cursor:Y()
@@ -119,8 +105,12 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         return nil
     end
 
-    local function getOverrideValue(key)
-        return self:GetConfigPath({ "EditBox", "ChannelColorOverrides", key }) == true
+    local function getModeValue(key)
+        local mode = self:GetConfigPath({ "EditBox", "ChannelColorMode", key })
+        if type(mode) == "string" and mode ~= "" then
+            return mode
+        end
+        return "blizzard" -- default
     end
 
     local function refreshRows()
@@ -128,18 +118,16 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         for _, row in ipairs(rows) do
             local isMaster = (row.key == master)
             row.master:SetChecked(isMaster)
-            row.refreshColor()
 
-            if isMaster then
-                if getOverrideValue(row.key) then
-                    self:SetLocalPath({ "EditBox", "ChannelColorOverrides", row.key }, false)
-                end
-                row.override:SetChecked(false)
-                row.override:Disable()
-            else
-                row.override:Enable()
-                row.override:SetChecked(getOverrideValue(row.key))
+            local mode = getModeValue(row.key)
+            local modeText = mode:sub(1, 1):upper() .. mode:sub(2)
+            if mode == "master" then
+                modeText = "Follow Master"
+            elseif mode == "blizzard" then
+                modeText = "Blizzard Chat"
             end
+            UIDropDownMenu_SetText(row.modeDropdown, modeText)
+            row.refreshColor()
         end
     end
 
@@ -161,7 +149,17 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         end
 
         local function refreshColor()
-            local c = getChannelColor(option.key) or { r = 1, g = 1, b = 1, a = 1 }
+            local mode = getModeValue(option.key)
+            local c
+            if mode == "blizzard" and ChatTypeInfo then
+                local info = ChatTypeInfo[option.key]
+                if info and type(info.r) == "number" then
+                    c = { r = info.r, g = info.g, b = info.b, a = 1 }
+                end
+            end
+            if not c then
+                c = getChannelColor(option.key) or { r = 1, g = 1, b = 1, a = 1 }
+            end
             swatch:SetVertexColor(c.r or 1, c.g or 1, c.b or 1, 1)
         end
 
@@ -262,11 +260,9 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 end
             end
 
-            if type(root.EditBox.ChannelColorOverrides) ~= "table" then
-                root.EditBox.ChannelColorOverrides = {}
-            end
-            -- Uncheck override for this key so Master doesn't force it.
-            root.EditBox.ChannelColorOverrides[option.key] = false
+            -- Reset mode to custom
+            if type(root.EditBox.ChannelColorMode) ~= "table" then root.EditBox.ChannelColorMode = {} end
+            root.EditBox.ChannelColorMode[option.key] = "custom"
             if type(root._themeOverrides) == "table" then
                 root._themeOverrides[option.key] = nil
             end
@@ -285,39 +281,54 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
 
         local masterCb = self:AcquireWidget("CheckBoxSmall", parent, "UICheckButtonTemplate", "CheckButton")
         masterCb:SetPoint("TOPLEFT", parent, "TOPLEFT", 258, y)
-
-        local overrideCb = self:AcquireWidget("CheckBoxSmall", parent, "UICheckButtonTemplate", "CheckButton")
-        overrideCb:SetPoint("TOPLEFT", parent, "TOPLEFT", 328, y)
-
         masterCb:SetScript("OnClick", function(selfFrame)
             if selfFrame:GetChecked() then
                 self:SetLocalPath({ "EditBox", "ChannelColorMaster" }, option.key)
-                self:SetLocalPath({ "EditBox", "ChannelColorOverrides", option.key }, false)
             else
                 self:SetLocalPath({ "EditBox", "ChannelColorMaster" }, "")
             end
             refreshRows()
         end)
 
-        overrideCb:SetScript("OnClick", function(selfFrame)
-            if getMaster() == option.key then
-                selfFrame:SetChecked(false)
-                return
+        local modeDropdown = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
+        modeDropdown:SetPoint("TOPLEFT", parent, "TOPLEFT", 298, y - 4)
+        UIDropDownMenu_SetWidth(modeDropdown, 110)
+        UIDropDownMenu_Initialize(modeDropdown, function()
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = "Custom"
+            info.value = "custom"
+            info.func = function()
+                self:SetLocalPath({ "EditBox", "ChannelColorMode", option.key }, "custom")
+                refreshRows()
             end
-            self:SetLocalPath(
-                { "EditBox", "ChannelColorOverrides", option.key },
-                selfFrame:GetChecked() == true
-            )
-            refreshRows()
+            UIDropDownMenu_AddButton(info)
+
+            info = UIDropDownMenu_CreateInfo()
+            info.text = "Follow Master"
+            info.value = "master"
+            info.func = function()
+                self:SetLocalPath({ "EditBox", "ChannelColorMode", option.key }, "master")
+                refreshRows()
+            end
+            UIDropDownMenu_AddButton(info)
+
+            info = UIDropDownMenu_CreateInfo()
+            info.text = "Blizzard Chat"
+            info.value = "blizzard"
+            info.func = function()
+                self:SetLocalPath({ "EditBox", "ChannelColorMode", option.key }, "blizzard")
+                refreshRows()
+            end
+            UIDropDownMenu_AddButton(info)
         end)
 
         self:AddControl(colorBtn)
         self:AddControl(masterCb)
-        self:AddControl(overrideCb)
+        self:AddControl(modeDropdown)
         rows[#rows + 1] = {
             key = option.key,
             master = masterCb,
-            override = overrideCb,
+            modeDropdown = modeDropdown,
             refreshColor = refreshColor,
         }
 

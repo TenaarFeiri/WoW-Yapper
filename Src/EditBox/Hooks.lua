@@ -848,32 +848,74 @@ function EditBox:RefreshLabel()
         end
     end
     local masterKey = cfg.ChannelColorMaster
-    local overrides = cfg.ChannelColorOverrides
+    local colorMode = cfg.ChannelColorMode
     local channelColors = cfg.ChannelTextColors
+    local modeResolved = false
 
-    if currentKey and type(channelColors) == "table"
+    -- Debug for EMOTE
+    if currentKey == "EMOTE" then
+        print("[Yapper] EMOTE RefreshLabel: currentKey=" .. (currentKey or "nil"))
+        if type(colorMode) == "table" then
+            print("[Yapper] EMOTE mode=" .. (colorMode[currentKey] or "nil"))
+        end
+        if ChatTypeInfo then
+            local emoteInfo = ChatTypeInfo["EMOTE"]
+            local textEmoteInfo = ChatTypeInfo["TEXT_EMOTE"]
+            print("[Yapper] ChatTypeInfo[EMOTE].r=" .. (emoteInfo and emoteInfo.r or "nil"))
+            print("[Yapper] ChatTypeInfo[TEXT_EMOTE].r=" .. (textEmoteInfo and textEmoteInfo.r or "nil"))
+        end
+    end
+
+    -- Check channel colour mode
+    if currentKey and type(colorMode) == "table" and type(colorMode[currentKey]) == "string" then
+        local mode = colorMode[currentKey]
+
+        if mode == "blizzard" then
+            -- Blizzard mode: use ChatTypeInfo (absolute precedence)
+            if currentKey == "CHANNEL" and self.Target then
+                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(self.Target)]
+                if info and type(info.r) == "number" then
+                    resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
+                    modeResolved = true
+                end
+            else
+                local info = ChatTypeInfo and ChatTypeInfo[currentKey]
+                if info and type(info.r) == "number" then
+                    resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
+                    modeResolved = true
+                    if currentKey == "EMOTE" then
+                        print("[Yapper] EMOTE Blizzard mode: R=" .. resolvedR .. " G=" .. resolvedG .. " B=" .. resolvedB)
+                    end
+                end
+            end
+        elseif mode == "master" and currentKey and type(masterKey) == "string"
+            and masterKey ~= "" and currentKey ~= masterKey then
+            -- Master mode: follow master channel's colour
+            if type(channelColors) == "table"
+                and type(channelColors[masterKey]) == "table"
+                and type(channelColors[masterKey].r) == "number"
+                and type(channelColors[masterKey].g) == "number"
+                and type(channelColors[masterKey].b) == "number" then
+                resolvedR = channelColors[masterKey].r
+                resolvedG = channelColors[masterKey].g
+                resolvedB = channelColors[masterKey].b
+                modeResolved = true
+            elseif ChatTypeInfo and ChatTypeInfo[masterKey] then
+                local info = ChatTypeInfo[masterKey]
+                resolvedR = info.r or resolvedR
+                resolvedG = info.g or resolvedG
+                resolvedB = info.b or resolvedB
+                modeResolved = true
+            end
+        end
+    end
+
+    -- Custom mode (or no mode set, or mode resolution failed): use ChannelTextColors
+    if not modeResolved and currentKey and type(channelColors) == "table"
         and type(channelColors[currentKey]) == "table" then
         local own = channelColors[currentKey]
         if type(own.r) == "number" and type(own.g) == "number" and type(own.b) == "number" then
             resolvedR, resolvedG, resolvedB = own.r, own.g, own.b
-        end
-    end
-
-    if currentKey and type(masterKey) == "string" and type(overrides) == "table"
-        and masterKey ~= "" and currentKey ~= masterKey and overrides[currentKey] == true then
-        if type(channelColors) == "table"
-            and type(channelColors[masterKey]) == "table"
-            and type(channelColors[masterKey].r) == "number"
-            and type(channelColors[masterKey].g) == "number"
-            and type(channelColors[masterKey].b) == "number" then
-            resolvedR = channelColors[masterKey].r
-            resolvedG = channelColors[masterKey].g
-            resolvedB = channelColors[masterKey].b
-        elseif ChatTypeInfo and ChatTypeInfo[masterKey] then
-            local info = ChatTypeInfo[masterKey]
-            resolvedR = info.r or resolvedR
-            resolvedG = info.g or resolvedG
-            resolvedB = info.b or resolvedB
         end
     end
 
@@ -899,7 +941,8 @@ function EditBox:RefreshLabel()
 
     -- Use theme colour *only* when the user's per‑channel config still equals the defaults
     -- (i.e. they haven't overridden that channel).  Otherwise stick with the configured value.
-    if theme and type(theme.channelTextColors) == "table" and currentKey then
+    -- Skip this entirely when mode is "blizzard" or "master" since those have absolute precedence.
+    if not modeResolved and theme and type(theme.channelTextColors) == "table" and currentKey then
         local tcol = theme.channelTextColors[effectiveType] or theme.channelTextColors[currentKey]
         if tcol and type(tcol.r) == "number" and type(tcol.g) == "number" and type(tcol.b) == "number" then
             -- Only use theme colour when user's config colour matches defaults.

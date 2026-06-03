@@ -89,8 +89,48 @@ local function RefreshMLLabel(ml)
 
 	-- Apply any per-channel colour overrides from config.
 	local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
+	local colorMode = cfg.ChannelColorMode
 	local channelColors = cfg.ChannelTextColors
-	if channelColors and type(channelColors[chatType]) == "table" then
+	local masterKey = cfg.ChannelColorMaster
+	local modeResolved = false
+
+	-- Check channel colour mode
+	if type(colorMode) == "table" and type(colorMode[chatType]) == "string" then
+		local mode = colorMode[chatType]
+
+		if mode == "blizzard" then
+			-- Blizzard mode: use ChatTypeInfo
+			if chatType == "CHANNEL" and ml.ChatTarget then
+				local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(ml.ChatTarget)]
+				if info and type(info.r) == "number" then
+					r, g, b = info.r, info.g, info.b
+					modeResolved = true
+				end
+			else
+				local info = ChatTypeInfo and ChatTypeInfo[chatType]
+				if info and type(info.r) == "number" then
+					r, g, b = info.r, info.g, info.b
+					modeResolved = true
+				end
+			end
+		elseif mode == "master" and type(masterKey) == "string" and masterKey ~= "" and chatType ~= masterKey then
+			-- Master mode: follow master channel's colour
+			if type(channelColors) == "table" and type(channelColors[masterKey]) == "table" then
+				local c = channelColors[masterKey]
+				if type(c.r) == "number" and type(c.g) == "number" and type(c.b) == "number" then
+					r, g, b = c.r, c.g, c.b
+					modeResolved = true
+				end
+			elseif ChatTypeInfo and ChatTypeInfo[masterKey] then
+				local info = ChatTypeInfo[masterKey]
+				r, g, b = info.r or r, info.g or g, info.b or b
+				modeResolved = true
+			end
+		end
+	end
+
+	-- Custom mode (or no mode set, or mode resolution failed): use ChannelTextColors
+	if not modeResolved and type(channelColors) == "table" and type(channelColors[chatType]) == "table" then
 		local c = channelColors[chatType]
 		if type(c.r) == "number" and type(c.g) == "number" and type(c.b) == "number" then
 			r, g, b = c.r, c.g, c.b
@@ -495,11 +535,16 @@ function Multiline:CreateFrame()
 		-- Register combat lockdown events
 		f:RegisterEvent("PLAYER_REGEN_DISABLED")
 		f:RegisterEvent("PLAYER_REGEN_ENABLED")
+		f:RegisterEvent("UPDATE_CHAT_COLOR")
 		f:SetScript("OnEvent", function(_, event)
 			if event == "PLAYER_REGEN_DISABLED" then
 				Multiline:OnLockdownStart()
 			elseif event == "PLAYER_REGEN_ENABLED" then
 				Multiline:OnLockdownEnd()
+			elseif event == "UPDATE_CHAT_COLOR" then
+				if Multiline.Frame and Multiline.Frame:IsShown() then
+					Multiline:UpdateLabelColour()
+				end
 			end
 		end)
 

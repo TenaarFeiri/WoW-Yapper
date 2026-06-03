@@ -30,6 +30,7 @@ local COLOUR_KEYS                   = {
 
 local CHANNEL_OVERRIDE_OPTIONS      = {
     { key = "SAY",           label = "Say" },
+    { key = "EMOTE",         label = "Emote" },
     { key = "YELL",          label = "Yell" },
     { key = "PARTY",         label = "Party" },
     { key = "WHISPER",       label = "Whisper" },
@@ -129,6 +130,7 @@ local SETTING_TOOLTIPS              = {
     "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
     ["CHANNEL.MASTER"] = "One selected channel can act as a colour source.",
     ["CHANNEL.OVERRIDE"] = "When checked, this channel uses the selected master channel's colour.",
+    ["CHANNEL.MODE"] = "Choose colour source: Custom (your setting), Follow Master, or Blizzard Chat (uses game's chat colours).",
     ["CHANNEL.RESET_ALL"] = "Restore all channel colours to defaults.",
     ["System.DEBUG"] = "Enables debug output. Warning: this is very spammy!",
     ["System.VERBOSE"] = "Yapper will announce when it does something unusual — a less spammy alternative to Debug.",
@@ -374,7 +376,7 @@ function Interface:BuildRenderSchema()
 
         if #path == 2 and path[1] == "EditBox"
             and (path[2] == "ChannelColorMaster"
-                or path[2] == "ChannelColorOverrides"
+                or path[2] == "ChannelColorMode"
                 or path[2] == "ChannelTextColors"
                 or path[2] == "TextColor"
                 or path[2] == "BorderColor") then

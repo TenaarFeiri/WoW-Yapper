@@ -773,6 +773,8 @@ function EditBox:SetupOverlayScripts()
     -- Track incoming whispers so we can cycle reply targets.
     frame:RegisterEvent("CHAT_MSG_WHISPER")
     frame:RegisterEvent("CHAT_MSG_BN_WHISPER")
+    -- Track Blizzard chat colour changes to refresh labels when using Blizzard mode.
+    frame:RegisterEvent("UPDATE_CHAT_COLOR")
 
     -- Also we want to watch for when the user shows or hides their UI, to close our editbox.
     UIParent:HookScript("OnHide", function()
@@ -888,6 +890,12 @@ function EditBox:SetupOverlayScripts()
                     self:AddReplyTarget(sender, "WHISPER")
                 end
             end
+        elseif event == "UPDATE_CHAT_COLOR" then
+            -- Blizzard chat colour changed: refresh label.
+            -- This is cheap and ensures we catch any relevant colour changes.
+            local chatType = select(1, ...)
+            print("[Yapper] UPDATE_CHAT_COLOR event: chatType=" .. (chatType or "nil"))
+            self:RefreshLabel()
         end
     end)
 end
