@@ -304,6 +304,57 @@ function Interface:SetLocalPath(path, value)
         -- Apply the new stickiness rules to LastUsed immediately so the next
         -- open reflects the change without needing an open/close cycle first.
         YapperTable.EditBox:PersistLastUsed()
+    elseif JoinPath(path) == "EditBox.HideBlizzardEditbox" then
+        -- Immediately show/hide the Blizzard editbox when the toggle changes
+        -- Only applies when not in proxy mode
+        local cfg = localConf.EditBox or {}
+        if cfg.UseBlizzardSkinProxy ~= true then
+            local origEditBox = YapperTable.EditBox and YapperTable.EditBox.OrigEditBox
+            -- Fall back to the current chat frame editbox if OrigEditBox is nil
+            if not origEditBox then
+                origEditBox = _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
+            end
+            if origEditBox then
+                if normalizedValue == true then
+                    if origEditBox.Hide then
+                        pcall(function() origEditBox:Hide() end)
+                    end
+                else
+                    if origEditBox.Show then
+                        pcall(function() origEditBox:Show() end)
+                    end
+                end
+            end
+        end
+    elseif JoinPath(path) == "EditBox.UseBlizzardSkinProxy"
+        and YapperTable.EditBox then
+        -- When proxy mode is enabled, always show the Blizzard editbox (proxy mode requires it)
+        -- When proxy mode is disabled, check HideBlizzardEditbox and apply immediately
+        local origEditBox = YapperTable.EditBox.OrigEditBox
+        -- Fall back to the current chat frame editbox if OrigEditBox is nil
+        if not origEditBox then
+            origEditBox = _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
+        end
+        if origEditBox then
+            if normalizedValue == true then
+                -- Proxy mode enabled: show the editbox
+                if origEditBox.Show then
+                    pcall(function() origEditBox:Show() end)
+                end
+            else
+                -- Proxy mode disabled: check HideBlizzardEditbox
+                local cfg = localConf.EditBox or {}
+                if cfg.HideBlizzardEditbox == true then
+                    if origEditBox.Hide then
+                        pcall(function() origEditBox:Hide() end)
+                    end
+                else
+                    if origEditBox.Show then
+                        pcall(function() origEditBox:Show() end)
+                    end
+                end
+            end
+        end
     end
 
     if path[1] == "EditBox"
@@ -448,6 +499,9 @@ function Interface:IsPathDisabledByTheme(path)
             full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor" then
             return true
         end
+        if full == "EditBox.HideBlizzardEditbox" then
+            return true
+        end
     end
 
     local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
@@ -477,6 +531,9 @@ function Interface:GetFriendlyLabel(item)
     -- Blizzard skin proxy overrides
     if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
         if item.full == "EditBox.RoundedCorners" or item.full == "EditBox.Shadow" then
+            return baseLabel .. " |cFF888888(Disabled by Blizzard Skin)|r"
+        end
+        if item.full == "EditBox.HideBlizzardEditbox" then
             return baseLabel .. " |cFF888888(Disabled by Blizzard Skin)|r"
         end
     end

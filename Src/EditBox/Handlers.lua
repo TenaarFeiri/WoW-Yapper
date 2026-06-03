@@ -323,8 +323,8 @@ function EditBox:SetupOverlayScripts()
                         -- Fix: Use self.OrigEditBox (eb was undefined here).
                         -- This suppresses the Blizzard UI 'ghost' when switching to whisper modes.
                         local eb      = self.OrigEditBox
-                        if eb and eb.Hide and eb:IsShown() then
-                            eb:Hide()
+                        if eb and eb.Deactivate and eb:IsShown() then
+                            eb:Deactivate()
                         end
                         box:SetText("")
                         updatingText = false
@@ -723,6 +723,18 @@ function EditBox:SetupOverlayScripts()
         if State and State:IsEditing() then
             YapperAPI:SetState("IDLE")
         end
+
+        -- In proxy mode, set the Blizzard editbox to deactivated opacity (0.35)
+        -- when Yapper loses focus, but only if the original alpha was a default value
+        local cfg = YapperTable.Config and YapperTable.Config.EditBox
+        if cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+            if self._proxyPrevState and self._proxyPrevState.alphaWasDefault then
+                local origEditBox = self._proxyOrigEditBox or self.OrigEditBox
+                if origEditBox and origEditBox.SetAlpha then
+                    pcall(function() origEditBox:SetAlpha(0.35) end)
+                end
+            end
+        end
     end)
 
     edit:HookScript("OnEditFocusGained", function(box)
@@ -734,6 +746,18 @@ function EditBox:SetupOverlayScripts()
         -- Resume typing signals when clicking back in.
         if State and State:IsIdle() then
             YapperAPI:SetState("EDITING")
+        end
+
+        -- In proxy mode, ensure the Blizzard editbox stays at activated opacity (1.0)
+        -- when Yapper regains focus, but only if the original alpha was a default value
+        local cfg = YapperTable.Config and YapperTable.Config.EditBox
+        if cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+            if self._proxyPrevState and self._proxyPrevState.alphaWasDefault then
+                local origEditBox = self._proxyOrigEditBox or self.OrigEditBox
+                if origEditBox and origEditBox.SetAlpha then
+                    pcall(function() origEditBox:SetAlpha(1.0) end)
+                end
+            end
         end
     end)
 

@@ -50,13 +50,13 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     end
 
     -- ---------------------------------------------------------------
-    -- Wholesale proxy mode: the original Blizzard editbox is visible
+    -- Proxy mode: the original Blizzard editbox is visible
     -- behind us (see EditBox:ApplyProxyMode). Hide every Yapper-supplied
     -- visual and only run the text/anchor positioning below.
     -- ---------------------------------------------------------------
-    local wholesaleProxy = (cfg.UseBlizzardSkinProxy == true)
+    local isProxyMode = (cfg.UseBlizzardSkinProxy == true)
         and (cfg.UseLegacyCloneProxy ~= true)
-    if wholesaleProxy then
+    if isProxyMode then
         if overlay._yapperSolidFill   then overlay._yapperSolidFill:Hide()   end
         if overlay._yapperRoundedFill then overlay._yapperRoundedFill:Hide() end
         if labelBg._yapperSolidFill   then labelBg._yapperSolidFill:Hide()   end

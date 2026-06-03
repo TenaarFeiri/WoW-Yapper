@@ -123,6 +123,8 @@ local SETTING_TOOLTIPS              = {
     ["EditBox.EmoteAutoSend"] = "When enabled, picking an emote immediately sends it to chat. When disabled, it fills your chatbox with a trailing space so you can continue typing.",
     ["EditBox.UseBlizzardSkinProxy"] =
     "When enabled, Yapper temporarily snaps Blizzard's editbox backdrop/skin frame around the overlay so external chat-skin addons can style it.",
+    ["EditBox.HideBlizzardEditbox"] =
+    "When enabled, Blizzard's editbox is hidden while Yapper is open. Only available when not using Blizzard skin proxy.",
     ["CHANNEL.HEADER"] =
     "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
     ["CHANNEL.MASTER"] = "One selected channel can act as a colour source.",
@@ -191,6 +193,7 @@ local FRIENDLY_LABELS               = {
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.EmoteAutoSend"] = "Auto-send chosen emotes",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
+    ["EditBox.HideBlizzardEditbox"] = "Hide Blizzard editbox",
     ["System.StorytellerSlideSpeed"] = "Animation duration",
     ["System.UseGlobalProfile"] = "Use Global Profile",
 }
@@ -258,6 +261,8 @@ local CATEGORIES                    = {
             "EditBox.FontSize",
             "EditBox.FontFlags",
             "FrameSettings.WhatsNewFontSize",
+            -- Blizzard editbox visibility
+            "EditBox.HideBlizzardEditbox",
         },
         -- Channel override controls and border colour (conditional) are
         -- appended by custom logic inside the page builder.

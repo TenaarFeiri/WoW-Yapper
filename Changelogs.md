@@ -41,6 +41,14 @@
 
 # Patch notes
 
+## 2.1.28
+  - **New Feature**:
+    - Added support for IM Style chat boxes.
+    - Added a new configuration option to hide the default Blizzard editbox when using Yapper's appearance.
+  - **Bugfixes**:
+    - Fixed issue where Prat's frame sometimes didn't appear when in proxy mode.
+    - Fixed issue where cycling tabs in IM Style would automatically open and focus Yapper.
+
 ## 2.1.27
   - **New Feature**:
     - Added support for per-tab channel memory. When you switch tabs, Yapper now remembers the channel you were on and restores it when you return. (May not work with some Chat-altering addons like Chattynator)

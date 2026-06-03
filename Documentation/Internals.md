@@ -21,21 +21,21 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L274`](../Src/Core.lua#L274)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L277`](../Src/Core.lua#L277)).
 - Methods:
-  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L310`](../Src/Core.lua#L310))
-  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L374`](../Src/Core.lua#L374))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L806`](../Src/Core.lua#L806))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L603`](../Src/Core.lua#L603))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L341`](../Src/Core.lua#L341))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L280`](../Src/Core.lua#L280))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L489`](../Src/Core.lua#L489)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L626`](../Src/Core.lua#L626))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L630`](../Src/Core.lua#L630))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L634`](../Src/Core.lua#L634))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L647`](../Src/Core.lua#L647)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L713`](../Src/Core.lua#L713)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L827`](../Src/Core.lua#L827)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L313`](../Src/Core.lua#L313))
+  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L377`](../Src/Core.lua#L377))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L809`](../Src/Core.lua#L809))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L606`](../Src/Core.lua#L606))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L344`](../Src/Core.lua#L344))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L283`](../Src/Core.lua#L283))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L492`](../Src/Core.lua#L492)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L629`](../Src/Core.lua#L629))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L633`](../Src/Core.lua#L633))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L637`](../Src/Core.lua#L637))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L650`](../Src/Core.lua#L650)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L716`](../Src/Core.lua#L716)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L830`](../Src/Core.lua#L830)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -443,11 +443,11 @@ Attached during overlay show lifecycle.
 
 - Description: Mirrors Blizzard editbox visual skin.
 - Methods:
-  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L616`](../Src/EditBox/SkinProxy.lua#L616))
-  - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L567`](../Src/EditBox/SkinProxy.lua#L567))
+  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L651`](../Src/EditBox/SkinProxy.lua#L651))
+  - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L584`](../Src/EditBox/SkinProxy.lua#L584))
   - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L17`](`../Src/EditBox/SkinProxy.lua#L17`))
-  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L492`](`../Src/EditBox/SkinProxy.lua#L492`))
-  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L527`](`../Src/EditBox/SkinProxy.lua#L527`))
+  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L509`](`../Src/EditBox/SkinProxy.lua#L509`))
+  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L544`](`../Src/EditBox/SkinProxy.lua#L544`))
 
 ## EditBox.Overlay
 
@@ -476,18 +476,18 @@ Hooked into Blizzard editboxes during `HookAllChatFrames`.
 - Description: Show/hide lifecycle, handoff, hook glue, open guards.
 - Methods:
   - `Show` ([`../Src/EditBox/Hooks.lua#L61`](`../Src/EditBox/Hooks.lua#L61`))
-  - `Hide` ([`../Src/EditBox/Hooks.lua#L469`](`../Src/EditBox/Hooks.lua#L469`))
-  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L602`](`../Src/EditBox/Hooks.lua#L602`))
-  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L698`](`../Src/EditBox/Hooks.lua#L698`))
-  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L797`](`../Src/EditBox/Hooks.lua#L797`))
-  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L1022`](`../Src/EditBox/Hooks.lua#L1022`))
-  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L1066`](`../Src/EditBox/Hooks.lua#L1066`))
-  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1114`](`../Src/EditBox/Hooks.lua#L1114`))
-  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1136`](`../Src/EditBox/Hooks.lua#L1136`))
-  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1161`](`../Src/EditBox/Hooks.lua#L1161`))
-  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1236`](`../Src/EditBox/Hooks.lua#L1236`))
-  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1303`](`../Src/EditBox/Hooks.lua#L1303`))
-  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1637`](`../Src/EditBox/Hooks.lua#L1637`))
+  - `Hide` ([`../Src/EditBox/Hooks.lua#L476`](`../Src/EditBox/Hooks.lua#L476`))
+  - `HandoffToBlizzard` ([`../Src/EditBox/Hooks.lua#L609`](`../Src/EditBox/Hooks.lua#L609`))
+  - `ApplyConfigToLiveOverlay` ([`../Src/EditBox/Hooks.lua#L705`](`../Src/EditBox/Hooks.lua#L705`))
+  - `RefreshLabel` ([`../Src/EditBox/Hooks.lua#L804`](`../Src/EditBox/Hooks.lua#L804`))
+  - `PersistLastUsed` ([`../Src/EditBox/Hooks.lua#L1029`](`../Src/EditBox/Hooks.lua#L1029`))
+  - `CycleChat` ([`../Src/EditBox/Hooks.lua#L1073`](`../Src/EditBox/Hooks.lua#L1073`))
+  - `IsChatTypeAvailable` ([`../Src/EditBox/Hooks.lua#L1121`](`../Src/EditBox/Hooks.lua#L1121`))
+  - `GetResolvedChatType` ([`../Src/EditBox/Hooks.lua#L1143`](`../Src/EditBox/Hooks.lua#L1143`))
+  - `NavigateHistory` ([`../Src/EditBox/Hooks.lua#L1168`](`../Src/EditBox/Hooks.lua#L1168`))
+  - `ForwardSlashCommand` ([`../Src/EditBox/Hooks.lua#L1243`](`../Src/EditBox/Hooks.lua#L1243`))
+  - `HookBlizzardEditBox` ([`../Src/EditBox/Hooks.lua#L1310`](`../Src/EditBox/Hooks.lua#L1310`))
+  - `HookAllChatFrames` ([`../Src/EditBox/Hooks.lua#L1701`](`../Src/EditBox/Hooks.lua#L1701`))
 - Filters run:
   - `PRE_EDITBOX_SHOW`.
 - Callbacks fired:
@@ -771,10 +771,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L514)).
 - Methods:
-  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L340`](`../Src/Interface/Schema.lua#L340`))
-  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L486`](`../Src/Interface/Schema.lua#L486`))
-  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L494`](`../Src/Interface/Schema.lua#L494`))
-  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L500`](`../Src/Interface/Schema.lua#L500`))
+  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L345`](`../Src/Interface/Schema.lua#L345`))
+  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L491`](`../Src/Interface/Schema.lua#L491`))
+  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L499`](`../Src/Interface/Schema.lua#L499`))
+  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L505`](`../Src/Interface/Schema.lua#L505`))
 
 ## Interface.Config
 
@@ -795,15 +795,15 @@ Handles config reads/writes and side-effect fan-out.
   - `GetDefaultPath` ([`../Src/Interface/Config.lua#L141`](`../Src/Interface/Config.lua#L141`))
   - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L145`](`../Src/Interface/Config.lua#L145`))
   - `SetLocalPath` ([`../Src/Interface/Config.lua#L149`](`../Src/Interface/Config.lua#L149`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L345`](`../Src/Interface/Config.lua#L345`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L353`](`../Src/Interface/Config.lua#L353`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L366`](`../Src/Interface/Config.lua#L366`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L370`](`../Src/Interface/Config.lua#L370`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L386`](`../Src/Interface/Config.lua#L386`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L403`](`../Src/Interface/Config.lua#L403`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L443`](`../Src/Interface/Config.lua#L443`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L468`](`../Src/Interface/Config.lua#L468`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L497`](`../Src/Interface/Config.lua#L497`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L396`](`../Src/Interface/Config.lua#L396`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L404`](`../Src/Interface/Config.lua#L404`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L417`](`../Src/Interface/Config.lua#L417`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L421`](`../Src/Interface/Config.lua#L421`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L437`](`../Src/Interface/Config.lua#L437`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L454`](`../Src/Interface/Config.lua#L454`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L494`](`../Src/Interface/Config.lua#L494`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L522`](`../Src/Interface/Config.lua#L522`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L554`](`../Src/Interface/Config.lua#L554`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
@@ -816,29 +816,29 @@ Builds and controls top-level frames.
 - Fields:
   - `_activeCategory` *private by convention; do not rely on* ([`../Src/Interface/Window.lua#L175`](../Src/Interface/Window.lua#L175)).
 - Methods:
-  - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L308`](../Src/Interface/Window.lua#L308))
-  - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L319`](../Src/Interface/Window.lua#L319))
-  - `CheckForChangelogUpdate` — Handshake that updates seen records and triggers popups. ([`../Src/Interface/Window.lua#L395`](../Src/Interface/Window.lua#L395))
-  - `PopulateWhatsNewContent` — Renders changelog notes into a container. ([`../Src/Interface/Window.lua#L845`](../Src/Interface/Window.lua#L845))
-  - `RefreshWhatsNewContent` — Wipes and re-renders the WhatsNew popup. ([`../Src/Interface/Window.lua#L893`](../Src/Interface/Window.lua#L893))
-  - `UpdateWhatsNewButtonScale` — Scales the 'Got it' button text. ([`../Src/Interface/Window.lua#L910`](../Src/Interface/Window.lua#L910))
-  - `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L330`](../Src/Interface/Window.lua#L330))
+  - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L194`](../Src/Interface/Window.lua#L194))
+  - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L205`](../Src/Interface/Window.lua#L205))
+  - `CheckForChangelogUpdate` — Handshake that updates seen records and triggers popups. ([`../Src/Interface/Window.lua#L288`](../Src/Interface/Window.lua#L288))
+  - `PopulateWhatsNewContent` — Renders changelog notes into a container. ([`../Src/Interface/Window.lua#L738`](../Src/Interface/Window.lua#L738))
+  - `RefreshWhatsNewContent` — Wipes and re-renders the WhatsNew popup. ([`../Src/Interface/Window.lua#L786`](../Src/Interface/Window.lua#L786))
+  - `UpdateWhatsNewButtonScale` — Scales the 'Got it' button text. ([`../Src/Interface/Window.lua#L803`](../Src/Interface/Window.lua#L803))
+  - `Interface:GetWelcomeVersion() → number`: Returns the target version of the welcome screen content. ([`../Src/Interface/Window.lua#L216`](../Src/Interface/Window.lua#L216))
   - `GetMainWindowPositionStore` ([`../Src/Interface/Window.lua#L31`](`../Src/Interface/Window.lua#L31`))
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
-  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L374`](`../Src/Interface/Window.lua#L374`))
-  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L386`](`../Src/Interface/Window.lua#L386`))
-  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L421`](`../Src/Interface/Window.lua#L421`))
-  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L425`](`../Src/Interface/Window.lua#L425`))
-  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L482`](`../Src/Interface/Window.lua#L482`))
-  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L677`](`../Src/Interface/Window.lua#L677`))
-  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L928`](`../Src/Interface/Window.lua#L928`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1113`](`../Src/Interface/Window.lua#L1113`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1132`](`../Src/Interface/Window.lua#L1132`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1138`](`../Src/Interface/Window.lua#L1138`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L1146`](`../Src/Interface/Window.lua#L1146`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1152`](`../Src/Interface/Window.lua#L1152`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1180`](`../Src/Interface/Window.lua#L1180`))
+  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L260`](`../Src/Interface/Window.lua#L260`))
+  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L279`](`../Src/Interface/Window.lua#L279`))
+  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L314`](`../Src/Interface/Window.lua#L314`))
+  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L318`](`../Src/Interface/Window.lua#L318`))
+  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L375`](`../Src/Interface/Window.lua#L375`))
+  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L570`](`../Src/Interface/Window.lua#L570`))
+  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L821`](`../Src/Interface/Window.lua#L821`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1006`](`../Src/Interface/Window.lua#L1006`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1025`](`../Src/Interface/Window.lua#L1025`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1031`](`../Src/Interface/Window.lua#L1031`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L1039`](`../Src/Interface/Window.lua#L1039`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1045`](`../Src/Interface/Window.lua#L1045`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1073`](`../Src/Interface/Window.lua#L1073`))
 
 ## Interface.Widgets
 

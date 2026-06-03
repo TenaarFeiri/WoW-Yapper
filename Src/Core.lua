@@ -157,6 +157,9 @@ local DEFAULTS = {
         -- Try to imitate Blizzard's editbox appearance
         UseBlizzardSkinProxy  = false,
 
+        -- Hide Blizzard's editbox when Yapper is open (only when not using proxy mode)
+        HideBlizzardEditbox   = true,
+
         -- Sticky channel: remember last-used channel across opens.
         -- Group channels (Party/Instance/Raid) stay sticky even when StickyChannel
         -- is off, unless StickyGroupChannel is also disabled.

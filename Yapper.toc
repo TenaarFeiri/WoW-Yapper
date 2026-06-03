@@ -1,7 +1,7 @@
 ## Interface: 120005, 120007
 ## Title: Yapper
 ## Notes: Accessibility-centric and encounter-safe editbox replacement for your chat, incl. post splitting.
-## Version: 2.1.27
+## Version: 2.1.28_alpha
 ## Author: Sara Schulze Øverby
 ## IconTexture: 6624474
 ## Category: Chat
@@ -82,6 +82,7 @@ Src/Themes/Blizzard.lua
 Src/Interface.lua
 Src/Interface/Schema.lua
 Src/Interface/Config.lua
+Src/Interface/WhatsNew.lua
 Src/Interface/Window.lua
 Src/Interface/Widgets.lua
 Src/Interface/Pages.lua

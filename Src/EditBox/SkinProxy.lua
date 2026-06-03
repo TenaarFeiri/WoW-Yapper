@@ -26,7 +26,7 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         return
     end
 
-    -- Wholesale proxy mode: the new approach keeps the original Blizzard editbox
+    -- Proxy mode: the new approach keeps the original Blizzard editbox
     -- visible behind a transparent Yapper overlay (see EditBox:ApplyProxyMode).
     -- Texture cloning is deprecated and only runs when the legacy flag is set.
     if cfg.UseLegacyCloneProxy ~= true then
@@ -34,6 +34,23 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
         if self._skinProxyTextures then
             self:DetachBlizzardSkinProxy()
         end
+
+        -- When proxy mode is enabled, immediately Show() the Blizzard editbox
+        -- at deactivated opacity (0.35) to mimic Blizzard's IM mode behavior
+        if origEditBox and origEditBox.Show then
+            pcall(function() origEditBox:Show() end)
+            local DEFAULT_DEACTIVATED_ALPHA = 0.35
+            local ALPHA_TOLERANCE = 0.01
+            local currentAlpha = origEditBox.GetAlpha and origEditBox:GetAlpha() or 1.0
+            -- Only set alpha if current alpha is a default value
+            if math_abs(currentAlpha - 1.0) < ALPHA_TOLERANCE or 
+               math_abs(currentAlpha - DEFAULT_DEACTIVATED_ALPHA) < ALPHA_TOLERANCE then
+                if origEditBox.SetAlpha then
+                    pcall(function() origEditBox:SetAlpha(DEFAULT_DEACTIVATED_ALPHA) end)
+                end
+            end
+        end
+
         return
     end
 
@@ -553,7 +570,7 @@ function EditBox:DetachBlizzardSkinProxy()
 end
 
 -- ---------------------------------------------------------------------------
--- Wholesale proxy mode: keep the original Blizzard editbox visible underneath
+-- Proxy mode: keep the original Blizzard editbox visible underneath
 -- a transparent Yapper overlay so the addon-supplied skin renders natively.
 -- ---------------------------------------------------------------------------
 
@@ -561,7 +578,7 @@ end
 --- Hidden by ApplyProxyMode so our own ChannelLabel is the only visible prefix.
 local PROXY_HIDE_KEYS = { "header", "headerSuffix", "prompt", "NewcomerHint", "languageHeader" }
 
---- Activate wholesale proxy mode: keep the Blizzard editbox visible underneath.
+--- Activate proxy mode: keep the Blizzard editbox visible underneath.
 --- Saves the editbox's pre-state on self._proxyPrevState so RestoreProxyMode
 --- can put it back when Yapper closes.
 function EditBox:ApplyProxyMode(origEditBox)
@@ -572,8 +589,26 @@ function EditBox:ApplyProxyMode(origEditBox)
         wasShown        = origEditBox:IsShown(),
         mouseEnabled    = origEditBox.IsMouseEnabled and origEditBox:IsMouseEnabled() or nil,
         alpha           = origEditBox:GetAlpha(),
+        alphaWasDefault = nil,  -- Track if alpha was a Blizzard default
         hidden          = {},
     }
+
+    -- Check if current alpha matches Blizzard's default values (1.0 activated, 0.35 deactivated).
+    -- Also include 0.0 as a default deactivated state (used by Prat/Chatter to hide editbox via alpha).
+    -- If so, we can safely change it to mimic the activated state (since Yapper is now open).
+    -- If not, assume an addon has overridden it and leave it alone.
+    local DEFAULT_ACTIVATED_ALPHA = 1.0
+    local DEFAULT_DEACTIVATED_ALPHA = 0.35
+    local ALPHA_TOLERANCE = 0.01
+    if math_abs(prev.alpha - DEFAULT_ACTIVATED_ALPHA) < ALPHA_TOLERANCE or 
+       math_abs(prev.alpha - DEFAULT_DEACTIVATED_ALPHA) < ALPHA_TOLERANCE or
+       math_abs(prev.alpha - 0.0) < ALPHA_TOLERANCE then
+        prev.alphaWasDefault = true
+        -- Mimic Blizzard's activated state (set alpha to 1.0) since Yapper is open
+        if origEditBox.SetAlpha then
+            pcall(function() origEditBox:SetAlpha(DEFAULT_ACTIVATED_ALPHA) end)
+        end
+    end
 
     -- Hide the Blizzard header/prompt FontStrings so our ChannelLabel is the only prefix.
     for _, key in ipairs(PROXY_HIDE_KEYS) do
@@ -605,9 +640,9 @@ function EditBox:ApplyProxyMode(origEditBox)
 
     if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
         YapperTable.Utils:VerbosePrint(string.format(
-            "[ProxyMode] ApplyProxyMode on %s (wasShown=%s, mouse=%s).",
+            "[ProxyMode] ApplyProxyMode on %s (wasShown=%s, mouse=%s, alphaWasDefault=%s).",
             (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
-            tostring(prev.wasShown), tostring(prev.mouseEnabled)))
+            tostring(prev.wasShown), tostring(prev.mouseEnabled), tostring(prev.alphaWasDefault)))
     end
 end
 
@@ -633,18 +668,23 @@ function EditBox:RestoreProxyMode()
         end
     end
 
-    -- Restore alpha and shown state.
-    if prev.alpha and origEditBox.SetAlpha then
+    -- Restore alpha only if it was a Blizzard default (1.0 or 0.35).
+    -- If an addon had overridden it, leave it alone.
+    if prev.alphaWasDefault and prev.alpha and origEditBox.SetAlpha then
         pcall(function() origEditBox:SetAlpha(prev.alpha) end)
     end
+
+    -- Hide the frame if it was hidden before proxy mode opened.
+    -- This handles chat reskinners that hide the editbox by default.
     if not prev.wasShown and origEditBox.Hide then
         pcall(function() origEditBox:Hide() end)
     end
 
     if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
         YapperTable.Utils:VerbosePrint(string.format(
-            "[ProxyMode] RestoreProxyMode on %s.",
-            (origEditBox.GetName and origEditBox:GetName()) or "<unknown>"))
+            "[ProxyMode] RestoreProxyMode on %s (wasShown=%s, alphaWasDefault=%s).",
+            (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
+            tostring(prev.wasShown), tostring(prev.alphaWasDefault)))
     end
 end
 

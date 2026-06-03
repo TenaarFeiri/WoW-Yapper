@@ -81,8 +81,8 @@ function EditBox:Show(origEditBox)
     -- reclaim it here so Enter reliably activates the expanded editor.
     local ml = YapperTable and YapperTable.Multiline
     if ml and ml.Frame and ml.Frame:IsShown() then
-        if origEditBox and origEditBox.Hide then
-            origEditBox:Hide()
+        if origEditBox and origEditBox.Deactivate then
+            origEditBox:Deactivate()
         end
         if ml.EditBox and ml.EditBox.SetFocus then
             local mlb = ml.EditBox
@@ -326,7 +326,7 @@ function EditBox:Show(origEditBox)
         YapperTable.Utils:DebugPrint("Show: overlay frameLevel=" .. overlay:GetFrameLevel() .. ", orig frameLevel=" .. origLevel)
     end
     if cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
-        -- Wholesale proxy: keep the original Blizzard editbox visible underneath.
+        -- Proxy mode: keep the original Blizzard editbox visible underneath.
         -- If a multiline draft is pending, Multiline:Enter (called at the end of Show)
         -- will Hide() the original editbox within the same Lua callback, so the user
         -- never sees it flicker visible. _proxyPrevState remains intact so Multiline:Exit
@@ -340,6 +340,13 @@ function EditBox:Show(origEditBox)
         if not self._skinProxyTextures and cfg.UseBlizzardSkinProxy == true then
             if YapperTable.Utils and YapperTable.Utils.DebugPrint then
                 YapperTable.Utils:DebugPrint("Show: AttachBlizzardSkinProxy failed (no textures attached despite config=true)")
+            end
+        end
+
+        -- Hide Blizzard's editbox when Yapper is open and not in proxy mode
+        if cfg.HideBlizzardEditbox == true then
+            if origEditBox and origEditBox.Hide then
+                pcall(function() origEditBox:Hide() end)
             end
         end
     end
@@ -470,7 +477,7 @@ function EditBox:Hide(isHandoff)
     local prevOrig = self.OrigEditBox
     self._overlayUnfocused = false
 
-    -- Wholesale proxy mode: restore the original Blizzard editbox to its
+    -- Proxy mode: restore the original Blizzard editbox to its
     -- pre-Yapper state (mouse, header visibility, shown/hidden).
     -- Safe to call when proxy mode wasn't active.
     if self.RestoreProxyMode then
@@ -970,7 +977,7 @@ function EditBox:RefreshLabel()
     -- ForwardSlashCommand sets attributes explicitly when forwarding commands,
     -- and lockdown handoff preserves state through drafts, not attribute sync.
 
-    -- Wholesale proxy mode exception: addons like Prat hook ChatEdit_UpdateHeader
+    -- Proxy mode exception: addons like Prat hook ChatEdit_UpdateHeader
     -- to recolour the editbox border per channel. Since the original Blizzard
     -- editbox is now visible underneath Yapper, mirror our chat type onto it
     -- (outside combat) so those hooks fire and the skin reflects the channel.
@@ -1292,7 +1299,7 @@ function EditBox:ForwardSlashCommand(text)
     -- Clean up in case ChatEdit_SendText didn't close it.
     if self.OrigEditBox:IsShown() then
         self.OrigEditBox:SetText("")
-        self.OrigEditBox:Hide()
+        self.OrigEditBox:Deactivate()
     end
 end
 
@@ -1384,8 +1391,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     local leftover = savedEB and savedEB.GetText and savedEB:GetText() or ""
                     leftover = leftover:match("^%s*(.-)%s*$") or ""
 
-                    if savedEB and savedEB.Hide and savedEB:IsShown() then
-                        savedEB:Hide()
+                    if savedEB and savedEB.Deactivate and savedEB:IsShown() then
+                        savedEB:Deactivate()
                     end
 
                     -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
@@ -1555,11 +1562,44 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
+        -- Skip IM-mode tab reattachments (editbox already shown)
+        -- In popout/popout_and_inline modes, Blizzard reattaches the editbox to different tabs
+        -- which triggers Show() calls even though the editbox was already visible.
+        -- These are not user-initiated opens, just internal reattachments.
+        local whisperMode = GetCVar("whisperMode")
+        if (whisperMode == "popout" or whisperMode == "popout_and_inline") then
+            if blizzEditBox:IsShown() then
+                return
+            end
+        end
+
+        -- Skip IM-style tab switching (chatStyle == "im")
+        -- In IM mode, clicking tabs triggers Show() then Deactivate() via SetLastActiveWindow.
+        -- If the editbox is already shown and Yapper is NOT shown, this is a tab switch that should not open Yapper.
+        -- If Yapper IS shown, we need to handle the tab switch to update context.
+        local chatStyle = GetCVar("chatStyle")
+        if chatStyle == "im" and blizzEditBox:IsShown() and not (self.Overlay and self.Overlay:IsShown()) then
+            return
+        end
+
         -- If Yapper is already shown and a different editbox is showing (tab switch),
         -- update OrigEditBox and refresh the label to adapt to the new tab's context.
         if self.Overlay and self.Overlay:IsShown() then
             if blizzEditBox ~= self.OrigEditBox then
+                -- Swap proxy target if in proxy mode
+                local cfg = YapperTable.Config and YapperTable.Config.EditBox
+                local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+
+                if isProxy and self.RestoreProxyMode then
+                    pcall(function() self:RestoreProxyMode() end)
+                end
+
                 self.OrigEditBox = blizzEditBox
+
+                if isProxy and self.ApplyProxyMode then
+                    pcall(function() self:ApplyProxyMode(blizzEditBox) end)
+                end
+
                 -- Satisfy Blizzard code that expects the editbox to belong to a specific chatFrame.
                 if blizzEditBox and blizzEditBox.chatFrame then
                     self.OverlayEdit.chatFrame = blizzEditBox.chatFrame
@@ -1610,6 +1650,30 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end
             if not blizzEditBox:IsShown() then
                 return
+            end
+
+            -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
+            -- can inspect the pending open and cancel it.
+            if YapperTable.API then
+                local filterCT = blizzEditBox.GetAttribute and blizzEditBox:GetAttribute("chatType") or "SAY"
+                local filterTarget
+                if filterCT == "WHISPER" and blizzEditBox.GetAttribute then
+                    filterTarget = blizzEditBox:GetAttribute("tellTarget")
+                elseif filterCT == "CHANNEL" and blizzEditBox.GetAttribute then
+                    filterTarget = blizzEditBox:GetAttribute("channelTarget")
+                end
+                local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
+                    chatType = filterCT,
+                    target   = filterTarget,
+                })
+                if result == false then
+                    -- If we are suppressing the overlay open (e.g. WIM taking focus),
+                    -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                    if State and not State:IsIdle() then
+                        YapperAPI:SetState("IDLE")
+                    end
+                    return
+                end
             end
 
             -- Open Yapper's overlay
@@ -1793,30 +1857,6 @@ function EditBox:HookAllChatFrames()
     -- Removed as part of hook reduction effort - keybind system provides primary path.
     -- Potential impact: Addons that call ReplyTell2 programmatically may not trigger Yapper overlay.
 
-    -- Counteract addons like Chattynator that force ChatFrame1EditBox to stay
-    -- shown after DeactivateChat (via the KEEP_EDIT_BOX_VISIBLE option).
-    -- This causes focus conflicts when Yapper expects the editbox to be hidden.
-    -- We hook DeactivateChat after other addons and force-hide the editbox
-    -- if Yapper is not in bypass mode and the overlay is hidden.
-    if ChatFrameUtil and ChatFrameUtil.DeactivateChat and not self._deactivateChatHooked then
-        hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
-            -- Run on the next frame to ensure we run after all other hooks
-            -- (hooksecurefunc runs in LIFO order, but we defer to be safe)
-            C_Timer.After(0, function()
-                if editBox == _G.ChatFrame1EditBox
-                    and not UserBypassingYapper()
-                    and not BypassEditBox()
-                    and self.Overlay and not self.Overlay:IsShown() then
-                    editBox:Hide()
-                    if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-                        YapperTable.Utils:DebugPrint("DeactivateChat hook: forced hide of ChatFrame1EditBox (counteracting addon interference)")
-                    end
-                end
-            end)
-        end)
-        self._deactivateChatHooked = true
-    end
-
     -- Handle Native ChatEdit_InsertLink Bypass
     -- TRP3 natively calls ChatEdit_InsertLink when shift-clicking links.
     -- If Yapper is closed, this bypasses ChatFrame_OpenChat entirely,
@@ -1850,7 +1890,20 @@ function EditBox:HookAllChatFrames()
                 if switch.language then editBox.Language = switch.language end
                 local newEditBox = chatFrame.editBox
                 if newEditBox and newEditBox ~= editBox.OrigEditBox then
+                    -- Swap proxy target if in proxy mode
+                    local cfg = YapperTable.Config and YapperTable.Config.EditBox
+                    local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+
+                    if isProxy and editBox.RestoreProxyMode then
+                        pcall(function() editBox:RestoreProxyMode() end)
+                    end
+
                     editBox.OrigEditBox = newEditBox
+                    
+                    if isProxy and editBox.ApplyProxyMode then
+                        pcall(function() editBox:ApplyProxyMode(newEditBox) end)
+                    end
+                    
                     if newEditBox.chatFrame then
                         editBox.OverlayEdit.chatFrame = newEditBox.chatFrame
                         if editBox.ChannelLabel then
