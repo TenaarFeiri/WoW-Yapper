@@ -48,6 +48,7 @@
   - **Bugfixes**:
     - Fixed issue where Prat's frame sometimes didn't appear when in proxy mode.
     - Fixed issue where cycling tabs in IM Style would automatically open and focus Yapper.
+    - Fixed issue where extremely rapid keystrokes could leak through to action bars when Yapper was opening. (this is still a hack and leakage can still occur, just less now)
   - **Compatibility Improvement**:
     - Added a bridge to better support CEBE's integration due to changes in pipeline.
 

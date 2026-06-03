@@ -451,6 +451,37 @@ function EditBox:SetPreShowCheck(fn)
     self.PreShowCheck = fn
 end
 
+--- Create a hidden focus-trap EditBox.
+--- This widget is shown and focused instantly when a keybind triggers
+--- an open, beating any action-bar keybind race.  Show() will later
+--- move focus to OverlayEdit, but the keyboard is already locked to
+--- the UI layer by then.
+function EditBox:CreateFocusTrap()
+    if self._focusTrap then return end
+
+    local trap = CreateFrame("EditBox", "YapperFocusTrap", UIParent)
+    trap:SetSize(1, 1)
+    trap:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+    if trap.SetPropagateKeyboardInput then
+        trap:SetPropagateKeyboardInput(false)
+    end
+    trap:SetAutoFocus(false)
+    -- Keep the trap *shown* so it can actually intercept keyboard events
+    -- when focused.  Alpha 0 + no mouse makes it completely invisible.
+    trap:Show()
+    trap:SetAlpha(0)
+    trap:EnableMouse(false)
+
+    -- Capture any keystrokes that land in the trap before overlay is ready
+    trap:SetScript("OnTextChanged", function(self)
+        -- Store captured text for transfer to overlay
+        EditBox._focusTrapText = self:GetText()
+    end)
+
+    self._focusTrap = trap
+    self._focusTrapText = ""
+end
+
 --- Initialize keybind override system.
 --- Called during addon boot.
 function EditBox:InitKeybinds()

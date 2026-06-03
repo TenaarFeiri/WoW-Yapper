@@ -103,7 +103,8 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     end
 
     -- Check for chat messaging lockdown before opening Yapper
-    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+    local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+    if inLockdown then
         -- Save Yapper's LastUsed state for restoration after lockdown
         if not Keybinds._preLockdownLastUsed and EditBox.LastUsed then
             Keybinds._preLockdownLastUsed = {
@@ -125,7 +126,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     end
     
     -- Restore pre-lockdown LastUsed state if lockdown has ended
-    if Keybinds._preLockdownLastUsed and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+    if Keybinds._preLockdownLastUsed and not inLockdown then
         if EditBox.LastUsed then
             EditBox.LastUsed.chatType = Keybinds._preLockdownLastUsed.chatType
             EditBox.LastUsed.target = Keybinds._preLockdownLastUsed.target
@@ -137,7 +138,17 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
         Keybinds._preLockdownLastUsed = nil
     end
-    
+
+    -- Grab focus instantly on the hidden trap so no action-bar keybinds
+    -- can leak through during the brief Show() window.  Do this as early
+    -- as possible after lockdown check to capture any keystrokes that
+    -- arrive before the overlay is ready.
+    if EditBox._focusTrap then
+        EditBox._focusTrap:SetFocus()
+        -- Clear any stale text from previous opens
+        EditBox._focusTrap:SetText("")
+    end
+
     -- Don't show if already shown to prevent state thrashing
     if EditBox.Overlay and EditBox.Overlay:IsShown() then
         if EditBox.OverlayEdit then
@@ -162,22 +173,20 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     end
 
     YapperTable.Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
-    EditBox:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+EditBox:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
     
-    -- Pre-fill text if specified (deferred by a frame for safety)
+    -- Pre-fill text if specified (applied immediately; Show() has already run)
     if prefillText and EditBox.OverlayEdit then
-        C_Timer.After(0, function()
-            if EditBox.OverlayEdit then
-                EditBox.OverlayEdit:SetText(prefillText)
-            end
-        end)
+        EditBox.OverlayEdit:SetText(prefillText)
     end
-    
-    -- Set focus to the overlay editbox
-    if EditBox.OverlayEdit then
-        EditBox.OverlayEdit:SetFocus()
+
+    -- Transfer any keystrokes captured by the focus trap before overlay was ready
+    if EditBox._focusTrapText and EditBox._focusTrapText ~= "" then
+        local currentText = EditBox.OverlayEdit:GetText() or ""
+        EditBox.OverlayEdit:SetText(currentText .. EditBox._focusTrapText)
+        EditBox._focusTrapText = ""  -- Clear for next open
     end
-    
+
     -- Use the proper Blizzard function to set focus override
     if EditBox.UpdateFocusOverride then
         EditBox:UpdateFocusOverride()

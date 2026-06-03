@@ -292,14 +292,9 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Label width: dynamically size to fit the label text but cap at
-    -- ~28% of the editbox.  Leave a minimum typing area of 80px.
-    local ebWidth = origEditBox:GetWidth() or 350
-    local labelText = BuildLabelText(self.ChatType, self.Target, self.ChannelName)
-    UpdateLabelBackgroundForText(self, labelText)
-
-    -- If you're looking for text colour here, it's set by RefreshLabel() to match the active channel.
-    -- CTFL+F, friend.
+    -- Label sizing, width, and colour are handled by RefreshLabel() below
+    -- in one pass. Skipping the redundant early call avoids an extra
+    -- GetStringWidth() (an expensive text-layout force) per open.
 
     -- Vertical scaling
     -- The overlay must be tall enough for the chosen font.  If the font
@@ -433,7 +428,6 @@ function EditBox:Show(origEditBox)
         self.OverlayEdit:SetCursorPosition(#draftText)
     end
     self:RefreshLabel()
-    overlay:Show()
 
     -- Clear stale bypass state so subsequent Shows don't short-circuit.
     if BypassEditBox() then
@@ -535,6 +529,10 @@ function EditBox:Hide(isHandoff)
         end
     end
     self.OverlayEdit:ClearFocus()
+    -- Defensive: if the focus trap somehow still holds focus, clear it.
+    if self._focusTrap and self._focusTrap:HasFocus() then
+        self._focusTrap:ClearFocus()
+    end
     self.OrigEditBox = nil
 
     -- Clean up any active lockdown timers to prevent "ghost" handoffs

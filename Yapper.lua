@@ -170,6 +170,7 @@ local function OnAddonLoaded(addonName)
     -- Initialise keybind system if enabled.
     if YapperTable.EditBox then
         YapperTable.EditBox:InitKeybinds()
+        YapperTable.EditBox:CreateFocusTrap()
     end
 
     YapperTable.Events:Unregister("PARENT_FRAME", "ADDON_LOADED")
