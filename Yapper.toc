@@ -67,6 +67,7 @@ Src/Bridges/TypingTrackerBridge.lua
 Src/Bridges/RPPrefixBridge.lua
 Src/Bridges/WIMBridge.lua
 Src/Bridges/TotalRP3Bridge.lua
+Src/Bridges/CEBEBridge.lua
 Src/Router.lua
 Src/Chunking.lua
 Src/Queue.lua

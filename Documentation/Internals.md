@@ -637,8 +637,8 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Description: Send orchestrator (`EditBox -> Chunking -> Queue -> Router`).
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
-  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L100`](../Src/Chat.lua#L100))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L214`](../Src/Chat.lua#L214))
+  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L103`](../Src/Chat.lua#L103))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L217`](../Src/Chat.lua#L217))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:

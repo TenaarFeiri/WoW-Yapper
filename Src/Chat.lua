@@ -76,6 +76,9 @@ function Chat:Init()
     if YapperTable.WIMBridge then
         YapperTable.WIMBridge:Init()
     end
+    if YapperTable.CEBEBridge then
+        YapperTable.CEBEBridge:Init()
+    end
 
     -- Hard Recovery Slash Commands
     -- If you can't focus Yapper this is useless, BUT
