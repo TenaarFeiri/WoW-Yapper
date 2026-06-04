@@ -891,11 +891,25 @@ function EditBox:SetupOverlayScripts()
                 end
             end
         elseif event == "UPDATE_CHAT_COLOR" then
-            -- Blizzard chat colour changed: refresh label.
-            -- This is cheap and ensures we catch any relevant colour changes.
+            -- Blizzard chat colour changed: refresh label if it matches our current channel.
             local chatType = select(1, ...)
-            print("[Yapper] UPDATE_CHAT_COLOR event: chatType=" .. (chatType or "nil"))
-            self:RefreshLabel()
+            
+            -- Check if this event is relevant to our current channel
+            local shouldRefresh = false
+            if chatType == self.ChatType then
+                shouldRefresh = true
+            elseif chatType:match("^CHANNEL%d+$") and self.ChatType == "CHANNEL" then
+                -- Event is for CHANNEL# and we're on CHANNEL - check if numbers match
+                local eventNum = tonumber(chatType:match("CHANNEL(%d+)"))
+                local ourNum = tonumber(self.Target)
+                if eventNum and ourNum and eventNum == ourNum then
+                    shouldRefresh = true
+                end
+            end
+            
+            if shouldRefresh then
+                self:RefreshLabel()
+            end
         end
     end)
 end

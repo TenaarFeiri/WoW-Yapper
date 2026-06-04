@@ -212,6 +212,7 @@ local GROUP_CHAT_TYPES         = {
 
 local CHATTYPE_TO_OVERRIDE_KEY = {
     SAY = "SAY",
+    EMOTE = "EMOTE",
     YELL = "YELL",
     PARTY = "PARTY",
     PARTY_LEADER = "PARTY",

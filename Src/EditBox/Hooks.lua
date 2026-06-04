@@ -852,20 +852,6 @@ function EditBox:RefreshLabel()
     local channelColors = cfg.ChannelTextColors
     local modeResolved = false
 
-    -- Debug for EMOTE
-    if currentKey == "EMOTE" then
-        print("[Yapper] EMOTE RefreshLabel: currentKey=" .. (currentKey or "nil"))
-        if type(colorMode) == "table" then
-            print("[Yapper] EMOTE mode=" .. (colorMode[currentKey] or "nil"))
-        end
-        if ChatTypeInfo then
-            local emoteInfo = ChatTypeInfo["EMOTE"]
-            local textEmoteInfo = ChatTypeInfo["TEXT_EMOTE"]
-            print("[Yapper] ChatTypeInfo[EMOTE].r=" .. (emoteInfo and emoteInfo.r or "nil"))
-            print("[Yapper] ChatTypeInfo[TEXT_EMOTE].r=" .. (textEmoteInfo and textEmoteInfo.r or "nil"))
-        end
-    end
-
     -- Check channel colour mode
     if currentKey and type(colorMode) == "table" and type(colorMode[currentKey]) == "string" then
         local mode = colorMode[currentKey]
@@ -878,14 +864,18 @@ function EditBox:RefreshLabel()
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
                 end
+            elseif currentKey == "CLUB" and self.Target then
+                -- Community channels use CHANNEL# ChatTypeInfo
+                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(self.Target)]
+                if info and type(info.r) == "number" then
+                    resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
+                    modeResolved = true
+                end
             else
                 local info = ChatTypeInfo and ChatTypeInfo[currentKey]
                 if info and type(info.r) == "number" then
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
-                    if currentKey == "EMOTE" then
-                        print("[Yapper] EMOTE Blizzard mode: R=" .. resolvedR .. " G=" .. resolvedG .. " B=" .. resolvedB)
-                    end
                 end
             end
         elseif mode == "master" and currentKey and type(masterKey) == "string"
