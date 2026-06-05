@@ -754,15 +754,15 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L102`](../Src/Interface.lua#L102))
   - `InitPopups` ([`../Src/Interface.lua#L314`](`../Src/Interface.lua#L314`))
   - `BuildConfigUI` ([`../Src/Interface.lua#L461`](`../Src/Interface.lua#L461`))
-  - `ShowMainWindow` ([`../Src/Interface.lua#L756`](`../Src/Interface.lua#L756`))
-  - `OpenToCategory` ([`../Src/Interface.lua#L781`](`../Src/Interface.lua#L781`))
-  - `ToggleMainWindow` ([`../Src/Interface.lua#L806`](`../Src/Interface.lua#L806`))
-  - `HandleLauncherClick` ([`../Src/Interface.lua#L838`](`../Src/Interface.lua#L838`))
-  - `CloseFrame` ([`../Src/Interface.lua#L873`](`../Src/Interface.lua#L873`))
-  - `Init` ([`../Src/Interface.lua#L884`](`../Src/Interface.lua#L884`))
-  - `CreateLauncher` ([`../Src/Interface.lua#L919`](`../Src/Interface.lua#L919`))
+  - `ShowMainWindow` ([`../Src/Interface.lua#L767`](`../Src/Interface.lua#L767`))
+  - `OpenToCategory` ([`../Src/Interface.lua#L792`](`../Src/Interface.lua#L792`))
+  - `ToggleMainWindow` ([`../Src/Interface.lua#L817`](`../Src/Interface.lua#L817`))
+  - `HandleLauncherClick` ([`../Src/Interface.lua#L849`](`../Src/Interface.lua#L849`))
+  - `CloseFrame` ([`../Src/Interface.lua#L884`](`../Src/Interface.lua#L884`))
+  - `Init` ([`../Src/Interface.lua#L895`](`../Src/Interface.lua#L895`))
+  - `CreateLauncher` ([`../Src/Interface.lua#L930`](`../Src/Interface.lua#L930`))
 - Global function:
-  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L860`](../Src/Interface.lua#L860)).
+  - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L871`](../Src/Interface.lua#L871)).
 
 ## Interface.Schema
 
@@ -834,12 +834,12 @@ Builds and controls top-level frames.
   - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L375`](`../Src/Interface/Window.lua#L375`))
   - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L570`](`../Src/Interface/Window.lua#L570`))
   - `CreateMainWindow` ([`../Src/Interface/Window.lua#L821`](`../Src/Interface/Window.lua#L821`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1006`](`../Src/Interface/Window.lua#L1006`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1025`](`../Src/Interface/Window.lua#L1025`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1031`](`../Src/Interface/Window.lua#L1031`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L1039`](`../Src/Interface/Window.lua#L1039`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1045`](`../Src/Interface/Window.lua#L1045`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1073`](`../Src/Interface/Window.lua#L1073`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1019`](`../Src/Interface/Window.lua#L1019`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1038`](`../Src/Interface/Window.lua#L1038`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1044`](`../Src/Interface/Window.lua#L1044`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L1052`](`../Src/Interface/Window.lua#L1052`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1058`](`../Src/Interface/Window.lua#L1058`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1086`](`../Src/Interface/Window.lua#L1086`))
 
 ## Interface.Widgets
 
@@ -847,22 +847,22 @@ Widget factory/pool and reusable setting controls.
 
 - Description: UI control allocator with pooling, tooltip plumbing, common controls.
 - Fields:
-  - `WidgetPool: table` ([`../Src/Interface/Widgets.lua#L56`](../Src/Interface/Widgets.lua#L56)).
-  - `_OpenColorPicker: function` *private by convention; do not rely on* ([`../Src/Interface/Widgets.lua#L875`](../Src/Interface/Widgets.lua#L875)).
+  - `WidgetPool: table` ([`../Src/Interface/Widgets.lua#L66`](../Src/Interface/Widgets.lua#L66)).
+  - `_OpenColorPicker: function` *private by convention; do not rely on* ([`../Src/Interface/Widgets.lua#L885`](../Src/Interface/Widgets.lua#L885)).
 - Methods:
   - `ClearConfigControls` ([`../Src/Interface/Widgets.lua#L34`](`../Src/Interface/Widgets.lua#L34`))
-  - `AddControl` ([`../Src/Interface/Widgets.lua#L45`](`../Src/Interface/Widgets.lua#L45`))
-  - `AcquireWidget` ([`../Src/Interface/Widgets.lua#L66`](`../Src/Interface/Widgets.lua#L66`))
-  - `ReleaseWidget` ([`../Src/Interface/Widgets.lua#L100`](`../Src/Interface/Widgets.lua#L100`))
-  - `GetTooltip` ([`../Src/Interface/Widgets.lua#L178`](`../Src/Interface/Widgets.lua#L178`))
-  - `AttachTooltip` ([`../Src/Interface/Widgets.lua#L189`](`../Src/Interface/Widgets.lua#L189`))
-  - `CreateResetButton` ([`../Src/Interface/Widgets.lua#L294`](`../Src/Interface/Widgets.lua#L294`))
-  - `CreateLabel` ([`../Src/Interface/Widgets.lua#L307`](`../Src/Interface/Widgets.lua#L307`))
-  - `CreateCheckBox` ([`../Src/Interface/Widgets.lua#L509`](`../Src/Interface/Widgets.lua#L509`))
-  - `CreateTextInput` ([`../Src/Interface/Widgets.lua#L551`](`../Src/Interface/Widgets.lua#L551`))
-  - `CreateColorPickerControl` ([`../Src/Interface/Widgets.lua#L642`](`../Src/Interface/Widgets.lua#L642`))
-  - `CreateFontSizeDropdown` ([`../Src/Interface/Widgets.lua#L727`](`../Src/Interface/Widgets.lua#L727`))
-  - `CreateFontOutlineDropdown` ([`../Src/Interface/Widgets.lua#L826`](`../Src/Interface/Widgets.lua#L826`))
+  - `AddControl` ([`../Src/Interface/Widgets.lua#L55`](`../Src/Interface/Widgets.lua#L55`))
+  - `AcquireWidget` ([`../Src/Interface/Widgets.lua#L76`](`../Src/Interface/Widgets.lua#L76`))
+  - `ReleaseWidget` ([`../Src/Interface/Widgets.lua#L110`](`../Src/Interface/Widgets.lua#L110`))
+  - `GetTooltip` ([`../Src/Interface/Widgets.lua#L188`](`../Src/Interface/Widgets.lua#L188`))
+  - `AttachTooltip` ([`../Src/Interface/Widgets.lua#L199`](`../Src/Interface/Widgets.lua#L199`))
+  - `CreateResetButton` ([`../Src/Interface/Widgets.lua#L304`](`../Src/Interface/Widgets.lua#L304`))
+  - `CreateLabel` ([`../Src/Interface/Widgets.lua#L317`](`../Src/Interface/Widgets.lua#L317`))
+  - `CreateCheckBox` ([`../Src/Interface/Widgets.lua#L519`](`../Src/Interface/Widgets.lua#L519`))
+  - `CreateTextInput` ([`../Src/Interface/Widgets.lua#L561`](`../Src/Interface/Widgets.lua#L561`))
+  - `CreateColorPickerControl` ([`../Src/Interface/Widgets.lua#L652`](`../Src/Interface/Widgets.lua#L652`))
+  - `CreateFontSizeDropdown` ([`../Src/Interface/Widgets.lua#L737`](`../Src/Interface/Widgets.lua#L737`))
+  - `CreateFontOutlineDropdown` ([`../Src/Interface/Widgets.lua#L836`](`../Src/Interface/Widgets.lua#L836`))
 - Non-obvious rationale migrated from old docs:
   - `CreateResetButton` self-registers with control tracking; do not double-register via `AddControl`.
 

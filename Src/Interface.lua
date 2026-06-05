@@ -459,7 +459,7 @@ end
 --  but used at runtime, so read from the module table.)
 -- ---------------------------------------------------------------------------
 function Interface:BuildConfigUI()
-    local CATEGORIES     = Interface._CATEGORIES
+    local ALL_CATEGORIES = Interface._ALL_CATEGORIES or Interface._CATEGORIES
     local FRIENDLY_LABELS = Interface._FRIENDLY_LABELS
     local frame = self.MainWindowFrame
     if not frame or not frame.ContentFrame then return end
@@ -474,28 +474,39 @@ function Interface:BuildConfigUI()
         end
     end
 
-    local schema    = self:GetRenderSchema()
     local catId     = self._activeCategory or "general"
     local activeCat = nil
-    for _, c in ipairs(CATEGORIES) do
+    for _, c in ipairs(ALL_CATEGORIES) do
         if c.id == catId then
             activeCat = c; break
         end
     end
-    if not activeCat then activeCat = CATEGORIES[1] end
+    if not activeCat then activeCat = ALL_CATEGORIES[1] end
+
+    -- Handle plugin categories with custom render callback
+    if activeCat.render and type(activeCat.render) == "function" then
+        local cursor = LayoutCursor.New(LAYOUT.CONTENT_START_Y - self:GetUIFontOffset())
+        activeCat.render(frame.ContentFrame, cursor)
+        return
+    end
+
+    -- Handle internal categories (stored in _internal field)
+    local internalCat = activeCat._internal or activeCat
+
+    local schema    = self:GetRenderSchema()
 
     -- Build a set of paths owned by this category for fast lookup.
     local catPaths = {}
-    if activeCat.paths then
-        for _, p in ipairs(activeCat.paths) do
+    if internalCat.paths then
+        for _, p in ipairs(internalCat.paths) do
             catPaths[p] = true
         end
     end
 
     -- Custom flags for conditional blocks.
     local customSet = {}
-    if activeCat.custom then
-        for _, c in ipairs(activeCat.custom) do
+    if internalCat.custom then
+        for _, c in ipairs(internalCat.custom) do
             customSet[c] = true
         end
     end

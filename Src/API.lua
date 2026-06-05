@@ -1189,3 +1189,97 @@ function API:Fire(event, ...)
         end
     end
 end
+
+-- ===== SETTINGS CATEGORY API ================================================
+
+local settingsCategories = {}
+local MAX_SETTINGS_CATEGORIES = 20
+
+--- Register a settings category in Yapper's settings window.
+--- @param id string Unique identifier for the category
+--- @param label string Display label for the sidebar button
+--- @param options table Options table with optional fields:
+---   - render: function(contentFrame, cursor) - Custom render callback
+---   - schema: table - Schema of controls for Yapper to render
+---   - internal: boolean - If true, marks as internal (hidden from plugin listing)
+--- @return boolean success
+function YapperAPI:RegisterSettingsCategory(id, label, options)
+    if type(id) ~= "string" or id == "" then return false end
+    if type(label) ~= "string" or label == "" then return false end
+    if type(options) ~= "table" then return false end
+
+    -- Check for duplicate IDs
+    for _, cat in ipairs(settingsCategories) do
+        if cat.id == id then return false end
+    end
+
+    -- Cap total categories
+    if #settingsCategories >= MAX_SETTINGS_CATEGORIES then
+        _report_api_error("SETTINGS", "RegisterSettingsCategory", nil, "category cap reached (" .. MAX_SETTINGS_CATEGORIES .. ")")
+        return false end
+
+    -- Validate options
+    if options.render and type(options.render) ~= "function" then return false end
+    if options.schema and type(options.schema) ~= "table" then return false end
+    if not options.render and not options.schema and not options._internal then return false end
+
+    table_insert(settingsCategories, {
+        id = id,
+        label = label,
+        render = options.render,
+        schema = options.schema,
+        internal = options.internal == true,
+        _internal = options._internal,
+    })
+
+    -- Sync to Interface module
+    local Interface = YapperTable.Interface
+    if Interface then
+        Interface._ALL_CATEGORIES = settingsCategories
+    end
+
+    return true
+end
+
+--- Unregister a previously registered settings category.
+--- @param id string Category ID to unregister
+function YapperAPI:UnregisterSettingsCategory(id)
+    if type(id) ~= "string" then return end
+
+    for i, cat in ipairs(settingsCategories) do
+        if cat.id == id then
+            table_remove(settingsCategories, i)
+            -- Sync to Interface module
+            local Interface = YapperTable.Interface
+            if Interface then
+                Interface._ALL_CATEGORIES = settingsCategories
+            end
+            return
+        end
+    end
+end
+
+--- Get a list of registered settings categories (excludes internal ones).
+--- @return table[] Array of {id, label} tables
+function YapperAPI:GetRegisteredSettingsCategories()
+    local result = {}
+    for _, cat in ipairs(settingsCategories) do
+        if not cat.internal then
+            table_insert(result, { id = cat.id, label = cat.label })
+        end
+    end
+    return result
+end
+
+--- Open Yapper's settings window to a specific category.
+--- @param id string Category ID to open
+--- @return boolean success
+function YapperAPI:OpenSettingsCategory(id)
+    if type(id) ~= "string" then return false end
+
+    local Interface = YapperTable.Interface
+    if not Interface or not Interface.OpenToCategory then return false end
+
+    Interface:OpenToCategory(id)
+    return true
+end

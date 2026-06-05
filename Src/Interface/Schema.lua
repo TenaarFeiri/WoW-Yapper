@@ -525,3 +525,20 @@ Interface._SETTING_TOOLTIPS           = SETTING_TOOLTIPS
 Interface._FRIENDLY_LABELS            = FRIENDLY_LABELS
 Interface._CATEGORIES                 = CATEGORIES
 Interface._PATH_TO_CATEGORY           = PATH_TO_CATEGORY
+
+-- Register Yapper's internal categories via the public API.
+function Interface:RegisterInternalCategories()
+    local YapperAPI = _G.YapperAPI
+    if not YapperAPI then return end
+
+    for _, cat in ipairs(CATEGORIES) do
+        YapperAPI:RegisterSettingsCategory(cat.id, cat.label, {
+            internal = true,
+            -- Store the original category structure for internal rendering
+            _internal = cat,
+        })
+    end
+end
+
+-- Register internal categories during addon load (before plugins can register)
+Interface:RegisterInternalCategories()

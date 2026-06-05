@@ -940,8 +940,21 @@ function Interface:CreateMainWindow()
 
     -- Build one button per category.
     frame.SidebarButtons = {}
+    local ALL_CATEGORIES = Interface._ALL_CATEGORIES or CATEGORIES
     local btnY = 32 -- start below font row + separator
-    for _, cat in ipairs(CATEGORIES) do
+    local seenPlugin = false
+    for _, cat in ipairs(ALL_CATEGORIES) do
+        -- Add separator before first plugin category
+        if not cat.internal and not seenPlugin then
+            seenPlugin = true
+            local sep = sidebar:CreateTexture(nil, "ARTWORK")
+            sep:SetColorTexture(0.4, 0.4, 0.4, 0.4)
+            sep:SetHeight(1)
+            sep:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 4, -btnY)
+            sep:SetPoint("TOPRIGHT", sidebar, "TOPRIGHT", -8, -btnY)
+            btnY = btnY + 8
+        end
+
         local btn = CreateFrame("Button", nil, sidebar)
         btn:SetSize(P.SIDEBAR_WIDTH - 8, P.SIDEBAR_BTN_HEIGHT)
         btn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, -btnY)

@@ -32,6 +32,16 @@ local math_floor = math.floor
 local math_min   = math.min
 
 function Interface:ClearConfigControls()
+    local frame = self.MainWindowFrame
+    if frame and frame.ContentFrame then
+        for _, child in ipairs({frame.ContentFrame:GetChildren()}) do
+            child:Hide()
+        end
+        for _, region in ipairs({frame.ContentFrame:GetRegions()}) do
+            region:Hide()
+        end
+    end
+
     if type(self.DynamicControls) ~= "table" then
         self.DynamicControls = {}
         return
