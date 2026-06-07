@@ -18,8 +18,9 @@ local Migrations = {}
 YapperTable.Migrations = Migrations
 
 -- Localise Lua globals for performance
-local type  = type
-local pairs = pairs
+local type     = type
+local pairs    = pairs
+local math_abs = math.abs
 
 -- ---------------------------------------------------------------------------
 -- Migration Registry

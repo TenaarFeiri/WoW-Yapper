@@ -49,6 +49,25 @@ FILE_SECTION_MAP = {
 # or ([`File.lua#L123`](`../File.lua#L123`))
 LINK_RE = re.compile(r'\(\[`([^#]+)#L(\d+)`\]\(`?([^#`)]+)`?#L(\d+)`?\)\)')
 
+# Functions that are intentionally undocumented (internal implementation details)
+IGNORED_FUNCTIONS = {
+    "Migrations:MigrateYALLMToYAS",
+    "Migrations:MigrateChannelColorMode",
+    "Migrations:RunMigrations",
+    "Migrations:MarkCompleted",
+    "Migrations:IsCompleted",
+    "Bridge:IsYapperCompatAvailable",
+    "EditBox:RecordTabChannel",
+    "Keybinds:CreateSecureButtons",
+    "Keybinds:RegisterOverrides",
+    "Keybinds:UnregisterOverrides",
+    "Keybinds:RefreshOverrides",
+    "Keybinds:IsRegistered",
+    "Keybinds:IsPendingRegistration",
+    "Keybinds:CompletePendingRegistration",
+    "Interface:RegisterInternalCategories",
+}
+
 def find_line_in_file(file_path, search_term):
     """Searches for a term in a file and returns the 1-indexed line number."""
     if not os.path.exists(file_path):
@@ -291,6 +310,11 @@ if __name__ == "__main__":
             functions = re.findall(r'function\s+([a-zA-Z0-9_.:]+)[:.]([a-zA-Z0-9_]+)', lua_content)
             for table, func in functions:
                 if func.startswith("_"): continue # Ignore internal-convention helpers
+                
+                # Check if this function is in the ignore list
+                full_func_name = f"{table}:{func}"
+                if full_func_name in IGNORED_FUNCTIONS:
+                    continue
                 
                 # Check if documented: `Table:Func`, `Table.Func`, or just `Func` in backticks
                 patterns = [

@@ -341,7 +341,7 @@ Initialised from `Spellcheck:Init` when present.
 - Methods:
   - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L156`](../Src/Spellcheck/Adaptive.lua#L156))
   - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L149`](../Src/Spellcheck/Adaptive.lua#L149))
-  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L853`](../Src/Spellcheck/Adaptive.lua#L853))
+  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L850`](../Src/Spellcheck/Adaptive.lua#L850))
   - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L674`](../Src/Spellcheck/Adaptive.lua#L674))
   - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L244`](../Src/Spellcheck/Adaptive.lua#L244))
   - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L117`](../Src/Spellcheck/Adaptive.lua#L117))
@@ -358,9 +358,9 @@ Initialised from `Spellcheck:Init` when present.
   - `RecordIgnored` ([`../Src/Spellcheck/Adaptive.lua#L569`](`../Src/Spellcheck/Adaptive.lua#L569))
   - `GetBonus` ([`../Src/Spellcheck/Adaptive.lua#L619`](`../Src/Spellcheck/Adaptive.lua#L619))
   - `Prune` ([`../Src/Spellcheck/Adaptive.lua#L720`](`../Src/Spellcheck/Adaptive.lua#L720))
-  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L781`](`../Src/Spellcheck/Adaptive.lua#L781))
-  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L797`](`../Src/Spellcheck/Adaptive.lua#L797))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L890`](`../Src/Spellcheck/Adaptive.lua#L890))
+  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L778`](`../Src/Spellcheck/Adaptive.lua#L778))
+  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L794`](`../Src/Spellcheck/Adaptive.lua#L794))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L887`](`../Src/Spellcheck/Adaptive.lua#L887))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty and returns an additive score adjustment used in candidate ranking. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. ([`../Src/Spellcheck/Adaptive.lua#L603`](../Src/Spellcheck/Adaptive.lua#L603), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:

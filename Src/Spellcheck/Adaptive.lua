@@ -720,11 +720,8 @@ end
 function YAS:Prune(tableName, limit, locale)
     local db = self:GetLocaleDB(locale)
     if not db then
-        -- Throw error if db is nil, because what???
-        -- Note to future self: If you remove this check then
-        -- it is possible for dbId top beyond nils. 
-        -- In which case, also remove linter suppression for need-check-nil.
-        YapperTable.Error:Throw("UNKNOWN", "YAS:Prune", "Could not obtain local db")
+        -- Sometimes we have no DB. Nothing to do, then.
+        return
     end
 
     -- Explicitly verify for linter that db is not nil
