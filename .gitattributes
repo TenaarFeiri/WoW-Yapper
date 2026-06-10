@@ -1,0 +1,25 @@
+# Normalize line endings to LF for all text files
+* text=auto eol=lf
+
+# Lua source files
+*.lua text eol=lf
+
+# Markdown and documentation
+*.md text eol=lf
+
+# TOC and other WoW addon files
+*.toc text eol=lf
+*.xml text eol=lf
+
+# Config / data
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.ps1  text eol=lf
+*.py   text eol=lf
+
+# Binary files — no line ending conversion
+*.tga  binary
+*.png  binary
+*.jpg  binary
+*.zip  binary
