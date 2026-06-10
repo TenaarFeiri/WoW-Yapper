@@ -610,7 +610,15 @@ function EditBox:ApplyProxyMode(origEditBox)
         end
     end
 
-    -- Hide the Blizzard header/prompt FontStrings so our ChannelLabel is the only prefix.
+    -- Force-show the original so its skin (Blizzard / Prat / Chattynator / ElvUI) renders.
+    -- This must happen BEFORE hiding headers: OnShow triggers UpdateHeader which
+    -- re-shows header FontStrings, so we hide them after that side-effect runs.
+    if not prev.wasShown and origEditBox.Show then
+        pcall(function() origEditBox:Show() end)
+    end
+
+    -- Record which header/prompt FontStrings are visible (post-Show, so UpdateHeader
+    -- has had a chance to run) and then hide them so our ChannelLabel is the only prefix.
     for _, key in ipairs(PROXY_HIDE_KEYS) do
         local part = origEditBox[key]
         if part and part.IsShown then
@@ -628,11 +636,6 @@ function EditBox:ApplyProxyMode(origEditBox)
     -- Clear any stale text on the original; we don't want it ghost-rendering content.
     if origEditBox.SetText then
         pcall(function() origEditBox:SetText("") end)
-    end
-
-    -- Force-show the original so its skin (Blizzard / Prat / Chattynator / ElvUI) renders.
-    if not prev.wasShown and origEditBox.Show then
-        pcall(function() origEditBox:Show() end)
     end
 
     self._proxyPrevState = prev

@@ -444,7 +444,7 @@ Attached during overlay show lifecycle.
 
 - Description: Mirrors Blizzard editbox visual skin.
 - Methods:
-  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L651`](../Src/EditBox/SkinProxy.lua#L651))
+  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L654`](../Src/EditBox/SkinProxy.lua#L654))
   - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L584`](../Src/EditBox/SkinProxy.lua#L584))
   - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L17`](`../Src/EditBox/SkinProxy.lua#L17`))
   - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L509`](`../Src/EditBox/SkinProxy.lua#L509`))
@@ -796,15 +796,15 @@ Handles config reads/writes and side-effect fan-out.
   - `GetDefaultPath` ([`../Src/Interface/Config.lua#L141`](`../Src/Interface/Config.lua#L141`))
   - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L145`](`../Src/Interface/Config.lua#L145`))
   - `SetLocalPath` ([`../Src/Interface/Config.lua#L149`](`../Src/Interface/Config.lua#L149`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L403`](`../Src/Interface/Config.lua#L403`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L411`](`../Src/Interface/Config.lua#L411`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L424`](`../Src/Interface/Config.lua#L424`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L428`](`../Src/Interface/Config.lua#L428`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L444`](`../Src/Interface/Config.lua#L444`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L461`](`../Src/Interface/Config.lua#L461`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L501`](`../Src/Interface/Config.lua#L501`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L539`](`../Src/Interface/Config.lua#L539`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L578`](`../Src/Interface/Config.lua#L578`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L398`](`../Src/Interface/Config.lua#L398`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L406`](`../Src/Interface/Config.lua#L406`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L419`](`../Src/Interface/Config.lua#L419`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L423`](`../Src/Interface/Config.lua#L423`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L439`](`../Src/Interface/Config.lua#L439`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L456`](`../Src/Interface/Config.lua#L456`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L496`](`../Src/Interface/Config.lua#L496`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L534`](`../Src/Interface/Config.lua#L534`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L573`](`../Src/Interface/Config.lua#L573`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.

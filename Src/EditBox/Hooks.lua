@@ -1902,18 +1902,39 @@ function EditBox:HookAllChatFrames()
                 existingText = blizzBox:GetText() or ""
             end
 
-            -- Close Blizzard's editbox
+            -- Snapshot the attribute cache BEFORE hiding.
+            -- Hide() triggers Deactivate → ResetChatTypeToSticky → SetChatType("SAY"),
+            -- which overwrites the _attrCache whisper info that Show() depends on.
+            local savedCache
+            if blizzBox then
+                savedCache = self._attrCache[blizzBox]
+                -- Deep-copy so the SetAttribute hook doesn't corrupt our snapshot
+                if savedCache then
+                    savedCache = { chatType = savedCache.chatType, tellTarget = savedCache.tellTarget,
+                                   channelTarget = savedCache.channelTarget, language = savedCache.language }
+                end
+            end
+
+            -- Close Blizzard's editbox so proxy mode can re-show it cleanly.
             if blizzBox then
                 blizzBox:Hide()
                 blizzBox:SetText("")
             end
 
-            -- Open Yapper with whisper context
+            -- Restore the cache that Hide()/Deactivate poisoned.
+            if blizzBox and savedCache then
+                self._attrCache[blizzBox] = savedCache
+            end
+
+            -- Show Yapper — Show() reads _attrCache and picks up the whisper context
+            -- set by Blizzard's ParseText (SetAttribute "chatType"/"tellTarget").
+            self:Show(blizzBox)
+
+            -- Force whisper context AFTER Show() as the final authority,
+            -- in case the cache was stale or overwritten by a race.
             self.ChatType = "WHISPER"
             self.Target = target
 
-            -- Show Yapper, transferring any existing text
-            self:Show(blizzBox)
             if existingText ~= "" and self.OverlayEdit and self.OverlayEdit.SetText then
                 self.OverlayEdit:SetText(existingText)
             end

@@ -328,36 +328,31 @@ function Interface:SetLocalPath(path, value)
         end
     elseif JoinPath(path) == "EditBox.UseBlizzardSkinProxy"
         and YapperTable.EditBox then
-        -- When proxy mode is enabled, always show the Blizzard editbox (proxy mode requires it)
-        -- When proxy mode is disabled, check HideBlizzardEditbox and apply immediately
-        local origEditBox = YapperTable.EditBox.OrigEditBox
-        -- Fall back to the current chat frame editbox if OrigEditBox is nil
+        -- Live-swap proxy mode while Yapper is open.
+        -- ApplyProxyMode / RestoreProxyMode handle all the state (mouse, header,
+        -- alpha, visibility) so the editbox transitions cleanly.
+        local eb = YapperTable.EditBox
+        local origEditBox = eb.OrigEditBox
         if not origEditBox then
             origEditBox = _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
         end
-        if origEditBox then
+        local yapperIsOpen = eb.Overlay and eb.Overlay:IsShown()
+        if origEditBox and yapperIsOpen then
             if normalizedValue == true then
-                -- Proxy mode enabled: show the editbox so its skin renders behind Yapper.
-                -- Only do this if Yapper is currently open (i.e. the user toggled the setting
-                -- while in the config UI with Yapper active). If Yapper is closed, skip it —
-                -- in Classic style the editbox is normally hidden when idle, and calling Show()
-                -- here would fire the Blizzard Show hook and trigger an unwanted Yapper open.
-                local yapperIsOpen = YapperTable.EditBox
-                    and YapperTable.EditBox.Overlay
-                    and YapperTable.EditBox.Overlay:IsShown()
-                if yapperIsOpen and origEditBox.Show then
-                    pcall(function() origEditBox:Show() end)
+                -- Switching TO proxy: apply proxy state (show editbox, disable mouse, hide header, etc.)
+                if eb.ApplyProxyMode then
+                    pcall(function() eb:ApplyProxyMode(origEditBox) end)
                 end
             else
-                -- Proxy mode disabled: check HideBlizzardEditbox
+                -- Switching FROM proxy: undo proxy state first
+                if eb.RestoreProxyMode then
+                    pcall(function() eb:RestoreProxyMode() end)
+                end
+                -- Then apply the HideBlizzardEditbox setting
                 local cfg = localConf.EditBox or {}
                 if cfg.HideBlizzardEditbox == true then
                     if origEditBox.Hide then
                         pcall(function() origEditBox:Hide() end)
-                    end
-                else
-                    if origEditBox.Show then
-                        pcall(function() origEditBox:Show() end)
                     end
                 end
             end
