@@ -25,17 +25,17 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 - Methods:
   - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L315`](../Src/Core.lua#L315))
   - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L379`](../Src/Core.lua#L379))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L811`](../Src/Core.lua#L811))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L608`](../Src/Core.lua#L608))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L813`](../Src/Core.lua#L813))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L610`](../Src/Core.lua#L610))
   - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L346`](../Src/Core.lua#L346))
   - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L285`](../Src/Core.lua#L285))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L494`](../Src/Core.lua#L494)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L631`](../Src/Core.lua#L631))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L635`](../Src/Core.lua#L635))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L639`](../Src/Core.lua#L639))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L652`](../Src/Core.lua#L652)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L718`](../Src/Core.lua#L718)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L832`](../Src/Core.lua#L832)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L496`](../Src/Core.lua#L496)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L633`](../Src/Core.lua#L633))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L637`](../Src/Core.lua#L637))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L641`](../Src/Core.lua#L641))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L654`](../Src/Core.lua#L654)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L720`](../Src/Core.lua#L720)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L834`](../Src/Core.lua#L834)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -796,15 +796,15 @@ Handles config reads/writes and side-effect fan-out.
   - `GetDefaultPath` ([`../Src/Interface/Config.lua#L141`](`../Src/Interface/Config.lua#L141`))
   - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L145`](`../Src/Interface/Config.lua#L145`))
   - `SetLocalPath` ([`../Src/Interface/Config.lua#L149`](`../Src/Interface/Config.lua#L149`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L396`](`../Src/Interface/Config.lua#L396`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L404`](`../Src/Interface/Config.lua#L404`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L417`](`../Src/Interface/Config.lua#L417`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L421`](`../Src/Interface/Config.lua#L421`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L437`](`../Src/Interface/Config.lua#L437`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L454`](`../Src/Interface/Config.lua#L454`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L494`](`../Src/Interface/Config.lua#L494`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L522`](`../Src/Interface/Config.lua#L522`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L554`](`../Src/Interface/Config.lua#L554`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L403`](`../Src/Interface/Config.lua#L403`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L411`](`../Src/Interface/Config.lua#L411`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L424`](`../Src/Interface/Config.lua#L424`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L428`](`../Src/Interface/Config.lua#L428`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L444`](`../Src/Interface/Config.lua#L444`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L461`](`../Src/Interface/Config.lua#L461`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L501`](`../Src/Interface/Config.lua#L501`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L539`](`../Src/Interface/Config.lua#L539`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L578`](`../Src/Interface/Config.lua#L578`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.

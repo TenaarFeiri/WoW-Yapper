@@ -41,6 +41,10 @@
 
 # Patch notes
 
+## 2.1.29
+  - **Bugfixes**:
+    - Fixed a bug where right-clicking a player's frame to whisper would open Blizzard's default editbox and ignore the first message sent.
+
 ## 2.1.28
   - **New Feature**:
     - Added support for IM Style chat boxes.

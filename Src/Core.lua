@@ -213,7 +213,7 @@ local DEFAULTS = {
         UnderlineColor      = { r = 1.0, g = 0.2, b = 0.2, a = 0.9 },
         HighlightColor      = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
         KeyboardLayout      = "QWERTY",
-        Dict                = {},
+        Dict                = KEEP_TABLE_CONTENTS,
         YASEnabled          = true,
         -- YAS adaptive learning data caps
         YASFreqCap          = 2000, -- Max unique vocabulary words tracked
@@ -419,6 +419,8 @@ local PROTECTED_KEYS = {
     _Stash          = true,
     _appliedTheme   = true,
     _themeOverrides = true,
+    minimapbutton   = true,
+    SpellcheckLearned = true,
 }
 
 local function SyncParity(dest, schema)

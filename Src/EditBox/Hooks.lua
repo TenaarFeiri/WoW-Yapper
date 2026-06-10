@@ -1850,9 +1850,9 @@ function EditBox:HookAllChatFrames()
             -- opening the overlay on the next frame, by which point the physical key
             -- char has already been consumed by the blizzard editbox, not ours.
             --
-            -- Exception: tab clicks (chatFrame ~= nil) should NOT open Yapper if it's closed.
+            -- Exception: tab clicks (chatFrame ~= nil with empty/nil text) should NOT open Yapper if it's closed.
             -- If Yapper is already open, we still set the watchdog so text routing works.
-            if chatFrame ~= nil then
+            if chatFrame ~= nil and (text == nil or text == "") then
                 -- Tab click case
                 if self.Overlay and self.Overlay:IsShown() then
                     -- Yapper is open: allow text routing via watchdog
@@ -1880,6 +1880,47 @@ function EditBox:HookAllChatFrames()
         -- The UIParent guard is already applied in EditBox:Show() and the
         -- UIParent OnHide hook in SetupOverlayScripts.
         self._openChatHooked = true
+    end
+
+    -- Hook SendTell to intercept right-click whispers on player frames
+    -- This fires AFTER Blizzard's editbox opens, so we close it and open Yapper instead
+    if ChatFrameUtil and ChatFrameUtil.SendTell and not self._sendTellHooked then
+        hooksecurefunc(ChatFrameUtil, "SendTell", function(target, chatFrame)
+            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+                -- In lockdown: let Blizzard handle it
+                return
+            end
+
+            local blizzBox = chatFrame and chatFrame.editBox
+            if not blizzBox then
+                blizzBox = ChatEdit_GetActiveWindow()
+            end
+
+            -- Capture any text already typed (user was fast)
+            local existingText = ""
+            if blizzBox then
+                existingText = blizzBox:GetText() or ""
+            end
+
+            -- Close Blizzard's editbox
+            if blizzBox then
+                blizzBox:Hide()
+                blizzBox:SetText("")
+            end
+
+            -- Open Yapper with whisper context
+            self.ChatType = "WHISPER"
+            self.Target = target
+
+            -- Show Yapper, transferring any existing text
+            self:Show(blizzBox)
+            if existingText ~= "" and self.OverlayEdit and self.OverlayEdit.SetText then
+                self.OverlayEdit:SetText(existingText)
+            end
+
+            self:RefreshLabel()
+        end)
+        self._sendTellHooked = true
     end
 
     -- REMOVED: ChatFrameUtil.ReplyTell2 hook (lines 1800-1817)

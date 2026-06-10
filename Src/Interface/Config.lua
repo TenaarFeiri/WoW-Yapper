@@ -337,8 +337,15 @@ function Interface:SetLocalPath(path, value)
         end
         if origEditBox then
             if normalizedValue == true then
-                -- Proxy mode enabled: show the editbox
-                if origEditBox.Show then
+                -- Proxy mode enabled: show the editbox so its skin renders behind Yapper.
+                -- Only do this if Yapper is currently open (i.e. the user toggled the setting
+                -- while in the config UI with Yapper active). If Yapper is closed, skip it —
+                -- in Classic style the editbox is normally hidden when idle, and calling Show()
+                -- here would fire the Blizzard Show hook and trigger an unwanted Yapper open.
+                local yapperIsOpen = YapperTable.EditBox
+                    and YapperTable.EditBox.Overlay
+                    and YapperTable.EditBox.Overlay:IsShown()
+                if yapperIsOpen and origEditBox.Show then
                     pcall(function() origEditBox:Show() end)
                 end
             else
@@ -516,6 +523,16 @@ function Interface:IsPathDisabledByTheme(path)
         return true
     end
 
+    -- Classic chat style inherently hides the editbox after sending
+    -- The HideBlizzardEditbox option only applies when Yapper is open, not post-send
+    -- Gray out the option to avoid confusion (don't fight Blizzard's design)
+    if full == "EditBox.HideBlizzardEditbox" then
+        local chatStyle = GetCVar("chatStyle")
+        if chatStyle == "classic" then
+            return true
+        end
+    end
+
     return false
 end
 
@@ -535,6 +552,13 @@ function Interface:GetFriendlyLabel(item)
         end
         if item.full == "EditBox.HideBlizzardEditbox" then
             return baseLabel .. " |cFF888888(Disabled by Blizzard Skin)|r"
+        end
+    end
+    -- Classic style override for HideBlizzardEditbox
+    if item.full == "EditBox.HideBlizzardEditbox" then
+        local chatStyle = GetCVar("chatStyle")
+        if chatStyle == "classic" then
+            return baseLabel .. " |cFF888888(Not applicable in Classic style)|r"
         end
     end
 

@@ -12,6 +12,12 @@ local _, YapperTable = ...
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
+    ["2.1.29"] = {
+        {
+            title = "Whisper Integration Fix",
+            body = "Fixed a bug where right-clicking a player's frame to whisper would open Blizzard's default editbox and ignore the first message sent."
+        },
+    },
     ["2.1.28"] = {
         {
             title = "IM Style compatibility",

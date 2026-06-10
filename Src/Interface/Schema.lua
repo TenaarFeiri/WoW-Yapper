@@ -125,7 +125,7 @@ local SETTING_TOOLTIPS              = {
     ["EditBox.UseBlizzardSkinProxy"] =
     "When enabled, Yapper temporarily snaps Blizzard's editbox backdrop/skin frame around the overlay so external chat-skin addons can style it.",
     ["EditBox.HideBlizzardEditbox"] =
-    "When enabled, Blizzard's editbox is hidden while Yapper is open. Only available when not using Blizzard skin proxy.",
+    "When enabled, Blizzard's editbox is hidden while Yapper is open. Only available when not using Blizzard skin proxy and not in Classic chat style.",
     ["CHANNEL.HEADER"] =
     "Change the colours for your chat channels here, and optionally set a master override to adhere to!",
     ["CHANNEL.MASTER"] = "One selected channel can act as a colour source.",
