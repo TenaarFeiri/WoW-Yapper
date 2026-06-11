@@ -421,33 +421,44 @@ local PROTECTED_KEYS = {
     _themeOverrides = true,
     minimapbutton   = true,
     SpellcheckLearned = true,
+    SpellcheckLocale = true,
 }
 
+--- Sync user config with schema defaults.
+--- Ensures user config has all keys from schema with correct types/values.
+--- Preserves user's existing values where compatible, removes obsolete keys.
+--- @param dest table   User's config table (e.g., YapperDB)
+--- @param schema table Default schema (DEFAULTS)
 local function SyncParity(dest, schema)
     if type(dest) ~= "table" or type(schema) ~= "table" then
         return
     end
 
+    -- First pass: ensure all schema keys exist in dest with correct types
     for key, schemaVal in pairs(schema) do
         local currentVal = dest[key]
 
         if schemaVal == KEEP_TABLE_CONTENTS then
+            -- Preserve user's table contents, just ensure it's a table
             if type(currentVal) ~= "table" then
                 dest[key] = {}
             end
         elseif type(schemaVal) == "table" then
+            -- Recursively sync nested tables
             if type(currentVal) ~= "table" then
                 dest[key] = DeepCopy(schemaVal)
             else
                 SyncParity(currentVal, schemaVal)
             end
         else
+            -- Primitive values: overwrite if missing or wrong type
             if currentVal == nil or type(currentVal) ~= type(schemaVal) then
                 dest[key] = schemaVal
             end
         end
     end
 
+    -- Second pass: remove keys that no longer exist in schema (unless protected)
     for key in pairs(dest) do
         if schema[key] == nil and not PROTECTED_KEYS[key] then
             dest[key] = nil
