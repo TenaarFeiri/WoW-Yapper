@@ -558,9 +558,10 @@ end
 --- GetLeft() / GetTop() / GetBottom() always return values in UIParent's
 --- coordinate space regardless of intermediate parent frames or scales,
 --- so this is safe even when ChatFrame1 has a non-1 effective scale.
----@param frame    Frame  The multiline container.
----@param overlay  Frame  The single-line overlay (for horizontal reference).
-local function AnchorAbsolute(frame, overlay)
+---@param frame      Frame   The multiline container.
+---@param overlay    Frame   The single-line overlay (for horizontal reference).
+---@param chatFrame  Frame?  The specific chat frame to anchor against (e.g. an undocked window).
+local function AnchorAbsolute(frame, overlay, chatFrame)
 	local screenH = UIParent:GetHeight() or 768
 	local screenW = UIParent:GetWidth() or 1024
 
@@ -570,28 +571,38 @@ local function AnchorAbsolute(frame, overlay)
 	if leftX + mlW > screenW - 4 then leftX = screenW - mlW - 4 end
 	if leftX < 4 then leftX = 4 end
 
-	-- Vertical: use ChatFrame1 bounds when available; fall back to overlay.
+	-- Vertical: use the specific chat frame's bounds when available.
+	-- This ensures undocked windows position multiline correctly.
 	local chatTop, chatBot
-	-- local cf = _G["ChatFrame1"] -- well-known global, always present
-	local cf = FCF_GetCurrentChatFrame() or _G["ChatFrame1"]
+	local cf = chatFrame
+		 or (FCF_GetCurrentChatFrame and FCF_GetCurrentChatFrame())
+		 or _G["ChatFrame1"]
 	if cf and cf.GetTop then
 		chatTop = cf:GetTop()
 		chatBot = cf:GetBottom()
 	end
-	chatTop        = chatTop or overlay:GetTop() or 200
-	chatBot        = chatBot or overlay:GetBottom() or 60
+	chatTop = chatTop or overlay:GetTop() or 200
+	chatBot = chatBot or overlay:GetBottom() or 60
 
 	-- Quadrant: chat centre in bottom half → frame grows upward.
 	local chatMidY = (chatTop + chatBot) / 2
 	local popUp    = (chatMidY < screenH / 2)
 
+	local mlH = frame:GetHeight() or 200
+
 	frame:ClearAllPoints()
 	if popUp then
 		-- Bottom of multiline sits just above the top of the chat message area.
-		frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", leftX, chatTop + 2)
+		-- Clamp so it doesn't overflow the top of the screen.
+		local anchorY = chatTop + 2
+		if anchorY + mlH > screenH - 4 then anchorY = screenH - mlH - 4 end
+		frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", leftX, anchorY)
 	else
 		-- Top of multiline sits just below the bottom of the chat message area.
-		frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", leftX, chatBot - 2)
+		-- Clamp so it doesn't overflow the bottom of the screen.
+		local anchorY = chatBot - 2
+		if anchorY - mlH < 4 then anchorY = mlH + 4 end
+		frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", leftX, anchorY)
 	end
 end
 
@@ -698,9 +709,20 @@ function Multiline:Enter(text, chatType, language, target)
 	YapperAPI:SetState("MULTILINE")
 
 	-- Position the frame using absolute UIParent coordinates captured
-	-- from the overlay and ChatFrame1 before the overlay is hidden.
+	-- from the overlay and the active chat frame before the overlay is hidden.
+	-- Derive the specific chat frame from OrigEditBox so undocked windows
+	-- anchor multiline to the correct frame, not always ChatFrame1.
+	local activeChatFrame
+	do
+		local origEB = eb and eb.OrigEditBox
+		if origEB and origEB.chatFrame then
+			activeChatFrame = origEB.chatFrame
+		elseif origEB and origEB.GetParent then
+			activeChatFrame = origEB:GetParent()
+		end
+	end
 	if overlay then
-		AnchorAbsolute(self.Frame, overlay)
+		AnchorAbsolute(self.Frame, overlay, activeChatFrame)
 		-- Sync the inner EditBox width to the scroll frame's current width.
 		local sfW = self.ScrollFrame and self.ScrollFrame:GetWidth()
 		if sfW and sfW > 10 and self.EditBox then

@@ -423,6 +423,16 @@ function EditBox:HookAllChatFrames()
         self.LastUsed = cfg.LastUsed
     end
 
+    -- IM window history: a stack so minimize can pop back to the previous window.
+    -- _lastActiveIMEditBox always mirrors the top of the stack for read compatibility.
+    self._imWindowHistory = {}
+    local seed = (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or _G["ChatFrame1EditBox"]
+    if seed then
+        self._imWindowHistory[1] = seed
+        self._lastActiveIMEditBox = seed
+    end
+
     for i = 1, (NUM_CHAT_WINDOWS or 10) do
         local eb = _G["ChatFrame" .. i .. "EditBox"]
         if eb then
@@ -537,15 +547,17 @@ function EditBox:HookAllChatFrames()
             -- opening the overlay on the next frame, by which point the physical key
             -- char has already been consumed by the blizzard editbox, not ours.
             --
-            -- Exception: tab clicks (chatFrame ~= nil with empty/nil text) should NOT open Yapper if it's closed.
-            -- If Yapper is already open, we still set the watchdog so text routing works.
+            -- Exception: tab clicks / chat-area clicks (chatFrame ~= nil with empty/nil text).
+            -- In IM mode, a click on the chat area is a user intent to open chat on that window.
+            -- In Classic mode, suppress to avoid spurious opens on tab navigation.
+            -- If Yapper is already open, allow text routing via watchdog regardless.
             if chatFrame ~= nil and (text == nil or text == "") then
-                -- Tab click case
                 if self.Overlay and self.Overlay:IsShown() then
                     -- Yapper is open: allow text routing via watchdog
                     self._openingWatchdog = true
                 else
-                    -- Yapper is closed: suppress the open
+                    -- Classic mode: suppress the open on tab navigation.
+                    -- IM mode is handled by the ActivateChat hook instead.
                     local eb = chatFrame.editBox
                     if eb and eb.GetName then
                         self._suppressNextShowFor = eb:GetName()
@@ -581,9 +593,29 @@ function EditBox:HookAllChatFrames()
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                 return
             end
+            if UserBypassingYapper() then return end
+            if self._suppressActivateChatHook then return end
+            if self.Overlay and self.Overlay:IsShown() then return end
 
-            -- Let the editbox Show() hook handle the actual overlay presentation,
-            -- but set a flag so we know this came from ActivateChat (not just raw Show)
+            -- In IM mode, the editbox is always shown, so our hooksecurefunc on
+            -- editBox:Show never fires for a user-initiated open. Instead,
+            -- ActivateChat is called, Show() fires (but IsShown() was already true
+            -- so our Show hook blocked it). Handle the open here instead.
+            local chatStyle = GetCVar("chatStyle")
+            if chatStyle == "im" then
+                self:_IMPushActive(editBox)
+                C_Timer.After(0, function()
+                    if self.Overlay and self.Overlay:IsShown() then return end
+                    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+                    if UserBypassingYapper() then return end
+                    -- Re-check focus override was cleared by ActivateChat; restore it.
+                    self:UpdateFocusOverride()
+                    self:Show(editBox)
+                end)
+                return
+            end
+
+            -- Non-IM: let the editbox Show() hook handle presentation.
             self._activateChatTriggered = true
             C_Timer.After(0, function()
                 self._activateChatTriggered = nil
@@ -752,6 +784,11 @@ function EditBox:HookAllChatFrames()
             local chatFrame = FCF_GetChatFrameByID(tab:GetID())
             if not chatFrame then return end
 
+            -- Track active window for IM mode so keybind opens on the right frame.
+            if chatFrame.editBox then
+                editBox:_IMPushActive(chatFrame.editBox)
+            end
+
             local cfType = chatFrame.chatType
             local cfTarget = chatFrame.chatTarget
             YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..tostring(cfType).." chatTarget="..tostring(cfTarget))
@@ -779,4 +816,123 @@ function EditBox:HookAllChatFrames()
         end)
         self._tabClickHooked = true
     end
+
+    -- Hook FCF_MaximizeFrame to detect when a minimized undocked window is restored.
+    -- The chat frame's OnShow fires but the editbox Show() hook doesn't (child visibility).
+    -- Update _lastActiveIMEditBox so the keybind opens on the restored frame.
+    if FCF_MaximizeFrame and not self._maximizeHooked then
+        local editBox = self
+        hooksecurefunc("FCF_MaximizeFrame", function(chatFrame)
+            if not chatFrame or not chatFrame.editBox then return end
+            editBox:_IMPushActive(chatFrame.editBox)
+            -- Restore the remembered channel state for this window.
+            editBox:_IMApplyWindowMemory(chatFrame)
+        end)
+        self._maximizeHooked = true
+    end
+
+    -- Hook FCF_MinimizeFrame: close Yapper if open on this frame, then pop the history.
+    -- After popping, activate the restored editbox so Blizzard shows it properly.
+    if FCF_MinimizeFrame and not self._minimizeHooked then
+        local editBox = self
+        hooksecurefunc("FCF_MinimizeFrame", function(chatFrame)
+            if not chatFrame or not chatFrame.editBox then return end
+            if editBox.Overlay and editBox.Overlay:IsShown()
+                and editBox.OrigEditBox == chatFrame.editBox then
+                editBox:Hide()
+            end
+            editBox:_IMPopActive(chatFrame.editBox)
+            -- Show the restored window's editbox in its normal IM idle state.
+            local restoredEB = editBox._lastActiveIMEditBox
+            if restoredEB and ChatFrameUtil and ChatFrameUtil.ActivateChat then
+                editBox._suppressActivateChatHook = true
+                pcall(function() ChatFrameUtil.ActivateChat(restoredEB) end)
+                -- Immediately deactivate so it fades to idle (not focused).
+                pcall(function() ChatFrameUtil.DeactivateChat(restoredEB) end)
+                editBox._suppressActivateChatHook = false
+            end
+        end)
+        self._minimizeHooked = true
+    end
+
+    -- Hook FCF_Close (window fully closed): pop history, fall back to ChatFrame1.
+    if FCF_Close and not self._closeHooked then
+        local editBox = self
+        hooksecurefunc("FCF_Close", function(frame)
+            if not frame or not frame.editBox then return end
+            editBox:_IMPopActive(frame.editBox)
+        end)
+        self._closeHooked = true
+    end
+end
+
+--- Push an editbox onto the IM active window history stack.
+--- Deduplicates: if already at the top, does nothing.
+function EditBox:_IMPushActive(eb)
+    if not eb then return end
+    local history = self._imWindowHistory
+    if history[#history] ~= eb then
+        -- Remove any existing entry for this editbox further down the stack
+        -- to keep it clean (same window shouldn't appear twice).
+        for i = #history, 1, -1 do
+            if history[i] == eb then
+                table.remove(history, i)
+                break
+            end
+        end
+        history[#history + 1] = eb
+    end
+    self._lastActiveIMEditBox = eb
+end
+
+--- Restore the remembered channel state for a chat frame from _tabChannelMemory.
+--- If Yapper is open the switch is applied immediately; otherwise it is stashed
+--- in _pendingTabSwitch to be consumed on the next open.
+function EditBox:_IMApplyWindowMemory(chatFrame)
+    if not chatFrame then return end
+    local cfType   = chatFrame.chatType
+    local cfTarget = chatFrame.chatTarget
+    -- Whisper frames: use Blizzard's live chatTarget.
+    if cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
+        and cfTarget and cfTarget ~= "" then
+        self._pendingTabSwitch = {
+            chatType  = cfType,
+            target    = cfTarget,
+            chatFrame = chatFrame,
+            editBox   = chatFrame.editBox,
+        }
+        return
+    end
+    -- Non-whisper: restore from session memory.
+    local key = chatFrame.GetName and chatFrame:GetName()
+    local mem = key and self._tabChannelMemory and self._tabChannelMemory[key]
+    if mem and mem.chatType then
+        self._pendingTabSwitch = {
+            chatType    = mem.chatType,
+            target      = mem.target,
+            channelName = mem.channelName,
+            language    = mem.language,
+            chatFrame   = chatFrame,
+            editBox     = chatFrame.editBox,
+        }
+    end
+end
+
+--- Pop the given editbox off the IM active window history stack and restore
+--- the previous entry as the active window.
+function EditBox:_IMPopActive(eb)
+    if not eb then return end
+    local history = self._imWindowHistory
+    -- Remove this editbox from the stack (wherever it is).
+    for i = #history, 1, -1 do
+        if history[i] == eb then
+            table.remove(history, i)
+            break
+        end
+    end
+    -- Restore the new top as active (fall back to ChatFrame1EditBox if empty).
+    local top = history[#history]
+        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or _G["ChatFrame1EditBox"]
+    self._lastActiveIMEditBox = top
 end

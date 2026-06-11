@@ -8,8 +8,8 @@ local YapperName, YapperTable = ...
 YapperTable.Core = YapperTable.Core or {}
 YapperTable.Core.UI = YapperTable.Core.UI or {}
 YapperTable.Core.UI.Frames = YapperTable.Core.UI.Frames or {}
-local State      = YapperTable.State
-local Utils      = YapperTable.Utils
+local State = YapperTable.State
+-- Note: Core.lua loads before Utils.lua, so use full path YapperTable.Utils
 
 -- ---------------------------------------------------------------------------
 -- Centralised configuration (hardcoded defaults)
@@ -508,9 +508,9 @@ end
 function YapperTable.Core:InitSavedVars()
     local currentVersion = tonumber(DEFAULTS.System.VERSION) or 0
 
-    _G.YapperDB = Utils:EnsureTable(_G.YapperDB)
-    _G.YapperLocalConf = Utils:EnsureTable(_G.YapperLocalConf)
-    _G.YapperLocalHistory = Utils:EnsureTable(_G.YapperLocalHistory)
+    _G.YapperDB = YapperTable.Utils:EnsureTable(_G.YapperDB)
+    _G.YapperLocalConf = YapperTable.Utils:EnsureTable(_G.YapperLocalConf)
+    _G.YapperLocalHistory = YapperTable.Utils:EnsureTable(_G.YapperLocalHistory)
 
     local dbVersion   = GetConfigVersion(_G.YapperDB)
     local confVersion = GetConfigVersion(_G.YapperLocalConf)
@@ -528,8 +528,8 @@ function YapperTable.Core:InitSavedVars()
 
     -- Mark current versions immediately to avoid recursive migration loops
     -- or stale version data if the boot sequence errors later.
-    _G.YapperDB.System = Utils:EnsureTable(_G.YapperDB.System)
-    _G.YapperLocalConf.System = Utils:EnsureTable(_G.YapperLocalConf.System)
+    _G.YapperDB.System = YapperTable.Utils:EnsureTable(_G.YapperDB.System)
+    _G.YapperLocalConf.System = YapperTable.Utils:EnsureTable(_G.YapperLocalConf.System)
     _G.YapperDB.System.VERSION = currentVersion
     _G.YapperLocalConf.System.VERSION = currentVersion
     _G.YapperLocalHistory.VERSION = currentVersion
@@ -553,14 +553,14 @@ function YapperTable.Core:InitSavedVars()
         local teal = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors and
             DEFAULTS.EditBox.ChannelTextColors.BN_WHISPER
         if type(teal) == "table" then
-            _G.YapperDB.EditBox = Utils:EnsureTable(_G.YapperDB.EditBox)
-            _G.YapperDB.EditBox.ChannelTextColors = Utils:EnsureTable(_G.YapperDB.EditBox.ChannelTextColors)
+            _G.YapperDB.EditBox = YapperTable.Utils:EnsureTable(_G.YapperDB.EditBox)
+            _G.YapperDB.EditBox.ChannelTextColors = YapperTable.Utils:EnsureTable(_G.YapperDB.EditBox.ChannelTextColors)
             _G.YapperDB.EditBox.ChannelTextColors.BN_WHISPER = {
                 r = teal.r, g = teal.g, b = teal.b, a = (teal.a ~= nil and teal.a or 1),
             }
-            _G.YapperDB.EditBox.ChannelColorMode = Utils:EnsureTable(_G.YapperDB.EditBox.ChannelColorMode)
+            _G.YapperDB.EditBox.ChannelColorMode = YapperTable.Utils:EnsureTable(_G.YapperDB.EditBox.ChannelColorMode)
             _G.YapperDB.EditBox.ChannelColorMode.BN_WHISPER = "custom"
-            Utils:Print("Migrated BN_WHISPER colour to defaults for older SavedVariables.")
+            YapperTable.Utils:Print("Migrated BN_WHISPER colour to defaults for older SavedVariables.")
         end
     end
 
@@ -854,7 +854,7 @@ function YapperTable.Core:PushToGlobal()
     local function pushCategory(category, skipKeys)
         local settings = localConf[category]
         if type(settings) ~= "table" then return end
-        globalDB[category] = Utils:EnsureTable(globalDB[category])
+        globalDB[category] = YapperTable.Utils:EnsureTable(globalDB[category])
 
         setmetatable(settings, nil)
 
@@ -885,7 +885,7 @@ function YapperTable.Core:PushToGlobal()
     pushCategory("FrameSettings", FRAME_SETTINGS_LOCAL_ONLY_KEYS)
 
     if type(localConf.System) == "table" then
-        globalDB.System = Utils:EnsureTable(globalDB.System)
+        globalDB.System = YapperTable.Utils:EnsureTable(globalDB.System)
         for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
             if localConf.System[key] ~= nil then
                 globalDB.System[key] = DeepCopy(localConf.System[key])

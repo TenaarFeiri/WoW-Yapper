@@ -8,8 +8,7 @@ local EditBox = YapperTable.EditBox
 local Utils = YapperTable.Utils
 
 -- Resolve locals from Hub.lua
-local Interface = YapperTable.Interface
-local IsColourTable = Interface.IsColourTable
+-- Note: Hooks/Label.lua loads before Interface.lua, so use full path for Interface
 local Core = YapperTable.EditBoxHooksCore
 local CHATTYPE_TO_OVERRIDE_KEY = Core.CHATTYPE_TO_OVERRIDE_KEY
 local BuildLabelText = Core.BuildLabelText
@@ -112,7 +111,7 @@ function EditBox:RefreshLabel()
         elseif mode == "master" and currentKey and type(masterKey) == "string"
             and masterKey ~= "" and currentKey ~= masterKey then
             -- Master mode: follow master channel's colour
-            if IsColourTable(channelColors[masterKey]) then
+            if YapperTable.Interface.IsColourTable(channelColors[masterKey]) then
                 resolvedR = channelColors[masterKey].r
                 resolvedG = channelColors[masterKey].g
                 resolvedB = channelColors[masterKey].b
@@ -128,7 +127,7 @@ function EditBox:RefreshLabel()
     end
 
     -- Custom mode (or no mode set, or mode resolution failed): use ChannelTextColors
-    if not modeResolved and currentKey and IsColourTable(channelColors[currentKey]) then
+    if not modeResolved and currentKey and YapperTable.Interface.IsColourTable(channelColors[currentKey]) then
         resolvedR, resolvedG, resolvedB = channelColors[currentKey].r, channelColors[currentKey].g, channelColors[currentKey].b
     end
 
@@ -157,7 +156,7 @@ function EditBox:RefreshLabel()
     -- Skip this entirely when mode is "blizzard" or "master" since those have absolute precedence.
     if not modeResolved and theme and type(theme.channelTextColors) == "table" and currentKey then
         local tcol = theme.channelTextColors[effectiveType] or theme.channelTextColors[currentKey]
-        if IsColourTable(tcol) then
+        if YapperTable.Interface.IsColourTable(tcol) then
             -- Only use theme colour when user's config colour matches defaults.
             local defaults = YapperTable.Core and YapperTable.Core.GetDefaults
                 and YapperTable.Core:GetDefaults()
@@ -277,7 +276,7 @@ function EditBox:RecordTabChannel(entry)
 end
 
 --- Save selection for stickiness across show/hide.
-function EditBox:SaveLastUsed()
+function EditBox:PersistLastUsed()
     if self.ChatType and self.ChatType ~= "" then
         self.LastUsed = {
             chatType = self.ChatType,

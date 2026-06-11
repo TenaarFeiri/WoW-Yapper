@@ -391,9 +391,11 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L459`](../Src/EditBox.lua#L459))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L498`](../Src/EditBox.lua#L498))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L487`](../Src/EditBox.lua#L487))
+  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L467`](../Src/EditBox.lua#L467))
+  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L445`](../Src/EditBox.lua#L445))
+  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L504`](../Src/EditBox.lua#L504))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L543`](../Src/EditBox.lua#L543))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L532`](../Src/EditBox.lua#L532))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L87`](../Src/EditBox.lua#L87))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L119`](../Src/EditBoxCompat.lua#L119))
@@ -433,8 +435,8 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `AddReplyTarget` ([`../Src/EditBox.lua#L106`](../Src/EditBox.lua#L106))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L135`](../Src/EditBox.lua#L135))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L323`](../Src/EditBox.lua#L323))
-  - `SetOnSend` ([`../Src/EditBox.lua#L444`](../Src/EditBox.lua#L444))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L450`](../Src/EditBox.lua#L450))
+  - `SetOnSend` ([`../Src/EditBox.lua#L489`](../Src/EditBox.lua#L489))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L495`](../Src/EditBox.lua#L495))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -700,16 +702,16 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1067`](../Src/Multiline.lua#L1067))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1052`](../Src/Multiline.lua#L1052))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1089`](../Src/Multiline.lua#L1089))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1074`](../Src/Multiline.lua#L1074))
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L153`](`../Src/Multiline.lua#L153`))
   - `CreateFrame` ([`../Src/Multiline.lua#L184`](`../Src/Multiline.lua#L184`))
-  - `Enter` ([`../Src/Multiline.lua#L607`](`../Src/Multiline.lua#L607`))
-  - `Exit` ([`../Src/Multiline.lua#L746`](`../Src/Multiline.lua#L746`))
-  - `Submit` ([`../Src/Multiline.lua#L869`](`../Src/Multiline.lua#L869`))
-  - `Cancel` ([`../Src/Multiline.lua#L1018`](`../Src/Multiline.lua#L1018`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1078`](`../Src/Multiline.lua#L1078`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1087`](`../Src/Multiline.lua#L1087`))
+  - `Enter` ([`../Src/Multiline.lua#L618`](`../Src/Multiline.lua#L618`))
+  - `Exit` ([`../Src/Multiline.lua#L768`](`../Src/Multiline.lua#L768`))
+  - `Submit` ([`../Src/Multiline.lua#L891`](`../Src/Multiline.lua#L891`))
+  - `Cancel` ([`../Src/Multiline.lua#L1040`](`../Src/Multiline.lua#L1040`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1100`](`../Src/Multiline.lua#L1100`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1109`](`../Src/Multiline.lua#L1109`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 

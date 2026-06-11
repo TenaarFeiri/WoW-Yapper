@@ -422,7 +422,9 @@ function EditBox:CreateOverlay()
     -- Container background fill — always on the outer frame so ApplyConfigToLiveOverlay
     -- has a single predictable target.  Anchor is adjusted dynamically when the border
     -- is active (inset) vs hidden (full bleed).
-    SetFrameFillColour(frame, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    if SetFrameFillColour then
+        SetFrameFillColour(frame, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
+    end
 
     -- ── Label background (left portion) ──────────────────────────────
     local labelBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")

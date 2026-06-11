@@ -441,6 +441,51 @@ EditBox.GetLastTellTargetInfo   = GetLastTellTargetInfo
 EditBox.GetLastToldTargetInfo   = GetLastToldTargetInfo
 EditBox.SetFrameFillColour      = SetFrameFillColour
 
+--- Smartly switch from Party/Raid to Instance if the Home group is missing.
+function EditBox:GetResolvedChatType(ct)
+    if ct == "INSTANCE_CHAT" then
+        if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+            if IsInRaid(LE_PARTY_CATEGORY_HOME) then
+                return "RAID"
+            elseif IsInGroup(LE_PARTY_CATEGORY_HOME) then
+                return "PARTY"
+            end
+        end
+    elseif ct == "PARTY" or ct == "PARTY_LEADER" then
+        if not IsInGroup(LE_PARTY_CATEGORY_HOME) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+            return "INSTANCE_CHAT"
+        end
+    elseif ct == "RAID" or ct == "RAID_LEADER" then
+        if not IsInRaid(LE_PARTY_CATEGORY_HOME) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
+            return "INSTANCE_CHAT"
+        end
+    end
+    return ct
+end
+
+--- Check if a chat type is currently available (e.g., in a guild, in a raid).
+function EditBox:IsChatTypeAvailable(chatType)
+    if chatType == "SAY" or chatType == "EMOTE" or chatType == "YELL" then
+        return true
+    end
+    if chatType == "PARTY" or chatType == "PARTY_LEADER" then
+        return IsInGroup(LE_PARTY_CATEGORY_HOME)
+    end
+    if chatType == "RAID" or chatType == "RAID_LEADER" then
+        return IsInRaid(LE_PARTY_CATEGORY_HOME)
+    end
+    if chatType == "RAID_WARNING" then
+        return IsInRaid()
+    end
+    if chatType == "INSTANCE_CHAT" then
+        return IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+    end
+    if chatType == "GUILD" or chatType == "OFFICER" then
+        return IsInGuild()
+    end
+    return true
+end
+
 function EditBox:SetOnSend(fn)
     self.OnSend = fn
 end

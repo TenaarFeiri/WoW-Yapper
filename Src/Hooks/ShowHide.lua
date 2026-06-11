@@ -259,38 +259,155 @@ function EditBox:Show(origEditBox)
         self.OverlayEdit:SetFont(face, size, flags)
     end
 
-    -- Text
-    -- Restore draft if available, otherwise use Blizzard's text.
-    local text
-    if YapperTable.History and YapperTable.History.HasDirtyDraft() then
-        text = YapperTable.History:LoadDraft()
-        YapperTable.History:MarkDirty(false)
-        self._lockdown.savedDraft = nil
-    else
-        text = blizzText or ""
+    -- Vertical scaling
+    -- The overlay must be tall enough for the chosen font.
+    local _, activeSize = self.OverlayEdit:GetFont()
+    activeSize          = activeSize or 14
+    local fontPad       = cfg.FontPad or 8
+    local fontNeeded    = activeSize + fontPad
+    local blizzH        = origEditBox:GetHeight() or 32
+    local minH          = (cfg.MinHeight and cfg.MinHeight > 0) and cfg.MinHeight or blizzH
+    local finalH        = math_max(minH, fontNeeded)
+    if finalH > blizzH then
+        overlay:ClearAllPoints()
+        overlay:SetPoint("TOPLEFT", origEditBox, "TOPLEFT", 0, 0)
+        overlay:SetPoint("RIGHT", origEditBox, "RIGHT", 0, 0)
+        overlay:SetHeight(finalH)
     end
 
-    -- Handle whisper slash prefills (e.g., "/w name ").
-    if IsWhisperSlashPrefill(text) then
-        local parsed = ParseWhisperSlash(text)
-        if parsed then
-            self.ChatType = parsed.chatType
-            self.Target   = parsed.target
-            self.OverlayEdit:SetText(parsed.remaining)
-            text          = parsed.remaining
+    -- Stay on top of the original.
+    local origLevel = origEditBox:GetFrameLevel() or 0
+    overlay:SetFrameLevel(origLevel + 5)
+
+    -- Proxy mode handling
+    if cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+        -- Proxy mode: keep the original Blizzard editbox visible underneath.
+        pcall(function() self:ApplyProxyMode(origEditBox) end)
+    else
+        pcall(function()
+            -- Legacy: clone Blizzard's textures onto Yapper's overlay.
+            self:AttachBlizzardSkinProxy(origEditBox, finalH)
+        end)
+
+        -- Hide Blizzard's editbox when Yapper is open and not in proxy mode
+        if cfg.HideBlizzardEditbox == true then
+            if origEditBox and origEditBox.Hide then
+                pcall(function() origEditBox:Hide() end)
+            end
         end
     end
 
-    self.OverlayEdit:SetText(text)
-    self.OverlayEdit:SetFocus()
-
-    -- Shadow layer for autocomplete/ghost text.
-    if self.GhostFS then
-        self.GhostFS:Show()
+    -- Visual refresh.
+    do
+        local activeThemeOnShow = YapperTable.Theme and YapperTable.Theme:GetTheme()
+        local borderOnShow      = activeThemeOnShow and activeThemeOnShow.border == true
+        local padOnShow         = (borderOnShow and overlay.BorderPad) or 0
+        if YapperTable.EditBoxHooksCore and YapperTable.EditBoxHooksCore.RefreshOverlayVisuals then
+            YapperTable.EditBoxHooksCore.RefreshOverlayVisuals(self, cfg, borderOnShow, padOnShow)
+        end
     end
 
-    -- Label
+    -- Text
+    -- Restore draft if available, otherwise use Blizzard's text.
+    local draftText
+    local draftMultiline = false
+    if not blizzHasTarget and YapperTable.History then
+        local text, draftType, draftTarget, isML = YapperTable.History:GetDraft()
+        if text then
+            draftText = text
+            draftMultiline = isML or false
+            if draftType then self.ChatType = draftType end
+            if draftTarget then self.Target = draftTarget end
+            YapperTable.History:MarkDirty(false)
+            YapperTable.Utils:VerbosePrint("Draft recovered: " ..
+                #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
+        end
+    end
+
+    -- Carry over any text Blizzard pre-populated on the native editbox
+    -- (e.g. chat links, whisper prefills from friend-list clicks).
+    local externalText
+    if blizzText and blizzText ~= "" then
+        if not (blizzHasTarget and IsWhisperSlashPrefill(blizzText)) then
+            local preTarget, preRemainder = ParseWhisperSlash(blizzText)
+            if preTarget and not blizzHasTarget then
+                self.ChatType = "WHISPER"
+                self.Target = preTarget
+                externalText = preRemainder
+            else
+                externalText = blizzText
+            end
+        end
+    end
+
+    -- Combine draft, existing overlay text, and external text
+    local existingText = self.OverlayEdit:GetText() or ""
+    local finalText = draftText or ""
+    if existingText ~= "" then
+        if not draftText then
+            finalText = existingText
+        elseif not string.find(draftText, existingText, 1, true) then
+            finalText = existingText .. draftText
+        end
+    end
+
+    if externalText and externalText ~= "" then
+        if not draftText then
+            finalText = externalText
+        elseif not string.find(finalText, externalText, 1, true) then
+            finalText = finalText .. externalText
+        end
+    end
+
+    -- Clear the watchdog now that we've grabbed everything
+    self._openingWatchdog = false
+
+    -- Set the text: restore a draft if found, otherwise clear the box
+    -- ONLY if we are coming from a hidden state. This prevents wipes
+    -- when refocusing an already-visible overlay.
+    if not overlay:IsShown() then
+        self.OverlayEdit:SetText(finalText)
+    elseif draftText then
+        self.OverlayEdit:SetText(finalText)
+    end
+
+    if finalText then
+        self.OverlayEdit:SetCursorPosition(#finalText)
+    end
     self:RefreshLabel()
+
+    -- If the recovered draft came from the multiline editor, transition
+    -- directly into multiline so hard newlines are preserved.
+    if draftMultiline and draftText and YapperTable.Multiline
+        and type(YapperTable.Multiline.Enter) == "function" then
+        YapperTable.Multiline:Enter(
+            draftText, self.ChatType, nil, self.Target)
+    end
+
+    -- Clear Blizzard's backing editbox to avoid stale carryover on next open.
+    if origEditBox and origEditBox.SetText then
+        origEditBox:SetText("")
+    end
+
+    -- Clear stale bypass state so subsequent Shows don't short-circuit.
+    if YapperTable.EditBoxHooksCore and YapperTable.EditBoxHooksCore.BypassEditBox then
+        if YapperTable.EditBoxHooksCore.BypassEditBox() then
+            YapperTable.EditBoxHooksCore.SetBypassEditBox(nil)
+        end
+    end
+
+    -- Focus the overlay. If an external addon (e.g. Chattynator) aggressively
+    -- steals focus back via DeactivateChat hooks, reclaim it on the next frame.
+    self.OverlayEdit:SetFocus()
+    C_Timer.After(0, function()
+        if self.Overlay and self.Overlay:IsShown() and not self.OverlayEdit:HasFocus() then
+            self.OverlayEdit:SetFocus()
+        end
+    end)
+
+    if State and not State:IsMultiline() then
+        YapperAPI:SetState("EDITING")
+    end
 
     -- API callback: notify external addons that editbox is shown.
     if YapperTable.API then
@@ -307,6 +424,16 @@ function EditBox:Hide(isHandoff)
     -- Safe to call when proxy mode wasn't active.
     if self.RestoreProxyMode then
         pcall(function() self:RestoreProxyMode() end)
+    end
+
+    -- IM mode: Blizzard's ActivateChat was called when we opened, so
+    -- ACTIVE_CHAT_EDIT_BOX still points at the Blizzard editbox.
+    -- Deactivate it so it fades out, clears text, and stops accepting input.
+    if prevOrig and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
+        local chatStyle = GetCVar and GetCVar("chatStyle")
+        if chatStyle == "im" then
+            pcall(function() ChatFrameUtil.DeactivateChat(prevOrig) end)
+        end
     end
 
     -- NOTE: DetachBlizzardSkinProxy() is intentionally NOT called here.
@@ -439,11 +566,28 @@ function EditBox:ApplyConfigToLiveOverlay(force)
 
     -- Font
     if cfg.FontFace or (cfg.FontSize and cfg.FontSize > 0) then
-        local face  = cfg.FontFace
-        local size  = cfg.FontSize or 0
-        local flags = cfg.FontFlags or ""
-        if size > 0 then
+        local baseFace, baseSize, baseFlags
+        if self.OrigEditBox and self.OrigEditBox.GetFont then
+            baseFace, baseSize, baseFlags = self.OrigEditBox:GetFont()
+        end
+
+        local _, currentSize = self.OverlayEdit:GetFont()
+        local face           = cfg.FontFace or baseFace
+        local size           = cfg.FontSize > 0 and cfg.FontSize or baseSize or currentSize or 14
+        local flags          = (cfg.FontFlags ~= "") and cfg.FontFlags or baseFlags or ""
+        if face then
             self.OverlayEdit:SetFont(face, size, flags)
+            if self.ChannelLabel then
+                self.ChannelLabel:SetFont(face, size, flags)
+            end
+        end
+    elseif self.OrigEditBox and self.OrigEditBox.GetFontObject then
+        local fontObj = self.OrigEditBox:GetFontObject()
+        if fontObj then
+            self.OverlayEdit:SetFontObject(fontObj)
+            if self.ChannelLabel then
+                self.ChannelLabel:SetFontObject(fontObj)
+            end
         end
     end
 

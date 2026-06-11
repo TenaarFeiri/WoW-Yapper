@@ -366,6 +366,7 @@ end
 function Spellcheck:_OnDictRegistrationComplete(locale)
     local dict = self.Dictionaries[locale]
     local count = dict and dict.words and #dict.words or 0
+    local totalCount = count
 
     -- Only notify the user about their active locale. Base dictionaries load
     -- silently in the background; the user doesn't need to know about them.
@@ -373,7 +374,6 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
     local isActiveLocale = cfg and cfg.Locale == locale
     if isActiveLocale then
         -- Handle Metatable inheritance for count (show the user the unified total)
-        local totalCount = count
         if dict and dict.extends then
             local base = self.Dictionaries[dict.extends]
             if base and base.words then

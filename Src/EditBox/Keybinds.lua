@@ -6,6 +6,7 @@
 
 local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
+local Utils = YapperTable.Utils
 
 -- Keybind module
 local Keybinds = {}
@@ -28,9 +29,7 @@ Keybinds._secureButtons = {}
 
 -- Safe verbose printing helper
 local function LogVerbose(msg)
-    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-        YapperTable.Utils:VerbosePrint(msg)
-    end
+    YapperTable.Utils:VerbosePrint(msg)
 end
 
 -- ---------------------------------------------------------------------------
@@ -103,7 +102,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     end
 
     -- Check for chat messaging lockdown before opening Yapper
-    local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+    local inLockdown = Utils:IsChatLockdown()
     if inLockdown then
         -- Save Yapper's LastUsed state for restoration after lockdown
         if not Keybinds._preLockdownLastUsed and EditBox.LastUsed then
@@ -172,8 +171,23 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
     end
 
-    YapperTable.Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
-EditBox:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+    -- In IM mode, prefer the last active window's editbox so undocked windows
+    -- work correctly. Fall back to DEFAULT_CHAT_FRAME.editBox.
+    local targetEditBox = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox
+    local chatStyle = GetCVar and GetCVar("chatStyle")
+    if chatStyle == "im" and EditBox._lastActiveIMEditBox then
+        targetEditBox = EditBox._lastActiveIMEditBox
+    end
+
+    Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
+    local ok, err = pcall(function()
+        EditBox:Show(targetEditBox)
+    end)
+    if not ok then
+        -- Error in Show - print to chat so user can see it
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Yapper Error:|r " .. tostring(err))
+        return
+    end
     
     -- Pre-fill text if specified (applied immediately; Show() has already run)
     if prefillText and EditBox.OverlayEdit then
@@ -246,7 +260,7 @@ function Keybinds:RegisterOverrides()
         return
     end
 
-    if YapperTable.Utils and YapperTable.Utils.IsChatLockdown and YapperTable.Utils:IsChatLockdown() then
+    if Utils:IsChatLockdown() then
         self._pendingRegistration = true
         LogVerbose("Keybinds:RegisterOverrides deferred - in lockdown")
         return
@@ -310,7 +324,7 @@ function Keybinds:UnregisterOverrides()
         return
     end
 
-    if YapperTable.Utils and YapperTable.Utils.IsChatLockdown and YapperTable.Utils:IsChatLockdown() then
+    if Utils:IsChatLockdown() then
         LogVerbose("Keybinds:UnregisterOverrides deferred - in lockdown")
         return
     end
@@ -343,7 +357,7 @@ function Keybinds:RefreshOverrides()
         return
     end
 
-    if YapperTable.Utils and YapperTable.Utils.IsChatLockdown and YapperTable.Utils:IsChatLockdown() then
+    if Utils:IsChatLockdown() then
         self._pendingRegistration = true
         LogVerbose("Keybinds:RefreshOverrides deferred - in lockdown")
         return
