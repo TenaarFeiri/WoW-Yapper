@@ -48,7 +48,14 @@ Src/EditBox/SkinProxy.lua
 Src/EditBox/Overlay.lua
 Src/EditBox/Handlers.lua
 Src/EditBox/Keybinds.lua
-Src/EditBox/Hooks.lua
+
+# Src/Hooks/Hub.lua first, other hooks depend on it.
+Src/Hooks/Hub.lua
+Src/Hooks/ShowHide.lua
+Src/Hooks/Label.lua
+Src/Hooks/History.lua
+Src/Hooks/Slash.lua
+Src/Hooks/Blizzard.lua
 Src/EditBoxCompat.lua
 
 # These files must load in this order:
