@@ -304,6 +304,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- update OrigEditBox and refresh the label to adapt to the new tab's context.
         if self.Overlay and self.Overlay:IsShown() then
             if blizzEditBox ~= self.OrigEditBox then
+                self:_IMPushActive(blizzEditBox)
                 -- Swap proxy target if in proxy mode
                 local cfg = YapperTable.Config and YapperTable.Config.EditBox
                 local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
@@ -394,6 +395,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
             end
 
+            -- Track this as the last active window (Classic mode equivalent of IM's ActivateChat hook).
+            self:_IMPushActive(blizzEditBox)
             -- Open Yapper's overlay
             self:Show(blizzEditBox)
         end)
@@ -784,10 +787,21 @@ function EditBox:HookAllChatFrames()
             local chatFrame = FCF_GetChatFrameByID(tab:GetID())
             if not chatFrame then return end
 
+            -- Save the outgoing frame's state before we switch context,
+            -- so it's preserved if we come back to it.
+            -- Only meaningful if Yapper has opened at least once this session.
+            if editBox.ChatType and editBox.ChatType ~= "" then
+                editBox:RecordTabChannel()
+            end
+
             -- Track active window for IM mode so keybind opens on the right frame.
             if chatFrame.editBox then
                 editBox:_IMPushActive(chatFrame.editBox)
             end
+
+            -- If a close just happened, _IMPopActive already restored the right
+            -- memory via _IMApplyWindowMemory. Don't overwrite it.
+            if editBox._suppressTabSwitchMemory then return end
 
             local cfType = chatFrame.chatType
             local cfTarget = chatFrame.chatTarget
@@ -801,17 +815,16 @@ function EditBox:HookAllChatFrames()
                     target   = cfTarget,
                 })
             else
-                -- Non-whisper tab: restore from session-only per-tab memory.
+                -- Non-whisper tab: restore from per-tab memory if available,
+                -- otherwise use this frame's own chatType so LastUsed doesn't bleed.
                 local key = chatFrame.GetName and chatFrame:GetName()
                 local mem = key and editBox._tabChannelMemory[key]
-                if mem and mem.chatType then
-                    ApplyOrStashSwitch(chatFrame, {
-                        chatType    = mem.chatType,
-                        target      = mem.target,
-                        channelName = mem.channelName,
-                        language    = mem.language,
-                    })
-                end
+                ApplyOrStashSwitch(chatFrame, {
+                    chatType    = mem and mem.chatType    or cfType or "SAY",
+                    target      = mem and mem.target      or nil,
+                    channelName = mem and mem.channelName or nil,
+                    language    = mem and mem.language    or nil,
+                })
             end
         end)
         self._tabClickHooked = true
@@ -864,7 +877,19 @@ function EditBox:HookAllChatFrames()
         local editBox = self
         hooksecurefunc("FCF_Close", function(frame)
             if not frame or not frame.editBox then return end
+            -- Suppress the tab-click hook's ApplyOrStashSwitch: FCF_UnDockFrame
+            -- (called inside FCF_Close) triggers FCF_Tab_OnClick on the newly
+            -- selected tab, which would overwrite our restored memory.
+            editBox._suppressTabSwitchMemory = true
             editBox:_IMPopActive(frame.editBox)
+            -- Apply the restored window's channel memory.
+            local restoredEB = editBox._lastActiveIMEditBox
+            if restoredEB and restoredEB.chatFrame then
+                editBox:_IMApplyWindowMemory(restoredEB.chatFrame)
+            end
+            C_Timer.After(0, function()
+                editBox._suppressTabSwitchMemory = false
+            end)
         end)
         self._closeHooked = true
     end

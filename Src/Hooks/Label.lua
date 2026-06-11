@@ -268,8 +268,8 @@ function EditBox:RecordTabChannel(entry)
     local chatFrame = self.OverlayEdit and self.OverlayEdit.chatFrame
     if not chatFrame then return end
 
-    local key = chatFrame.GetName and chatFrame:GetName()
-    if not key then return end
+    local ok, key = pcall(function() return chatFrame.GetName and chatFrame:GetName() end)
+    if not ok or not key then return end
 
     self._tabChannelMemory = self._tabChannelMemory or {}
     self._tabChannelMemory[key] = entry

@@ -171,13 +171,10 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
     end
 
-    -- In IM mode, prefer the last active window's editbox so undocked windows
-    -- work correctly. Fall back to DEFAULT_CHAT_FRAME.editBox.
-    local targetEditBox = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox
-    local chatStyle = GetCVar and GetCVar("chatStyle")
-    if chatStyle == "im" and EditBox._lastActiveIMEditBox then
-        targetEditBox = EditBox._lastActiveIMEditBox
-    end
+    -- Prefer the last active window's editbox so undocked windows work correctly
+    -- in both IM and Classic mode. Fall back to DEFAULT_CHAT_FRAME.editBox.
+    local targetEditBox = EditBox._lastActiveIMEditBox
+        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
 
     Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
     local ok, err = pcall(function()

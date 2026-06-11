@@ -1,45 +1,38 @@
-# NEW FEATURES IN 2.0
-- Added a multiline editor, which supports editing long messages in a larger, resizable window with full Yapper features. Hit Shift-Enter while typing to activate the editor for easier edits. (added in 2.0.1)
-- YAS (Yapper Adaptive Language Learning Model)
-  - Added adaptive YAS learning to track common words, manual corrections, and improve autocomplete relevance over time. (added in 2.0.1)
-  - Added selection bias, implicit backtrack learning, rejection feedback, phonetic pattern learning, and anti-contamination filters to make YAS correction learning smarter and more robust. (added in 2.0.1)
-  - Added YAS-based ranking so your most-used words surface first and accepted suggestions improve ranking automatically. (added in 2.0.2)
-  - Added YAS apostrophe-prefix matching so typing `that'` still surfaces `that's`. (added in 2.0.2)
-- Autocomplete enhancements
-  - Added ghost-text predictive word completion with a muted caret preview and Tab acceptance. (added in 2.0.2)
-  - Added a tiered autocomplete cascade using YAS vocabulary, custom added words, locale dictionary search, and base fallback. (added in 2.0.2)
-  - Added support for custom dictionary words as a second autocomplete source immediately after YAS. (added in 2.0.2)
-  - Added capitalisation mirroring for autocomplete suggestions so casing matches the typed prefix. (added in 2.0.2)
-- Spellcheck improvements
-  - Added capitalised spellcheck suggestions so the suggestion popup mirrors the case of the misspelled word. (added in 2.0.2)
-  - Added suggestion pagination with up to six spellcheck suggestions per page and a `More Suggestions »` cycle. (added in 2.0.1)
-- Settings and UI
-  - Added an Adaptive Learning settings tab with live tables for learned words, corrections, phonetic patterns, and rejected suggestions. (added in 2.0.1)
-  - Added tuning sliders for Vocabulary Cap, Correction Bias Cap, and Auto-learn Threshold. (added in 2.0.1)
-  - Added a help page in the settings dialog with instructions for using Yapper's chat features. (added in 2.0.3)
-  - Added an icon gallery for inserting raid target icons via `{star`, `{circle`, etc. (added in 2.0.3)
-- Compatibility and API
-  - Added the public `_G.YapperAPI` addon API with filters, callbacks, readonly accessors, and structured `API_ERROR` reporting. (added in 2.0.1)
-  - Added RP Prefix compatibility so prefixes are prepended only to the first post of a split message. (added in 2.0.1)
+# NEW IN 2.2.0
+## IM mode got a serious overhaul
 
-# NEW FEATURES IN 2.1.20
-- **Naming Update: YAS → YAS**
-  - Renamed "Yapper Adaptive Language Learning Model" to "Yapper Adaptive Spellcheck" for more accurate technical terminology.
-  - **Automatic Migration**: All user configurations are automatically migrated from YAS* keys to YAS* keys without data loss.
-  - **API Changes**:
-    - `YALLM_WORD_LEARNED` callback is now an automatic alias for `YAS_WORD_LEARNED`
-    - External addons using the old callback name will receive events without code changes
-    - New `YAS_WORD_LEARNED` callback is the preferred going-forward API
-    - Configuration keys changed: `YALLMEnabled` → `YASEnabled`, `YALLMFreqCap` → `YASFreqCap`, etc.
-  - **Internal Changes**: 
-    - Renamed `Src/Spellcheck/YAS.lua` → `Src/Spellcheck/Adaptive.lua`
-    - Added detached `Src/Migrations.lua` module for future configuration migrations
-    - Schema version bumped to 2.2 to trigger one-time migration
-  - **Compatibility**: External addons using the old YALLM callback will continue to work during deprecation period
-  - **Dictionary Update**:
-    - Added 61 missing words to the base English dictionary.
+If you use the IM chat style with undocked windows, Yapper should now feel much more natural to use. Clicking on any chat window — docked or floating — opens Yapper anchored to that window. Switching tabs, minimizing, restoring, or closing windows all behave as you'd expect: Yapper follows your focus, remembers which window you were on, and restores the channel you had selected (so if you were typing emotes on a party window, it'll still be emotes when you come back to it).
+
+Minimizing a window now falls back gracefully to whichever window you were using before, and fully closing a window does the same. ChatFrame1 is always the final fallback since it can't be closed.
+
+## Multiline editor positions itself properly
+
+The expanded multiline editor now anchors to whichever chat window you actually opened it from, rather than always treating ChatFrame1 as the reference point. It also won't clip off the top or bottom of your screen regardless of where your chat window lives.
+
+## Clicking the chat area opens Yapper
+
+Previously, clicking the message area of a chat window in IM mode would open Blizzard's default editbox instead of Yapper. That's fixed.
 
 # Patch notes
+
+## 2.2.0_beta
+  - **IM mode overhaul**:
+    - Clicking the message area of any chat window now opens Yapper on that window instead of Blizzard's default editbox.
+    - Undocked windows are now properly tracked. Yapper opens anchored to whichever window you last interacted with, including windows you've dragged out of the dock.
+    - Minimizing a window now falls back to the previously active window automatically. Closing a window does the same, always ending at ChatFrame1 if nothing else is available.
+    - Maximizing a minimized window restores both focus and the channel you had selected on it (e.g. emote, party, a specific channel number).
+    - Closing Yapper in IM mode now properly deactivates Blizzard's editbox behind it, so it fades out and clears as expected.
+  - **Multiline editor**:
+    - The multiline editor now anchors to the chat window it was actually opened from, rather than always using ChatFrame1 as a reference. Undocked windows position it correctly.
+    - Fixed an edge case where the multiline editor could clip off the top or bottom of the screen depending on where your chat window was positioned.
+  - **Bugfixes**:
+    - Fixed API callbacks not firing on channel changes.
+    - Fixed a method name mismatch that caused errors when sending messages in certain configurations.
+    - Fixed right-click whispers from the UI not opening Yapper in non-IM mode.
+  - **Internal**:
+    - The monolithic `Hooks.lua` has been split into focused modules: `Blizzard.lua`, `ShowHide.lua`, `Label.lua`, `History.lua`, `Slash.lua`, and `Hub.lua`. This makes the codebase significantly easier to maintain and debug.
+    - Removed roughly 100 lines of redundant guard code and defensive boilerplate that accumulated over time. The addon now fails faster and more visibly if something goes wrong, rather than silently swallowing errors.
+
 
 ## 2.1.29
   - **Bugfixes**:
