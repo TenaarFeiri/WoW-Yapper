@@ -362,14 +362,14 @@ function Multiline:CreateFrame()
 
 			-- If autocomplete didn't consume Tab, cycle the chat channel.
 			-- We mirror the multiline state into EditBox, delegate to its
-			-- CycleChat (which handles availability checks and API events),
+			-- CycleChatType (which handles availability checks and API events),
 			-- then read the result back into the multiline module.
 			if not acConsumed then
 				local eb = YapperTable.EditBox
-				if eb and type(eb.CycleChat) == "function" then
+				if eb and type(eb.CycleChatType) == "function" then
 					eb.ChatType = Multiline.ChatType
 					eb.Target   = Multiline.Target
-					eb:CycleChat(1)
+					eb:CycleChatType(1)
 					Multiline.ChatType = eb.ChatType
 					Multiline.Target   = eb.Target
 					RefreshMLLabel(Multiline)
