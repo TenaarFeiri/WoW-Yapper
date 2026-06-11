@@ -54,6 +54,16 @@ Performs a structural audit of the Lua codebase to find unused functions, variab
 - **Usage**: `python3 find_orphans.py`
 - **Verification**: Includes a "Linguistic Sync" check to ensure consistent British English naming (e.g., `NormaliseWord` vs `NormalizeWord`).
 
+### `dead_code_scanner.py`
+Static analysis tool for detecting dead code (unused variables, uncalled functions, undefined references) in the Lua codebase.
+- **Usage**: `python3 dead_code_scanner.py [--path PATH] [--no-cache]`
+- **Features**:
+  - Cross-file analysis with TOC-aware load order resolution.
+  - Integrates with `wow-ui-source` (if available) for 15,000+ WoW API whitelist.
+  - Tracks table member usage (e.g., `self:Show()`, `YapperTable.Config`).
+  - Generates console output and `dead_code_report.md`.
+- **Cache**: WoW API list is cached to `.wow_api_cache.json` for faster subsequent runs.
+
 ## Repository Structure
 
 To ensure that `release.sh` and other maintenance tools function correctly, the development repository must follow this specific layout:

@@ -72,7 +72,7 @@
     PRE_EDITBOX_SHOW  chatType, target               yes
       Fires before the overlay opens.  Return false to suppress it.
       Used by WIMBridge to yield focus when WIM owns the whisper window.
-      Emission sites: Src/EditBox/Hooks.lua#L1300, Src/EditBox/Keybinds.lua#L155.
+      Emission sites: Src/Hooks/Blizzard.lua#L122, Src/EditBox/Keybinds.lua#L155.
 
     PRE_MULTILINE_SHOW text, chatType, language, target yes
       Fires before the expanded multiline editor opens.
@@ -195,11 +195,11 @@
 
     EDITBOX_CHANNEL_CHANGED  chatType, target
       Fires when the user switches chat channel (Tab, slash command, etc.).
-      Emission site: Src/EditBox/Hooks.lua#L983.
+      Emission site: Src/Hooks/Label.lua#L251.
 
     EDITBOX_LABEL_UPDATED    label, r, g, b
       Fires when the UI label (e.g. "To [Name]:") is refreshed.
-      Emission site: Src/EditBox/Hooks.lua#L921.
+      Emission site: Src/Hooks/Label.lua#L218.
 
     THEME_CHANGED            themeName
       Fires when the active theme is changed.

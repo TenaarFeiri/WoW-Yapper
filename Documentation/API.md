@@ -27,7 +27,7 @@ Register/unregister:
 
 - Signature: `callback(payload) → payload|false`
 - Payload: `{ chatType: string|nil, target: string|nil }`
-- Fired from [`Src/EditBox/Hooks.lua#L1300`](../Src/EditBox/Hooks.lua#L1300) and [`Src/EditBox/Keybinds.lua#L155`](../Src/EditBox/Keybinds.lua#L155).
+- Fired from [`Src/Hooks/Blizzard.lua#L122`](../Src/Hooks/Blizzard.lua#L122) and [`Src/EditBox/Keybinds.lua#L155`](../Src/EditBox/Keybinds.lua#L155).
 - Return `false` to suppress overlay open.
 
 ### `PRE_SEND`
