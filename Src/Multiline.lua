@@ -572,7 +572,8 @@ local function AnchorAbsolute(frame, overlay)
 
 	-- Vertical: use ChatFrame1 bounds when available; fall back to overlay.
 	local chatTop, chatBot
-	local cf = _G["ChatFrame1"] -- well-known global, always present
+	-- local cf = _G["ChatFrame1"] -- well-known global, always present
+	local cf = FCF_GetCurrentChatFrame() or _G["ChatFrame1"]
 	if cf and cf.GetTop then
 		chatTop = cf:GetTop()
 		chatBot = cf:GetBottom()
