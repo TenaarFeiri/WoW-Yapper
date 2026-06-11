@@ -842,8 +842,12 @@ function EditBox:HookAllChatFrames()
                 editBox:Hide()
             end
             editBox:_IMPopActive(chatFrame.editBox)
-            -- Show the restored window's editbox in its normal IM idle state.
+            -- Restore channel memory for the window we popped back to.
             local restoredEB = editBox._lastActiveIMEditBox
+            if restoredEB and restoredEB.chatFrame then
+                editBox:_IMApplyWindowMemory(restoredEB.chatFrame)
+            end
+            -- Show the restored window's editbox in its normal IM idle state.
             if restoredEB and ChatFrameUtil and ChatFrameUtil.ActivateChat then
                 editBox._suppressActivateChatHook = true
                 pcall(function() ChatFrameUtil.ActivateChat(restoredEB) end)
