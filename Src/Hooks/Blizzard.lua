@@ -569,6 +569,29 @@ function EditBox:HookAllChatFrames()
         self._openChatHooked = true
     end
 
+    -- Hook ActivateChat to intercept direct activation calls (e.g., from EditBox:SetFocus)
+    -- This complements the OpenChat hook and ensures Yapper catches all show paths.
+    if ChatFrameUtil and ChatFrameUtil.ActivateChat and not self._activateChatHooked then
+        hooksecurefunc(ChatFrameUtil, "ActivateChat", function(editBox)
+            -- Only intercept if this is a chat frame editbox we're managing
+            if not editBox or not editBox.GetName then return end
+            local name = editBox:GetName()
+            if not name or not name:match("ChatFrame%d+EditBox") then return end
+
+            if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+                return
+            end
+
+            -- Let the editbox Show() hook handle the actual overlay presentation,
+            -- but set a flag so we know this came from ActivateChat (not just raw Show)
+            self._activateChatTriggered = true
+            C_Timer.After(0, function()
+                self._activateChatTriggered = nil
+            end)
+        end)
+        self._activateChatHooked = true
+    end
+
     -- Hook SendTell to intercept right-click whispers on player frames
     -- This fires AFTER Blizzard's editbox opens, so we close it and open Yapper instead
     if ChatFrameUtil and ChatFrameUtil.SendTell and not self._sendTellHooked then
