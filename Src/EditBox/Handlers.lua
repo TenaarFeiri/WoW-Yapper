@@ -660,7 +660,7 @@ function EditBox:SetupOverlayScripts()
                     return
                 end
             end
-            self:CycleChat(IsShiftKeyDown() and -1 or 1)
+            self:CycleChatType(IsShiftKeyDown() and -1 or 1)
         elseif key == "UP" then
             self:NavigateHistory(-1)
         elseif key == "DOWN" then
