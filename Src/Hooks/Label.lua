@@ -8,6 +8,8 @@ local EditBox = YapperTable.EditBox
 local Utils = YapperTable.Utils
 
 -- Resolve locals from Hub.lua
+local Interface = YapperTable.Interface
+local IsColourTable = Interface.IsColourTable
 local Core = YapperTable.EditBoxHooksCore
 local CHATTYPE_TO_OVERRIDE_KEY = Core.CHATTYPE_TO_OVERRIDE_KEY
 local BuildLabelText = Core.BuildLabelText
@@ -110,11 +112,7 @@ function EditBox:RefreshLabel()
         elseif mode == "master" and currentKey and type(masterKey) == "string"
             and masterKey ~= "" and currentKey ~= masterKey then
             -- Master mode: follow master channel's colour
-            if type(channelColors) == "table"
-                and type(channelColors[masterKey]) == "table"
-                and type(channelColors[masterKey].r) == "number"
-                and type(channelColors[masterKey].g) == "number"
-                and type(channelColors[masterKey].b) == "number" then
+            if IsColourTable(channelColors[masterKey]) then
                 resolvedR = channelColors[masterKey].r
                 resolvedG = channelColors[masterKey].g
                 resolvedB = channelColors[masterKey].b
@@ -130,12 +128,8 @@ function EditBox:RefreshLabel()
     end
 
     -- Custom mode (or no mode set, or mode resolution failed): use ChannelTextColors
-    if not modeResolved and currentKey and type(channelColors) == "table"
-        and type(channelColors[currentKey]) == "table" then
-        local own = channelColors[currentKey]
-        if type(own.r) == "number" and type(own.g) == "number" and type(own.b) == "number" then
-            resolvedR, resolvedG, resolvedB = own.r, own.g, own.b
-        end
+    if not modeResolved and currentKey and IsColourTable(channelColors[currentKey]) then
+        resolvedR, resolvedG, resolvedB = channelColors[currentKey].r, channelColors[currentKey].g, channelColors[currentKey].b
     end
 
     UpdateLabelBackgroundForText(self, label)
@@ -163,7 +157,7 @@ function EditBox:RefreshLabel()
     -- Skip this entirely when mode is "blizzard" or "master" since those have absolute precedence.
     if not modeResolved and theme and type(theme.channelTextColors) == "table" and currentKey then
         local tcol = theme.channelTextColors[effectiveType] or theme.channelTextColors[currentKey]
-        if tcol and type(tcol.r) == "number" and type(tcol.g) == "number" and type(tcol.b) == "number" then
+        if IsColourTable(tcol) then
             -- Only use theme colour when user's config colour matches defaults.
             local defaults = YapperTable.Core and YapperTable.Core.GetDefaults
                 and YapperTable.Core:GetDefaults()
@@ -181,7 +175,7 @@ function EditBox:RefreshLabel()
     end
 
     -- Debugging aid: log effective type, target, and chosen colours when DEBUG enabled.
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if Utils.DebugPrint then
         local whisperCol = (channelColors and channelColors.WHISPER) or nil
         local bnetCol = (channelColors and channelColors.BN_WHISPER) or nil
         local masterKeyStr = cfg.ChannelColorMaster or ""
