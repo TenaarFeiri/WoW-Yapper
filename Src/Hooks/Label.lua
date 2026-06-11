@@ -212,6 +212,11 @@ function EditBox:RefreshLabel()
     if cfg.FillColour and type(cfg.FillColour) == "table" then
         self.OverlayEdit:SetTextColor(cfg.FillColour.r, cfg.FillColour.g, cfg.FillColour.b, cfg.FillColour.a or 1)
     end
+
+    -- Fire label updated callback
+    if YapperTable.API then
+        YapperTable.API:Fire("EDITBOX_LABEL_UPDATED", label, resolvedR, resolvedG, resolvedB)
+    end
 end
 
 --- Cycle through available chat types.
@@ -245,6 +250,11 @@ function EditBox:CycleChatType(direction)
 
     self.ChatType = nextType
     self:RefreshLabel()
+
+    -- Fire channel changed callback
+    if YapperTable.API then
+        YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", nextType, self.Target)
+    end
 end
 
 --- Record the current channel for the active tab (session-only).
