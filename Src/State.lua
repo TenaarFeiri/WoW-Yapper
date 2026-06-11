@@ -103,34 +103,29 @@ function State:Transition(newState, ...)
     local oldState = self._current
     self._current = newState
 
-    -- Stack inspection for 'blame' attribution.
+    -- Stack inspection for 'blame' attribution (only in DEBUG mode).
     -- We skip 2 levels: Transition -> ToIdle/etc -> [Real Source]
-    local stack = debugstack(2, 1, 0)
     local file, line, func
-
-    if stack then
-        -- Peeking: check if we are inside a semantic helper (case-insensitive).
-        local s = stack:lower()
-        if s:find("idle") or s:find("editing") or s:find("multiline") or 
-           s:find("sending") or s:find("stalled") or s:find("lockdown") 
-        then
-            stack = debugstack(3, 1, 0)
-        end
-    end
-
-    if stack then
-        -- Capture filename, line, and function name from the stack frame.
-        -- debugstack often returns: .../File.lua:LINE: in function <.../File.lua:LINE>
-        file, line, func = stack:match("(.-%.lua)%]:(%d+):?%s*.-['<]([^'>]+)['>]")
-        if not file then
-            file, line = stack:match("(.-%.lua)%]:(%d+)")
-        end
-        if file then
-            file = file:match("([^/\\]+)$") or file
-        end
-        if func then
-            -- If func is a file path (common for anonymous functions), strip it to just the basename.
-            func = func:match("([^/\\]+)$") or func
+    local config = YapperTable.Config
+    if config and config.System and config.System.DEBUG then
+        if type(debug) == "table" and type(debug.getinfo) == "function" then
+            local level = 3 -- Skip Transition -> semantic helper -> real source
+            local info = debug.getinfo(level, "nSl")
+            
+            -- Check if we're inside a semantic helper and skip it
+            if info then
+                local name = (info.name or ""):lower()
+                if name:find("idle") or name:find("editing") or name:find("multiline") or
+                   name:find("sending") or name:find("stalled") or name:find("lockdown") then
+                    info = debug.getinfo(level + 1, "nSl")
+                end
+            end
+            
+            if info then
+                file = info.short_src and info.short_src:match("([^/\\]+)$") or info.short_src
+                line = info.currentline
+                func = info.name or "anonymous"
+            end
         end
     end
 
