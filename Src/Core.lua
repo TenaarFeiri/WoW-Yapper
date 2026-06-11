@@ -9,6 +9,7 @@ YapperTable.Core = YapperTable.Core or {}
 YapperTable.Core.UI = YapperTable.Core.UI or {}
 YapperTable.Core.UI.Frames = YapperTable.Core.UI.Frames or {}
 local State      = YapperTable.State
+local Utils      = YapperTable.Utils
 
 -- ---------------------------------------------------------------------------
 -- Centralised configuration (hardcoded defaults)
@@ -507,9 +508,9 @@ end
 function YapperTable.Core:InitSavedVars()
     local currentVersion = tonumber(DEFAULTS.System.VERSION) or 0
 
-    if type(_G.YapperDB) ~= "table" then _G.YapperDB = {} end
-    if type(_G.YapperLocalConf) ~= "table" then _G.YapperLocalConf = {} end
-    if type(_G.YapperLocalHistory) ~= "table" then _G.YapperLocalHistory = {} end
+    _G.YapperDB = Utils:EnsureTable(_G.YapperDB)
+    _G.YapperLocalConf = Utils:EnsureTable(_G.YapperLocalConf)
+    _G.YapperLocalHistory = Utils:EnsureTable(_G.YapperLocalHistory)
 
     local dbVersion   = GetConfigVersion(_G.YapperDB)
     local confVersion = GetConfigVersion(_G.YapperLocalConf)
@@ -527,8 +528,8 @@ function YapperTable.Core:InitSavedVars()
 
     -- Mark current versions immediately to avoid recursive migration loops
     -- or stale version data if the boot sequence errors later.
-    if type(_G.YapperDB.System) ~= "table" then _G.YapperDB.System = {} end
-    if type(_G.YapperLocalConf.System) ~= "table" then _G.YapperLocalConf.System = {} end
+    _G.YapperDB.System = Utils:EnsureTable(_G.YapperDB.System)
+    _G.YapperLocalConf.System = Utils:EnsureTable(_G.YapperLocalConf.System)
     _G.YapperDB.System.VERSION = currentVersion
     _G.YapperLocalConf.System.VERSION = currentVersion
     _G.YapperLocalHistory.VERSION = currentVersion
@@ -552,18 +553,14 @@ function YapperTable.Core:InitSavedVars()
         local teal = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors and
             DEFAULTS.EditBox.ChannelTextColors.BN_WHISPER
         if type(teal) == "table" then
-            if type(_G.YapperDB.EditBox) ~= "table" then _G.YapperDB.EditBox = {} end
-            if type(_G.YapperDB.EditBox.ChannelTextColors) ~= "table" then _G.YapperDB.EditBox.ChannelTextColors = {} end
+            _G.YapperDB.EditBox = Utils:EnsureTable(_G.YapperDB.EditBox)
+            _G.YapperDB.EditBox.ChannelTextColors = Utils:EnsureTable(_G.YapperDB.EditBox.ChannelTextColors)
             _G.YapperDB.EditBox.ChannelTextColors.BN_WHISPER = {
                 r = teal.r, g = teal.g, b = teal.b, a = (teal.a ~= nil and teal.a or 1),
             }
-            if type(_G.YapperDB.EditBox.ChannelColorMode) ~= "table" then _G.YapperDB.EditBox.ChannelColorMode = {} end
+            _G.YapperDB.EditBox.ChannelColorMode = Utils:EnsureTable(_G.YapperDB.EditBox.ChannelColorMode)
             _G.YapperDB.EditBox.ChannelColorMode.BN_WHISPER = "custom"
-            if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
-                pcall(function()
-                    YapperTable.Utils:Print("Migrated BN_WHISPER colour to defaults for older SavedVariables.")
-                end)
-            end
+            Utils:Print("Migrated BN_WHISPER colour to defaults for older SavedVariables.")
         end
     end
 
@@ -857,7 +854,7 @@ function YapperTable.Core:PushToGlobal()
     local function pushCategory(category, skipKeys)
         local settings = localConf[category]
         if type(settings) ~= "table" then return end
-        if type(globalDB[category]) ~= "table" then globalDB[category] = {} end
+        globalDB[category] = Utils:EnsureTable(globalDB[category])
 
         setmetatable(settings, nil)
 
@@ -888,7 +885,7 @@ function YapperTable.Core:PushToGlobal()
     pushCategory("FrameSettings", FRAME_SETTINGS_LOCAL_ONLY_KEYS)
 
     if type(localConf.System) == "table" then
-        if type(globalDB.System) ~= "table" then globalDB.System = {} end
+        globalDB.System = Utils:EnsureTable(globalDB.System)
         for key in pairs(SYSTEM_GLOBAL_SYNC_KEYS) do
             if localConf.System[key] ~= nil then
                 globalDB.System[key] = DeepCopy(localConf.System[key])

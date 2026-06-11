@@ -6,6 +6,7 @@
 local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
 local State = YapperTable.State
+local Utils = YapperTable.Utils
 
 -- Resolve locals from Hub.lua
 local Core = YapperTable.EditBoxHooksCore
@@ -425,11 +426,7 @@ end
 -- @param force boolean: when true, apply regardless of SettingsHaveChanged flag.
 function EditBox:ApplyConfigToLiveOverlay(force)
     if not self.Overlay or not self.OverlayEdit then return end
-    pcall(function()
-        if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-            YapperTable.Utils:VerbosePrint("EditBox:ApplyConfigToLiveOverlay called (force=" .. tostring(force) .. ")")
-        end
-    end)
+    Utils:VerbosePrint("EditBox:ApplyConfigToLiveOverlay called (force=" .. tostring(force) .. ")")
 
     local localConf = _G.YapperLocalConf
     if type(localConf) ~= "table"

@@ -5,6 +5,7 @@
 
 local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
+local Utils = YapperTable.Utils
 
 -- Resolve locals from Hub.lua
 local Core = YapperTable.EditBoxHooksCore
@@ -192,9 +193,7 @@ function EditBox:RefreshLabel()
             tostring(masterKeyStr), tostring(overrideFlag),
             (whisperCol and string.format("%.2f,%.2f,%.2f", whisperCol.r, whisperCol.g, whisperCol.b) or "nil"),
             (bnetCol and string.format("%.2f,%.2f,%.2f", bnetCol.r, bnetCol.g, bnetCol.b) or "nil"))
-        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-            YapperTable.Utils:DebugPrint(msg)
-        end
+        Utils:DebugPrint(msg)
     end
 
     -- Update label text and colour

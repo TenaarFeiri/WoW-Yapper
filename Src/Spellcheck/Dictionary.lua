@@ -6,6 +6,7 @@
 
 local _, YapperTable  = ...
 local Spellcheck      = YapperTable.Spellcheck
+local Utils           = YapperTable.Utils
 
 -- Re-localise shared helpers from hub.
 local Clamp           = Spellcheck.Clamp
@@ -27,6 +28,11 @@ local string_lower    = string.lower
 local string_format   = string.format
 local table_insert    = table.insert
 local table_sort      = table.sort
+
+-- Debug flag helper
+local function IsDebugEnabled()
+    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
+end
 
 -- Chunk size for async loading (from hub).
 local DICT_CHUNK_SIZE = Spellcheck._DICT_CHUNK_SIZE
@@ -51,7 +57,7 @@ function Spellcheck:LoadDictionary(locale)
         if success and data then
             self:RegisterDictionary(locale, data)
         else
-            if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+            if IsDebugEnabled() then
                 self:Notify("Spellcheck failed to load dictionary for " .. tostring(locale))
             end
         end
@@ -141,8 +147,8 @@ function Spellcheck:RegisterDictionary(locale, data)
             if not data.languageFamily then
                 data.languageFamily = base.languageFamily
             end
-        elseif YapperTable.Utils and YapperTable.Utils.Print then
-            YapperTable.Utils:Print("error", "Base dictionary " .. tostring(data.extends) .. " not found for " .. locale)
+        else
+            Utils:Print("error", "Base dictionary " .. tostring(data.extends) .. " not found for " .. locale)
         end
     end
 
@@ -317,7 +323,6 @@ function Spellcheck:RegisterDictionary(locale, data)
             ngramIndex2 = nil
             ngramIndex3 = nil
             phonetics   = nil
-            ---@diagnostic disable-next-line: assign-type-mismatch, cast-local-type
             processWord = nil
             return
         end
@@ -376,11 +381,9 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
             end
         end
 
-        if YapperTable.Utils and YapperTable.Utils.Print then
-            YapperTable.Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(totalCount)))
-        else
-            self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(totalCount) .. " words).")
-        end
+        Utils:Print("info", "Dictionary loaded:", locale, ("(%s words)"):format(tostring(totalCount)))
+    else
+        self:Notify("Yapper: " .. tostring(locale) .. " dictionary loaded (" .. tostring(totalCount) .. " words).")
     end
 
     if isActiveLocale and self:IsEnabled() then
@@ -526,11 +529,10 @@ function Spellcheck:EnsureLocale(locale, force)
             local isLoaded = C_AddOns.IsAddOnLoaded(addon)
             local loaded, reason = C_AddOns.LoadAddOn(addon)
 
-            if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-                YapperTable.Utils:DebugPrint("Spellcheck:EnsureLocale(" ..
+            Utils:DebugPrint("Spellcheck:EnsureLocale(" ..
                     locale ..
                     ") LoadAddOn(" .. addon .. ") result=" .. tostring(loaded) .. " reason=" .. tostring(reason))
-            end
+
 
             if loaded == false then
                 self._failedLocaleLoads[locale] = reason or "FAILED"

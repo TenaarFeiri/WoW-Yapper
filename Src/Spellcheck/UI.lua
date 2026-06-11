@@ -26,6 +26,11 @@ local string_sub          = string.sub
 local string_format       = string.format
 local table_insert        = table.insert
 
+-- Debug flag helper
+local function IsDebugEnabled()
+    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
+end
+
 function Spellcheck:Bind(editBox, overlay)
     self.EditBox = editBox
     self.Overlay = overlay
@@ -565,7 +570,7 @@ function Spellcheck:ScheduleHintShow()
     self:CancelHintTimer()
     self._pendingHintWord = word
     self._pendingHintCursor = cursor
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if IsDebugEnabled() then
         self:Notify("Spellcheck:ScheduleHintShow word='" .. tostring(word) .. "' cursor=" .. tostring(cursor))
     end
     if C_Timer and C_Timer.NewTimer then
@@ -573,24 +578,24 @@ function Spellcheck:ScheduleHintShow()
             -- If caret or word moved, abort showing.
             if not self.EditBox then return end
             local curCursor = self.EditBox.GetCursorPosition and (self.EditBox:GetCursorPosition() or 0) or 0
-            if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+            if IsDebugEnabled() then
                 self:Notify("Spellcheck:HintTimer fired; curCursor=" ..
                     tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
             end
             if curCursor ~= self._pendingHintCursor then
-                if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+                if IsDebugEnabled() then
                     self:Notify("Spellcheck:HintTimer abort due to cursor move")
                 end
                 return
             end
             if self.ActiveWord ~= self._pendingHintWord then
-                if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+                if IsDebugEnabled() then
                     self:Notify("Spellcheck:HintTimer abort due to word change")
                 end
                 return
             end
             self:ShowHint()
-            if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+            if IsDebugEnabled() then
                 self:Notify("Spellcheck:HintTimer showing hint")
             end
             self._lastHintWord = self._pendingHintWord
@@ -601,7 +606,7 @@ function Spellcheck:ScheduleHintShow()
         end)
     else
         -- Fallback: immediate show
-        if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        if IsDebugEnabled() then
             self:Notify("Spellcheck:ScheduleHintShow immediate fallback show")
         end
         self:ShowHint()
@@ -821,7 +826,7 @@ function Spellcheck:OpenOrCycleSuggestions()
     local suggestions = self:GetSuggestions(self.ActiveWord)
     if type(suggestions) ~= "table" then suggestions = {} end
     local sugCount = #suggestions
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if IsDebugEnabled() then
         self:Notify("Spellcheck:OpenOrCycleSuggestions word='" ..
             tostring(self.ActiveWord) .. "' suggestions=" .. tostring(sugCount))
     end

@@ -14,6 +14,7 @@ YapperTable.Queue = Queue
 
 -- Re-localise state machine for internal guards
 local State = YapperTable.State
+local Utils = YapperTable.Utils
 
 -- Localise Lua globals for performance
 local table_insert = table.insert
@@ -535,11 +536,9 @@ function Queue:OnChatEvent(event, ...)
     local msgText = select(1, ...)
     if self.StrictAckMatching and self.PendingAckText
         and msgText ~= self.PendingAckText then
-        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-            YapperTable.Utils:DebugPrint("  REJECTED: StrictAckMatching",
+        Utils:DebugPrint("  REJECTED: StrictAckMatching",
                 "#sent=" .. #(self.PendingAckText or ""),
                 "#echo=" .. #(msgText or ""))
-        end
         return
     end
 
@@ -552,10 +551,8 @@ function Queue:OnChatEvent(event, ...)
         local targetName = select(2, ...)
         if targetName and targetName ~= "" then
             if NormaliseName(targetName) ~= NormaliseName(self.PendingEntry.target) then
-                if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-                    YapperTable.Utils:DebugPrint("  REJECTED: Recipient mismatch",
+                Utils:DebugPrint("  REJECTED: Recipient mismatch",
                         tostring(targetName), "vs", tostring(self.PendingEntry.target))
-                end
                 return
             end
         end
@@ -564,10 +561,8 @@ function Queue:OnChatEvent(event, ...)
         local presenceID = select(13, ...)
         local targetID   = tonumber(self.PendingEntry.target)
         if presenceID and targetID and tonumber(presenceID) ~= targetID then
-            if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-                YapperTable.Utils:DebugPrint("  REJECTED: BNet Recipient mismatch",
+            Utils:DebugPrint("  REJECTED: BNet Recipient mismatch",
                     tostring(presenceID), "vs", tostring(targetID))
-            end
             return
         end
     end
@@ -584,10 +579,8 @@ function Queue:OnChatEvent(event, ...)
     end
 
     if guid and self.PlayerGUID and guid ~= self.PlayerGUID and not isWhisperInform then
-        if YapperTable.Utils and YapperTable.Utils.DebugPrint then
-            YapperTable.Utils:DebugPrint("  REJECTED: GUID mismatch",
+        Utils:DebugPrint("  REJECTED: GUID mismatch",
                 tostring(guid), "vs", tostring(self.PlayerGUID))
-        end
         return
     end
 

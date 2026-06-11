@@ -1,6 +1,6 @@
 # Dead Code Scanner Report
 
-Generated: 2026-06-11T10:46:06.920257
+Generated: 2026-06-11T11:15:21.934425
 
 ## Summary
 

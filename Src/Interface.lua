@@ -935,7 +935,6 @@ function Interface:CreateLauncher()
     local tooltipLines = self:GetLauncherTooltipLines()
 
     -- Add to addon compartment if exists.
-    ---@diagnostic disable: undefined-global
     local compartment = AddonCompartmentFrame or AddonCompartment
     if type(compartment) == "table" and type(compartment.RegisterAddon) == "function" then
         local ok, err = pcall(function()

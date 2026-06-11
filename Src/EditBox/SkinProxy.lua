@@ -6,6 +6,7 @@
 
 local _, YapperTable = ...
 local EditBox        = YapperTable.EditBox
+local Utils          = YapperTable.Utils
 
 -- Re-localise Lua globals.
 local type       = type
@@ -60,11 +61,7 @@ function EditBox:AttachBlizzardSkinProxy(origEditBox, overlayHeight)
     -- Helpers
     -- -----------------------------------------------------------------------
     local function Log(msg)
-        if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-            YapperTable.Utils:VerbosePrint("[SkinProxy] " .. msg)
-        elseif YapperTable.Utils and YapperTable.Utils.DebugPrint then
-            YapperTable.Utils:DebugPrint("[SkinProxy] " .. msg)
-        end
+        Utils:VerbosePrint("[SkinProxy] " .. msg)
     end
 
     local ebName = origEditBox.GetName and origEditBox:GetName() or "<unknown>"
@@ -641,12 +638,10 @@ function EditBox:ApplyProxyMode(origEditBox)
     self._proxyPrevState = prev
     self._proxyOrigEditBox = origEditBox
 
-    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-        YapperTable.Utils:VerbosePrint(string.format(
-            "[ProxyMode] ApplyProxyMode on %s (wasShown=%s, mouse=%s, alphaWasDefault=%s).",
-            (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
-            tostring(prev.wasShown), tostring(prev.mouseEnabled), tostring(prev.alphaWasDefault)))
-    end
+    Utils:VerbosePrint(string.format(
+        "[ProxyMode] ApplyProxyMode on %s (wasShown=%s, mouse=%s, alphaWasDefault=%s).",
+        (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
+        tostring(prev.wasShown), tostring(prev.mouseEnabled), tostring(prev.alphaWasDefault)))
 end
 
 --- Restore the original editbox to the state we found it in.
@@ -683,12 +678,10 @@ function EditBox:RestoreProxyMode()
         pcall(function() origEditBox:Hide() end)
     end
 
-    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-        YapperTable.Utils:VerbosePrint(string.format(
-            "[ProxyMode] RestoreProxyMode on %s (wasShown=%s, alphaWasDefault=%s).",
-            (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
-            tostring(prev.wasShown), tostring(prev.alphaWasDefault)))
-    end
+    Utils:VerbosePrint(string.format(
+        "[ProxyMode] RestoreProxyMode on %s (wasShown=%s, alphaWasDefault=%s).",
+        (origEditBox.GetName and origEditBox:GetName()) or "<unknown>",
+        tostring(prev.wasShown), tostring(prev.alphaWasDefault)))
 end
 
 -- Perform one-pass visual refresh (fills, anchors, colours, border). `pad` is 0 or overlay.BorderPad; call only from ShowOverlay/ApplyConfigToLiveOverlay.

@@ -9,6 +9,7 @@ local _, YapperTable = ...
 
 local Spellcheck = {}
 YapperTable.Spellcheck = Spellcheck
+local Utils = YapperTable.Utils
 
 -- Localise Lua globals for performance (avoids table lookups in hot loops)
 local math_abs   = math.abs
@@ -33,6 +34,11 @@ local pairs = pairs
 local tostring = tostring
 local tonumber = tonumber
 local select = select
+
+-- Debug flag helper
+local function IsDebugEnabled()
+    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
+end
 
 Spellcheck.Dictionaries    = {}
 Spellcheck.LanguageEngines = {} -- [familyId] = engine table
@@ -443,15 +449,15 @@ function Spellcheck:EvictRandomMeta(dict, count)
     end
     dict._metaCacheSize = math_max(0, (dict._metaCacheSize or 0) - removed)
 
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if IsDebugEnabled() then
         self:Notify("Spellcheck:EvictRandomMeta purged " .. tostring(removed) .. " entries.")
     end
 end
 
 function Spellcheck:GetUserDictStore()
     if type(_G.YapperDB) ~= "table" then return nil end
-    if type(_G.YapperDB.Spellcheck) ~= "table" then _G.YapperDB.Spellcheck = {} end
-    if type(_G.YapperDB.Spellcheck.Dict) ~= "table" then _G.YapperDB.Spellcheck.Dict = {} end
+    _G.YapperDB.Spellcheck = Utils:EnsureTable(_G.YapperDB.Spellcheck)
+    _G.YapperDB.Spellcheck.Dict = Utils:EnsureTable(_G.YapperDB.Spellcheck.Dict)
     
     local store = _G.YapperDB.Spellcheck.Dict
 
@@ -475,12 +481,10 @@ end
 function Spellcheck:GetUserDict(locale)
     local store = self:GetUserDictStore()
     if not store then return nil end
-    if type(store[locale]) ~= "table" then
-        store[locale] = { AddedWords = {}, IgnoredWords = {}, BlockedWords = {} }
-    end
-    if type(store[locale].AddedWords) ~= "table" then store[locale].AddedWords = {} end
-    if type(store[locale].IgnoredWords) ~= "table" then store[locale].IgnoredWords = {} end
-    if type(store[locale].BlockedWords) ~= "table" then store[locale].BlockedWords = {} end
+    store[locale] = Utils:EnsureTable(store[locale])
+    store[locale].AddedWords = Utils:EnsureTable(store[locale].AddedWords)
+    store[locale].IgnoredWords = Utils:EnsureTable(store[locale].IgnoredWords)
+    store[locale].BlockedWords = Utils:EnsureTable(store[locale].BlockedWords)
     return store[locale]
 end
 
@@ -554,7 +558,7 @@ function Spellcheck:IsWordBlocked(word, locale, ignoreManual)
         if engineHashes[engineHashFn(w)] then return true end
         
         -- Deleet is now on Utils — consolidated from 4 copies.
-        local dw = YapperTable.Utils.Deleet(w)
+        local dw = Utils.Deleet(w)
         if engineHashes[engineHashFn(dw)] then return true end
     end
     

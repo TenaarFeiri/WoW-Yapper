@@ -13,6 +13,7 @@ local _, YapperTable      = ...
 
 local EditBox             = {}
 YapperTable.EditBox       = EditBox
+local Utils               = YapperTable.Utils
 
 -- User bypass flag
 local UserBypassingYapper = false
@@ -105,9 +106,7 @@ end
 function EditBox:AddReplyTarget(name, kind)
     if not name or name == "" then return end
     -- Is it a secret? Then don't add it.
-    if YapperTable and YapperTable.Utils and type(YapperTable.Utils.IsSecret) == "function" then
-        if YapperTable.Utils:IsSecret(name) then return end
-    end
+    if Utils:IsSecret(name) then return end
     kind = kind or "WHISPER"
     -- Normalize short kinds
     if kind == "BN" then kind = "BN_WHISPER" end
@@ -490,9 +489,7 @@ function EditBox:InitKeybinds()
         return
     end
 
-    if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-        YapperTable.Utils:VerbosePrint("Initializing keybind system")
-    end
+    Utils:VerbosePrint("Initializing keybind system")
     self.Keybinds:Init()
 end
 

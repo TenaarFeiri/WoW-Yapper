@@ -23,7 +23,7 @@ See SavedVariables layout in [Architecture.md](Architecture.md#savedvariables-la
 
 ## Other `_G.*` registrations and mutations
 
-- `_G.YAPPER_UTILS = Utils` for debug/dev access ([`Src/Utils.lua#L94`](../Src/Utils.lua#L94)).
+- `_G.YAPPER_UTILS = Utils` for debug/dev access ([`Src/Utils.lua#L93`](../Src/Utils.lua#L93)).
 - `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L871`](../Src/Interface.lua#L871)).
 
 ## Slash commands

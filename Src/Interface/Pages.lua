@@ -7,6 +7,7 @@
 
 local _, YapperTable = ...
 local Interface      = YapperTable.Interface
+local Utils          = YapperTable.Utils
 
 -- Re-localise shared helpers from hub.
 local JoinPath                    = Interface.JoinPath
@@ -189,8 +190,8 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             -- reset behaviour predictable regardless of which theme is
             -- active (including the proxy/'Yapper Default' skin).
             local root = self:GetLocalConfigRoot()
-            if type(root.EditBox) ~= "table" then root.EditBox = {} end
-            if type(root.EditBox.ChannelTextColors) ~= "table" then root.EditBox.ChannelTextColors = {} end
+            root.EditBox = Utils:EnsureTable(root.EditBox)
+            root.EditBox.ChannelTextColors = Utils:EnsureTable(root.EditBox.ChannelTextColors)
 
             -- Prefer the active theme's channel colour if available, else
             -- fall back to the global defaults from Core.
@@ -235,43 +236,35 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 if type(appliedColor) == "table" then
                     -- Try direct API first.
                     if ColorPickerFrame.SetColorRGB then
-                        pcall(function()
-                            ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1,
-                                appliedColor.b or 1)
-                        end)
+                        ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1,
+                            appliedColor.b or 1)
                     end
                     -- Modern frame content path.
                     if ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker and ColorPickerFrame.Content.ColorPicker.SetColorRGB then
-                        pcall(function()
-                            ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1,
-                                appliedColor.g or 1, appliedColor.b or 1)
-                        end)
+                        ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1,
+                            appliedColor.g or 1, appliedColor.b or 1)
                     end
                     -- Update previousValues so the 'previous' swatch matches.
-                    pcall(function()
-                        ColorPickerFrame.previousValues = {
-                            r = appliedColor.r or 1,
-                            g = appliedColor.g or 1,
-                            b =
-                                appliedColor.b or 1,
-                            a = appliedColor.a ~= nil and appliedColor.a or 1
-                        }
-                    end)
+                    ColorPickerFrame.previousValues = {
+                        r = appliedColor.r or 1,
+                        g = appliedColor.g or 1,
+                        b = appliedColor.b or 1,
+                        a = appliedColor.a ~= nil and appliedColor.a or 1
+                    }
                 end
             end
 
             -- Reset mode to custom
-            if type(root.EditBox.ChannelColorMode) ~= "table" then root.EditBox.ChannelColorMode = {} end
+            root.EditBox.ChannelColorMode = Utils:EnsureTable(root.EditBox.ChannelColorMode)
             root.EditBox.ChannelColorMode[option.key] = "custom"
-            if type(root._themeOverrides) == "table" then
-                root._themeOverrides[option.key] = nil
-            end
+            root._themeOverrides = Utils:EnsureTable(root._themeOverrides)
+            root._themeOverrides[option.key] = nil
             _G.YapperLocalConf = root
 
             -- Force UI refresh and reapply to live overlay.
             refreshRows()
             if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
-                pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
+                YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
             end
         end)
         resetBtn:SetSize(50, 20)
@@ -1408,11 +1401,7 @@ function Interface:CreateThemeDropdown(parent, label, path, cursor)
             info.func = function()
                 current = name
                 Interface:SetLocalPath(path, name)
-                pcall(function()
-                    if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-                        YapperTable.Utils:VerbosePrint("Interface: theme selected -> " .. tostring(name))
-                    end
-                end)
+                Utils:VerbosePrint("Interface: theme selected -> " .. tostring(name))
                 UIDropDownMenu_SetText(frame, name)
             end
             UIDropDownMenu_AddButton(info, level)

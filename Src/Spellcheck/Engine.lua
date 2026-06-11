@@ -42,6 +42,11 @@ local string_format   = string.format
 
 local Utils = YapperTable.Utils
 
+-- Debug flag helper
+local function IsDebugEnabled()
+    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
+end
+
 -- ---------------------------------------------------------------------------
 -- Engine accessor helper
 -- ---------------------------------------------------------------------------
@@ -965,7 +970,7 @@ function Spellcheck:GetSuggestions(word)
 
     local dict = self:GetDictionary()
     if not dict then
-        if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+        if IsDebugEnabled() then
             self:Notify("Spellcheck:GetSuggestions no dictionary for locale")
         end
         return {}
@@ -978,7 +983,7 @@ function Spellcheck:GetSuggestions(word)
     local lower = NormaliseWord(word)
     local lowerLen = #lower
     local first = lower:sub(1, 1)
-    local maxCandidates = (type(self.GetMaxCandidates) == "function") and self:GetMaxCandidates() or 1000
+    local maxCandidates = self:GetMaxCandidates() or 1000
 
     -- Resolve the active language engine once for this suggestion pass.
     local engine = GetEngineFor(self)
@@ -1024,7 +1029,7 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if IsDebugEnabled() then
         self:Notify(string_format(
             "Spellcheck:GetSuggestions word='%s' lower='%s' prefCands=%d learnedCands=%d",
             tostring(word), tostring(lower), #prefixCandidates, #learnedCandidates))
@@ -1128,7 +1133,7 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if IsDebugEnabled() then
         self:Notify(string_format(
             "Spellcheck:GetSuggestions buckets p2=%d p1=%d other=%d dynamicCap=%d maxDist=%d maxLenDiff=%d",
             #pref2, #pref1, #other, dynamicCap, maxDist, maxLenDiff))
@@ -1149,7 +1154,7 @@ function Spellcheck:GetSuggestions(word)
         checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
     end
 
-    if YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG then
+    if IsDebugEnabled() then
         self:Notify("Spellcheck:GetSuggestions finished checks=" ..
             tostring(checks) .. " candidatesFound=" .. tostring(#out))
     end
@@ -1241,7 +1246,7 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    local cacheCap = (type(self.GetSuggestionCacheSize) == "function") and self:GetSuggestionCacheSize() or 5000
+    local cacheCap = self:GetSuggestionCacheSize() or 5000
     if cacheCap > 0 then
         if self._suggestionCacheCount >= cacheCap then
             self:ClearSuggestionCache()

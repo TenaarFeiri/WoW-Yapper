@@ -6,6 +6,7 @@
 local YapperName, YapperTable = ...
 local YAS = {}
 YapperTable.Spellcheck.YAS = YAS -- Hook into internal table
+local Utils = YapperTable.Utils
 
 -- Tuning Constants (used as fallbacks when config is not yet available)
 local FREQ_CAP = 2000      -- Max unique words to track
@@ -180,9 +181,7 @@ function YAS:Init()
             legacy[k] = nil -- Clear root key
         end
         legacy["enBASE"] = oldCopy
-        if YapperTable.Utils then
-            YapperTable.Utils:Print("info", "YAS: Migrated legacy flat database to 'enBASE' partition.")
-        end
+        Utils:Print("info", "YAS: Migrated legacy flat database to 'enBASE' partition.")
     end
 
     self.db = _G.YapperDB.SpellcheckLearned
@@ -208,7 +207,7 @@ function YAS:GetLocaleDB(locale)
         }
     end
     local db = self.db[loc]
-    if type(db.freq) ~= "table" then db.freq = {} end
+    db.freq = Utils:EnsureTable(db.freq)
     if db.total == nil then
         local count = 0
         for _ in pairs(db.freq) do count = count + 1 end
@@ -379,7 +378,7 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
     end
 
     if IsDebugEnabled() then
-        YapperTable.Utils:Print("debug", string.format("YAS: RecordSelection typo='%s' corr='%s' gain=%.2f", typo, correction, gain))
+        Utils:Print("debug", string.format("YAS: RecordSelection typo='%s' corr='%s' gain=%.2f", typo, correction, gain))
     end
 
     local now = time()
@@ -599,10 +598,8 @@ function YAS:RecordIgnored(word, locale)
             local loc = locale or Spellcheck:GetLocale()
             Spellcheck:AddUserWord(loc, word)
             db.auto[w] = nil -- Reset now that it's in the dict
-            if YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-                YapperTable.Utils:VerbosePrint("info",
-                    "YAS: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
-            end
+            Utils:VerbosePrint("info",
+                "YAS: Learned new word '" .. word .. "' (" .. (loc or "Shared") .. ") after persistent usage.")
             -- Notify external addons about the auto-learned word.
             if YapperTable.API then
                 YapperTable.API:Fire("YAS_WORD_LEARNED", word, loc)
@@ -719,15 +716,9 @@ end
 --- Systematic pruning of a learning table
 function YAS:Prune(tableName, limit, locale)
     local db = self:GetLocaleDB(locale)
-    if not db then
-        -- Sometimes we have no DB. Nothing to do, then.
-        return
-    end
-
-    -- Explicitly verify for linter that db is not nil
-    local tbl = db and db[tableName]
+    if not db then return end
+    local tbl = db[tableName]
     if not tbl then return end
-
 
     local keys = {}
     for k in pairs(tbl) do table_insert(keys, k) end
@@ -760,10 +751,7 @@ function YAS:Prune(tableName, limit, locale)
     for i = targetSize + 1, #keys do
         local k = keys[i]
         tbl[k] = nil
-        -- db cannot be nil
-        ---@diagnostic disable-next-line: need-check-nil
         if tableName == "freq" and db.total then
-            ---@diagnostic disable-next-line: need-check-nil
             db.total = math_max(0, db.total - 1)
         end
     end

@@ -6,6 +6,7 @@
 
 local _, YapperTable = ...
 local Interface      = YapperTable.Interface
+local Utils          = YapperTable.Utils
 
 -- Re-localise shared helpers from hub.
 local JoinPath              = Interface.JoinPath
@@ -230,9 +231,10 @@ function Interface:SetLocalPath(path, value)
 
     if isColorKey and overrideKey then
         local overrideRoot = isGlobal and (_G.YapperDB or localConf) or localConf
-        if type(overrideRoot._themeOverrides) ~= "table" then overrideRoot._themeOverrides = {} end
+        overrideRoot._themeOverrides = Utils:EnsureTable(overrideRoot._themeOverrides)
         overrideRoot._themeOverrides[overrideKey] = true
-        if isGlobal and type(localConf._themeOverrides) == "table" then
+        if isGlobal then
+            localConf._themeOverrides = Utils:EnsureTable(localConf._themeOverrides)
             localConf._themeOverrides[overrideKey] = nil
         end
         _G.YapperLocalConf = localConf
@@ -317,11 +319,11 @@ function Interface:SetLocalPath(path, value)
             if origEditBox then
                 if normalizedValue == true then
                     if origEditBox.Hide then
-                        pcall(function() origEditBox:Hide() end)
+                        origEditBox:Hide()
                     end
                 else
                     if origEditBox.Show then
-                        pcall(function() origEditBox:Show() end)
+                        origEditBox:Show()
                     end
                 end
             end
@@ -341,18 +343,18 @@ function Interface:SetLocalPath(path, value)
             if normalizedValue == true then
                 -- Switching TO proxy: apply proxy state (show editbox, disable mouse, hide header, etc.)
                 if eb.ApplyProxyMode then
-                    pcall(function() eb:ApplyProxyMode(origEditBox) end)
+                    eb:ApplyProxyMode(origEditBox)
                 end
             else
                 -- Switching FROM proxy: undo proxy state first
                 if eb.RestoreProxyMode then
-                    pcall(function() eb:RestoreProxyMode() end)
+                    eb:RestoreProxyMode()
                 end
                 -- Then apply the HideBlizzardEditbox setting
                 local cfg = localConf.EditBox or {}
                 if cfg.HideBlizzardEditbox == true then
                     if origEditBox.Hide then
-                        pcall(function() origEditBox:Hide() end)
+                        origEditBox:Hide()
                     end
                 end
             end

@@ -12,6 +12,7 @@ local YapperName, YapperTable = ...
 local Theme = {}
 YapperTable.Theme = Theme
 local State = YapperTable.State
+local Utils = YapperTable.Utils
 
 -- Registry of themes: name -> theme table
 Theme._registry = {}
@@ -44,21 +45,16 @@ end
 function Theme:SetTheme(name)
     if type(name) ~= "string" or not self._registry[name] then return false end
     self._current = name
-    pcall(function()
-        if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-            YapperTable.Utils:VerbosePrint("Theme:SetTheme -> " .. tostring(name))
-        end
-    end)
+    Utils:VerbosePrint("Theme:SetTheme -> " .. tostring(name))
     -- Attempt to apply the theme immediately to any live overlay.
     -- Also reflect theme colours into local per-character config unless the
     -- user has explicitly overridden those values via the UI.
     pcall(function()
-        local localConf = _G.YapperLocalConf or {}
-        if type(localConf.EditBox) ~= "table" then localConf.EditBox = {} end
+        local localConf = Utils:EnsureTable(_G.YapperLocalConf)
         local useGlobal = localConf.System and localConf.System.UseGlobalProfile == true and type(_G.YapperDB) == "table"
-        local targetRoot = useGlobal and _G.YapperDB or localConf
-        if type(targetRoot.EditBox) ~= "table" then targetRoot.EditBox = {} end
-        if type(targetRoot._themeOverrides) ~= "table" then targetRoot._themeOverrides = {} end
+        local targetRoot = useGlobal and Utils:EnsureTable(_G.YapperDB) or localConf
+        targetRoot.EditBox = Utils:EnsureTable(targetRoot.EditBox)
+        targetRoot._themeOverrides = Utils:EnsureTable(targetRoot._themeOverrides)
         local theme = self._registry[name]
         if type(theme) == "table" then
             local function applyIfNotOverridden(key, themeField)
@@ -81,9 +77,7 @@ function Theme:SetTheme(name)
             applyIfNotOverridden("BorderColor", "borderColor")
 
             if type(theme.channelTextColors) == "table" then
-                if type(targetRoot.EditBox.ChannelTextColors) ~= "table" then
-                    targetRoot.EditBox.ChannelTextColors = {}
-                end
+                targetRoot.EditBox.ChannelTextColors = Utils:EnsureTable(targetRoot.EditBox.ChannelTextColors)
                 for channel, color in pairs(theme.channelTextColors) do
                     if targetRoot._themeOverrides[channel] ~= true then
                         targetRoot.EditBox.ChannelTextColors[channel] = {
@@ -109,10 +103,8 @@ function Theme:SetTheme(name)
         end
     end)
 
-    if YapperTable and YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
-        pcall(function()
-            YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
-        end)
+    if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
+        YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
     end
 
     -- THEME_CHANGED callback: notify external addons.
@@ -132,11 +124,7 @@ function Theme:ApplyToFrame(frame, name)
     if not theme then return false end
 
     -- Diagnostic: verbose only, not spammy.
-    pcall(function()
-        if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-            YapperTable.Utils:VerbosePrint("Theme:ApplyToFrame '" .. tostring(name or self._current) .. "'")
-        end
-    end)
+    Utils:VerbosePrint("Theme:ApplyToFrame '" .. tostring(name or self._current) .. "'")
 
     -- NOTE: inputBg / labelBg / textColor / borderColor are intentionally NOT
     -- applied here.  ApplyConfigToLiveOverlay is the single place that reads
@@ -147,22 +135,18 @@ function Theme:ApplyToFrame(frame, name)
     if type(theme.font) == "table" then
         local f = theme.font
         if type(frame.OverlayEdit) == "table" and type(frame.OverlayEdit.SetFont) == "function" then
-            pcall(function()
-                if f.path and f.size then
-                    frame.OverlayEdit:SetFont(f.path, f.size, f.flags)
-                elseif f.size then
-                    -- Try to preserve face when only size provided.
-                    local face, _, flags = frame.OverlayEdit:GetFont()
-                    frame.OverlayEdit:SetFont(face or f.path, f.size, f.flags or flags)
-                end
-            end)
+            if f.path and f.size then
+                frame.OverlayEdit:SetFont(f.path, f.size, f.flags)
+            elseif f.size then
+                -- Try to preserve face when only size provided.
+                local face, _, flags = frame.OverlayEdit:GetFont()
+                frame.OverlayEdit:SetFont(face or f.path, f.size, f.flags or flags)
+            end
         end
         if type(frame.ChannelLabel) == "table" and type(frame.ChannelLabel.SetFont) == "function" then
-            pcall(function()
-                if f.path and f.size then
-                    frame.ChannelLabel:SetFont(f.path, f.size, f.flags)
-                end
-            end)
+            if f.path and f.size then
+                frame.ChannelLabel:SetFont(f.path, f.size, f.flags)
+            end
         end
     end
 
@@ -176,27 +160,24 @@ end
 
 -- Diagnostics: verbose report of what elements Theme:ApplyToFrame can see.
 local function _logThemeApply(frame)
-    if not YapperTable or not YapperTable.Utils or not YapperTable.Utils.VerbosePrint then return end
+    if not Utils.VerbosePrint then return end
     local hasInputBg = type(frame._yapperSolidFill) == "table" and type(frame._yapperSolidFill.SetColorTexture) == "function"
     local hasLabelBg = type(frame.LabelBg) == "table" and type(frame.LabelBg._yapperSolidFill) == "table"
     local hasOverlayEdit = type(frame.OverlayEdit) == "table" and type(frame.OverlayEdit.SetTextColor) == "function"
     local hasChannelLabel = type(frame.ChannelLabel) == "table" and type(frame.ChannelLabel.SetTextColor) == "function"
     local msg = string.format("Theme:ApplyToFrame diagnostics — inputBg=%s, labelBg=%s, overlayEdit=%s, channelLabel=%s",
         tostring(hasInputBg), tostring(hasLabelBg), tostring(hasOverlayEdit), tostring(hasChannelLabel))
-    YapperTable.Utils:VerbosePrint(msg)
+    Utils:VerbosePrint(msg)
 end
 
 -- Wrap original ApplyToFrame to emit diagnostics when Verbose logging is enabled.
 local _origApply = Theme.ApplyToFrame
----@diagnostic disable-next-line: duplicate-set-field
 function Theme:ApplyToFrame(frame, name)
     local ok, res = pcall(_origApply, self, frame, name)
     if ok then
         pcall(_logThemeApply, frame)
     else
-        if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
-            YapperTable.Utils:Print("error", "Theme:ApplyToFrame failed: " .. tostring(res))
-        end
+        Utils:Print("error", "Theme:ApplyToFrame failed: " .. tostring(res))
     end
     return ok and res or false
 end
@@ -217,17 +198,12 @@ function Theme:SetLiveTheme(name)
     if type(name) ~= "string" or not self._registry[name] then return false end
     self._current = name
 
-    pcall(function()
-        if YapperTable and YapperTable.Utils and YapperTable.Utils.VerbosePrint then
-            YapperTable.Utils:VerbosePrint("Theme:SetLiveTheme -> " .. tostring(name))
-        end
-    end)
+    Utils:VerbosePrint("Theme:SetLiveTheme -> " .. tostring(name))
 
     -- Push the theme's colour fields into live config unconditionally (no
     -- _themeOverrides check) so the external caller's colors always win.
     pcall(function()
-        local localConf = _G.YapperLocalConf or {}
-        if type(localConf.EditBox) ~= "table" then localConf.EditBox = {} end
+        local localConf = Utils:EnsureTable(_G.YapperLocalConf)
         local theme = self._registry[name]
         if type(theme) == "table" then
             local function push(key, field)
@@ -249,14 +225,14 @@ function Theme:SetLiveTheme(name)
     end)
 
     -- Apply to the live overlay.
-    if YapperTable and YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
-        pcall(function() YapperTable.EditBox:ApplyConfigToLiveOverlay(true) end)
+    if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
+        YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
     end
 
     -- Refresh multiline frame if it is currently open.
-    if YapperTable and YapperTable.Multiline and State and State:IsMultiline()
+    if YapperTable.Multiline and State and State:IsMultiline()
             and type(YapperTable.Multiline.ApplyTheme) == "function" then
-        pcall(function() YapperTable.Multiline:ApplyTheme() end)
+        YapperTable.Multiline:ApplyTheme()
     end
 
     if YapperTable.API then
@@ -316,6 +292,6 @@ local defaultTheme = {
 Theme:RegisterTheme(defaultTheme.name, defaultTheme)
 Theme._current = defaultTheme.name
 
-YapperTable.Utils:VerbosePrint("Theme: lightweight registry initialised.")
+Utils:VerbosePrint("Theme: lightweight registry initialised.")
 
 return Theme

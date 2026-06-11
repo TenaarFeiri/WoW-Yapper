@@ -21,21 +21,21 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L279`](../Src/Core.lua#L279)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L280`](../Src/Core.lua#L280)).
 - Methods:
-  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L315`](../Src/Core.lua#L315))
-  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L379`](../Src/Core.lua#L379))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L824`](../Src/Core.lua#L824))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L621`](../Src/Core.lua#L621))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L346`](../Src/Core.lua#L346))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L285`](../Src/Core.lua#L285))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L507`](../Src/Core.lua#L507)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L644`](../Src/Core.lua#L644))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L648`](../Src/Core.lua#L648))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L652`](../Src/Core.lua#L652))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L665`](../Src/Core.lua#L665)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L731`](../Src/Core.lua#L731)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L845`](../Src/Core.lua#L845)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L316`](../Src/Core.lua#L316))
+  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L380`](../Src/Core.lua#L380))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L821`](../Src/Core.lua#L821))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L618`](../Src/Core.lua#L618))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L347`](../Src/Core.lua#L347))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L286`](../Src/Core.lua#L286))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L508`](../Src/Core.lua#L508)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L641`](../Src/Core.lua#L641))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L645`](../Src/Core.lua#L645))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L649`](../Src/Core.lua#L649))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L662`](../Src/Core.lua#L662)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L728`](../Src/Core.lua#L728)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L842`](../Src/Core.lua#L842)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -46,15 +46,15 @@ Loaded at startup; used by most modules.
 
 - Description: Print/debug/fullscreen/chat utility helpers.
 - Fields:
-  - `_G.YAPPER_UTILS: table` alias for debug access ([`../Src/Utils.lua#L94`](../Src/Utils.lua#L94)).
+  - `_G.YAPPER_UTILS: table` alias for debug access ([`../Src/Utils.lua#L93`](../Src/Utils.lua#L93)).
 - Methods:
   - `Utils:Print(...) → nil` ([`../Src/Utils.lua#L19`](../Src/Utils.lua#L19))
   - `Utils:VerbosePrint(...) → nil` ([`../Src/Utils.lua#L33`](../Src/Utils.lua#L33))
   - `Utils:DebugPrint(...) → nil` ([`../Src/Utils.lua#L39`](../Src/Utils.lua#L39))
   - `Utils:GetChatParent() → Frame` ([`../Src/Utils.lua#L48`](../Src/Utils.lua#L48))
   - `Utils:MakeFullscreenAware(frame) → nil` ([`../Src/Utils.lua#L60`](../Src/Utils.lua#L60))
-  - `Utils:IsChatLockdown() → boolean` ([`../Src/Utils.lua#L85`](../Src/Utils.lua#L85))
-  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L98`](../Src/Utils.lua#L98))
+  - `Utils:IsChatLockdown() → boolean` ([`../Src/Utils.lua#L84`](../Src/Utils.lua#L84))
+  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L134`](../Src/Utils.lua#L134))
 
 ## Error
 
@@ -162,51 +162,51 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
 
 - Description: Spellchecking runtime hub and shared state.
 - Fields:
-  - `Dictionaries: table` locale → dictionary state ([`../Src/Spellcheck.lua#L37`](../Src/Spellcheck.lua#L37)).
-  - `LanguageEngines: table` family → engine ([`../Src/Spellcheck.lua#L38`](../Src/Spellcheck.lua#L38)).
+  - `Dictionaries: table` locale → dictionary state ([`../Src/Spellcheck.lua#L43`](../Src/Spellcheck.lua#L43)).
+  - `LanguageEngines: table` family → engine ([`../Src/Spellcheck.lua#L44`](../Src/Spellcheck.lua#L44)).
   - `KnownLocales: string[]` ([`../Src/Spellcheck.lua#L39-L44`](../Src/Spellcheck.lua#L39-L44)).
   - `LocaleAddons: table` locale → addon name ([`../Src/Spellcheck.lua#L49-L55`](../Src/Spellcheck.lua#L49-L55)).
   - Frame references: `EditBox`, `Overlay`, `MeasureFS`, `SuggestionFrame`, `HintFrame` ([`../Src/Spellcheck.lua#L56-L58`](../Src/Spellcheck.lua#L56-L58), [`../Src/Spellcheck.lua#L61-L67`](../Src/Spellcheck.lua#L61-L67)).
   - Underline/suggestion state: `UnderlinePool`, `Underlines`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L59-L60`](../Src/Spellcheck.lua#L59-L60), [`../Src/Spellcheck.lua#L62-L66`](../Src/Spellcheck.lua#L62-L66), [`../Src/Spellcheck.lua#L68`](../Src/Spellcheck.lua#L68)).
-  - Dictionary/user state: `UserDictCache` ([`../Src/Spellcheck.lua#L73`](`../Src/Spellcheck.lua#L73`))
-  - Dictionary/user state: `_pendingLocaleLoads` ([`../Src/Spellcheck.lua#L74`](`../Src/Spellcheck.lua#L74`))
-  - Dictionary/user state: `DictionaryBuilders` ([`../Src/Spellcheck.lua#L76`](`../Src/Spellcheck.lua#L76`))
+  - Dictionary/user state: `UserDictCache` ([`../Src/Spellcheck.lua#L79`](`../Src/Spellcheck.lua#L79`))
+  - Dictionary/user state: `_pendingLocaleLoads` ([`../Src/Spellcheck.lua#L80`](`../Src/Spellcheck.lua#L80`))
+  - Dictionary/user state: `DictionaryBuilders` ([`../Src/Spellcheck.lua#L82`](`../Src/Spellcheck.lua#L82`))
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
   - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
 - Methods:
-  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L653`](../Src/Spellcheck.lua#L653))
-  - `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YAS learning). ([`../Src/Spellcheck.lua#L546`](../Src/Spellcheck.lua#L546))
-  - `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L527`](../Src/Spellcheck.lua#L527))
-  - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L431`](../Src/Spellcheck.lua#L431))
-  - `Spellcheck:Init(threads) → nil` ([`../Src/Spellcheck.lua#L192`](../Src/Spellcheck.lua#L192))
-  - `Spellcheck:_RegisterLanguageEngine(familyId, engine) → boolean` ([`../Src/Spellcheck.lua#L217`](../Src/Spellcheck.lua#L217)) — **Security Note**: Enforces mandatory `BlockedHashes` table and `HashWord` function. Returns `false` and prints a chat error if missing.
-  - `Spellcheck:GetActiveEngine() → table|nil` ([`../Src/Spellcheck.lua#L242`](../Src/Spellcheck.lua#L242))
-  - `Spellcheck:GetEngine(familyId) → table|nil` ([`../Src/Spellcheck.lua#L251`](../Src/Spellcheck.lua#L251))
-  - `Spellcheck:GetConfig() → table` ([`../Src/Spellcheck.lua#L338`](../Src/Spellcheck.lua#L338))
-  - `Spellcheck:IsEnabled() → boolean` ([`../Src/Spellcheck.lua#L342`](../Src/Spellcheck.lua#L342))
-  - `Spellcheck:GetLocale() → string` ([`../Src/Spellcheck.lua#L347`](../Src/Spellcheck.lua#L347))
-  - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L375`](../Src/Spellcheck.lua#L375))
-  - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L383`](../Src/Spellcheck.lua#L383))
-  - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L393`](../Src/Spellcheck.lua#L393))
+  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L657`](../Src/Spellcheck.lua#L657))
+  - `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YAS learning). ([`../Src/Spellcheck.lua#L550`](../Src/Spellcheck.lua#L550))
+  - `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L531`](../Src/Spellcheck.lua#L531))
+  - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L437`](../Src/Spellcheck.lua#L437))
+  - `Spellcheck:Init(threads) → nil` ([`../Src/Spellcheck.lua#L198`](../Src/Spellcheck.lua#L198))
+  - `Spellcheck:_RegisterLanguageEngine(familyId, engine) → boolean` ([`../Src/Spellcheck.lua#L223`](../Src/Spellcheck.lua#L223)) — **Security Note**: Enforces mandatory `BlockedHashes` table and `HashWord` function. Returns `false` and prints a chat error if missing.
+  - `Spellcheck:GetActiveEngine() → table|nil` ([`../Src/Spellcheck.lua#L248`](../Src/Spellcheck.lua#L248))
+  - `Spellcheck:GetEngine(familyId) → table|nil` ([`../Src/Spellcheck.lua#L257`](../Src/Spellcheck.lua#L257))
+  - `Spellcheck:GetConfig() → table` ([`../Src/Spellcheck.lua#L344`](../Src/Spellcheck.lua#L344))
+  - `Spellcheck:IsEnabled() → boolean` ([`../Src/Spellcheck.lua#L348`](../Src/Spellcheck.lua#L348))
+  - `Spellcheck:GetLocale() → string` ([`../Src/Spellcheck.lua#L353`](../Src/Spellcheck.lua#L353))
+  - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L381`](../Src/Spellcheck.lua#L381))
+  - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L389`](../Src/Spellcheck.lua#L389))
+  - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L399`](../Src/Spellcheck.lua#L399))
 
-  - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L451`](../Src/Spellcheck.lua#L451))
-  - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L475`](../Src/Spellcheck.lua#L475))
-  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L487`](../Src/Spellcheck.lua#L487))
-  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L494`](../Src/Spellcheck.lua#L494))
-  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L508`](../Src/Spellcheck.lua#L508))
-  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L564`](../Src/Spellcheck.lua#L564)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
-  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L592`](../Src/Spellcheck.lua#L592))
-  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L616`](../Src/Spellcheck.lua#L616))
-  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L621`](`../Src/Spellcheck.lua#L621`))
-  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L626`](`../Src/Spellcheck.lua#L626`))
-  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L631`](`../Src/Spellcheck.lua#L631`))
-  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L636`](`../Src/Spellcheck.lua#L636`))
-  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L641`](`../Src/Spellcheck.lua#L641`))
-  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L646`](`../Src/Spellcheck.lua#L646`))
-  - Accessors: `GetUnderlineStyle` ([`../Src/Spellcheck.lua#L656`](`../Src/Spellcheck.lua#L656`))
-  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L664`](`../Src/Spellcheck.lua#L664`))
-  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L674`](`../Src/Spellcheck.lua#L674`))
-  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L693`](`../Src/Spellcheck.lua#L693`))
+  - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L457`](../Src/Spellcheck.lua#L457))
+  - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L481`](../Src/Spellcheck.lua#L481))
+  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L491`](../Src/Spellcheck.lua#L491))
+  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L498`](../Src/Spellcheck.lua#L498))
+  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L512`](../Src/Spellcheck.lua#L512))
+  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L568`](../Src/Spellcheck.lua#L568)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
+  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L596`](../Src/Spellcheck.lua#L596))
+  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L620`](../Src/Spellcheck.lua#L620))
+  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L625`](`../Src/Spellcheck.lua#L625`))
+  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L630`](`../Src/Spellcheck.lua#L630`))
+  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L635`](`../Src/Spellcheck.lua#L635`))
+  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L640`](`../Src/Spellcheck.lua#L640`))
+  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L645`](`../Src/Spellcheck.lua#L645`))
+  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L650`](`../Src/Spellcheck.lua#L650`))
+  - Accessors: `GetUnderlineStyle` ([`../Src/Spellcheck.lua#L660`](`../Src/Spellcheck.lua#L660`))
+  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L668`](`../Src/Spellcheck.lua#L668`))
+  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L678`](`../Src/Spellcheck.lua#L678`))
+  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L697`](`../Src/Spellcheck.lua#L697`))
 - Callbacks fired:
   - `SPELLCHECK_WORD_ADDED`, `SPELLCHECK_WORD_IGNORED`.
 
@@ -216,19 +216,19 @@ Used lazily by `GetDictionary`, locale switches, and LOD registration.
 
 - Description: Dictionary registration/loading, locale availability, async indexing.
 - Methods:
-  - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L34`](../Src/Spellcheck/Dictionary.lua#L34))
-  - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L61`](../Src/Spellcheck/Dictionary.lua#L61)) — **Security Note**: Validates the associated language family engine for `BlockedHashes` before indexing. Blocks registration if the family engine is missing or insecure.
-  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L361`](../Src/Spellcheck/Dictionary.lua#L361))
-  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L406`](../Src/Spellcheck/Dictionary.lua#L406))
-  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L415`](../Src/Spellcheck/Dictionary.lua#L415))
-  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L420`](../Src/Spellcheck/Dictionary.lua#L420))
-  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L451`](../Src/Spellcheck/Dictionary.lua#L451))
-  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L463`](../Src/Spellcheck/Dictionary.lua#L463))
-  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L477`](../Src/Spellcheck/Dictionary.lua#L477))
-  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L492`](../Src/Spellcheck/Dictionary.lua#L492))
-  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L498`](../Src/Spellcheck/Dictionary.lua#L498))
-  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L566`](../Src/Spellcheck/Dictionary.lua#L566))
-  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L183`](../Src/Spellcheck/Dictionary.lua#L183)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
+  - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L40`](../Src/Spellcheck/Dictionary.lua#L40))
+  - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L67`](../Src/Spellcheck/Dictionary.lua#L67)) — **Security Note**: Validates the associated language family engine for `BlockedHashes` before indexing. Blocks registration if the family engine is missing or insecure.
+  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L366`](../Src/Spellcheck/Dictionary.lua#L366))
+  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L409`](../Src/Spellcheck/Dictionary.lua#L409))
+  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L418`](../Src/Spellcheck/Dictionary.lua#L418))
+  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L423`](../Src/Spellcheck/Dictionary.lua#L423))
+  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L454`](../Src/Spellcheck/Dictionary.lua#L454))
+  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L466`](../Src/Spellcheck/Dictionary.lua#L466))
+  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L480`](../Src/Spellcheck/Dictionary.lua#L480))
+  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L495`](../Src/Spellcheck/Dictionary.lua#L495))
+  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L501`](../Src/Spellcheck/Dictionary.lua#L501))
+  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L568`](../Src/Spellcheck/Dictionary.lua#L568))
+  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L189`](../Src/Spellcheck/Dictionary.lua#L189)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
 - Side effects:
   - Schedules `C_Timer.After(0, ...)` chunk processing and refresh tickers.
 
@@ -238,18 +238,18 @@ Runs during suggestion/underline rebuild.
 
 - Description: Tokenisation, misspelling detection, candidate scoring.
 - Methods:
-  - `Spellcheck:CollectAffixMatches() → nil`: Scans text for words recognized via affix-stripping. ([`../Src/Spellcheck/Engine.lua#L143`](../Src/Spellcheck/Engine.lua#L143))
-  - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L79`](`../Src/Spellcheck/Engine.lua#L79`))
-  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L177`](`../Src/Spellcheck/Engine.lua#L177`))
-  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L184`](`../Src/Spellcheck/Engine.lua#L184`))
-  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L227`](`../Src/Spellcheck/Engine.lua#L227`))
-  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L236`](`../Src/Spellcheck/Engine.lua#L236`))
-  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L273`](`../Src/Spellcheck/Engine.lua#L273`))
-  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L318`](`../Src/Spellcheck/Engine.lua#L318`))
-  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L399`](`../Src/Spellcheck/Engine.lua#L399`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L953`](`../Src/Spellcheck/Engine.lua#L953`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1259`](`../Src/Spellcheck/Engine.lua#L1259`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1331`](`../Src/Spellcheck/Engine.lua#L1331`))
+  - `Spellcheck:CollectAffixMatches() → nil`: Scans text for words recognized via affix-stripping. ([`../Src/Spellcheck/Engine.lua#L148`](../Src/Spellcheck/Engine.lua#L148))
+  - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L84`](`../Src/Spellcheck/Engine.lua#L84`))
+  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L182`](`../Src/Spellcheck/Engine.lua#L182`))
+  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L189`](`../Src/Spellcheck/Engine.lua#L189`))
+  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L232`](`../Src/Spellcheck/Engine.lua#L232`))
+  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L241`](`../Src/Spellcheck/Engine.lua#L241`))
+  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L278`](`../Src/Spellcheck/Engine.lua#L278`))
+  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L323`](`../Src/Spellcheck/Engine.lua#L323`))
+  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L404`](`../Src/Spellcheck/Engine.lua#L404`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L958`](`../Src/Spellcheck/Engine.lua#L958`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1264`](`../Src/Spellcheck/Engine.lua#L1264`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1336`](`../Src/Spellcheck/Engine.lua#L1336`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -259,40 +259,40 @@ Bound when overlay exists; reacts to text/cursor updates.
 
 - Description: UI state machine for underlines, hint, and suggestions.
 - Methods:
-  - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L620`](../Src/Spellcheck/UI.lua#L620))
-  - `Bind` ([`../Src/Spellcheck/UI.lua#L29`](`../Src/Spellcheck/UI.lua#L29`))
-  - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L64`](`../Src/Spellcheck/UI.lua#L64`))
-  - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L125`](`../Src/Spellcheck/UI.lua#L125`))
-  - `PurgeOtherDictionaries` ([`../Src/Spellcheck/UI.lua#L163`](`../Src/Spellcheck/UI.lua#L163`))
-  - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L217`](`../Src/Spellcheck/UI.lua#L217`))
-  - `ApplyState` ([`../Src/Spellcheck/UI.lua#L259`](`../Src/Spellcheck/UI.lua#L259`))
-  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L290`](`../Src/Spellcheck/UI.lua#L290`))
-  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L294`](`../Src/Spellcheck/UI.lua#L294`))
-  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L314`](`../Src/Spellcheck/UI.lua#L314`))
-  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L358`](`../Src/Spellcheck/UI.lua#L358`))
-  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L364`](`../Src/Spellcheck/UI.lua#L364`))
-  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L387`](`../Src/Spellcheck/UI.lua#L387`))
-  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L401`](`../Src/Spellcheck/UI.lua#L401`))
-  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L416`](`../Src/Spellcheck/UI.lua#L416`))
-  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L509`](`../Src/Spellcheck/UI.lua#L509`))
-  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L519`](`../Src/Spellcheck/UI.lua#L519`))
-  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L545`](`../Src/Spellcheck/UI.lua#L545`))
-  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L557`](`../Src/Spellcheck/UI.lua#L557`))
-  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L635`](`../Src/Spellcheck/UI.lua#L635`))
-  - `HideHint` ([`../Src/Spellcheck/UI.lua#L656`](`../Src/Spellcheck/UI.lua#L656`))
-  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L661`](`../Src/Spellcheck/UI.lua#L661`))
-  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L684`](`../Src/Spellcheck/UI.lua#L684`))
-  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L688`](`../Src/Spellcheck/UI.lua#L688`))
-  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L695`](`../Src/Spellcheck/UI.lua#L695`))
-  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L756`](`../Src/Spellcheck/UI.lua#L756`))
-  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L778`](`../Src/Spellcheck/UI.lua#L778`))
-  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L810`](`../Src/Spellcheck/UI.lua#L810`))
-  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L839`](`../Src/Spellcheck/UI.lua#L839`))
-  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L960`](`../Src/Spellcheck/UI.lua#L960`))
-  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L987`](`../Src/Spellcheck/UI.lua#L987`))
-  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L1011`](`../Src/Spellcheck/UI.lua#L1011`))
+  - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L625`](../Src/Spellcheck/UI.lua#L625))
+  - `Bind` ([`../Src/Spellcheck/UI.lua#L34`](`../Src/Spellcheck/UI.lua#L34`))
+  - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L69`](`../Src/Spellcheck/UI.lua#L69`))
+  - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L130`](`../Src/Spellcheck/UI.lua#L130`))
+  - `PurgeOtherDictionaries` ([`../Src/Spellcheck/UI.lua#L168`](`../Src/Spellcheck/UI.lua#L168`))
+  - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L222`](`../Src/Spellcheck/UI.lua#L222`))
+  - `ApplyState` ([`../Src/Spellcheck/UI.lua#L264`](`../Src/Spellcheck/UI.lua#L264`))
+  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L295`](`../Src/Spellcheck/UI.lua#L295`))
+  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L299`](`../Src/Spellcheck/UI.lua#L299`))
+  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L319`](`../Src/Spellcheck/UI.lua#L319`))
+  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L363`](`../Src/Spellcheck/UI.lua#L363`))
+  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L369`](`../Src/Spellcheck/UI.lua#L369`))
+  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L392`](`../Src/Spellcheck/UI.lua#L392`))
+  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L406`](`../Src/Spellcheck/UI.lua#L406`))
+  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L421`](`../Src/Spellcheck/UI.lua#L421`))
+  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L514`](`../Src/Spellcheck/UI.lua#L514`))
+  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L524`](`../Src/Spellcheck/UI.lua#L524`))
+  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L550`](`../Src/Spellcheck/UI.lua#L550`))
+  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L562`](`../Src/Spellcheck/UI.lua#L562`))
+  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L640`](`../Src/Spellcheck/UI.lua#L640`))
+  - `HideHint` ([`../Src/Spellcheck/UI.lua#L661`](`../Src/Spellcheck/UI.lua#L661`))
+  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L666`](`../Src/Spellcheck/UI.lua#L666`))
+  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L689`](`../Src/Spellcheck/UI.lua#L689`))
+  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L693`](`../Src/Spellcheck/UI.lua#L693`))
+  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L700`](`../Src/Spellcheck/UI.lua#L700`))
+  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L761`](`../Src/Spellcheck/UI.lua#L761`))
+  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L783`](`../Src/Spellcheck/UI.lua#L783`))
+  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L815`](`../Src/Spellcheck/UI.lua#L815`))
+  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L844`](`../Src/Spellcheck/UI.lua#L844`))
+  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L965`](`../Src/Spellcheck/UI.lua#L965`))
+  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L992`](`../Src/Spellcheck/UI.lua#L992`))
+  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L1016`](`../Src/Spellcheck/UI.lua#L1016`))
 - Fields:
-  - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L555`](../Src/Spellcheck/UI.lua#L555)).
+  - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L560`](../Src/Spellcheck/UI.lua#L560)).
 - Callbacks fired:
   - `SPELLCHECK_SUGGESTION`, `SPELLCHECK_APPLIED`.
 
@@ -339,28 +339,28 @@ Initialised from `Spellcheck:Init` when present.
   - `total: number` — tracked unique vocabulary size for frequency-cap enforcement.
   ([`../Src/Spellcheck/Adaptive.lua#L63-L100`](../Src/Spellcheck/Adaptive.lua#L63-L100)).
 - Methods:
-  - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L156`](../Src/Spellcheck/Adaptive.lua#L156))
-  - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L149`](../Src/Spellcheck/Adaptive.lua#L149))
-  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L850`](../Src/Spellcheck/Adaptive.lua#L850))
-  - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L674`](../Src/Spellcheck/Adaptive.lua#L674))
-  - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L244`](../Src/Spellcheck/Adaptive.lua#L244))
-  - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L117`](../Src/Spellcheck/Adaptive.lua#L117))
-  - `GetFreqCap` ([`../Src/Spellcheck/Adaptive.lua#L126`](`../Src/Spellcheck/Adaptive.lua#L126))
-  - `GetBiasCap` ([`../Src/Spellcheck/Adaptive.lua#L133`](`../Src/Spellcheck/Adaptive.lua#L133))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/Adaptive.lua#L140`](`../Src/Spellcheck/Adaptive.lua#L140))
-  - `Init` ([`../Src/Spellcheck/Adaptive.lua#L165`](`../Src/Spellcheck/Adaptive.lua#L165))
-  - `GetLocaleDB` ([`../Src/Spellcheck/Adaptive.lua#L194`](`../Src/Spellcheck/Adaptive.lua#L194))
-  - `IsSaneWord` ([`../Src/Spellcheck/Adaptive.lua#L268`](`../Src/Spellcheck/Adaptive.lua#L268))
-  - `RecordUsage` ([`../Src/Spellcheck/Adaptive.lua#L310`](`../Src/Spellcheck/Adaptive.lua#L310))
-  - `RecordSelection` ([`../Src/Spellcheck/Adaptive.lua#L357`](`../Src/Spellcheck/Adaptive.lua#L357))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/Adaptive.lua#L439`](`../Src/Spellcheck/Adaptive.lua#L439))
-  - `RecordRejection` ([`../Src/Spellcheck/Adaptive.lua#L535`](`../Src/Spellcheck/Adaptive.lua#L535))
-  - `RecordIgnored` ([`../Src/Spellcheck/Adaptive.lua#L569`](`../Src/Spellcheck/Adaptive.lua#L569))
-  - `GetBonus` ([`../Src/Spellcheck/Adaptive.lua#L619`](`../Src/Spellcheck/Adaptive.lua#L619))
-  - `Prune` ([`../Src/Spellcheck/Adaptive.lua#L720`](`../Src/Spellcheck/Adaptive.lua#L720))
-  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L778`](`../Src/Spellcheck/Adaptive.lua#L778))
-  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L794`](`../Src/Spellcheck/Adaptive.lua#L794))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L887`](`../Src/Spellcheck/Adaptive.lua#L887))
+  - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L157`](../Src/Spellcheck/Adaptive.lua#L157))
+  - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L150`](../Src/Spellcheck/Adaptive.lua#L150))
+  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L838`](../Src/Spellcheck/Adaptive.lua#L838))
+  - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L671`](../Src/Spellcheck/Adaptive.lua#L671))
+  - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L243`](../Src/Spellcheck/Adaptive.lua#L243))
+  - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L118`](../Src/Spellcheck/Adaptive.lua#L118))
+  - `GetFreqCap` ([`../Src/Spellcheck/Adaptive.lua#L127`](`../Src/Spellcheck/Adaptive.lua#L127))
+  - `GetBiasCap` ([`../Src/Spellcheck/Adaptive.lua#L134`](`../Src/Spellcheck/Adaptive.lua#L134))
+  - `GetAutoThreshold` ([`../Src/Spellcheck/Adaptive.lua#L141`](`../Src/Spellcheck/Adaptive.lua#L141))
+  - `Init` ([`../Src/Spellcheck/Adaptive.lua#L166`](`../Src/Spellcheck/Adaptive.lua#L166))
+  - `GetLocaleDB` ([`../Src/Spellcheck/Adaptive.lua#L193`](`../Src/Spellcheck/Adaptive.lua#L193))
+  - `IsSaneWord` ([`../Src/Spellcheck/Adaptive.lua#L267`](`../Src/Spellcheck/Adaptive.lua#L267))
+  - `RecordUsage` ([`../Src/Spellcheck/Adaptive.lua#L309`](`../Src/Spellcheck/Adaptive.lua#L309))
+  - `RecordSelection` ([`../Src/Spellcheck/Adaptive.lua#L356`](`../Src/Spellcheck/Adaptive.lua#L356))
+  - `RecordImplicitCorrection` ([`../Src/Spellcheck/Adaptive.lua#L438`](`../Src/Spellcheck/Adaptive.lua#L438))
+  - `RecordRejection` ([`../Src/Spellcheck/Adaptive.lua#L534`](`../Src/Spellcheck/Adaptive.lua#L534))
+  - `RecordIgnored` ([`../Src/Spellcheck/Adaptive.lua#L568`](`../Src/Spellcheck/Adaptive.lua#L568))
+  - `GetBonus` ([`../Src/Spellcheck/Adaptive.lua#L616`](`../Src/Spellcheck/Adaptive.lua#L616))
+  - `Prune` ([`../Src/Spellcheck/Adaptive.lua#L717`](`../Src/Spellcheck/Adaptive.lua#L717))
+  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L766`](`../Src/Spellcheck/Adaptive.lua#L766))
+  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L782`](`../Src/Spellcheck/Adaptive.lua#L782))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L875`](`../Src/Spellcheck/Adaptive.lua#L875))
 - Score model:
   - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty and returns an additive score adjustment used in candidate ranking. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. ([`../Src/Spellcheck/Adaptive.lua#L603`](../Src/Spellcheck/Adaptive.lua#L603), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
@@ -391,10 +391,10 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L460`](../Src/EditBox.lua#L460))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L501`](../Src/EditBox.lua#L501))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L488`](../Src/EditBox.lua#L488))
-  - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L86`](../Src/EditBox.lua#L86))
+  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L459`](../Src/EditBox.lua#L459))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L498`](../Src/EditBox.lua#L498))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L487`](../Src/EditBox.lua#L487))
+  - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L87`](../Src/EditBox.lua#L87))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L119`](../Src/EditBoxCompat.lua#L119))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
@@ -409,32 +409,32 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
 
 - Description: Core overlay state and high-level editbox operations.
 - Fields:
-  - Runtime frames/state: `Overlay` ([`../Src/EditBox.lua#L24`](`../Src/EditBox.lua#L24`))
-  - Runtime frames/state: `OverlayEdit` ([`../Src/EditBox.lua#L25`](`../Src/EditBox.lua#L25`))
-  - Runtime frames/state: `ChannelLabel` ([`../Src/EditBox.lua#L26`](`../Src/EditBox.lua#L26`))
-  - Runtime frames/state: `LabelBg` ([`../Src/EditBox.lua#L27`](`../Src/EditBox.lua#L27`))
-  - Runtime frames/state: `OrigEditBox` ([`../Src/EditBox.lua#L31`](`../Src/EditBox.lua#L31`))
-  - Runtime frames/state: `ChatType` ([`../Src/EditBox.lua#L32`](`../Src/EditBox.lua#L32`))
-  - Runtime frames/state: `Language` ([`../Src/EditBox.lua#L33`](`../Src/EditBox.lua#L33`))
-  - Runtime frames/state: `Target` ([`../Src/EditBox.lua#L34`](`../Src/EditBox.lua#L34`))
-  - Runtime frames/state: `ChannelName` ([`../Src/EditBox.lua#L35`](`../Src/EditBox.lua#L35`))
+  - Runtime frames/state: `Overlay` ([`../Src/EditBox.lua#L25`](`../Src/EditBox.lua#L25`))
+  - Runtime frames/state: `OverlayEdit` ([`../Src/EditBox.lua#L26`](`../Src/EditBox.lua#L26`))
+  - Runtime frames/state: `ChannelLabel` ([`../Src/EditBox.lua#L27`](`../Src/EditBox.lua#L27`))
+  - Runtime frames/state: `LabelBg` ([`../Src/EditBox.lua#L28`](`../Src/EditBox.lua#L28`))
+  - Runtime frames/state: `OrigEditBox` ([`../Src/EditBox.lua#L32`](`../Src/EditBox.lua#L32`))
+  - Runtime frames/state: `ChatType` ([`../Src/EditBox.lua#L33`](`../Src/EditBox.lua#L33`))
+  - Runtime frames/state: `Language` ([`../Src/EditBox.lua#L34`](`../Src/EditBox.lua#L34`))
+  - Runtime frames/state: `Target` ([`../Src/EditBox.lua#L35`](`../Src/EditBox.lua#L35`))
+  - Runtime frames/state: `ChannelName` ([`../Src/EditBox.lua#L36`](`../Src/EditBox.lua#L36`))
   - State tables: `HookedBoxes`, `LastUsed`, `ReplyQueue`, `_attrCache` ([`../Src/EditBox.lua#L30-L40`](../Src/EditBox.lua#L30-L40), [`../Src/EditBox.lua#L59`](../Src/EditBox.lua#L59)).
-  - History pointers: `HistoryIndex` ([`../Src/EditBox.lua#L37`](`../Src/EditBox.lua#L37`))
-  - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L38`](`../Src/EditBox.lua#L38`))
+  - History pointers: `HistoryIndex` ([`../Src/EditBox.lua#L38`](`../Src/EditBox.lua#L38`))
+  - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L39`](`../Src/EditBox.lua#L39`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L439`](`../Src/EditBox.lua#L439`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L440`](`../Src/EditBox.lua#L440`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L441`](`../Src/EditBox.lua#L441`))
-  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L295`](`../Src/EditBox.lua#L295`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L443`](`../Src/EditBox.lua#L443`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L438`](`../Src/EditBox.lua#L438`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L439`](`../Src/EditBox.lua#L439`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L440`](`../Src/EditBox.lua#L440`))
+  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L294`](`../Src/EditBox.lua#L294`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L442`](`../Src/EditBox.lua#L442`))
 - Methods:
-  - `ClearLockdownState` ([`../Src/EditBox.lua#L70`](../Src/EditBox.lua#L70))
-  - `AddReplyTarget` ([`../Src/EditBox.lua#L105`](../Src/EditBox.lua#L105))
-  - `NextReplyTarget` ([`../Src/EditBox.lua#L136`](../Src/EditBox.lua#L136))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L324`](../Src/EditBox.lua#L324))
-  - `SetOnSend` ([`../Src/EditBox.lua#L445`](../Src/EditBox.lua#L445))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L451`](../Src/EditBox.lua#L451))
+  - `ClearLockdownState` ([`../Src/EditBox.lua#L71`](../Src/EditBox.lua#L71))
+  - `AddReplyTarget` ([`../Src/EditBox.lua#L106`](../Src/EditBox.lua#L106))
+  - `NextReplyTarget` ([`../Src/EditBox.lua#L135`](../Src/EditBox.lua#L135))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L323`](../Src/EditBox.lua#L323))
+  - `SetOnSend` ([`../Src/EditBox.lua#L444`](../Src/EditBox.lua#L444))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L450`](../Src/EditBox.lua#L450))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -444,11 +444,11 @@ Attached during overlay show lifecycle.
 
 - Description: Mirrors Blizzard editbox visual skin.
 - Methods:
-  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L654`](../Src/EditBox/SkinProxy.lua#L654))
-  - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L584`](../Src/EditBox/SkinProxy.lua#L584))
-  - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L17`](`../Src/EditBox/SkinProxy.lua#L17`))
-  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L509`](`../Src/EditBox/SkinProxy.lua#L509`))
-  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L544`](`../Src/EditBox/SkinProxy.lua#L544`))
+  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L649`](../Src/EditBox/SkinProxy.lua#L649))
+  - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L581`](../Src/EditBox/SkinProxy.lua#L581))
+  - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L18`](`../Src/EditBox/SkinProxy.lua#L18`))
+  - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L506`](`../Src/EditBox/SkinProxy.lua#L506`))
+  - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L541`](`../Src/EditBox/SkinProxy.lua#L541`))
 
 ## EditBox.Overlay
 
@@ -616,53 +616,53 @@ Initialised by `Chat:Init`; registers many chat confirm events.
 
 - Description: Ordered chunk delivery with ack/stall policy.
 - Fields:
-  - Queue state: `Entries` ([`../Src/Queue.lua#L168`](`../Src/Queue.lua#L168`))
+  - Queue state: `Entries` ([`../Src/Queue.lua#L169`](`../Src/Queue.lua#L169`))
 
-  - Queue state: `PlayerGUID` ([`../Src/Queue.lua#L169`](`../Src/Queue.lua#L169`))
-  - Queue state: `NeedsContinue` ([`../Src/Queue.lua#L173`](`../Src/Queue.lua#L173`))
-  - Queue state: `StallTimer` ([`../Src/Queue.lua#L174`](`../Src/Queue.lua#L174`))
-  - Queue state: `StallTimeout` ([`../Src/Queue.lua#L175`](`../Src/Queue.lua#L175`))
-  - Queue state: `PendingEntry` ([`../Src/Queue.lua#L177`](`../Src/Queue.lua#L177`))
-  - Queue state: `PendingAckEntry` ([`../Src/Queue.lua#L178`](`../Src/Queue.lua#L178`))
-  - Queue state: `PendingAckText` ([`../Src/Queue.lua#L179`](`../Src/Queue.lua#L179`))
-  - Queue state: `PendingAckEvent` ([`../Src/Queue.lua#L180`](`../Src/Queue.lua#L180`))
-  - Queue state: `PendingAckPolicyClass` ([`../Src/Queue.lua#L181`](`../Src/Queue.lua#L181`))
-  - Queue state: `StrictAckMatching` ([`../Src/Queue.lua#L182`](`../Src/Queue.lua#L182`))
-  - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L184`](`../Src/Queue.lua#L184`))
-  - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L187`](`../Src/Queue.lua#L187`))
+  - Queue state: `PlayerGUID` ([`../Src/Queue.lua#L170`](`../Src/Queue.lua#L170`))
+  - Queue state: `NeedsContinue` ([`../Src/Queue.lua#L174`](`../Src/Queue.lua#L174`))
+  - Queue state: `StallTimer` ([`../Src/Queue.lua#L175`](`../Src/Queue.lua#L175`))
+  - Queue state: `StallTimeout` ([`../Src/Queue.lua#L176`](`../Src/Queue.lua#L176`))
+  - Queue state: `PendingEntry` ([`../Src/Queue.lua#L178`](`../Src/Queue.lua#L178`))
+  - Queue state: `PendingAckEntry` ([`../Src/Queue.lua#L179`](`../Src/Queue.lua#L179`))
+  - Queue state: `PendingAckText` ([`../Src/Queue.lua#L180`](`../Src/Queue.lua#L180`))
+  - Queue state: `PendingAckEvent` ([`../Src/Queue.lua#L181`](`../Src/Queue.lua#L181`))
+  - Queue state: `PendingAckPolicyClass` ([`../Src/Queue.lua#L182`](`../Src/Queue.lua#L182`))
+  - Queue state: `StrictAckMatching` ([`../Src/Queue.lua#L183`](`../Src/Queue.lua#L183`))
+  - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L185`](`../Src/Queue.lua#L185`))
+  - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L188`](`../Src/Queue.lua#L188`))
 - Methods:
-  - `Queue:IsAcceptableAck() → nil`: Check if a received chat event is an acceptable acknowledgement for an expected event. ([`../Src/Queue.lua#L516`](../Src/Queue.lua#L516))
-  - `Init` ([`../Src/Queue.lua#L193`](../Src/Queue.lua#L193))
-  - `Reset` ([`../Src/Queue.lua#L212`](../Src/Queue.lua#L212))
-  - `IsOpenWorld` ([`../Src/Queue.lua#L229`](../Src/Queue.lua#L229))
-  - `IsCommunityChannelEntry` ([`../Src/Queue.lua#L237`](../Src/Queue.lua#L237))
-  - `ClassifyEntry` ([`../Src/Queue.lua#L251`](../Src/Queue.lua#L251))
-  - `GetPolicy` ([`../Src/Queue.lua#L294`](../Src/Queue.lua#L294))
-  - `GetConfirmEventForEntry` ([`../Src/Queue.lua#L309`](../Src/Queue.lua#L309))
-  - `TrackPendingAck` ([`../Src/Queue.lua#L324`](../Src/Queue.lua#L324))
-  - `GetActivePolicySnapshot` ([`../Src/Queue.lua#L332`](../Src/Queue.lua#L332))
-  - `ClearPendingAck` ([`../Src/Queue.lua#L346`](../Src/Queue.lua#L346))
-  - `Enqueue` ([`../Src/Queue.lua#L357`](../Src/Queue.lua#L357))
-  - `Flush` ([`../Src/Queue.lua#L369`](../Src/Queue.lua#L369))
-  - `RequiresHardwareEvent` ([`../Src/Queue.lua#L392`](../Src/Queue.lua#L392))
-  - `SendNext` ([`../Src/Queue.lua#L397`](../Src/Queue.lua#L397))
-  - `BeginEntry` ([`../Src/Queue.lua#L433`](../Src/Queue.lua#L433))
-  - `HandleAck` ([`../Src/Queue.lua#L459`](../Src/Queue.lua#L459))
-  - `AssumeAck` ([`../Src/Queue.lua#L468`](../Src/Queue.lua#L468))
-  - `RawSend` ([`../Src/Queue.lua#L478`](../Src/Queue.lua#L478))
-  - `Complete` ([`../Src/Queue.lua#L499`](../Src/Queue.lua#L499))
-  - `OnChatEvent` ([`../Src/Queue.lua#L526`](../Src/Queue.lua#L526))
-  - `OnOpenChat` ([`../Src/Queue.lua#L602`](../Src/Queue.lua#L602))
-  - `TryContinue` ([`../Src/Queue.lua#L612`](../Src/Queue.lua#L612))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L630`](../Src/Queue.lua#L630))
-  - `CancelStallTimer` ([`../Src/Queue.lua#L647`](../Src/Queue.lua#L647))
-  - `OnStallTimeout` ([`../Src/Queue.lua#L654`](../Src/Queue.lua#L654))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L674`](../Src/Queue.lua#L674))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L734`](../Src/Queue.lua#L734))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L771`](../Src/Queue.lua#L771))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L782`](../Src/Queue.lua#L782))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L815`](../Src/Queue.lua#L815))
-  - `Cancel` ([`../Src/Queue.lua#L822`](../Src/Queue.lua#L822))
+  - `Queue:IsAcceptableAck() → nil`: Check if a received chat event is an acceptable acknowledgement for an expected event. ([`../Src/Queue.lua#L517`](../Src/Queue.lua#L517))
+  - `Init` ([`../Src/Queue.lua#L194`](../Src/Queue.lua#L194))
+  - `Reset` ([`../Src/Queue.lua#L213`](../Src/Queue.lua#L213))
+  - `IsOpenWorld` ([`../Src/Queue.lua#L230`](../Src/Queue.lua#L230))
+  - `IsCommunityChannelEntry` ([`../Src/Queue.lua#L238`](../Src/Queue.lua#L238))
+  - `ClassifyEntry` ([`../Src/Queue.lua#L252`](../Src/Queue.lua#L252))
+  - `GetPolicy` ([`../Src/Queue.lua#L295`](../Src/Queue.lua#L295))
+  - `GetConfirmEventForEntry` ([`../Src/Queue.lua#L310`](../Src/Queue.lua#L310))
+  - `TrackPendingAck` ([`../Src/Queue.lua#L325`](../Src/Queue.lua#L325))
+  - `GetActivePolicySnapshot` ([`../Src/Queue.lua#L333`](../Src/Queue.lua#L333))
+  - `ClearPendingAck` ([`../Src/Queue.lua#L347`](../Src/Queue.lua#L347))
+  - `Enqueue` ([`../Src/Queue.lua#L358`](../Src/Queue.lua#L358))
+  - `Flush` ([`../Src/Queue.lua#L370`](../Src/Queue.lua#L370))
+  - `RequiresHardwareEvent` ([`../Src/Queue.lua#L393`](../Src/Queue.lua#L393))
+  - `SendNext` ([`../Src/Queue.lua#L398`](../Src/Queue.lua#L398))
+  - `BeginEntry` ([`../Src/Queue.lua#L434`](../Src/Queue.lua#L434))
+  - `HandleAck` ([`../Src/Queue.lua#L460`](../Src/Queue.lua#L460))
+  - `AssumeAck` ([`../Src/Queue.lua#L469`](../Src/Queue.lua#L469))
+  - `RawSend` ([`../Src/Queue.lua#L479`](../Src/Queue.lua#L479))
+  - `Complete` ([`../Src/Queue.lua#L500`](../Src/Queue.lua#L500))
+  - `OnChatEvent` ([`../Src/Queue.lua#L527`](../Src/Queue.lua#L527))
+  - `OnOpenChat` ([`../Src/Queue.lua#L595`](../Src/Queue.lua#L595))
+  - `TryContinue` ([`../Src/Queue.lua#L605`](../Src/Queue.lua#L605))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L623`](../Src/Queue.lua#L623))
+  - `CancelStallTimer` ([`../Src/Queue.lua#L640`](../Src/Queue.lua#L640))
+  - `OnStallTimeout` ([`../Src/Queue.lua#L647`](../Src/Queue.lua#L647))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L667`](../Src/Queue.lua#L667))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L727`](../Src/Queue.lua#L727))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L764`](../Src/Queue.lua#L764))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L775`](../Src/Queue.lua#L775))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L808`](../Src/Queue.lua#L808))
+  - `Cancel` ([`../Src/Queue.lua#L815`](../Src/Queue.lua#L815))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
@@ -762,18 +762,18 @@ Loaded with defaults; active theme restored on `ADDON_LOADED`.
 - Fields:
   - `_registry`, `_current` *private by convention; do not rely on* ([`../Src/Theme.lua#L16-L17`](../Src/Theme.lua#L16-L17)).
 - Methods:
-  - `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L272`](../Src/Theme.lua#L272))
-  - `RegisterTheme` ([`../Src/Theme.lua#L25`](`../Src/Theme.lua#L25`))
-  - `GetTheme` ([`../Src/Theme.lua#L31`](`../Src/Theme.lua#L31`))
-  - `GetRegisteredNames` ([`../Src/Theme.lua#L36`](`../Src/Theme.lua#L36`))
-  - `SetTheme` ([`../Src/Theme.lua#L44`](`../Src/Theme.lua#L44`))
-  - `ApplyToFrame` ([`../Src/Theme.lua#L129`](`../Src/Theme.lua#L129`))
-  - `GetCurrentName` ([`../Src/Theme.lua#L205`](`../Src/Theme.lua#L205`))
-  - `SetLiveTheme` ([`../Src/Theme.lua#L216`](`../Src/Theme.lua#L216`))
+  - `YapperTable:GetRegisteredThemes() → nil`: No description provided. ([`../Src/Theme.lua#L248`](../Src/Theme.lua#L248))
+  - `RegisterTheme` ([`../Src/Theme.lua#L26`](`../Src/Theme.lua#L26`))
+  - `GetTheme` ([`../Src/Theme.lua#L32`](`../Src/Theme.lua#L32`))
+  - `GetRegisteredNames` ([`../Src/Theme.lua#L37`](`../Src/Theme.lua#L37`))
+  - `SetTheme` ([`../Src/Theme.lua#L45`](`../Src/Theme.lua#L45`))
+  - `ApplyToFrame` ([`../Src/Theme.lua#L121`](`../Src/Theme.lua#L121`))
+  - `GetCurrentName` ([`../Src/Theme.lua#L186`](`../Src/Theme.lua#L186`))
+  - `SetLiveTheme` ([`../Src/Theme.lua#L197`](`../Src/Theme.lua#L197`))
   - `SetTheme` logic switches between `_G.YapperDB` and `_G.YapperLocalConf` as the root for `_appliedTheme` based on `UseGlobalProfile`.
-  - Global wrappers on root table: `Yapper:RegisterTheme` ([`../Src/Theme.lua#L25`](`../Src/Theme.lua#L25`))
-  - Global wrappers on root table: `Yapper:SetTheme` ([`../Src/Theme.lua#L44`](`../Src/Theme.lua#L44`))
-  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L272`](`../Src/Theme.lua#L272`))
+  - Global wrappers on root table: `Yapper:RegisterTheme` ([`../Src/Theme.lua#L26`](`../Src/Theme.lua#L26`))
+  - Global wrappers on root table: `Yapper:SetTheme` ([`../Src/Theme.lua#L45`](`../Src/Theme.lua#L45`))
+  - Global wrappers on root table: `Yapper:GetRegisteredThemes` ([`../Src/Theme.lua#L248`](`../Src/Theme.lua#L248`))
 - Callbacks fired:
   - `THEME_CHANGED`.
 
@@ -823,28 +823,28 @@ Handles config reads/writes and side-effect fan-out.
 
 - Description: Config root/path helpers, sanitisation, minimap controls.
 - Methods:
-  - `Interface:FactoryReset() → nil`: TRUE clean slate: wipes all settings, learned dictionary data, and history. ([`../Src/Interface/Config.lua#L78`](../Src/Interface/Config.lua#L78))
-  - `Interface:ResetAllSettings() → nil`: Reset all configuration settings to their default values. ([`../Src/Interface/Config.lua#L50`](../Src/Interface/Config.lua#L50))
-  - `GetLocalConfigRoot` ([`../Src/Interface/Config.lua#L34`](`../Src/Interface/Config.lua#L34`))
-  - `GetDefaultsRoot` ([`../Src/Interface/Config.lua#L41`](`../Src/Interface/Config.lua#L41`))
-  - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L98`](`../Src/Interface/Config.lua#L98`))
-  - `PurgeRenderCache` ([`../Src/Interface/Config.lua#L109`](`../Src/Interface/Config.lua#L109`))
-  - `SetDirty` ([`../Src/Interface/Config.lua#L115`](`../Src/Interface/Config.lua#L115`))
-  - `IsDirty` ([`../Src/Interface/Config.lua#L120`](`../Src/Interface/Config.lua#L120`))
-  - `SetSettingsChanged` ([`../Src/Interface/Config.lua#L125`](`../Src/Interface/Config.lua#L125`))
-  - `GetConfigPath` ([`../Src/Interface/Config.lua#L133`](`../Src/Interface/Config.lua#L133`))
-  - `GetDefaultPath` ([`../Src/Interface/Config.lua#L141`](`../Src/Interface/Config.lua#L141`))
-  - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L145`](`../Src/Interface/Config.lua#L145`))
-  - `SetLocalPath` ([`../Src/Interface/Config.lua#L149`](`../Src/Interface/Config.lua#L149`))
-  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L398`](`../Src/Interface/Config.lua#L398`))
-  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L406`](`../Src/Interface/Config.lua#L406`))
-  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L419`](`../Src/Interface/Config.lua#L419`))
-  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L423`](`../Src/Interface/Config.lua#L423`))
-  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L439`](`../Src/Interface/Config.lua#L439`))
-  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L456`](`../Src/Interface/Config.lua#L456`))
-  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L496`](`../Src/Interface/Config.lua#L496`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L534`](`../Src/Interface/Config.lua#L534`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L573`](`../Src/Interface/Config.lua#L573`))
+  - `Interface:FactoryReset() → nil`: TRUE clean slate: wipes all settings, learned dictionary data, and history. ([`../Src/Interface/Config.lua#L79`](../Src/Interface/Config.lua#L79))
+  - `Interface:ResetAllSettings() → nil`: Reset all configuration settings to their default values. ([`../Src/Interface/Config.lua#L51`](../Src/Interface/Config.lua#L51))
+  - `GetLocalConfigRoot` ([`../Src/Interface/Config.lua#L35`](`../Src/Interface/Config.lua#L35`))
+  - `GetDefaultsRoot` ([`../Src/Interface/Config.lua#L42`](`../Src/Interface/Config.lua#L42`))
+  - `GetRenderCacheContainer` ([`../Src/Interface/Config.lua#L99`](`../Src/Interface/Config.lua#L99`))
+  - `PurgeRenderCache` ([`../Src/Interface/Config.lua#L110`](`../Src/Interface/Config.lua#L110`))
+  - `SetDirty` ([`../Src/Interface/Config.lua#L116`](`../Src/Interface/Config.lua#L116`))
+  - `IsDirty` ([`../Src/Interface/Config.lua#L121`](`../Src/Interface/Config.lua#L121`))
+  - `SetSettingsChanged` ([`../Src/Interface/Config.lua#L126`](`../Src/Interface/Config.lua#L126`))
+  - `GetConfigPath` ([`../Src/Interface/Config.lua#L134`](`../Src/Interface/Config.lua#L134`))
+  - `GetDefaultPath` ([`../Src/Interface/Config.lua#L142`](`../Src/Interface/Config.lua#L142`))
+  - `UpdateOverrideTextColorCheckboxState` ([`../Src/Interface/Config.lua#L146`](`../Src/Interface/Config.lua#L146`))
+  - `SetLocalPath` ([`../Src/Interface/Config.lua#L150`](`../Src/Interface/Config.lua#L150`))
+  - `GetLauncherTooltipLines` ([`../Src/Interface/Config.lua#L400`](`../Src/Interface/Config.lua#L400`))
+  - `GetMinimapButtonSettings` ([`../Src/Interface/Config.lua#L408`](`../Src/Interface/Config.lua#L408`))
+  - `GetMinimapButtonOffset` ([`../Src/Interface/Config.lua#L421`](`../Src/Interface/Config.lua#L421`))
+  - `PositionMinimapButton` ([`../Src/Interface/Config.lua#L425`](`../Src/Interface/Config.lua#L425`))
+  - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L441`](`../Src/Interface/Config.lua#L441`))
+  - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L458`](`../Src/Interface/Config.lua#L458`))
+  - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L498`](`../Src/Interface/Config.lua#L498`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L536`](`../Src/Interface/Config.lua#L536`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L575`](`../Src/Interface/Config.lua#L575`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
@@ -912,18 +912,18 @@ Per-category page builders called by `BuildConfigUI`.
 
 - Description: Concrete settings page construction routines.
 - Methods:
-  - `CreateChangelogPage` — Builds the scrollable version history settings tab. ([`../Src/Interface/Pages.lua#L962`](../Src/Interface/Pages.lua#L962))
-  - `CreateChannelOverrideControls` ([`../Src/Interface/Pages.lua#L41`](`../Src/Interface/Pages.lua#L41`))
-  - `CreateGlobalSyncControls` ([`../Src/Interface/Pages.lua#L343`](`../Src/Interface/Pages.lua#L343`))
-  - `CreateYASLearningPage` ([`../Src/Interface/Pages.lua#L400`](`../Src/Interface/Pages.lua#L400`))
-  - `CreateQueueDiagnostics` ([`../Src/Interface/Pages.lua#L645`](`../Src/Interface/Pages.lua#L645`))
-  - `CreateTutorialPage` ([`../Src/Interface/Pages.lua#L749`](`../Src/Interface/Pages.lua#L749`))
-  - `CreateCreditsPage` ([`../Src/Interface/Pages.lua#L894`](`../Src/Interface/Pages.lua#L894`))
-  - `CreateSpellcheckLocaleDropdown` ([`../Src/Interface/Pages.lua#L1002`](`../Src/Interface/Pages.lua#L1002`))
-  - `CreateSpellcheckKeyboardLayoutDropdown` ([`../Src/Interface/Pages.lua#L1103`](`../Src/Interface/Pages.lua#L1103`))
-  - `CreateSpellcheckUnderlineDropdown` ([`../Src/Interface/Pages.lua#L1152`](`../Src/Interface/Pages.lua#L1152`))
-  - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1216`](`../Src/Interface/Pages.lua#L1216`))
-  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1382`](`../Src/Interface/Pages.lua#L1382`))
+  - `CreateChangelogPage` — Builds the scrollable version history settings tab. ([`../Src/Interface/Pages.lua#L955`](../Src/Interface/Pages.lua#L955))
+  - `CreateChannelOverrideControls` ([`../Src/Interface/Pages.lua#L42`](`../Src/Interface/Pages.lua#L42`))
+  - `CreateGlobalSyncControls` ([`../Src/Interface/Pages.lua#L336`](`../Src/Interface/Pages.lua#L336`))
+  - `CreateYASLearningPage` ([`../Src/Interface/Pages.lua#L393`](`../Src/Interface/Pages.lua#L393`))
+  - `CreateQueueDiagnostics` ([`../Src/Interface/Pages.lua#L638`](`../Src/Interface/Pages.lua#L638`))
+  - `CreateTutorialPage` ([`../Src/Interface/Pages.lua#L742`](`../Src/Interface/Pages.lua#L742`))
+  - `CreateCreditsPage` ([`../Src/Interface/Pages.lua#L887`](`../Src/Interface/Pages.lua#L887`))
+  - `CreateSpellcheckLocaleDropdown` ([`../Src/Interface/Pages.lua#L995`](`../Src/Interface/Pages.lua#L995`))
+  - `CreateSpellcheckKeyboardLayoutDropdown` ([`../Src/Interface/Pages.lua#L1096`](`../Src/Interface/Pages.lua#L1096`))
+  - `CreateSpellcheckUnderlineDropdown` ([`../Src/Interface/Pages.lua#L1145`](`../Src/Interface/Pages.lua#L1145`))
+  - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1209`](`../Src/Interface/Pages.lua#L1209`))
+  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1375`](`../Src/Interface/Pages.lua#L1375`))
 - Invariants:
   - Dropdown handlers assume config roots are initialised.
 
@@ -943,4 +943,7 @@ Per-category page builders called by `BuildConfigUI`.
 ## Utilities
 
 - Methods:
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L126`](../Src/Utils.lua#L126))
+  - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L128`](../Src/Utils.lua#L128))
+  - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L110`](../Src/Utils.lua#L110))
+  - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L102`](../Src/Utils.lua#L102))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L162`](../Src/Utils.lua#L162))

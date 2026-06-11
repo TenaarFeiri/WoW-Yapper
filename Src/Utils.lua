@@ -72,7 +72,6 @@ function Utils:MakeFullscreenAware(frame)
     if FCF_SetFullScreenFrame then
         hooksecurefunc("FCF_SetFullScreenFrame", update)
     end
----@diagnostic disable-next-line: undefined-global
     if FCF_ClearFullScreenFrame then
         hooksecurefunc("FCF_ClearFullScreenFrame", update)
     end
@@ -92,6 +91,43 @@ end
 
 -- Expose globally — other addons and compat patches may use this.
 _G.YAPPER_UTILS = Utils
+
+-- ---------------------------------------------------------------------------
+-- Boilerplate helpers
+-- ---------------------------------------------------------------------------
+
+--- Ensure a value is a table, returning it or a new empty table.
+--- @param t any
+--- @return table
+function Utils:EnsureTable(t)
+    return type(t) == "table" and t or {}
+end
+
+--- Ensure a table path exists, creating intermediate tables as needed.
+--- @param root table  The root table to traverse
+--- @param ... string  Path segments (e.g., "EditBox", "ChannelTextColors")
+--- @return table  The deepest table in the path
+function Utils:EnsureTablePath(root, ...)
+    local current = self:EnsureTable(root)
+    for i = 1, select("#", ...) do
+        local key = select(i, ...)
+        if type(key) ~= "string" and type(key) ~= "number" then return current end
+        if type(current[key]) ~= "table" then
+            current[key] = {}
+        end
+        current = current[key]
+    end
+    return current
+end
+
+--- Assert type matches expected, return default if not.
+--- @param value any  The value to check
+--- @param expectedType string  Expected type string ("string", "table", etc.)
+--- @param default any  Value to return if type doesn't match
+--- @return any  Original value if type matches, otherwise default
+function Utils:AssertType(value, expectedType, default)
+    return type(value) == expectedType and value or default
+end
 
 -- Return true if the supplied value is secret (obfuscated) and should be
 -- treated with caution. Prefer the built-in WoW API when available.
