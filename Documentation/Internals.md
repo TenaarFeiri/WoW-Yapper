@@ -126,29 +126,29 @@ Loaded early; central orchestrator for the addon's operational mode.
 - Flags:
   - `SuppressNextEnter`: Session flag used to block the next native `OnEnterPressed` event (e.g. after selecting an emote with auto-send disabled).
 - Methods:
-  - `State:ToConfig() → nil`: Transition to CONFIG (settings) state. ([`../Src/State.lua#L288`](../Src/State.lua#L288))
-  - `State:IsConfig() → boolean`: Is the settings/interface window open? ([`../Src/State.lua#L230`](../Src/State.lua#L230))
-  - `State:IsInitialised() → boolean`: Has the machine completed initialisation (i.e. not in INITIALISING state)? ([`../Src/State.lua#L188`](../Src/State.lua#L188))
+  - `State:ToConfig() → nil`: Transition to CONFIG (settings) state. ([`../Src/State.lua#L283`](../Src/State.lua#L283))
+  - `State:IsConfig() → boolean`: Is the settings/interface window open? ([`../Src/State.lua#L225`](../Src/State.lua#L225))
+  - `State:IsInitialised() → boolean`: Has the machine completed initialisation (i.e. not in INITIALISING state)? ([`../Src/State.lua#L183`](../Src/State.lua#L183))
   - `State:SetFlag(name, value, persistent) → nil`: Set a state flag value. ([`../Src/State.lua#L75`](../Src/State.lua#L75))
   - `State:GetFlag(name, default) → any`: Get a state flag value. ([`../Src/State.lua#L54`](../Src/State.lua#L54))
-  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L182`](../Src/State.lua#L182))
-  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L283`](../Src/State.lua#L283))
-  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L278`](../Src/State.lua#L278))
-  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L273`](../Src/State.lua#L273))
-  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L268`](../Src/State.lua#L268))
-  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L263`](../Src/State.lua#L263))
-  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L258`](../Src/State.lua#L258))
-  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L236`](../Src/State.lua#L236))
-  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L224`](../Src/State.lua#L224))
-  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L218`](../Src/State.lua#L218))
-  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L212`](../Src/State.lua#L212))
-  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L206`](../Src/State.lua#L206))
-  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L200`](../Src/State.lua#L200))
-  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L194`](../Src/State.lua#L194))
-  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L182`](../Src/State.lua#L182))
-  - `State:GetLogCount() → number` ([`../Src/State.lua#L349`](../Src/State.lua#L349)) — returns the number of transitions stored in the history buffer.
-  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L356`](../Src/State.lua#L356)) — returns the transition log at the given index.
-  - `State:GetLogs() → table` ([`../Src/State.lua#L362`](../Src/State.lua#L362)) — returns the raw circular buffer table.
+  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L177`](../Src/State.lua#L177))
+  - `State:ToLockdown() → nil`: Transition to LOCKDOWN state. ([`../Src/State.lua#L278`](../Src/State.lua#L278))
+  - `State:ToStalled() → nil`: Transition to STALLED state. ([`../Src/State.lua#L273`](../Src/State.lua#L273))
+  - `State:ToSending() → nil`: Transition to SENDING state. ([`../Src/State.lua#L268`](../Src/State.lua#L268))
+  - `State:ToMultiline() → nil`: Transition to MULTILINE state. ([`../Src/State.lua#L263`](../Src/State.lua#L263))
+  - `State:ToEditing() → nil`: Transition to EDITING state. ([`../Src/State.lua#L258`](../Src/State.lua#L258))
+  - `State:ToIdle() → nil`: Transition to IDLE state. ([`../Src/State.lua#L253`](../Src/State.lua#L253))
+  - `State:IsInputActive() → boolean`: Helper: is the user currently typing (either overlay or multiline)? ([`../Src/State.lua#L231`](../Src/State.lua#L231))
+  - `State:IsLockdown() → boolean`: Is the addon suppressed by combat or manual lockdown? ([`../Src/State.lua#L219`](../Src/State.lua#L219))
+  - `State:IsStalled() → boolean`: Is the queue stalled awaiting hardware input? ([`../Src/State.lua#L213`](../Src/State.lua#L213))
+  - `State:IsSending() → boolean`: Is a message currently being delivered? ([`../Src/State.lua#L207`](../Src/State.lua#L207))
+  - `State:IsMultiline() → boolean`: Is the user typing in the expanded multiline editor? ([`../Src/State.lua#L201`](../Src/State.lua#L201))
+  - `State:IsEditing() → boolean`: Is the user typing in the single-line overlay? ([`../Src/State.lua#L195`](../Src/State.lua#L195))
+  - `State:IsIdle() → boolean`: Is the machine in IDLE state? ([`../Src/State.lua#L189`](../Src/State.lua#L189))
+  - `State:IsInitialising() → boolean`: Is the machine in INITIALISING state? ([`../Src/State.lua#L177`](../Src/State.lua#L177))
+  - `State:GetLogCount() → number` ([`../Src/State.lua#L344`](../Src/State.lua#L344)) — returns the number of transitions stored in the history buffer.
+  - `State:GetLog(index) → table|nil` ([`../Src/State.lua#L351`](../Src/State.lua#L351)) — returns the transition log at the given index.
+  - `State:GetLogs() → table` ([`../Src/State.lua#L357`](../Src/State.lua#L357)) — returns the raw circular buffer table.
   - `State:Get() → string`: Returns the current state.
   - `State:Is(state: string) → boolean`: Returns true if the current state matches.
   - `State:Transition(newState: string, ...) → nil`: Transitions to a new state and fires `STATE_CHANGED`.
@@ -660,16 +660,16 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1066`](../Src/Multiline.lua#L1066))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1051`](../Src/Multiline.lua#L1051))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1067`](../Src/Multiline.lua#L1067))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1052`](../Src/Multiline.lua#L1052))
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L153`](`../Src/Multiline.lua#L153`))
   - `CreateFrame` ([`../Src/Multiline.lua#L184`](`../Src/Multiline.lua#L184`))
-  - `Enter` ([`../Src/Multiline.lua#L606`](`../Src/Multiline.lua#L606`))
-  - `Exit` ([`../Src/Multiline.lua#L745`](`../Src/Multiline.lua#L745`))
-  - `Submit` ([`../Src/Multiline.lua#L868`](`../Src/Multiline.lua#L868`))
-  - `Cancel` ([`../Src/Multiline.lua#L1017`](`../Src/Multiline.lua#L1017`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1077`](`../Src/Multiline.lua#L1077`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1086`](`../Src/Multiline.lua#L1086`))
+  - `Enter` ([`../Src/Multiline.lua#L607`](`../Src/Multiline.lua#L607`))
+  - `Exit` ([`../Src/Multiline.lua#L746`](`../Src/Multiline.lua#L746`))
+  - `Submit` ([`../Src/Multiline.lua#L869`](`../Src/Multiline.lua#L869`))
+  - `Cancel` ([`../Src/Multiline.lua#L1018`](`../Src/Multiline.lua#L1018`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1078`](`../Src/Multiline.lua#L1078`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1087`](`../Src/Multiline.lua#L1087`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
