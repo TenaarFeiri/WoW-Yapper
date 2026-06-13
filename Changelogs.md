@@ -30,8 +30,8 @@ Previously, clicking the message area of a chat window in IM mode would open Bli
     - Fixed a method name mismatch that caused errors when sending messages in certain configurations.
     - Fixed right-click whispers from the UI not opening Yapper in non-IM mode.
   - **Internal**:
-    - The monolithic `Hooks.lua` has been split into focused modules: `Blizzard.lua`, `ShowHide.lua`, `Label.lua`, `History.lua`, `Slash.lua`, and `Hub.lua`. This makes the codebase significantly easier to maintain and debug.
-    - Removed roughly 100 lines of redundant guard code and defensive boilerplate that accumulated over time. The addon now fails faster and more visibly if something goes wrong, rather than silently swallowing errors.
+    - The monolithic `Hooks.lua` has been split into focused modules: `Blizzard.lua`, `ShowHide.lua`, `Label.lua`, `History.lua`, `Slash.lua`, and `Hub.lua`.
+    - Removed roughly 100 lines of redundant guard code and defensive boilerplate that accumulated over time.
 
 
 ## 2.1.29

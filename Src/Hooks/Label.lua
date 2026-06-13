@@ -211,6 +211,17 @@ function EditBox:RefreshLabel()
     end
 end
 
+--- Returns the subset of _TAB_CYCLE entries currently available to the player.
+function EditBox:GetAvailableChatTypes()
+    local result = {}
+    for _, chatType in ipairs(self._TAB_CYCLE) do
+        if self:IsChatTypeAvailable(chatType) then
+            result[#result + 1] = chatType
+        end
+    end
+    return result
+end
+
 --- Cycle through available chat types.
 --- @param direction number  1 for next, -1 for previous.
 function EditBox:CycleChatType(direction)

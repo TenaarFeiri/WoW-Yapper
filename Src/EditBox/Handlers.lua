@@ -259,22 +259,6 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:SetScript("OnEnterPressed", function(box)
-        -- Panic Debounce: Block accidental sends during focus-spam
-        if self._panicSuppression and GetTime() < self._panicSuppression then
-            self._panicSuppression = nil
-            return
-        end
-
-        if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
-            -- Safety: If the flag is older than 100ms, it's stale and should not block input.
-            local appliedTime = YapperTable.Spellcheck._justAppliedSuggestion
-            if type(appliedTime) == "number" and GetTime() > (appliedTime + 0.1) then
-                YapperTable.Spellcheck._justAppliedSuggestion = nil
-            else
-                return
-            end
-        end
-
         if State and State:GetFlag("SuppressNextEnter") then
             State:SetFlag("SuppressNextEnter", false)
             return

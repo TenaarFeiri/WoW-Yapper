@@ -359,27 +359,39 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         C_Timer.After(0, function()
             -- Check again in case state changed during defer
             if self.Overlay and self.Overlay:IsShown() then
+                self._openingWatchdog = false
                 return
             end
             if UserBypassingYapper() then
+                self._openingWatchdog = false
                 return
             end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+                self._openingWatchdog = false
                 return
             end
-            if not blizzEditBox:IsShown() then
+
+            -- If Blizzard hid its editbox during the defer (e.g. proxy Deactivate fired,
+            -- or rapid open/close), fall back to the last known active editbox rather
+            -- than silently aborting.  The one-frame defer was for attribute timing on
+            -- friend-list whispers; attributes were still written before the Hide().
+            local targetEB = blizzEditBox:IsShown() and blizzEditBox
+                or self._lastActiveIMEditBox
+                or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+            if not targetEB then
+                self._openingWatchdog = false
                 return
             end
 
             -- PRE_EDITBOX_SHOW filter: external addons (including WIMBridge)
             -- can inspect the pending open and cancel it.
             if YapperTable.API then
-                local filterCT = blizzEditBox.GetAttribute and blizzEditBox:GetAttribute("chatType") or "SAY"
+                local filterCT = targetEB.GetAttribute and targetEB:GetAttribute("chatType") or "SAY"
                 local filterTarget
-                if filterCT == "WHISPER" and blizzEditBox.GetAttribute then
-                    filterTarget = blizzEditBox:GetAttribute("tellTarget")
-                elseif filterCT == "CHANNEL" and blizzEditBox.GetAttribute then
-                    filterTarget = blizzEditBox:GetAttribute("channelTarget")
+                if filterCT == "WHISPER" and targetEB.GetAttribute then
+                    filterTarget = targetEB:GetAttribute("tellTarget")
+                elseif filterCT == "CHANNEL" and targetEB.GetAttribute then
+                    filterTarget = targetEB:GetAttribute("channelTarget")
                 end
                 local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
                     chatType = filterCT,
@@ -391,14 +403,15 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     if State and not State:IsIdle() then
                         YapperAPI:SetState("IDLE")
                     end
+                    self._openingWatchdog = false
                     return
                 end
             end
 
             -- Track this as the last active window (Classic mode equivalent of IM's ActivateChat hook).
-            self:_IMPushActive(blizzEditBox)
+            self:_IMPushActive(targetEB)
             -- Open Yapper's overlay
-            self:Show(blizzEditBox)
+            self:Show(targetEB)
         end)
     end)
 
@@ -451,10 +464,6 @@ function EditBox:HookAllChatFrames()
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
-            if self._justClosed then
-                return
-            end
-
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                 -- Fix focus override getting stuck if lockdown started while chat was closed.
                 self:UpdateFocusOverride()
@@ -506,17 +515,6 @@ function EditBox:HookAllChatFrames()
             end
 
             if focusOverrideIntercepted or overlayAlreadyShown then
-
-                -- Ghost pattern: Blizzard's sticky-chat restore fires Shows on
-                -- the editbox BEFORE OpenChat.  A user pressing Enter fires
-                -- OpenChat directly (CHAT_FOCUS_OVERRIDE routes it without a
-                -- preceding Show).  If we saw a Show while overlay was hidden,
-                -- this OpenChat is part of the ghost — suppress it.
-                if self._ghostShowDetected and not overlayAlreadyShown then
-                    self._ghostShowDetected = nil
-                    self._openingWatchdog = false
-                    return
-                end
 
                 if overlayAlreadyShown then
                     -- Overlay already shown (TRP3 case): just reclaim focus immediately

@@ -606,11 +606,14 @@ function Queue:TryContinue()
     if self.NeedsContinue then
         return true
     end
-    -- Also suppress while a chunk is in-flight awaiting ACK.
-    -- Without this there's a race window between OnOpenChat dispatching
-    -- the next chunk (NeedsContinue=false) and the stall timer firing
-    -- 1.5s later, during which the overlay can sneak open.
-    if State:IsSending() and self.PendingEntry then
+    -- Also suppress while a chunk is in-flight awaiting ACK, but only
+    -- when there are more chunks still queued behind it.  Without this
+    -- guard there is a race window between OnOpenChat dispatching the
+    -- next chunk (NeedsContinue=false) and the stall timer firing, during
+    -- which the overlay can sneak open mid-sequence.
+    -- We do NOT suppress when PendingEntry is the last (or only) item:
+    -- that would block the user from re-opening after a normal single send.
+    if State:IsSending() and self.PendingEntry and #self.Entries > 0 then
         return true
     end
     return false

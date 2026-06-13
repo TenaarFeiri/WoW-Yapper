@@ -656,15 +656,15 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - `OnChatEvent` ([`../Src/Queue.lua#L527`](../Src/Queue.lua#L527))
   - `OnOpenChat` ([`../Src/Queue.lua#L595`](../Src/Queue.lua#L595))
   - `TryContinue` ([`../Src/Queue.lua#L605`](../Src/Queue.lua#L605))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L623`](../Src/Queue.lua#L623))
-  - `CancelStallTimer` ([`../Src/Queue.lua#L640`](../Src/Queue.lua#L640))
-  - `OnStallTimeout` ([`../Src/Queue.lua#L647`](../Src/Queue.lua#L647))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L667`](../Src/Queue.lua#L667))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L727`](../Src/Queue.lua#L727))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L764`](../Src/Queue.lua#L764))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L775`](../Src/Queue.lua#L775))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L808`](../Src/Queue.lua#L808))
-  - `Cancel` ([`../Src/Queue.lua#L815`](../Src/Queue.lua#L815))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L626`](../Src/Queue.lua#L626))
+  - `CancelStallTimer` ([`../Src/Queue.lua#L643`](../Src/Queue.lua#L643))
+  - `OnStallTimeout` ([`../Src/Queue.lua#L650`](../Src/Queue.lua#L650))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L670`](../Src/Queue.lua#L670))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L730`](../Src/Queue.lua#L730))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L767`](../Src/Queue.lua#L767))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L778`](../Src/Queue.lua#L778))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L811`](../Src/Queue.lua#L811))
+  - `Cancel` ([`../Src/Queue.lua#L818`](../Src/Queue.lua#L818))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
@@ -681,7 +681,7 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
   - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L103`](../Src/Chat.lua#L103))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L217`](../Src/Chat.lua#L217))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L214`](../Src/Chat.lua#L214))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:

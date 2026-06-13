@@ -70,10 +70,6 @@ function EditBox:Show(origEditBox)
     end
     self:CreateOverlay()
 
-    -- If we're legitimately opening, cancel ghost suppression flags.
-    self._suppressPostSendReopen = nil
-    self._ghostShowDetected = nil
-
     -- Apply pending tab switch info if available (from FCF_Tab_OnClick hook)
     local pendingTabSwitch = self._pendingTabSwitch
     if pendingTabSwitch then

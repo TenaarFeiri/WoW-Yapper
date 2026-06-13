@@ -120,21 +120,18 @@ function Chat:OnSend(text, chatType, language, target)
     local cfg    = YapperTable.Config and YapperTable.Config.Chat or {}
     local limit  = cfg.CHARACTER_LIMIT or 255
 
-    -- Non-splittable types (e.g. WHISPER/BN_WHISPER) are allowed; for long
-    -- whispers we truncate to the character limit rather than queueing.
-
-    -- Don't interleave with an active send (Yapper queue or GopherBridge).
-    if State and State:IsBusy() then
-        if YapperTable.Queue and YapperTable.Queue.NeedsContinue then
-            YapperTable.Queue:OnOpenChat()
-            return
-        end
-        YapperTable.Utils:Print("Please wait — still sending previous message.")
-        return
-    end
-
     if YapperTable.History then
         YapperTable.History:AddChatHistory(text, chatType, target)
+    end
+
+    -- If a multi-chunk queue is stalled waiting for hardware Enter, advance
+    -- it now (the keybind already routed here via OnSend).  The new message
+    -- will be enqueued below and will follow the current sequence.
+    if State and State:IsBusy() then
+        local Q = YapperTable.Queue
+        if Q and Q.NeedsContinue then
+            Q:OnOpenChat()
+        end
     end
 
     -- Short — send directly, UNLESS it contains newlines (which Blizzard truncates).
@@ -269,8 +266,6 @@ function Chat:DirectSend(msg, chatType, language, target)
         target   = deliverPayload.target or target
     end
 
-    YapperAPI:SetState("SENDING")
-
     if YapperTable.Router then
         YapperTable.Router:Send(msg, chatType, language, target)
     else
@@ -281,6 +276,4 @@ function Chat:DirectSend(msg, chatType, language, target)
     if API then
         API:Fire("POST_SEND", msg, chatType, language, target)
     end
-
-    YapperAPI:SetState("IDLE")
 end
