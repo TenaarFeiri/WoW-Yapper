@@ -547,11 +547,11 @@ Initialised by `Chat:Init`.
   - `active: boolean` ([`../Src/Bridges/GopherBridge.lua#L25`](`../Src/Bridges/GopherBridge.lua#L25`))
   - `_gopher: table|nil` ([`../Src/Bridges/GopherBridge.lua#L26`](`../Src/Bridges/GopherBridge.lua#L26`))
 - Methods:
-  - `Init` ([`../Src/Bridges/GopherBridge.lua#L55`](`../Src/Bridges/GopherBridge.lua#L55`))
-  - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L112`](`../Src/Bridges/GopherBridge.lua#L112`))
-  - `Send` ([`../Src/Bridges/GopherBridge.lua#L144`](`../Src/Bridges/GopherBridge.lua#L144`))
-  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L192`](`../Src/Bridges/GopherBridge.lua#L192`))
-  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L199`](`../Src/Bridges/GopherBridge.lua#L199`))
+  - `Init` ([`../Src/Bridges/GopherBridge.lua#L173`](`../Src/Bridges/GopherBridge.lua#L173`))
+  - `UpdateState` ([`../Src/Bridges/GopherBridge.lua#L151`](`../Src/Bridges/GopherBridge.lua#L151`))
+  - `Send` ([`../Src/Bridges/GopherBridge.lua#L193`](`../Src/Bridges/GopherBridge.lua#L193`))
+  - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L241`](`../Src/Bridges/GopherBridge.lua#L241`))
+  - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L248`](`../Src/Bridges/GopherBridge.lua#L248`))
 
 ## TypingTrackerBridge
 
@@ -593,13 +593,13 @@ Initialised by `Chat:Init`.
 - Fields:
   - `SendChatMessage`, `BNSendWhisper`, `ClubSendMessage` cached function refs ([`../Src/Router.lua#L26-L28`](../Src/Router.lua#L26-L28)).
 - Methods:
-  - `ResolveBnetTarget` ([`../Src/Router.lua#L63`](`../Src/Router.lua#L63`))
-  - `_ResolveBnetTargetUncached` ([`../Src/Router.lua#L85`](`../Src/Router.lua#L85`))
-  - `ResolveBnetDisplay` ([`../Src/Router.lua#L118`](`../Src/Router.lua#L118`))
-  - `FlushBnetCache` ([`../Src/Router.lua#L177`](`../Src/Router.lua#L177`))
-  - `Init` ([`../Src/Router.lua#L181`](`../Src/Router.lua#L181`))
-  - `DetectCommunityChannel` ([`../Src/Router.lua#L215`](`../Src/Router.lua#L215`))
-  - `Send` ([`../Src/Router.lua#L234`](`../Src/Router.lua#L234`))
+  - `ResolveBnetTarget` ([`../Src/Router.lua#L59`](`../Src/Router.lua#L59`))
+  - `_ResolveBnetTargetUncached` ([`../Src/Router.lua#L81`](`../Src/Router.lua#L81`))
+  - `ResolveBnetDisplay` ([`../Src/Router.lua#L114`](`../Src/Router.lua#L114`))
+  - `FlushBnetCache` ([`../Src/Router.lua#L173`](`../Src/Router.lua#L173`))
+  - `Init` ([`../Src/Router.lua#L177`](`../Src/Router.lua#L177`))
+  - `DetectCommunityChannel` ([`../Src/Router.lua#L196`](`../Src/Router.lua#L196`))
+  - `Send` ([`../Src/Router.lua#L214`](`../Src/Router.lua#L214`))
 - Side effects:
   - May delegate to `GopherBridge:Send`.
 
@@ -680,8 +680,8 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Description: Send orchestrator (`EditBox -> Chunking -> Queue -> Router`).
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
-  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L103`](../Src/Chat.lua#L103))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L214`](../Src/Chat.lua#L214))
+  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L96`](../Src/Chat.lua#L96))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L207`](../Src/Chat.lua#L207))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:

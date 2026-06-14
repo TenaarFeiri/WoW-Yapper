@@ -25,9 +25,14 @@ local pcall    = pcall
 GopherBridge.active           = false -- true after a successful Init
 GopherBridge._gopher          = nil
 GopherBridge._filterHandle    = nil -- PRE_EDITBOX_SHOW filter handle
+GopherBridge._initAttempted    = false -- true once we've tried to init
 
 -- A chunk size large enough that Gopher will never re-split our text.
 local PASSTHROUGH_CHUNK_SIZE  = 6000
+
+-- Event frame for self-contained discovery
+local eventFrame = CreateFrame("Frame")
+eventFrame:Hide()
 
 -- ---------------------------------------------------------------------------
 -- Detection
@@ -50,50 +55,70 @@ end
 -- Init
 -- ---------------------------------------------------------------------------
 
---- Call once during startup (from Chat:Init / Router:Init).
---- Returns true if LibGopher was found and the bridge is now active.
-function GopherBridge:Init()
-    if self.active then return true end
-
+--- Internal init attempt. Called on load and on ADDON_LOADED events.
+--- Self-contained: no external caller needed.
+local function TryInit()
+    local self = GopherBridge
+    if self.active or self._initAttempted then return end
+    
     -- Respect user config
     if YapperTable.Config.System.EnableGopherBridge == false then
-        return false
+        self._initAttempted = true
+        return
     end
-
+    
     local gopher = FindGopher()
-    if not gopher then return false end
+    if not gopher then return end -- Will retry on next ADDON_LOADED
+    
+    self:_DoInit(gopher)
+end
+
+--- Actually perform init once Gopher is found.
+--- gopher parameter is already validated by TryInit.
+function GopherBridge:_DoInit(gopher)
+    if self.active or self._initAttempted then return end
+    self._initAttempted = true
 
     -- Make sure the API we need actually exists.
-    if type(gopher.SetTempChunkSize) ~= "function" then return false end
+    if type(gopher.SetTempChunkSize) ~= "function" then return end
 
     self._gopher = gopher
     self.active  = true
+    
+    if YapperTable.Utils then
+        YapperTable.Utils:VerbosePrint("GopherBridge: LibGopher detected — sending through Gopher's pipeline.")
+    end
+    
+    -- Stop watching for addon loads - we're done
+    eventFrame:UnregisterEvent("ADDON_LOADED")
+    eventFrame:Hide()
 
-    -- Register PRE_EDITBOX_SHOW filter to suppress Yapper while Gopher is busy
-    if _G.YapperAPI then
-        self._filterHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_SHOW", function(payload)
-            if self:IsBusy() then
-                -- Nudge Gopher to continue since we override OpenChat keybind
-                local gopher = self._gopher
-                if gopher then
-                    -- Try internal TryContinuePrompt first (hides frame and advances)
-                    if gopher.Internal and type(gopher.Internal.TryContinuePrompt) == "function" then
-                        gopher.Internal.TryContinuePrompt()
-                    -- Fallback to PipeThrottlerKeystroke
-                    elseif gopher.Internal and type(gopher.Internal.PipeThrottlerKeystroke) == "function" then
-                        gopher.Internal.PipeThrottlerKeystroke()
-                    -- Fallback to public StartQueue
-                    elseif type(gopher.StartQueue) == "function" then
-                        gopher.StartQueue()
-                    end
+    if not _G.YapperAPI then return end
+
+    -- Register PRE_EDITBOX_SHOW filter to coordinate with Gopher's hardware event needs.
+    -- We only block when Gopher specifically needs a hardware event, not for general
+    -- busy states. This allows Yapper to open for normal sending while still
+    -- coordinating for hardware-event-required states.
+    self._filterHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_SHOW", function(payload)
+            local gopher = self._gopher
+            -- Check if Gopher specifically needs a hardware event to continue.
+            if self:NeedsHardwareEvent() then
+                -- Nudge Gopher to try to consume this keystroke internally.
+                -- TryContinuePrompt checks ThrottlerHealth() and will advance if possible.
+                if type(gopher.Internal.TryContinuePrompt) == "function" then
+                    gopher.Internal.TryContinuePrompt()
+                -- Fallback to direct keystroke injection
+                elseif type(gopher.Internal.PipeThrottlerKeystroke) == "function" then
+                    gopher.Internal.PipeThrottlerKeystroke()
                 end
-                -- Check again after nudge - if Gopher finished, allow Yapper to open
-                if not self:IsBusy() then
+                -- Check again after nudge - if Gopher consumed the event, allow Yapper to open.
+                -- Otherwise we must block because Gopher needs this hardware event.
+                if not self:NeedsHardwareEvent() then
                     return payload
                 end
                 return false
             end
-            -- Hide Blizzard editboxes which Gopher may have shown.
+            -- Hide Blizzard editboxes which Gopher may have shown during normal processing.
             for i = 1, 10 do
                 local editBox = _G["ChatFrame" .. i .. "EditBox"]
                 if editBox then
@@ -102,10 +127,24 @@ function GopherBridge:Init()
             end
             return payload
         end)
-    end
 
-    YapperTable.Utils:VerbosePrint("GopherBridge: LibGopher detected — sending through Gopher's pipeline.")
-    return true
+    -- Register PRE_DELIVER filter to claim send authority.
+    -- Return false to trigger delegation; Chat.lua creates the claim and
+    -- fires POST_CLAIMED. We handle the actual send in the callback.
+    self._deliverFilterHandle = _G.YapperAPI:RegisterFilter("PRE_DELIVER", function(payload)
+        -- Claim this send for Gopher's pipeline. The actual work happens
+        -- in POST_CLAIMED callback (proper delegation pipeline).
+        return false
+    end)
+
+    -- Handle claimed sends: send via Gopher and immediately resolve.
+    -- Gopher manages its own confirmation/timeout; we just bridge it.
+    self._claimedCallback = _G.YapperAPI:RegisterCallback("POST_CLAIMED", function(handle, msg, chatType, language, target)
+        self:Send(msg, chatType, language, target)
+        _G.YapperAPI:ResolvePost(handle)
+    end)
+
+    return
 end
 
 --- Called by Interface when the toggle is changed.
@@ -114,9 +153,19 @@ function GopherBridge:UpdateState()
 
     if not enabled and self.active then
         self.active = false
-        if self._filterHandle and _G.YapperAPI then
-            _G.YapperAPI:UnregisterFilter(self._filterHandle)
-            self._filterHandle = nil
+        if _G.YapperAPI then
+            if self._filterHandle then
+                _G.YapperAPI:UnregisterFilter(self._filterHandle)
+                self._filterHandle = nil
+            end
+            if self._deliverFilterHandle then
+                _G.YapperAPI:UnregisterFilter(self._deliverFilterHandle)
+                self._deliverFilterHandle = nil
+            end
+            if self._claimedCallback then
+                _G.YapperAPI:UnregisterCallback(self._claimedCallback)
+                self._claimedCallback = nil
+            end
         end
         YapperTable.Utils:VerbosePrint("GopherBridge: Disabled by user setting.")
     elseif enabled and not self.active then
@@ -202,6 +251,51 @@ function GopherBridge:IsBusy()
         return self._gopher.SendingActive() == true
     end
     return false
+end
+
+--- Return true if Gopher specifically needs a hardware event to continue.
+--- This is more granular than IsBusy() - it only returns true when Gopher
+--- is blocked waiting for user input (say/yell/channel require hardware events).
+--- Normal sending/throttling states return false, allowing Yapper to open.
+function GopherBridge:NeedsHardwareEvent()
+    if not self.active or not self._gopher then return false end
+    -- Use internal state directly - prompt_continue is true when Gopher's
+    -- throttler returned "PROMPT" status and is showing the continue frame.
+    local internal = self._gopher.Internal
+    if internal and internal.prompt_continue == true then
+        return true
+    end
+    return false
+end
+
+-- ---------------------------------------------------------------------------
+-- Self-contained discovery
+-- ---------------------------------------------------------------------------
+-- Watch for ADDON_LOADED to catch when Gopher loads (it may load after Yapper).
+-- Stop at PLAYER_ENTERING_WORLD (all addons should be loaded by then).
+
+eventFrame:SetScript("OnEvent", function(self, event, ...)
+    if event == "ADDON_LOADED" then
+        TryInit()
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Last chance - try once more, then give up
+        TryInit()
+        eventFrame:UnregisterEvent("ADDON_LOADED")
+        eventFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
+        eventFrame:Hide()
+    end
+end)
+
+-- Start watching immediately
+if IsLoggedIn() then
+    -- Already in world, try now
+    TryInit()
+else
+    eventFrame:RegisterEvent("ADDON_LOADED")
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    eventFrame:Show()
+    -- Also try immediately in case Gopher is already loaded
+    TryInit()
 end
 
 -- ---------------------------------------------------------------------------

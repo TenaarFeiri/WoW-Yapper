@@ -45,20 +45,13 @@ function Chat:Init()
         end)
     end
 
-    -- Let Queue suppress the overlay to grab the hardware event.
+    -- Let Queue suppress the overlay to grab the hardware event for continuation.
+    -- The GopherBridge handles its own coordination via PRE_EDITBOX_SHOW filter.
     if YapperTable.EditBox then
         YapperTable.EditBox:SetPreShowCheck(function(blizzEditBox)
             if YapperTable.Queue and YapperTable.Queue:TryContinue() then
                 return true
             end
-
-            -- When Gopher is handling delivery, suppress the overlay until
-            -- its queue has drained so we don't interleave new input.
-            local bridge = YapperTable.GopherBridge
-            if bridge and bridge:IsActive() and bridge:IsBusy() then
-                return true
-            end
-
             return false
         end)
     end

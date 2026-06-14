@@ -5,10 +5,6 @@
             1. C_ChatInfo.SendChatMessage  — SAY, EMOTE, YELL, PARTY, WHISPER, etc.
             2. BNSendWhisper               — Battle.net whispers.
             3. C_Club.SendMessage          — Communities / Guild / Officer chat.
-
-        When LibGopher is present (via GopherBridge), all sends are delegated
-        to Gopher's hooked globals so its queue, throttler, and event system
-        remain active for addons like CrossRP.
 ]]
 
 local _, YapperTable = ...
@@ -179,25 +175,10 @@ function Router:FlushBnetCache()
 end
 
 function Router:Init()
-    -- Try to activate the Gopher bridge first.
-    local bridge = YapperTable.GopherBridge
-    if bridge then
-        bridge:Init()
-    end
-
-    -- Cache the current globals.  When GopherBridge is active these are
-    -- Gopher's hooked wrappers; when not, they're the raw Blizzard APIs.
-    -- Either way Router:Send() usually goes through GopherBridge when
-    -- available, but we keep these as a fallback.
+    -- Cache the current globals for fallback sends.
     self.SendChatMessage = C_ChatInfo.SendChatMessage
     self.BNSendWhisper   = _G.BNSendWhisper
     self.ClubSendMessage = _G.C_Club and _G.C_Club.SendMessage or nil
-
-    if bridge and bridge:IsActive() then
-        YapperTable.Utils:VerbosePrint("Router: sending via GopherBridge.")
-    else
-        YapperTable.Utils:VerbosePrint("Router: using standard WoW send APIs.")
-    end
 
     -- Flush BNet cache when the friend list changes.
     if YapperTable.Events then
@@ -229,27 +210,11 @@ end
 -- Send
 -- ---------------------------------------------------------------------------
 
---- Send a single message.  Prefers GopherBridge when active; otherwise
---- routes directly to the appropriate Blizzard API.
+--- Send a single message via the appropriate Blizzard API.
 function Router:Send(msg, chatType, language, target)
     if not msg or msg == "" then return false end
     chatType = chatType or "SAY"
     language = YapperTable.Core:GetCharacterLanguage(language)
-
-    -- Pre-resolve BN targets before any bridge handoff so Gopher receives a
-    -- numeric ID even when the caller holds a name/battle tag string.
-    if chatType == "BN_WHISPER" and target and not tonumber(target) then
-        local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
-        target = bnetAccountID or presenceID or target
-    end
-
-    -- ── GopherBridge path ────────────────────────────────────────────
-    local bridge = YapperTable.GopherBridge
-    if bridge and bridge:IsActive() then
-        return bridge:Send(msg, chatType, language, target)
-    end
-
-    -- ── Direct path (no Gopher) ──────────────────────────────────────
 
     -- Battle.net whisper
     if chatType == "BN_WHISPER" or chatType == "BNET" then
