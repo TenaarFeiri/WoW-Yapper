@@ -157,8 +157,7 @@ function EditBox:Show(origEditBox)
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
     -- REMOVED: Pending re-whisper priority (was #1) - ReplyTell2 hook removed
     if pendingTabSwitch and pendingTabSwitch.chatType then
-        -- Highest priority: a tab was clicked while Yapper was closed
-        -- (whisper tab via Blizzard chatTarget, or per-tab channel memory).
+        -- Highest priority: a tab/window was clicked (Yapper open or closed).
         self.ChatType    = pendingTabSwitch.chatType
         self.Language    = pendingTabSwitch.language
             or blizzLang or (self.LastUsed and self.LastUsed.language) or nil

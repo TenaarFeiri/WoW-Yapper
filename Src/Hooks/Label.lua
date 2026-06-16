@@ -254,6 +254,11 @@ function EditBox:CycleChatType(direction)
     self.ChatType = nextType
     self:RefreshLabel()
 
+    -- Persist immediately under the current frame so the choice survives a tab
+    -- switch even if the user never sends. Safe here: no switch is in flight, so
+    -- OverlayEdit.chatFrame reliably points at the frame the user is looking at.
+    self:RecordTabChannel()
+
     -- Fire channel changed callback
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", nextType, self.Target)

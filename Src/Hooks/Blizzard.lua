@@ -304,6 +304,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- update OrigEditBox and refresh the label to adapt to the new tab's context.
         if self.Overlay and self.Overlay:IsShown() then
             if blizzEditBox ~= self.OrigEditBox then
+                -- Save the outgoing frame's channel state exactly once, before any proxy
+                -- swapping changes OverlayEdit.chatFrame. Use a guard so re-entrant Show()
+                -- calls from RestoreProxyMode/ApplyProxyMode don't fire this again.
+                if not self._recordingTabSwitch then
+                    self._recordingTabSwitch = true
+                    if self.ChatType and self.ChatType ~= "" then
+                        self:RecordTabChannel()
+                    end
+                    self._recordingTabSwitch = nil
+                end
                 self:_IMPushActive(blizzEditBox)
                 -- Swap proxy target if in proxy mode
                 local cfg = YapperTable.Config and YapperTable.Config.EditBox
@@ -720,50 +730,21 @@ function EditBox:HookAllChatFrames()
         -- next open (Yapper closed).
         local function ApplyOrStashSwitch(chatFrame, switch)
             if editBox.Overlay and editBox.Overlay:IsShown() then
-                editBox.ChatType    = switch.chatType
-                editBox.Target      = switch.target
-                editBox.ChannelName = switch.channelName
-                if switch.language then editBox.Language = switch.language end
-                local newEditBox = chatFrame.editBox
-                if newEditBox and newEditBox ~= editBox.OrigEditBox then
-                    -- Swap proxy target if in proxy mode
-                    local cfg = YapperTable.Config and YapperTable.Config.EditBox
-                    local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
-
-                    if isProxy and editBox.RestoreProxyMode then
-                        pcall(function() editBox:RestoreProxyMode() end)
-                    end
-
-                    editBox.OrigEditBox = newEditBox
-                    
-                    if isProxy and editBox.ApplyProxyMode then
-                        pcall(function() editBox:ApplyProxyMode(newEditBox) end)
-                    end
-                    
-                    if newEditBox.chatFrame then
-                        editBox.OverlayEdit.chatFrame = newEditBox.chatFrame
-                        if editBox.ChannelLabel then
-                            editBox.ChannelLabel.chatFrame = newEditBox.chatFrame
-                        end
-                    end
-
-                    -- Reposition overlay to the new editbox
-                    local overlay = editBox.Overlay
-                    if overlay then
-                        overlay:ClearAllPoints()
-                        overlay:SetPoint("TOPLEFT", newEditBox, "TOPLEFT", 0, 0)
-                        overlay:SetPoint("BOTTOMRIGHT", newEditBox, "BOTTOMRIGHT", 0, 0)
-                        
-                        -- Update scale for the new editbox
-                        local chatParent = YapperTable.Utils:GetChatParent()
-                        local parentScale = chatParent:GetEffectiveScale()
-                        if parentScale == 0 then parentScale = UIParent:GetEffectiveScale() end
-                        local scale = newEditBox:GetEffectiveScale() / parentScale
-                        overlay:SetScale(scale)
-                    end
-                end
-                editBox:RefreshLabel()
-                YapperTable.Utils:VerbosePrint("Applied tab switch immediately: chatType="..tostring(switch.chatType).." target="..tostring(switch.target))
+                -- Prime the pending switch so Show()'s priority logic picks it up,
+                -- then delegate to Show() which handles re-parent, re-anchor, re-scale,
+                -- proxy swap, font/height recalculation, and focus.
+                -- Show()'s text guard (only sets text when coming from hidden) preserves
+                -- any in-progress text the user has typed.
+                editBox._pendingTabSwitch = {
+                    chatType    = switch.chatType,
+                    target      = switch.target,
+                    channelName = switch.channelName,
+                    language    = switch.language,
+                    chatFrame   = chatFrame,
+                    editBox     = chatFrame.editBox,
+                }
+                editBox:Show(chatFrame.editBox)
+                YapperTable.Utils:VerbosePrint("Applied tab switch via Show(): chatType="..tostring(switch.chatType).." target="..tostring(switch.target))
             else
                 editBox._pendingTabSwitch = {
                     chatType    = switch.chatType,
@@ -785,11 +766,28 @@ function EditBox:HookAllChatFrames()
             local chatFrame = FCF_GetChatFrameByID(tab:GetID())
             if not chatFrame then return end
 
-            -- Save the outgoing frame's state before we switch context,
-            -- so it's preserved if we come back to it.
-            -- Only meaningful if Yapper has opened at least once this session.
-            if editBox.ChatType and editBox.ChatType ~= "" then
-                editBox:RecordTabChannel()
+            -- Save the outgoing frame's state before we switch context.
+            -- When Yapper is OPEN, the blizzEditBox Show hook already recorded the
+            -- outgoing frame (before OverlayEdit.chatFrame was swapped), so we must
+            -- NOT record again here: OverlayEdit.chatFrame now points at the INCOMING
+            -- frame, and recording would write the old channel onto the new frame.
+            if not (editBox.Overlay and editBox.Overlay:IsShown())
+                    and editBox._pendingTabSwitch and editBox._pendingTabSwitch.chatFrame then
+                -- Yapper is closed: a previous tab click already stashed a switch.
+                -- Flush that stash into _tabChannelMemory under the correct key
+                -- before we overwrite it, so rapid tab clicks don't lose state.
+                local prev = editBox._pendingTabSwitch
+                local prevKey = prev.chatFrame.GetName and prev.chatFrame:GetName()
+                if prevKey and prev.chatType
+                        and prev.chatType ~= "WHISPER" and prev.chatType ~= "BN_WHISPER" then
+                    editBox._tabChannelMemory = editBox._tabChannelMemory or {}
+                    editBox._tabChannelMemory[prevKey] = {
+                        chatType    = prev.chatType,
+                        target      = prev.target,
+                        channelName = prev.channelName,
+                        language    = prev.language,
+                    }
+                end
             end
 
             -- Track active window for IM mode so keybind opens on the right frame.
