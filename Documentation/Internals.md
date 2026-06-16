@@ -242,14 +242,14 @@ Runs during suggestion/underline rebuild.
   - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L84`](`../Src/Spellcheck/Engine.lua#L84`))
   - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L182`](`../Src/Spellcheck/Engine.lua#L182`))
   - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L189`](`../Src/Spellcheck/Engine.lua#L189`))
-  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L232`](`../Src/Spellcheck/Engine.lua#L232`))
-  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L241`](`../Src/Spellcheck/Engine.lua#L241`))
-  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L278`](`../Src/Spellcheck/Engine.lua#L278`))
-  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L323`](`../Src/Spellcheck/Engine.lua#L323`))
-  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L404`](`../Src/Spellcheck/Engine.lua#L404`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L958`](`../Src/Spellcheck/Engine.lua#L958`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1264`](`../Src/Spellcheck/Engine.lua#L1264`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1336`](`../Src/Spellcheck/Engine.lua#L1336`))
+  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L242`](`../Src/Spellcheck/Engine.lua#L242`))
+  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L251`](`../Src/Spellcheck/Engine.lua#L251`))
+  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L288`](`../Src/Spellcheck/Engine.lua#L288`))
+  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L333`](`../Src/Spellcheck/Engine.lua#L333`))
+  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L414`](`../Src/Spellcheck/Engine.lua#L414`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L968`](`../Src/Spellcheck/Engine.lua#L968`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1274`](`../Src/Spellcheck/Engine.lua#L1274`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1346`](`../Src/Spellcheck/Engine.lua#L1346`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -609,8 +609,8 @@ Called from `Chat:OnSend` for oversized messages.
 
 - Description: UTF-8 aware message splitting.
 - Methods:
-  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L352`](../Src/Chunking.lua#L352))
-  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L580`](../Src/Chunking.lua#L580))
+  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L356`](../Src/Chunking.lua#L356))
+  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L584`](../Src/Chunking.lua#L584))
 
 ## Queue
 

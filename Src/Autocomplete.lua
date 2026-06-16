@@ -692,11 +692,16 @@ function Autocomplete:OnTextChanged(editBox)
 		end
 	end
 
+	-- Lowercase once and reuse: this runs on every keystroke and these were
+	-- previously computed two or three times below.
+	local lowerWord = string_lower(word)
+	local lowerSugg = self.CurrentSugg and string_lower(self.CurrentSugg) or nil
+
 	-- Detect a direction change: the user typed something that no longer
 	-- matches the current suggestion.  When that happens, retry with a
 	-- wider search before giving up.
-	local isDirChange = self.Active and self.CurrentSugg and self.CurrentPrefix
-		and string_sub(string_lower(self.CurrentSugg), 1, string_len(word)) ~= string_lower(word)
+	local isDirChange = self.Active and lowerSugg and self.CurrentPrefix
+		and string_sub(lowerSugg, 1, string_len(word)) ~= lowerWord
 
 	-- Record the dismissal the moment the user types away from a suggestion.
 	-- Only fires once per suggestion (isDirChange is only true on the first
@@ -717,8 +722,8 @@ function Autocomplete:OnTextChanged(editBox)
 	-- of pressing Tab.  Detected by the word growing exactly onto CurrentSugg
 	-- (CurrentPrefix is shorter, so this fires only on the completing keystroke).
 	-- We give the word a small frequency nudge so it surfaces earlier next time.
-	if self.Active and self.CurrentSugg and self.CurrentPrefix
-		and string_lower(word) == string_lower(self.CurrentSugg)
+	if self.Active and lowerSugg and self.CurrentPrefix
+		and lowerWord == lowerSugg
 		and string_len(word) > string_len(self.CurrentPrefix)
 	then
 		local yas = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS

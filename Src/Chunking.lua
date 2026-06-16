@@ -35,6 +35,12 @@ local function Tokenise(text)
     local pos = 1
     local len = #text
 
+    -- The registered atomic-pattern list is constant for the duration of a single
+    -- tokenise pass, so fetch it once instead of per-token (was called twice each
+    -- iteration of the loop below).
+    local atomicPatterns = (YapperAPI and YapperAPI.GetRegisteredAtomicPatterns
+        and YapperAPI:GetRegisteredAtomicPatterns()) or nil
+
     while pos <= len do
         local b1 = string_byte(text, pos)
 
@@ -128,9 +134,8 @@ local function Tokenise(text)
         -- ── Custom Atomic Patterns ─────────────────────────────────────
         else
             local matchedCustom = false
-            if YapperAPI and YapperAPI.GetRegisteredAtomicPatterns then
-                local patterns = YapperAPI:GetRegisteredAtomicPatterns()
-                for _, pat in ipairs(patterns) do
+            if atomicPatterns then
+                for _, pat in ipairs(atomicPatterns) do
                     local sub = string_sub(text, pos)
                     local matchStart, matchEnd = string_find(sub, "^" .. pat)
                     if matchStart == 1 then
@@ -146,9 +151,8 @@ local function Tokenise(text)
             if not matchedCustom then
                 local nextSpecial = string_find(text, "[|{]", pos + 1)
                 -- Also check if a custom pattern might start before nextSpecial
-                if YapperAPI and YapperAPI.GetRegisteredAtomicPatterns then
-                    local patterns = YapperAPI:GetRegisteredAtomicPatterns()
-                    for _, pat in ipairs(patterns) do
+                if atomicPatterns then
+                    for _, pat in ipairs(atomicPatterns) do
                         local s = string_find(text, pat, pos + 1)
                         if s and (not nextSpecial or s < nextSpecial) then
                             nextSpecial = s

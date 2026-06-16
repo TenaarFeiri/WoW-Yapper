@@ -187,6 +187,14 @@ function Spellcheck:ShouldCheckWord(word, minLen)
 end
 
 function Spellcheck:GetIgnoredRanges(text)
+    -- Memoize on the exact text: within a single spellcheck pass this is called
+    -- twice (CollectMisspellings + GetWordAtCursor) on identical text, and it
+    -- performs five full-text scans each time. The one-entry cache is invalidated
+    -- automatically the moment the text changes.
+    if text == self._ignoredRangesText and self._ignoredRangesCache then
+        return self._ignoredRangesCache
+    end
+
     local ranges = {}
     local idx = 1
     while true do
@@ -226,6 +234,8 @@ function Spellcheck:GetIgnoredRanges(text)
         searchPos = e + 1
     end
 
+    self._ignoredRangesText = text
+    self._ignoredRangesCache = ranges
     return ranges
 end
 
