@@ -154,17 +154,20 @@ function Chat:OnSend(text, chatType, language, target)
     end
 
     -- PRE_CHUNK filter: external addons can modify text before splitting.
+    local continuationPrefix = nil
     if API then
         local chunkPayload = API:RunFilter("PRE_CHUNK", {
-            text  = text,
-            limit = limit,
+            text     = text,
+            limit    = limit,
+            chatType = chatType,
         })
         if chunkPayload == false then return end
         text  = chunkPayload.text
         limit = chunkPayload.limit
+        continuationPrefix = chunkPayload.continuationPrefix
     end
 
-    local chunks = Chunking:Split(text, limit, true)
+    local chunks = Chunking:Split(text, limit, true, nil, nil, nil, continuationPrefix)
 
 
 

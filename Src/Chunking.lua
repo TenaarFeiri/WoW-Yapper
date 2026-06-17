@@ -328,7 +328,11 @@ local function FlushChunk(chunks, parts)
 end
 
 -- Start a new chunk: prepend prefix and re-open active colour.
-local function StartNewChunk(parts, size, prefix, colour)
+local function StartNewChunk(parts, size, prefix, colour, continuationPrefix)
+    if continuationPrefix and continuationPrefix ~= "" then
+        parts[#parts + 1] = continuationPrefix
+        size = size + #continuationPrefix
+    end
     if prefix ~= "" then
         parts[#parts + 1] = prefix
         size = size + #prefix
@@ -353,7 +357,8 @@ end
 
 
 --- Split text into chunks that each fit within the byte limit.
-function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, delineator, prefix)
+--- @param continuationPrefix string|nil  Optional prefix to prepend to continuation chunks (2+).
+function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, delineator, prefix, continuationPrefix)
     -- Paragraph isolation for "Send All": keep each paragraph as a standalone chunk
     if ignoreParagraphMerging and string_find(text, "\n") then
         local allChunks = {}
@@ -362,7 +367,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
             -- Only process non-empty lines (skip blank lines)
             if paragraph ~= "" then
                 -- Recurse into the standard splitting logic for this paragraph alone
-                local pChunks = self:Split(paragraph, limit, false, useDelineators, delineator, prefix)
+                local pChunks = self:Split(paragraph, limit, false, useDelineators, delineator, prefix, continuationPrefix)
                 for _, chunk in ipairs(pChunks) do
                     allChunks[#allChunks + 1] = chunk
                 end
@@ -482,8 +487,8 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
             if delineator ~= "" then parts[#parts + 1] = delineator end
             parts, size = FlushChunk(chunks, parts)
 
-            -- Open new chunk.
-            size = StartNewChunk(parts, size, prefix, colour)
+            -- Open new chunk (continuation).
+            size = StartNewChunk(parts, size, prefix, colour, continuationPrefix)
             if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
 
             -- Re-inject the pulled-back parts, then the current token.
@@ -528,7 +533,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
-                    size = StartNewChunk(parts, size, prefix, colour)
+                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix)
                     if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                     -- Recalculate and loop.
                 else
@@ -556,7 +561,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
-                    size = StartNewChunk(parts, size, prefix, colour)
+                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix)
                     if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                 end
             end
