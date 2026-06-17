@@ -16,6 +16,8 @@ Previously, clicking the message area of a chat window in IM mode would open Bli
 # Patch notes
 
 ## 2.2.0_beta
+  - **Added bridge for Languages addon**
+    - Yapper can now integrate with the Languages addon to provide dialect and language transformation features.
   - **IM mode overhaul**:
     - Clicking the message area of any chat window now opens Yapper on that window instead of Blizzard's default editbox.
     - Undocked windows are now properly tracked. Yapper opens anchored to whichever window you last interacted with, including windows you've dragged out of the dock.

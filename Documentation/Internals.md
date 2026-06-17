@@ -609,8 +609,8 @@ Called from `Chat:OnSend` for oversized messages.
 
 - Description: UTF-8 aware message splitting.
 - Methods:
-  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L356`](../Src/Chunking.lua#L356))
-  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L584`](../Src/Chunking.lua#L584))
+  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L361`](../Src/Chunking.lua#L361))
+  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L589`](../Src/Chunking.lua#L589))
 
 ## Queue
 
@@ -681,7 +681,7 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
   - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L96`](../Src/Chat.lua#L96))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L207`](../Src/Chat.lua#L207))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L210`](../Src/Chat.lua#L210))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:
