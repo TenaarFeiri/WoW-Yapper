@@ -22,6 +22,58 @@ local type = type
 local tonumber = tonumber
 
 -- ---------------------------------------------------------------------------
+-- Implicit state flags used across this module and ShowHide.lua
+-- ---------------------------------------------------------------------------
+-- These flags coordinate multi-frame hook interactions that cannot be
+-- expressed by the formal State machine (they operate below the lifecycle
+-- level, managing *how* a transition happens rather than *what* state we
+-- end up in).
+--
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ CATEGORY 1: One-shot transition signals                                │
+-- │ Set in one hook, consumed by Show() on the next frame.                 │
+-- ├─────────────────────────────────┬───────────────────────────────────────┤
+-- │ _nextShowFromBnetTransition     │ The next Show() was triggered by a    │
+-- │                                 │ BNet→non-BNet channel switch. Tells   │
+-- │                                 │ ShowHide to skip LastUsed sticky.     │
+-- │ _pendingTabSwitch               │ Pre-computed {chatType, target, ...}  │
+-- │                                 │ from a tab/window click. Show() uses  │
+-- │                                 │ it as highest-priority channel source.│
+-- │ _openingWatchdog                │ Text arriving NOW should route to the │
+-- │                                 │ overlay via ForwardTextToYapper even  │
+-- │                                 │ though it isn't visible yet (OpenChat │
+-- │                                 │ fired, Show() is deferred one frame). │
+-- ├─────────────────────────────────────────────────────────────────────────┤
+-- │ CATEGORY 2: Suppression / re-entrancy guards                           │
+-- │ Prevent hooks from firing when WE caused the triggering event.         │
+-- ├─────────────────────────────────┬───────────────────────────────────────┤
+-- │ _ignoreNextShow                 │ We're about to call Show() ourselves; │
+-- │                                 │ skip the hooksecurefunc intercept.    │
+-- │ _suppressNextShowFor            │ Name of a specific editbox whose next │
+-- │                                 │ Show() is a tab-click side-effect.    │
+-- │ _suppressActivateChatHook       │ We're calling ActivateChat ourselves  │
+-- │                                 │ (minimize fallback); ignore the hook. │
+-- │ _suppressTabSwitchMemory        │ FCF_Close triggers FCF_Tab_OnClick    │
+-- │                                 │ internally — don't save channel mem.  │
+-- │ _recordingTabSwitch             │ Re-entrancy guard for RecordTabChannel│
+-- │ _ignoreSetText                  │ We're forwarding text; don't recurse. │
+-- │ _inBlizzShowHook                │ Currently inside a Show hook handler. │
+-- ├─────────────────────────────────────────────────────────────────────────┤
+-- │ CATEGORY 3: Persistent references / multi-frame context                │
+-- │ Track ongoing operations or IM navigation history.                     │
+-- ├─────────────────────────────────┬───────────────────────────────────────┤
+-- │ _bnetEditBox                    │ The editbox that was showing a BNet   │
+-- │                                 │ whisper (for transition reclaim).     │
+-- │ _lastActiveIMEditBox            │ Most recent IM-mode window editbox.   │
+-- │ _imWindowHistory                │ Stack of previously-active IM windows.│
+-- │ _activateChatTriggered          │ Brief marker that ActivateChat fired  │
+-- │                                 │ (consumed next frame by Show hook).   │
+-- │ _attrCache[editbox]             │ Per-editbox attribute mirror. Captures│
+-- │                                 │ chatType/tellTarget/channelTarget as  │
+-- │                                 │ they arrive via SetAttribute.         │
+-- └─────────────────────────────────┴───────────────────────────────────────┘
+
+-- ---------------------------------------------------------------------------
 -- Hook into Blizzard editboxes (taint-free)
 -- ---------------------------------------------------------------------------
 
