@@ -123,6 +123,9 @@ def main():
     all_files = glob.glob(os.path.join(dicts_dir_base, "Yapper_Dict_en*", "Dict_en*.lua"))
     all_files.extend(glob.glob(os.path.join(dicts_dir_base, "Yapper_Dict_en*", "en*.lua")))
     
+    # Exclude Engine.lua - it's the language engine, not a dictionary file
+    all_files = [f for f in all_files if os.path.basename(f) != "Engine.lua"]
+    
     # Identify locales vs base
     locales = [os.path.basename(f)[:-4].replace("Dict_", "") for f in all_files if "enBase" not in f and "Dict_enBase" not in f]
     
