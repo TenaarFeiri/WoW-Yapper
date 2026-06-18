@@ -60,16 +60,8 @@ end
 local function TryInit()
     local self = GopherBridge
     if self.active or self._initAttempted then return end
-    
-    -- Respect user config
-    if YapperTable.Config.System.EnableGopherBridge == false then
-        self._initAttempted = true
-        return
-    end
-    
     local gopher = FindGopher()
     if not gopher then return end -- Will retry on next ADDON_LOADED
-    
     self:_DoInit(gopher)
 end
 
@@ -145,33 +137,6 @@ function GopherBridge:_DoInit(gopher)
     end)
 
     return
-end
-
---- Called by Interface when the toggle is changed.
-function GopherBridge:UpdateState()
-    local enabled = (YapperTable.Config.System.EnableGopherBridge == true)
-
-    if not enabled and self.active then
-        self.active = false
-        if _G.YapperAPI then
-            if self._filterHandle then
-                _G.YapperAPI:UnregisterFilter(self._filterHandle)
-                self._filterHandle = nil
-            end
-            if self._deliverFilterHandle then
-                _G.YapperAPI:UnregisterFilter(self._deliverFilterHandle)
-                self._deliverFilterHandle = nil
-            end
-            if self._claimedCallback then
-                _G.YapperAPI:UnregisterCallback(self._claimedCallback)
-                self._claimedCallback = nil
-            end
-        end
-        YapperTable.Utils:VerbosePrint("GopherBridge: Disabled by user setting.")
-    elseif enabled and not self.active then
-        -- Attempt to re-init if available
-        self:Init()
-    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -298,15 +263,4 @@ else
     TryInit()
 end
 
--- ---------------------------------------------------------------------------
--- API self-registration
--- ---------------------------------------------------------------------------
--- React to the toggle via the public event system as well.
 
-if _G.YapperAPI then
-    _G.YapperAPI:RegisterCallback("CONFIG_CHANGED", function(path, value)
-        if path == "System.EnableGopherBridge" then
-            GopherBridge:UpdateState()
-        end
-    end)
-end
