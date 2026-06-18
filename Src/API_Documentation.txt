@@ -72,28 +72,28 @@
     PRE_EDITBOX_SHOW  chatType, target               yes
       Fires before the overlay opens.  Return false to suppress it.
       Used by WIMBridge to yield focus when WIM owns the whisper window.
-      Emission sites: Src/Hooks/Blizzard.lua#L122, Src/EditBox/Keybinds.lua#L155.
+      Emission sites: Src/Hooks/Blizzard.lua, Src/EditBox/Keybinds.lua.
 
     PRE_MULTILINE_SHOW text, chatType, language, target yes
       Fires before the expanded multiline editor opens.
       Modify payload to change initial text/channel or return false to block.
-      Emission site: Src/Multiline.lua#L574.
+      Emission site: Src/Multiline.lua.
 
     PRE_SEND          text, chatType, language,      yes
                       target
       Fires after the user presses Enter but before the message is routed.
       Modify payload fields to rewrite the message or return false to block.
-      Emission sites: Src/Chat.lua#L104, Src/Multiline.lua#L889.
+      Emission sites: Src/Chat.lua, Src/Multiline.lua.
 
-    PRE_CHUNK         text, limit                    yes
+    PRE_CHUNK         text, limit, chatType           yes
       Fires before the chunker splits a long message.  Modify text or limit,
       or return false to prevent chunking entirely.
-      Emission site: Src/Chat.lua#L169.
+      Emission site: Src/Chat.lua.
 
     PRE_SPELLCHECK    text                           yes
       Fires before the spellchecker runs on the current input.  Return false
       to skip spellchecking for this particular text.
-      Emission site: Src/Spellcheck/Engine.lua#L83.
+      Emission site: Src/Spellcheck/Engine.lua.
 
     PRE_SPELLCHECK_SUGGESTIONS  word, suggestions, locale     yes
       Fires after the engine has scored, sorted, and formatted the suggestion
@@ -110,7 +110,7 @@
 
       To force a refresh after changing plugin state, call
       YapperAPI:ClearSuggestionCache().
-      Emission site: Src/Spellcheck/Engine.lua#L1231.
+      Emission site: Src/Spellcheck/Engine.lua.
 
     PRE_DELIVER       text, chatType, language,      yes
                       target
@@ -121,12 +121,12 @@
       YapperAPI:ResolvePost(handle) within the timeout (default 5 s).
       If the timeout expires, Yapper sends the message itself and prints an
       error attributing the failure to the claiming addon.
-      Emission site: Src/Chat.lua#L251.
+      Emission site: Src/Chat.lua.
 
     PRE_ICON_GALLERY_SHOW  rawEditBox, query            yes
       Fires before the raid-icon gallery popup is shown.
       Modify `query` to change the pre-filter string or return false to suppress.
-      Emission site: Src/IconGallery.lua#L81.
+      Emission site: Src/IconGallery.lua.
 
 ---------------------------------------------------------------------------
 2.  CALLBACKS (post-hooks / event notifications)
@@ -195,11 +195,11 @@
 
     EDITBOX_CHANNEL_CHANGED  chatType, target
       Fires when the user switches chat channel (Tab, slash command, etc.).
-      Emission site: Src/Hooks/Label.lua#L251.
+      Emission site: Src/Hooks/Label.lua.
 
     EDITBOX_LABEL_UPDATED    label, r, g, b
       Fires when the UI label (e.g. "To [Name]:") is refreshed.
-      Emission site: Src/Hooks/Label.lua#L218.
+      Emission site: Src/Hooks/Label.lua.
 
     THEME_CHANGED            themeName
       Fires when the active theme is changed.
@@ -276,83 +276,86 @@
 3.  READ-ONLY ACCESSORS
 ---------------------------------------------------------------------------
 
-    YapperAPI:GetVersion()          → "1.3.0" (string) [Src/API.lua#L334]
-    YapperAPI:GetCurrentTheme()     → theme name (string) or nil [Src/API.lua#L342]
-    YapperAPI:IsOverlayShown()      → boolean [Src/API.lua#L353]
-    YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR" [Src/API.lua#L371]
-    YapperAPI:GetDelineator()       → string|nil (marker used for chunking) [Src/API.lua#L397]
+    YapperAPI:GetVersion()          → "1.3.0" (string)
+    YapperAPI:GetCurrentTheme()     → theme name (string) or nil
+    YapperAPI:IsOverlayShown()      → boolean
+    YapperAPI:GetConfig(path)       → value at dot-path, e.g. "Chat.DELINEATOR"
+    YapperAPI:GetDelineator()       → string|nil (marker used for chunking)
 
     Theme helpers:
 
-    YapperAPI:RegisterTheme(name, data) [Src/API.lua#L814]
+    YapperAPI:RegisterTheme(name, data)
       Register a custom theme. `data` follows the same schema as built-in
       themes: inputBg, labelBg, textColor, borderColor, border, allowRoundedCorners,
       allowDropShadow, font, and optional OnApply.
 
-    YapperAPI:SetTheme(name) [Src/API.lua#L824]
+    YapperAPI:SetTheme(name)
       Activate a registered theme and persist it as the current selection.
 
-    YapperAPI:GetRegisteredThemes() → array [Src/API.lua#L832]
+    YapperAPI:GetRegisteredThemes() → array
       Return a sorted list of registered theme names.
 
-    YapperAPI:GetTheme(name) → table|nil [Src/API.lua#L840]
+    YapperAPI:GetTheme(name) → table|nil
       Return the data table for a registered theme, or nil if not found.
 
     Queue accessors:
 
-    YapperAPI:GetQueueState()       → table with fields: [Src/API.lua#L785]
+    YapperAPI:GetQueueState()       → table with fields:
                                         active (bool), stalled (bool),
                                         chatType (string|nil),
                                         policyClass (string|nil),
                                         pending (int), inFlight (int)
-    YapperAPI:CancelQueue()         → int (number of chunks discarded) [Src/API.lua#L798]
+    YapperAPI:CancelQueue()         → int (number of chunks discarded)
 
     Icon Gallery accessors:
 
-    YapperAPI:ShowIconGallery(editBox, anchorFrame, query) [Src/API.lua#L996]
+    YapperAPI:ShowIconGallery(editBox, anchorFrame, query)
       Shows the raid-icon gallery anchored to an external EditBox widget.
       editBox must be a raw WoW EditBox; anchorFrame is the frame the popup
       anchors to (defaults to editBox); query is an optional pre-filter string.
 
-    YapperAPI:HideIconGallery() [Src/API.lua#L1004]
+    YapperAPI:HideIconGallery()
       Hides the gallery.
 
-    YapperAPI:IsIconGalleryShown()  → boolean [Src/API.lua#L1010]
+    YapperAPI:IsIconGalleryShown()  → boolean
 
-    YapperAPI:GetRaidIconData()     → array of 8 tables, each with: [Src/API.lua#L1017]
+    YapperAPI:GetRaidIconData()     → array of 8 tables, each with:
                                         index (int), text (string), code (string)
 
     Bypass / Lifecycle:
 
-    YapperAPI:OpenBlizzardChat() [Src/API.lua#L363]
+    YapperAPI:OpenBlizzardChat()
       Force the Yapper overlay to close and open the original Blizzard editbox.
       Equivalent to the user pressing the "Bypass Yapper" keybind (Shift-Enter).
       If Yapper is not currently open, the next chat open will be bypassed.
 
     Utility helpers (safe wrappers around Utils.lua):
 
-    YapperAPI:IsChatLockdown()      → boolean [Src/API.lua#L853]
+    YapperAPI:IsChatLockdown()      → boolean
       Returns true if C_ChatInfo.InChatMessagingLockdown() is active.
       Use this to guard sends in bridges the same way Yapper does internally.
 
-    YapperAPI:IsSecret(value)       → boolean [Src/API.lua#L866]
+    YapperAPI:IsSecret(value)       → boolean
       Returns true if a value should not be logged or persisted (Blizzard
       issecretvalue / canaccessvalue APIs, with a |K token fallback).
 
-    YapperAPI:InsertText(text)      → boolean [Src/API.lua#L762]
+    YapperAPI:InsertText(text)      → boolean
       Insert text at the cursor in whichever Yapper editbox is active
       (multiline editor first, then single-line overlay).  Returns true
       if the text was inserted, false if no Yapper editbox is currently
       active.  Uses the state machine so it always targets the right box.
 
-    YapperAPI:RegisterLinkProtocol(prefix) → boolean [Src/API.lua#L716]
+    YapperAPI:RegisterLinkProtocol(prefix) → boolean
       Declare that |H<prefix>:...|h[...]|h hyperlinks are known,
       first-class link tokens in Yapper.  Registers the prefix string
       (e.g. "addon:totalrp3") so the pipeline treats those hyperlinks
       the same as native WoW item/spell links (atomic in the chunker,
       ignored by the spellchecker).  Returns true on success.
 
-    YapperAPI:GetRegisteredLinkProtocols() → table [Src/API.lua#L724]
+    YapperAPI:IsLinkProtocolRegistered(prefix) → boolean
+      Returns true if `prefix` has been registered via RegisterLinkProtocol.
+
+    YapperAPI:GetRegisteredLinkProtocols() → table
       Returns a shallow copy of all registered link protocol prefixes.
 
     YapperAPI:GetChatParent()       → Frame
@@ -368,17 +371,27 @@
 4.  STATE & UI MANAGEMENT
 ---------------------------------------------------------------------------
 
-    YapperAPI:GetState()            → state name (string) [Src/API.lua#L406]
-    YapperAPI:IsState(stateName)    → boolean [Src/API.lua#L415]
-    YapperAPI:GetStates()           → sorted array of all valid state names [Src/API.lua#L424]
+    YapperAPI:GetState()            → state name (string)
+    YapperAPI:IsState(stateName)    → boolean
+    YapperAPI:GetStates()           → sorted array of all valid state names
 
-    YapperAPI:SetState(stateName, ...) [Src/API.lua#L468]
+    YapperAPI:GetStateLogs()        → table
+      Returns the full circular buffer of state transitions (max 200 entries).
+      Each entry: { old, new, time, file, func, line }.
+
+    YapperAPI:GetStateLog(index)    → table|nil
+      Returns a specific transition entry from the history by index.
+
+    YapperAPI:GetStateLogCount()    → number
+      Returns the current number of transitions stored in the buffer.
+
+    YapperAPI:SetState(stateName, ...)
       Manually request a state transition. stateName must be a valid state
       (e.g. "IDLE", "EDITING", "MULTILINE"). Metadata passed in ... is
       forwarded to callbacks and history logs. Use with caution: forcing
       states may bypass internal logic or cause UI desync.
 
-    YapperAPI:ListFrames()          → table [Src/API.lua#L481]
+    YapperAPI:ListFrames()          → table
       Returns a map of internal frame names to their WoW frame objects.
       
       Flat keys for quick access:
@@ -394,56 +407,65 @@
 
     Spellcheck accessors (safe wrappers — return nil/false if spellcheck is unavailable):
 
-    YapperAPI:IsSpellcheckEnabled() → boolean [Src/API.lua#L514]
-    YapperAPI:CheckWord(word)       → boolean (true if word is in dict or user dict) [Src/API.lua#L523]
-    YapperAPI:GetSuggestions(word)  → array of suggestion strings, or nil [Src/API.lua#L533]
-    YapperAPI:GetSpellcheckLocale() → locale string (e.g. "enUS") or nil [Src/API.lua#L554]
-    YapperAPI:AddToDictionary(word) → boolean (true if added) [Src/API.lua#L564]
-    YapperAPI:IgnoreWord(word)      → boolean (true if ignored) [Src/API.lua#L577]
-    YapperAPI:FindMisspellings(text) → table[]|nil [Src/API.lua#L622]
+    YapperAPI:IsSpellcheckEnabled() → boolean
+    YapperAPI:CheckWord(word)       → boolean (true if word is in dict or user dict)
+    YapperAPI:GetSuggestions(word)  → array of suggestion strings, or nil
+    YapperAPI:GetSpellcheckLocale() → locale string (e.g. "enUS") or nil
+    YapperAPI:AddToDictionary(word) → boolean (true if added)
+    YapperAPI:IgnoreWord(word)      → boolean (true if ignored)
+    YapperAPI:IsSuggestionOpen()    → boolean
+      Returns true if the spellcheck suggestion popup is currently shown.
+
+    YapperAPI:HideSuggestions()     → boolean
+      Closes the spellcheck suggestion panel. Returns true if closed.
+
+    YapperAPI:ApplySuggestion(index) → boolean
+      Applies a suggestion from the current list by its 1-indexed row (1-6).
+
+    YapperAPI:FindMisspellings(text) → table[]|nil
       Scan a block of text and return an array of misspelled word ranges.
       Each entry is { startPos: number, endPos: number, word: string }.
       Returns nil if spellcheck is disabled or no misspellings are found.
 
-    YapperAPI:ClearSuggestionCache() → boolean [Src/API.lua#L1125]
+    YapperAPI:ClearSuggestionCache() → boolean
       Clears the spellcheck suggestion cache, forcing re-generation (and
       re-filtering) on the next request.  Returns true if the cache was
       cleared, false if spellcheck is unavailable.
 
     Autocomplete & Ghost Text:
 
-    YapperAPI:GetAutocompleteSuggestion(word) → string|nil [Src/API.lua#L1032]
+    YapperAPI:GetAutocompleteSuggestion(word) → string|nil
       Returns the best autocomplete suggestion for the given partial word
       based on YAS and dictionary data.
 
-    YapperAPI:GetCaretOffset(editBox) → x, y, height [Src/API.lua#L1042]
+    YapperAPI:GetCaretOffset(editBox) → x, y, height
       Returns the current pixel offset of the cursor/caret within an EditBox.
       Requires the EditBox to be managed or hooked by Yapper.
 
-    YapperAPI:GetGhostFrame() → table|nil [Src/API.lua#L1059]
+    YapperAPI:GetGhostFrame() → table|nil
       Returns the shared FontString used for ghost text rendering.
 
-    YapperAPI:ShowGhostText(text, editBox, prefix, textUpToCursor) [Src/API.lua#L1071]
+    YapperAPI:ShowGhostText(text, editBox, prefix, textUpToCursor)
       Manually show ghost text on a specific EditBox. prefix and
       textUpToCursor are optional (used for positioning).
 
-    YapperAPI:HideGhostText() [Src/API.lua#L1087]
+    YapperAPI:HideGhostText()
       Hides the ghost text.
 
-    YapperAPI:SetGhostTextOffset(offsetX, offsetY) [Src/API.lua#L1096]
+    YapperAPI:SetGhostTextOffset(offsetX, offsetY)
       Set a manual pixel offset for ghost text alignment.
 
-    YapperAPI:SyncGhostTextFont() [Src/API.lua#L1104]
+    YapperAPI:SyncGhostTextFont()
       Force the ghost text to synchronise its font with its current parent.
 
-    YapperAPI:SetSpellcheckTooltipOffset(hintX, hintY, suggestX, suggestY) [Src/API.lua#L1116]
+    YapperAPI:SetSpellcheckTooltipOffset(hintX, hintY, suggestX, suggestY)
       Set manual pixel offsets for spellcheck tooltips.
       - hintX/Y: Offsets for the "Shift+Tab" hint (default: 0, -2).
       - suggestX/Y: Offsets for the suggestion dropdown (default: 0, 4).
 
     Dictionary / engine registration (for LOD dictionary addons):
 
-    YapperAPI:RegisterDictionary(locale, data) [Src/API.lua#L642]
+    YapperAPI:RegisterDictionary(locale, data)
       Register a dictionary for the given locale (e.g. "enBase", "enGB").
       `data` accepts the same fields as the internal RegisterDictionary call:
         • words          — array of canonical word strings
@@ -457,7 +479,7 @@
                            the dict so ordering does not matter.
       Returns true on success, false on invalid arguments.
 
-    YapperAPI:RegisterLanguageEngine(familyId, engine) [Src/API.lua#L659]
+    YapperAPI:RegisterLanguageEngine(familyId, engine)
       Register a language engine for a locale family.
       `familyId` — short string identifier, e.g. "en", "de", "fr".
       `engine`   — table with the following fields:
@@ -470,35 +492,56 @@
         • KBLayouts       — table          (optional; same schema as built-in KB_LAYOUTS)
       Returns true on success, false on invalid / missing GetPhoneticHash.
 
-    YapperAPI:IsLanguageEngineRegistered(familyId) → boolean [Src/API.lua#L673]
+    YapperAPI:IsLanguageEngineRegistered(familyId) → boolean
 
     Post delegation:
 
-    YapperAPI:ResolvePost(handle)   → boolean (true if the claim was valid and resolved) [Src/API.lua#L974]
+    YapperAPI:ResolvePost(handle)   → boolean (true if the claim was valid and resolved)
 
-    YapperAPI:RegisterLocaleAddon(locale, addonName) [Src/API.lua#L692]
+    YapperAPI:RegisterLocaleAddon(locale, addonName)
       Map a Load-On-Demand addon to a specific locale so Yapper knows what to load
       when tracking dictionaries for that region.
       `locale` — e.g. "ptBR", "esES"
       `addonName` — e.g. "Yapper_Dict_pt"
 
-    YapperAPI:GetLanguageEngine(familyId) → table|nil [Src/API.lua#L681]
+    YapperAPI:GetLanguageEngine(familyId) → table|nil
       Returns the language engine for `familyId`, or nil if not found.
 
-    YapperAPI:RegisterAtomicPattern(pattern) [Src/API.lua#L746]
+    YapperAPI:RegisterAtomicPattern(pattern)
       Register a custom Lua string pattern that the Yapper chunker should
       treat as an unbreakable, atomic sequence (similar to a WoW hyperlink).
       This is useful for plugins that inject raw pseudo-link text
       (like [TRP3:Identifier]) that shouldn't be split across messages.
       Returns true on success.
 
-    YapperAPI:GetRegisteredAtomicPatterns() → string[] [Src/API.lua#L753]
+    YapperAPI:GetRegisteredAtomicPatterns() → string[]
       Returns an array of all registered atomic patterns.
 
-    YapperAPI:Deleet(word) → string [Src/API.lua#L877]
+    YapperAPI:Deleet(word) → string
       Convert leetspeak characters back to their base alphabet equivalents.
 
     These never expose internal tables directly; tables are shallow-copied.
+
+    Settings integration:
+
+    YapperAPI:RegisterSettingsCategory(id, label, options) → boolean
+      Register a settings category in Yapper's settings window.
+      `id`    — unique string identifier for the category.
+      `label` — display label for the sidebar button.
+      `options` — table with optional fields:
+        • render: function(contentFrame, cursor) — custom render callback.
+        • schema: table — schema of controls for Yapper to render.
+        • internal: boolean — if true, hidden from plugin listing.
+      Must provide either `render` or `schema`. Returns true on success.
+
+    YapperAPI:UnregisterSettingsCategory(id)
+      Unregister a previously registered settings category.
+
+    YapperAPI:GetRegisteredSettingsCategories() → table[]
+      Returns an array of {id, label} tables for all non-internal categories.
+
+    YapperAPI:OpenSettingsCategory(id) → boolean
+      Open Yapper's settings window to a specific category.
 
 ---------------------------------------------------------------------------
 5.  NOTES FOR ADDON AUTHORS

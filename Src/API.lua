@@ -26,7 +26,51 @@ local callbacks               = {} -- [event]     = array of {cb, handle}
 local handleSeq               = 0  -- monotonic handle counter
 local registeredLinkProtocols = {} -- [prefix] = true; populated by RegisterLinkProtocol
 
--- Deprecated event name aliases for backward compatibility
+-- Canonical filter hook points.  Registration is rejected if the name is not
+-- found here or in FILTER_ALIASES.
+local VALID_FILTERS = {
+    PRE_EDITBOX_SHOW        = true, -- {chatType, target} → payload|false; suppress overlay open
+    PRE_MULTILINE_SHOW      = true, -- {text, chatType, language, target} → payload|false; block/modify multiline open
+    PRE_SEND                = true, -- {text, chatType, language, target} → payload|false; rewrite or block send
+    PRE_CHUNK               = true, -- {text, limit, chatType} → payload|false; modify or skip chunking
+    PRE_SPELLCHECK          = true, -- {text} → payload|false; skip spellcheck for this text
+    PRE_SPELLCHECK_SUGGESTIONS = true, -- {word, suggestions, locale} → payload|false; reorder/filter suggestions
+    PRE_DELIVER             = true, -- {text, chatType, language, target} → payload|false; claim message (delegation)
+    PRE_ICON_GALLERY_SHOW   = true, -- {rawEditBox, query} → payload|false; suppress or alter gallery open
+}
+
+-- Canonical callback event names.  Registration is rejected if the name is not
+-- found here or in EVENT_ALIASES.
+local VALID_CALLBACKS = {
+    POST_SEND                       = true, -- (text, chatType, language, target) after message sent
+    POST_CLAIMED                    = true, -- (handle, text, chatType, language, target) PRE_DELIVER claimed a msg
+    CONFIG_CHANGED                  = true, -- (path, value) a Yapper setting changed
+    STATE_CHANGED                   = true, -- (newState, oldState, ...) state machine transitioned
+    EDITBOX_SHOW                    = true, -- (chatType, target) overlay became visible
+    EDITBOX_HIDE                    = true, -- () overlay hidden
+    EDITBOX_TEXT_CHANGED            = true, -- (text, isUserInput, box) editbox content modified
+    EDITBOX_CHANNEL_CHANGED         = true, -- (chatType, target) user switched chat channel
+    EDITBOX_LABEL_UPDATED           = true, -- (label, r, g, b) UI label refreshed
+    THEME_CHANGED                   = true, -- (themeName) active theme changed
+    SPELLCHECK_SUGGESTION           = true, -- (word, suggestions) suggestion popup shown
+    SPELLCHECK_SUGGESTION_HIGHLIGHTED = true, -- (text, index, total) suggestion highlighted
+    SPELLCHECK_APPLIED              = true, -- (original, replacement) user accepted a suggestion
+    SPELLCHECK_CLOSED               = true, -- () suggestion tooltip closed
+    SPELLCHECK_WORD_ADDED           = true, -- (word, locale) word added to user dictionary
+    SPELLCHECK_WORD_IGNORED         = true, -- (word, locale) word marked as ignored
+    YAS_WORD_LEARNED                = true, -- (word, locale) YAS auto-promoted a word
+    QUEUE_STALL                     = true, -- (chatType, policyClass, chunksRemaining) ack stall detected
+    QUEUE_COMPLETE                  = true, -- () queue finished delivering all chunks
+    ICON_GALLERY_SHOW               = true, -- (query) raid-icon gallery opened
+    ICON_GALLERY_HIDE               = true, -- () raid-icon gallery closed
+    ICON_GALLERY_SELECT             = true, -- (index, text, code) user picked a raid icon
+    API_ERROR                       = true, -- (kind, hook, handler_info, errorMessage, data, ...) handler faulted
+}
+
+-- Deprecated filter name aliases (maps old name → canonical name).
+local FILTER_ALIASES = {}
+
+-- Deprecated event name aliases for backward compatibility (maps old → canonical).
 local EVENT_ALIASES = {
     ["YALLM_WORD_LEARNED"] = "YAS_WORD_LEARNED",
 }
@@ -206,6 +250,24 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
         return nil
     end
 
+    -- Validate hook point name against canonical list and aliases.
+    if not VALID_FILTERS[hookPoint] then
+        local aliasTarget = FILTER_ALIASES[hookPoint]
+        if aliasTarget then
+            -- Deprecated alias: allow but warn.
+            if YapperTable.Utils and YapperTable.Utils.Print then
+                YapperTable.Utils:Print("warn", "RegisterFilter: \"" .. hookPoint .. "\" is deprecated, use \"" .. aliasTarget .. "\" instead.")
+            end
+            hookPoint = aliasTarget
+        else
+            -- Unknown hook point: reject.
+            if YapperTable.Utils and YapperTable.Utils.Print then
+                YapperTable.Utils:Print("error", "RegisterFilter: unknown hook point \"" .. hookPoint .. "\". Registration rejected.")
+            end
+            return nil
+        end
+    end
+
     if not filters[hookPoint] then
         filters[hookPoint] = {}
     end
@@ -277,8 +339,24 @@ function YapperAPI:RegisterCallback(event, callback)
         return nil
     end
 
-    -- Map deprecated event names to current equivalents
-    local resolvedEvent = EVENT_ALIASES[event] or event
+    -- Validate event name against canonical list and aliases.
+    local resolvedEvent = event
+    if not VALID_CALLBACKS[event] then
+        local aliasTarget = EVENT_ALIASES[event]
+        if aliasTarget then
+            -- Deprecated alias: allow but warn.
+            if YapperTable.Utils and YapperTable.Utils.Print then
+                YapperTable.Utils:Print("warn", "RegisterCallback: \"" .. event .. "\" is deprecated, use \"" .. aliasTarget .. "\" instead.")
+            end
+            resolvedEvent = aliasTarget
+        else
+            -- Unknown event: reject.
+            if YapperTable.Utils and YapperTable.Utils.Print then
+                YapperTable.Utils:Print("error", "RegisterCallback: unknown event \"" .. event .. "\". Registration rejected.")
+            end
+            return nil
+        end
+    end
 
     if not callbacks[resolvedEvent] then
         callbacks[resolvedEvent] = {}
