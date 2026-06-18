@@ -34,7 +34,6 @@ local DEFAULTS = {
         ["SettingsHaveChanged"]   = false,
 
         -- Bridge Toggles
-        EnableGopherBridge        = true,
         EnableTypingTrackerBridge = true,
 
         -- Default active theme name (registered by `Src/Theme.lua`).
@@ -694,7 +693,6 @@ end
 local SYSTEM_GLOBAL_SYNC_KEYS = {
     ActiveTheme = true,
     StorytellerSlideSpeed = true,
-    EnableGopherBridge = true,
     EnableTypingTrackerBridge = true,
     DEBUG = true,
     VERBOSE = true,

@@ -134,8 +134,6 @@ local SETTING_TOOLTIPS              = {
     ["CHANNEL.RESET_ALL"] = "Restore all channel colours to defaults.",
     ["System.DEBUG"] = "Enables debug output. Warning: this is very spammy!",
     ["System.VERBOSE"] = "Yapper will announce when it does something unusual — a less spammy alternative to Debug.",
-    ["System.EnableGopherBridge"] =
-    "Toggle integration with Gopher (CrossRP compatibility). |cFFFF4444Disabling this WHILE using a Gopher-powered addon like CrossRP is a BAD idea and will cause stalls and chat problems.|r",
     ["System.EnableTypingTrackerBridge"] =
     "Toggle integration with Simply_RP_Typing_Tracker. Disabling this stops typing indicators from being sent.",
     ["System.StorytellerSlideSpeed"] =
@@ -169,7 +167,6 @@ local FRIENDLY_LABELS               = {
     ["Spellcheck.YASAutoThreshold"] = "Auto-learn threshold",
     ["Spellcheck.YASEnabled"] = "Enable adaptive learning",
     ["Spellcheck.NgramKeyCapSize"] = "N-gram key cap (0 = uncapped)",
-    ["System.EnableGopherBridge"] = "Enable Gopher Bridge",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
 
     ["Chat.USE_DELINEATORS"] = "Add split marker",
@@ -369,7 +366,6 @@ function Interface:BuildRenderSchema()
             or full == "Chat.CHARACTER_LIMIT"
             or full == "Chat.CHARACTER_LIMIT"
             or full == "Chat.PREFIX"
-            or full == "System.EnableGopherBridge"
             or full == "System.EnableTypingTrackerBridge" then
             return true
         end

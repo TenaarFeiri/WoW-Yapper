@@ -683,25 +683,6 @@ function Interface:BuildConfigUI()
 
         self:CreateCheckBox(
             frame.ContentFrame,
-            FRIENDLY_LABELS["System.EnableGopherBridge"],
-            { "System", "EnableGopherBridge" },
-            cursor
-        )
-
-        -- Visible warning note for Gopher toggle.
-        local gopherWarning = self:CreateLabel(
-            frame.ContentFrame,
-            "BAD IDEA: Disabling this while using Gopher-powered addons (CrossRP, etc.) will cause stalls.",
-            LAYOUT.WINDOW_PADDING + 28,
-            cursor:Y() + 4,
-            460
-        )
-        gopherWarning:SetFontObject(GameFontHighlightSmall)
-        gopherWarning:SetTextColor(1, 0.4, 0.4, 1) -- Light red warning colour.
-        cursor:Advance(14)
-
-        self:CreateCheckBox(
-            frame.ContentFrame,
             FRIENDLY_LABELS["System.EnableTypingTrackerBridge"],
             { "System", "EnableTypingTrackerBridge" },
             cursor

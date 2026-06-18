@@ -168,7 +168,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         })
         if result == false then
             -- CRITICAL: Clear focus trap so user doesn't type into invisible void.
-            -- Gopher or another addon blocked the open; we must clean up.
+            -- A filter blocked the open; we must clean up.
             if EditBox._focusTrap then
                 EditBox._focusTrap:ClearFocus()
                 EditBox._focusTrap:SetText("")

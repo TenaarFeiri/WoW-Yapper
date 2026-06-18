@@ -46,7 +46,6 @@ function Chat:Init()
     end
 
     -- Let Queue suppress the overlay to grab the hardware event for continuation.
-    -- The GopherBridge handles its own coordination via PRE_EDITBOX_SHOW filter.
     if YapperTable.EditBox then
         YapperTable.EditBox:SetPreShowCheck(function(blizzEditBox)
             if YapperTable.Queue and YapperTable.Queue:TryContinue() then
@@ -183,19 +182,8 @@ function Chat:OnSend(text, chatType, language, target)
     -- Feed to Queue for ordered delivery.
     local Q = YapperTable.Queue
 
-    -- When GopherBridge is active, Gopher has its own queue / throttle /
-    -- confirmation system.  Send each chunk directly through Router →
-    -- GopherBridge; Gopher will serialise them for us.
-    local bridge = YapperTable.GopherBridge
-    if bridge and bridge:IsActive() then
-        for _, chunk in ipairs(chunks) do
-            self:DirectSend(chunk, chatType, language, target)
-        end
-        return
-    end
-
     if not Q then
-        -- No queue and no Gopher — fire all at once.
+        -- No queue — fire all at once.
         for _, chunk in ipairs(chunks) do
             self:DirectSend(chunk, chatType, language, target)
         end

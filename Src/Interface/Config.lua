@@ -292,10 +292,6 @@ function Interface:SetLocalPath(path, value)
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnConfigChanged) == "function" then
             YapperTable.Spellcheck:OnConfigChanged()
         end
-    elseif JoinPath(path) == "System.EnableGopherBridge" then
-        if YapperTable.GopherBridge and YapperTable.GopherBridge.UpdateState then
-            YapperTable.GopherBridge:UpdateState(normalizedValue)
-        end
     elseif JoinPath(path) == "System.EnableTypingTrackerBridge" then
         if YapperTable.TypingTrackerBridge and YapperTable.TypingTrackerBridge.UpdateState then
             YapperTable.TypingTrackerBridge:UpdateState(normalizedValue)
