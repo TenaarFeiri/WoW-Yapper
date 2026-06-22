@@ -252,28 +252,42 @@ local function ParseWhisperSlash(text)
 end
 
 local function GetLastTellTargetInfo()
-    local lastTell = nil
-    if ChatEdit_GetLastTellTarget then
-        lastTell = ChatEdit_GetLastTellTarget()
+    if not Utils then YapperTable.Error:Throw("MISSING_UTILS") end
+
+    if Utils:IsChatLockdown() then
+        return nil, nil
     end
+
+    local lastTell = nil
+    local lastType = nil
+
+    if EditBox.ReplyQueue and EditBox.ReplyQueue[1] then
+        local entry = EditBox.ReplyQueue[1]
+        if not Utils:IsSecret(entry.name) then
+            lastTell = entry.name
+            lastType = entry.kind
+        end
+    end
+
+    if (not lastTell or lastTell == "") and ChatEdit_GetLastTellTarget then
+        lastTell = ChatEdit_GetLastTellTarget()
+        lastType = nil
+        if Utils:IsSecret(lastTell) then
+            return nil, nil
+        end
+    end
+
     if not lastTell or lastTell == "" then
         return nil, nil
     end
 
-    local lastType = nil
-    if ChatEdit_GetLastTellTargetType then
-        lastType = ChatEdit_GetLastTellTargetType()
-    end
     if lastType ~= "BN_WHISPER" then
         -- If the last tell is actually a BNet friend, switch to BN_WHISPER.
-        if YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetTarget then
-            local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTell)
-            if bnetAccountID or presenceID then
-                lastType = "BN_WHISPER"
-                lastTell = bnetAccountID or presenceID
-            else
-                lastType = "WHISPER"
-            end
+        if not YapperTable.Router then YapperTable.Error:Throw("MISSING_ROUTER") end
+        local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTell)
+        if bnetAccountID or presenceID then
+            lastType = "BN_WHISPER"
+            lastTell = bnetAccountID or presenceID
         else
             lastType = "WHISPER"
         end
