@@ -43,16 +43,21 @@ end
 -- ---------------------------------------------------------------------------
 -- Sanity checks — abort early if anything critical failed to load.
 -- ---------------------------------------------------------------------------
-if not YapperTable then
-    error(YapperName .. ": addon table missing. Yapper cannot start.")
+local REQUIRED_MODULES = {
+    "Utils", "Migrations", "Config",
+    "Frame", "EventFrames", "Events",
+    "API", "State",
+    "Spellcheck", "IconGallery",
+    "EditBox", "EditBoxHooksCore",
+    "Router", "Chunking", "Queue", "Chat",
+    "Multiline", "Autocomplete", "Emotes", "History", "Theme",
+    "Interface",
+}
+for _, mod in ipairs(REQUIRED_MODULES) do
+    if not YapperTable[mod] then
+        YapperTable.Error:Throw("MISSING_" .. mod:upper())
+    end
 end
-if not YapperTable.Error then
-    error(YapperName .. ": Error module missing. Yapper cannot start.")
-end
-if not YapperTable.Config  then YapperTable.Error:Throw("MISSING_CONFIG")  end
-if not YapperTable.Events  then YapperTable.Error:Throw("MISSING_EVENTS")  end
-if not YapperTable.Frame   then YapperTable.Error:Throw("MISSING_FRAMES")  end
-if not YapperTable.Interface then YapperTable.Error:Throw("MISSING_INTERFACE") end
 
 -- ---------------------------------------------------------------------------
 -- Boot sequence
