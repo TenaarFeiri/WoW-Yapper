@@ -495,13 +495,13 @@ Show/hide lifecycle and overlay management.
 
 Channel label and tab cycling.
 
-- Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), SaveLastUsed(), OnTabPressed().
+- Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.
-  - `EditBox:SaveLastUsed()` - Persist selection for stickiness.
+  - `EditBox:PersistLastUsed()` - Save current chat selection (type, target, language) for stickiness across show/hide operations and record per-tab channel memory.
   - `EditBox:OnTabPressed()` - Handle Tab key (cycle or autocomplete).
 
 ## Hooks.History

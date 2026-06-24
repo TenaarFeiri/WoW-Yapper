@@ -15,7 +15,7 @@ Previously, clicking the message area of a chat window in IM mode would open Bli
 
 # Patch notes
 
-## 2.2.0_beta
+## 2.2.0
   - **Added bridge for Languages addon**
     - Yapper can now integrate with the Languages addon to provide dialect and language transformation features.
   - **IM mode overhaul**:
@@ -32,9 +32,9 @@ Previously, clicking the message area of a chat window in IM mode would open Bli
     - Fixed a method name mismatch that caused errors when sending messages in certain configurations.
     - Fixed right-click whispers from the UI not opening Yapper in non-IM mode.
     - Fixed per-tab channel memory not applying correctly when switching between windows/tabs while Yapper is open. Channels are now immediately persisted when cycled, and the outgoing frame's state is saved before the frame swap occurs.
+    - Hopefully fixed issue where under some circumstances, Yapper could swallow posts silently, and prevent recovery.
   - **Internal**:
-    - The monolithic `Hooks.lua` has been split into focused modules: `Blizzard.lua`, `ShowHide.lua`, `Label.lua`, `History.lua`, `Slash.lua`, and `Hub.lua`.
-    - Removed roughly 100 lines of redundant guard code and defensive boilerplate that accumulated over time.
+    - Removed roughly 100 lines of redundant guard code and defensive boilerplate that accumulated over time, and split up a file to make maintenance more manageable.
 
 
 ## 2.1.29
