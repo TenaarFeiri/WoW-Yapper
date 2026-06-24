@@ -227,6 +227,22 @@ end
 function EditBox:CycleChatType(direction)
     direction = direction or 1
     local current = self.ChatType or "SAY"
+
+    -- When already in a whisper, cycle through recent reply targets instead.
+    if current == "WHISPER" or current == "BN_WHISPER" then
+        local nextName, nextKind = self:NextReplyTarget(self.Target, direction)
+        if nextName then
+            self.ChatType = nextKind or "WHISPER"
+            self.Target   = nextName
+            self:RefreshLabel()
+            if YapperTable.API then
+                YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
+            end
+            return
+        end
+        -- No reply targets available; fall through to normal cycling.
+    end
+
     local available = self:GetAvailableChatTypes()
     if #available == 0 then return end
 
