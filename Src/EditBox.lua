@@ -251,6 +251,35 @@ local function ParseWhisperSlash(text)
     return target, remainder or ""
 end
 
+-- Detect a channel/built-in slash command (e.g. "/g", "/guild", "/1") at the
+-- start of `text`. Whisper slashes are handled separately above.
+local function IsChannelSlashPrefill(text)
+    if type(text) ~= "string" then return false end
+    local cmd = text:match("^%s*/([%w_]+)")
+    if not cmd then return false end
+    cmd = strlower(cmd)
+    return SLASH_MAP[cmd] ~= nil or tonumber(cmd) ~= nil
+end
+
+-- Parse a channel/built-in slash command. Returns chatType, target, remainder.
+-- target is nil for built-in types (e.g. GUILD) and a numeric string for
+-- numbered channels (e.g. "1" for /1).
+local function ParseChannelSlash(text)
+    if type(text) ~= "string" then return nil end
+    local cmd, rest = text:match("^%s*/([%w_]+)%s*([%s%S]*)")
+    if not cmd then return nil end
+    cmd = strlower(cmd)
+    local num = tonumber(cmd)
+    if num then
+        return "CHANNEL", tostring(num), rest or ""
+    end
+    local chatType = SLASH_MAP[cmd]
+    if chatType then
+        return chatType, nil, rest or ""
+    end
+    return nil
+end
+
 local function GetLastTellTargetInfo()
     if not Utils then YapperTable.Error:Throw("MISSING_UTILS") end
 
@@ -451,6 +480,8 @@ EditBox._CHATTYPE_TO_OVERRIDE_KEY = CHATTYPE_TO_OVERRIDE_KEY
 EditBox._REPLY_QUEUE_MAX        = REPLY_QUEUE_MAX
 EditBox.IsWhisperSlashPrefill   = IsWhisperSlashPrefill
 EditBox.ParseWhisperSlash       = ParseWhisperSlash
+EditBox.IsChannelSlashPrefill   = IsChannelSlashPrefill
+EditBox.ParseChannelSlash       = ParseChannelSlash
 EditBox.GetLastTellTargetInfo   = GetLastTellTargetInfo
 EditBox.GetLastToldTargetInfo   = GetLastToldTargetInfo
 EditBox.SetFrameFillColour      = SetFrameFillColour

@@ -77,6 +77,30 @@ local tonumber = tonumber
 -- Hook into Blizzard editboxes (taint-free)
 -- ---------------------------------------------------------------------------
 
+--- In proxy mode the native editbox is the visible background. A channel link
+--- or chat-menu selection activates that editbox, and when focus returns to the
+--- overlay Blizzard deactivates it on empty-text focus loss — which, in classic
+--- chat style, also Hides it, wiping the background. Re-show it next frame so
+--- the proxy background survives. No-op outside proxy mode.
+function EditBox:EnsureProxyBackgroundShown()
+    local cfg = YapperTable.Config and YapperTable.Config.EditBox
+    local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+    if not isProxy then return end
+    local eb = self.OrigEditBox
+    if not eb or not eb.Show then return end
+    C_Timer.After(0, function()
+        -- Don't resurrect the background if the user just closed Yapper —
+        -- Classic style relies on the natural Deactivate/Hide path then.
+        if self._closing then return end
+        if self.Overlay and self.Overlay:IsShown() and eb and not eb:IsShown() then
+            pcall(function()
+                eb:Show()
+                if eb.SetAlpha then eb:SetAlpha(1.0) end
+            end)
+        end
+    end)
+end
+
 function EditBox:HookBlizzardEditBox(blizzEditBox)
     if self.HookedBoxes[blizzEditBox] then return end
     self.HookedBoxes[blizzEditBox] = true
@@ -87,6 +111,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- WoW whisper:  attributes arrive one frame AFTER Show (deferred).
     -- The live-update path below handles the deferred case.
     hooksecurefunc(blizzEditBox, "SetAttribute", function(eb, key, value)
+        -- Skip if we're syncing attributes from Yapper to Blizzard
+        -- to avoid RefreshLabel → SyncAttributesToBlizzard → SetAttribute → RefreshLabel loop
+        if self._syncingAttributes then return end
+
         local c = self._attrCache[eb]
         if not c then
             c = {}
@@ -216,22 +244,35 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
 
         -- Live update: attributes arrived after we already showed
         -- (WoW whisper deferred case). RefreshLabel is safe here because
-        -- it no longer syncs back to Blizzard's editbox.
+        -- the _syncingAttributes guard prevents a loop back to SetAttribute.
         if self.OrigEditBox == eb
             and self.Overlay and self.Overlay:IsShown() then
-            local ct = c.chatType
-            local tt = c.tellTarget
-            local ch = c.channelTarget
+            local ec = self._explicitChannel
+            if ec and ec.chatType and (GetTime() - (ec.t or 0)) <= 1 then
+                self._explicitChannel = nil
+                self.ChatType    = ec.chatType
+                self.Target      = ec.target
+                self.ChannelName = ec.channelName
+                self:RefreshLabel()
+                self:EnsureProxyBackgroundShown()
+                if YapperTable.API then
+                    YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
+                end
+            else
+                local ct = c.chatType
+                local tt = c.tellTarget
+                local ch = c.channelTarget
 
-            if (ct == "WHISPER" or ct == "BN_WHISPER") and tt and tt ~= "" then
-                self.ChatType = ct
-                self.Target   = tt
-                self:RefreshLabel()
-            elseif ct == "CHANNEL" and ch and ch ~= "" then
-                self.ChatType    = "CHANNEL"
-                self.Target      = ch
-                self.ChannelName = ResolveChannelName(tonumber(ch))
-                self:RefreshLabel()
+                if (ct == "WHISPER" or ct == "BN_WHISPER") and tt and tt ~= "" then
+                    self.ChatType = ct
+                    self.Target   = tt
+                    self:RefreshLabel()
+                elseif ct == "CHANNEL" and ch and ch ~= "" then
+                    self.ChatType    = "CHANNEL"
+                    self.Target      = ch
+                    self.ChannelName = ResolveChannelName(tonumber(ch))
+                    self:RefreshLabel()
+                end
             end
         end
     end)
@@ -280,6 +321,34 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     end
                 end
 
+                -- Same for channel/built-in slash prefills (e.g. "/1", "/g") that
+                -- a channel-link click or the chat menu writes into the native box.
+                -- The channel itself is already adopted via the explicit-channel
+                -- capture; here we just strip the raw slash so it never appears in
+                -- the overlay. Without this, numbered channels prefill "/n".
+                if not isInsert and Core.IsChannelSlashPrefill(text) then
+                    local chanType, chanTarget, chanRemainder = Core.ParseChannelSlash(text)
+                    if chanType then
+                        self._ignoreSetText = nil
+                        self.ChatType = chanType
+                        if chanType == "CHANNEL" then
+                            self.Target = chanTarget
+                            local num = tonumber(chanTarget)
+                            self.ChannelName = num and ResolveChannelName(num) or nil
+                        else
+                            self.Target = nil
+                            self.ChannelName = nil
+                        end
+                        self._ignoreSetText = true
+                        targetBox:SetText(chanRemainder or "")
+                        self._ignoreSetText = nil
+                        eb:SetText("")
+                        self:RefreshLabel()
+                        self:EnsureProxyBackgroundShown()
+                        return
+                    end
+                end
+
                 local cur = targetBox:GetText() or ""
                 if text ~= cur then
                     targetBox:SetText(text)
@@ -287,6 +356,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end
             -- Wipe the Blizzard source box so it doesn't hold stale data
             eb:SetText("")
+            self:EnsureProxyBackgroundShown()
             self._ignoreSetText = nil
         end
     end
@@ -526,6 +596,10 @@ function EditBox:HookAllChatFrames()
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
+            if self._suppressOpenChatHook then
+                self._suppressOpenChatHook = nil
+                return
+            end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                 -- Fix focus override getting stuck if lockdown started while chat was closed.
                 self:UpdateFocusOverride()
@@ -554,8 +628,9 @@ function EditBox:HookAllChatFrames()
 
             -- Also intercept if overlay is already shown (e.g., TRP3 calling OpenChat after send).
             -- In this case, reclaim focus immediately instead of deferring through watchdog.
+            -- Also treat channel link clicks (slash prefills) as overlay-already-shown when Yapper is open.
             local overlayAlreadyShown = (self.Overlay and self.Overlay:IsShown())
-                and (chatFrame == nil)
+                and (chatFrame == nil or (text and text ~= "" and Core.IsChannelSlashPrefill(text)))
 
             -- If user is bypassing Yapper:
             -- - NOT in lockdown: kick back to Yapper (clear bypass, force intercept)
@@ -603,6 +678,36 @@ function EditBox:HookAllChatFrames()
                 return
             end
 
+            -- Capture explicit channel-selection intent from any slash command
+            -- routed through OpenChat: channel links ([Guild], [General], etc.
+            -- via ItemRef handlers call OpenChat("/GUILD", frame); typing "/g"
+            -- does the same. This is consumed once by Show()/the live-update so
+            -- the selection overrides the LastUsed sticky — without it, non-target
+            -- chat types (GUILD/PARTY/...) never beat the remembered channel.
+            if text and text ~= "" then
+                if Core.IsChannelSlashPrefill(text) then
+                    local ct, tgt = Core.ParseChannelSlash(text)
+                    if ct then
+                        self._explicitChannel = {
+                            chatType    = ct,
+                            target      = (ct == "CHANNEL") and tgt or nil,
+                            channelName = (ct == "CHANNEL" and tgt)
+                                and ResolveChannelName(tonumber(tgt)) or nil,
+                            t           = GetTime(),
+                        }
+                    end
+                elseif Core.IsWhisperSlashPrefill(text) then
+                    local tgt = Core.ParseWhisperSlash(text)
+                    if tgt then
+                        self._explicitChannel = {
+                            chatType = "WHISPER",
+                            target   = tgt,
+                            t        = GetTime(),
+                        }
+                    end
+                end
+            end
+
             -- For all other cases (slash-starting text, specific chatFrame opens, etc.)
             -- just signal the watchdog so ForwardTextToYapper can route to the overlay
             -- while it isn't shown yet. Do NOT call Show() or pre-populate
@@ -642,6 +747,101 @@ function EditBox:HookAllChatFrames()
         -- The UIParent guard is already applied in EditBox:Show() and the
         -- UIParent OnHide hook in SetupOverlayScripts.
         self._openChatHooked = true
+    end
+
+    -- The chat menu button (speech bubble) selects a channel via:
+    --     local editBox = ChatFrameUtil.OpenChat("");
+    --     editBox:SetChatType(chatType);
+    -- With CHAT_FOCUS_OVERRIDE pointing at our overlay, OpenChat("") returns nil
+    -- (it just refocuses the overlay), so SetChatType errors and the channel is
+    -- never applied. We wrap each menu responder to (a) temporarily clear the
+    -- override so OpenChat returns a real editbox, and (b) record the resulting
+    -- chat type as an explicit selection that Show()/the live-update will adopt.
+    if Menu and Menu.ModifyMenu and MenuUtil and MenuUtil.TraverseMenu
+        and not self._chatMenuResponderHooked then
+        local function WrapResponder(description)
+            local orig = description.responder
+            if type(orig) ~= "function" or description._yapperWrapped then return end
+            description._yapperWrapped = true
+
+            description.responder = function(data, menuInputData, menuProxy)
+                local hadOverride = _G.CHAT_FOCUS_OVERRIDE
+                _G.CHAT_FOCUS_OVERRIDE = nil
+                -- Suppress OpenChat hook while menu responder runs to avoid
+                -- triggering the watchdog/Show path when Yapper is already open
+                self._suppressOpenChatHook = true
+                local ok, result = pcall(orig, data, menuInputData, menuProxy)
+                self._suppressOpenChatHook = nil
+                _G.CHAT_FOCUS_OVERRIDE = hadOverride
+
+                -- Record the channel the menu just applied to the active editbox.
+                local active = (ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
+                    or (ChatFrameUtil.GetLastActiveWindow and ChatFrameUtil.GetLastActiveWindow())
+                    or self.OrigEditBox
+                if active and active.GetChatType then
+                    local ct = active:GetChatType()
+                    if ct and ct ~= "" then
+                        local tgt, chanName
+                        if ct == "WHISPER" or ct == "BN_WHISPER" then
+                            tgt = active.GetAttribute and active:GetAttribute("tellTarget")
+                        elseif ct == "CHANNEL" then
+                            tgt = active.GetAttribute and active:GetAttribute("channelTarget")
+                            chanName = tgt and ResolveChannelName(tonumber(tgt)) or nil
+                        end
+                        self._explicitChannel = {
+                            chatType    = ct,
+                            target      = tgt,
+                            channelName = chanName,
+                            t           = GetTime(),
+                        }
+
+                        -- If Yapper is already open, adopt the channel right away;
+                        -- the deferred Show() path only runs when opening fresh.
+                        if self.Overlay and self.Overlay:IsShown() then
+                            self._explicitChannel = nil
+                            self.ChatType    = ct
+                            self.Target      = tgt
+                            self.ChannelName = chanName
+                            self:RefreshLabel()
+                            self:EnsureProxyBackgroundShown()
+                            if YapperTable.API then
+                                YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
+                            end
+                            if self.OverlayEdit then
+                                self.OverlayEdit:SetFocus()
+                            end
+                            -- Hide the Blizzard editbox that was shown by OpenChat
+                            -- to prevent it from staying visible and accepting input
+                            if active and active.Hide and active ~= self.OrigEditBox then
+                                pcall(function() active:Hide() end)
+                            end
+                        end
+                    end
+                end
+
+                if not ok then return nil end
+                return result
+            end
+        end
+
+        Menu.ModifyMenu("MENU_CHAT_SHORTCUTS", function(owner, rootDescription)
+            MenuUtil.TraverseMenu(rootDescription, WrapResponder)
+        end)
+        self._chatMenuResponderHooked = true
+    end
+
+    -- Hook DeactivateChat so that when Yapper's overlay steals focus, Blizzard's
+    -- Deactivate doesn't leave the proxy background hidden in Classic style.
+    -- RestoreProxyMode still hides it on Yapper close, so the Classic lifecycle
+    -- is preserved.
+    if ChatFrameUtil and ChatFrameUtil.DeactivateChat and not self._deactivateChatHooked then
+        hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
+            if self._closing then return end
+            if self.OrigEditBox == editBox and self.Overlay and self.Overlay:IsShown() then
+                self:EnsureProxyBackgroundShown()
+            end
+        end)
+        self._deactivateChatHooked = true
     end
 
     -- Hook ActivateChat to intercept direct activation calls (e.g., from EditBox:SetFocus)

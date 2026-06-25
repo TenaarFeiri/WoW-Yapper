@@ -1,3 +1,18 @@
+# NEW IN 2.2.1-beta
+## Channel switching improvements
+
+Clicking channel links ([Guild], [General], etc.) now opens Yapper on that channel instead of Blizzard's editbox. Channel slash commands like `/1`, `/g`, `/p` correctly switch channels in Yapper without showing raw slash text. The speech bubble menu also updates Yapper's channel when it's already open.
+
+## Proxy mode stability
+
+The Blizzard editbox background underneath Yapper now stays visible and stable in Classic style when Yapper opens or processes channel changes. When Yapper closes or sends a message, the Blizzard editbox is properly deactivated and hidden.
+
+## Live channel sync
+
+When you change channels via slash commands (like `/e `) while Yapper is open, the Blizzard editbox's visual state now updates immediately instead of only after closing/reopening.
+
+**Known issue:** When changing channels via the speech bubble menu while Yapper is open in proxy mode, the Blizzard editbox may briefly show text underneath. This may fight with Yapper. It's being tracked.
+
 # NEW IN 2.2.0
 ## IM mode got a serious overhaul
 

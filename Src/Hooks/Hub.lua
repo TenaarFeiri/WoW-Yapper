@@ -25,6 +25,8 @@ YapperTable.EditBoxHooksCore = {
     -- Helper functions from EditBox
     IsWhisperSlashPrefill = EditBox.IsWhisperSlashPrefill,
     ParseWhisperSlash = EditBox.ParseWhisperSlash,
+    IsChannelSlashPrefill = EditBox.IsChannelSlashPrefill,
+    ParseChannelSlash = EditBox.ParseChannelSlash,
     GetLastTellTargetInfo = EditBox.GetLastTellTargetInfo,
     GetLastToldTargetInfo = EditBox.GetLastToldTargetInfo,
     SetFrameFillColour = EditBox.SetFrameFillColour,

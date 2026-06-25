@@ -209,6 +209,72 @@ function EditBox:RefreshLabel()
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_LABEL_UPDATED", label, resolvedR, resolvedG, resolvedB)
     end
+
+    -- Sync channel/target back to Blizzard's native editbox so the proxy
+    -- background (or any visible Blizzard chrome) shows the matching outline
+    -- colour and channel context. Safe to call repeatedly; it only touches
+    -- attributes and is needed outside lockdown handoffs too.
+    self:SyncAttributesToBlizzard()
+
+    -- Ensure the proxy background is shown after attribute sync in proxy mode
+    if self.EnsureProxyBackgroundShown then
+        self:EnsureProxyBackgroundShown()
+    end
+end
+
+--- Push Yapper's current chatType, target, channel and language into Blizzard's
+--- native editbox. This keeps the Blizzard frame in sync (outline colour, etc.)
+--- whenever Yapper changes channel, not just during lockdown handoffs.
+function EditBox:SyncAttributesToBlizzard()
+    local yapperChatType = self.ChatType
+    if not yapperChatType then return end
+
+    local blizzEditBox = self.OrigEditBox
+        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or _G.ChatFrame1EditBox
+    if not (blizzEditBox and blizzEditBox.SetAttribute) then return end
+
+    -- Guard against our own SetAttribute hook calling RefreshLabel in a loop.
+    self._syncingAttributes = true
+
+    -- Resolve chat type to override key if needed
+    local overrideCT = yapperChatType
+    if yapperChatType == "PARTY_LEADER" then
+        overrideCT = "PARTY"
+    elseif yapperChatType == "RAID_LEADER" then
+        overrideCT = "RAID"
+    end
+
+    blizzEditBox:SetAttribute("chatType", overrideCT)
+
+    if yapperChatType == "WHISPER" or yapperChatType == "BN_WHISPER" then
+        if self.Target then
+            blizzEditBox:SetAttribute("tellTarget", self.Target)
+        end
+        blizzEditBox:SetAttribute("channelTarget", nil)
+    elseif yapperChatType == "CHANNEL" then
+        if self.Target then
+            blizzEditBox:SetAttribute("channelTarget", self.Target)
+        end
+        blizzEditBox:SetAttribute("tellTarget", nil)
+    else
+        blizzEditBox:SetAttribute("tellTarget", nil)
+        blizzEditBox:SetAttribute("channelTarget", nil)
+    end
+
+    if self.Language then
+        blizzEditBox:SetAttribute("language", self.Language)
+    else
+        blizzEditBox:SetAttribute("language", nil)
+    end
+
+    self._syncingAttributes = nil
+
+    -- Call UpdateHeader to refresh the visual state (header text, colors, etc.)
+    -- This is what Blizzard does after setting attributes to make the changes visible.
+    if blizzEditBox.UpdateHeader then
+        pcall(function() blizzEditBox:UpdateHeader() end)
+    end
 end
 
 --- Returns the subset of _TAB_CYCLE entries currently available to the player.

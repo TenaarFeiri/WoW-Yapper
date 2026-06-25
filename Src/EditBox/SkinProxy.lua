@@ -610,7 +610,9 @@ function EditBox:ApplyProxyMode(origEditBox)
     -- Force-show the original so its skin (Blizzard / Prat / Chattynator / ElvUI) renders.
     -- This must happen BEFORE hiding headers: OnShow triggers UpdateHeader which
     -- re-shows header FontStrings, so we hide them after that side-effect runs.
-    if not prev.wasShown and origEditBox.Show then
+    -- In proxy mode the background MUST be visible, so always show it regardless
+    -- of the pre-state we will restore later.
+    if origEditBox.Show then
         pcall(function() origEditBox:Show() end)
     end
 

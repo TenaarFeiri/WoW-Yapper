@@ -183,6 +183,15 @@ function EditBox:Show(origEditBox)
 
     self._attrCache[origEditBox] = {}
 
+    local explicitChannel = self._explicitChannel
+    if explicitChannel then
+        self._explicitChannel = nil
+        if not explicitChannel.chatType
+            or (GetTime() - (explicitChannel.t or 0)) > 1 then
+            explicitChannel = nil
+        end
+    end
+
     -- Did Blizzard open with a specific target?
     local blizzHasTarget         = ((blizzType == "WHISPER" or blizzType == "BN_WHISPER")
             and blizzTell and blizzTell ~= "")
@@ -193,6 +202,8 @@ function EditBox:Show(origEditBox)
     --      this Show fires. Consumed once and cleared.
     --   1. Blizzard explicitly provided a whisper/channel target (reply key,
     --      name-click, Contacts list, etc.) — always honour it.
+    --   1b. Explicit channel selection (channel link / chat menu / typed slash) —
+    --      overrides the LastUsed sticky for this open only.
     --   2. Lockdown draft — restore the channel the user was on mid-combat.
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
@@ -204,6 +215,11 @@ function EditBox:Show(origEditBox)
             or blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target      = pendingTabSwitch.target
         self.ChannelName = pendingTabSwitch.channelName
+    elseif explicitChannel and not self._lockdown.savedDraft then
+        self.ChatType    = explicitChannel.chatType
+        self.Language    = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
+        self.Target      = explicitChannel.target
+        self.ChannelName = explicitChannel.channelName
     elseif blizzHasTarget and not self._lockdown.savedDraft then
         self.ChatType = blizzType
         self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
@@ -472,14 +488,10 @@ function EditBox:Hide(isHandoff)
         pcall(function() self:RestoreProxyMode() end)
     end
 
-    -- IM mode: Blizzard's ActivateChat was called when we opened, so
-    -- ACTIVE_CHAT_EDIT_BOX still points at the Blizzard editbox.
-    -- Deactivate it so it fades out, clears text, and stops accepting input.
+    -- Deactivate the Blizzard editbox so it clears text and stops accepting input.
+    -- In IM mode this fades it out; in Classic mode this also hides it.
     if prevOrig and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
-        local chatStyle = GetCVar and GetCVar("chatStyle")
-        if chatStyle == "im" then
-            pcall(function() ChatFrameUtil.DeactivateChat(prevOrig) end)
-        end
+        pcall(function() ChatFrameUtil.DeactivateChat(prevOrig) end)
     end
 
     -- NOTE: DetachBlizzardSkinProxy() is intentionally NOT called here.
