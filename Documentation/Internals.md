@@ -46,15 +46,15 @@ Loaded at startup; used by most modules.
 
 - Description: Print/debug/fullscreen/chat utility helpers.
 - Fields:
-  - `_G.YAPPER_UTILS: table` alias for debug access ([`../Src/Utils.lua#L93`](../Src/Utils.lua#L93)).
+  - `_G.YAPPER_UTILS: table` alias for debug access ([`../Src/Utils.lua#L98`](../Src/Utils.lua#L98)).
 - Methods:
   - `Utils:Print(...) → nil` ([`../Src/Utils.lua#L19`](../Src/Utils.lua#L19))
   - `Utils:VerbosePrint(...) → nil` ([`../Src/Utils.lua#L33`](../Src/Utils.lua#L33))
   - `Utils:DebugPrint(...) → nil` ([`../Src/Utils.lua#L39`](../Src/Utils.lua#L39))
   - `Utils:GetChatParent() → Frame` ([`../Src/Utils.lua#L48`](../Src/Utils.lua#L48))
   - `Utils:MakeFullscreenAware(frame) → nil` ([`../Src/Utils.lua#L60`](../Src/Utils.lua#L60))
-  - `Utils:IsChatLockdown() → boolean` ([`../Src/Utils.lua#L84`](../Src/Utils.lua#L84))
-  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L134`](../Src/Utils.lua#L134))
+  - `Utils:IsChatLockdown() → boolean` ([`../Src/Utils.lua#L89`](../Src/Utils.lua#L89))
+  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L139`](../Src/Utils.lua#L139))
 
 ## Error
 
@@ -460,7 +460,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
 - Methods:
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L392`](../Src/EditBox/Overlay.lua#L392)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L407`](../Src/EditBox/Overlay.lua#L407)).
 
 ## EditBox.Handlers
 
@@ -498,6 +498,7 @@ Channel label and tab cycling.
 - Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
+  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L215`](../Src/Hooks/Label.lua#L215))
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.
@@ -943,7 +944,7 @@ Per-category page builders called by `BuildConfigUI`.
 ## Utilities
 
 - Methods:
-  - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L128`](../Src/Utils.lua#L128))
-  - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L110`](../Src/Utils.lua#L110))
-  - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L102`](../Src/Utils.lua#L102))
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L162`](../Src/Utils.lua#L162))
+  - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L133`](../Src/Utils.lua#L133))
+  - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L115`](../Src/Utils.lua#L115))
+  - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L107`](../Src/Utils.lua#L107))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L167`](../Src/Utils.lua#L167))

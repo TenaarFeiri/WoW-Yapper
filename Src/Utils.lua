@@ -68,6 +68,11 @@ function Utils:MakeFullscreenAware(frame)
         else
             frame:SetParent(target)
         end
+        -- If the frame carries a reposition callback, let it recompute
+        -- its absolute coordinates for the new parent.
+        if frame._yapperReposition then
+            pcall(frame._yapperReposition)
+        end
     end
     if FCF_SetFullScreenFrame then
         hooksecurefunc("FCF_SetFullScreenFrame", update)

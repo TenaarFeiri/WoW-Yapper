@@ -23,6 +23,47 @@ local math_max   = math.max
 local math_min   = math.min
 
 -- ---------------------------------------------------------------------------
+-- Positioning
+-- ---------------------------------------------------------------------------
+
+--- Reparent and reposition the overlay using absolute coordinates in the
+--- current chat parent. This is used on initial show and again when the
+--- fullscreen-aware parent changes.
+---@param overlay     Frame  Yapper's overlay container.
+---@param origEditBox Frame  The Blizzard editbox whose rect we mirror.
+---@param useTop      boolean? If true, anchor the overlay's TOPLEFT to the
+---                     original's top; otherwise anchor BOTTOMLEFT.
+local function RepositionOverlay(overlay, origEditBox, useTop)
+    if not overlay or not origEditBox then return end
+    local chatParent = YapperTable.Utils:GetChatParent()
+    overlay:SetParent(chatParent)
+    overlay:ClearAllPoints()
+
+    local parentScale = chatParent:GetEffectiveScale()
+    if parentScale == 0 then parentScale = UIParent:GetEffectiveScale() end
+    local origScale = origEditBox:GetEffectiveScale()
+    if origScale == 0 then origScale = 1 end
+    local scale = origScale / parentScale
+    overlay:SetScale(scale)
+
+    local chatParentLeft   = chatParent:GetLeft() or 0
+    local chatParentBottom = chatParent:GetBottom() or 0
+    local origLeft = origEditBox:GetLeft() or 0
+    local origY
+    if useTop then
+        origY = origEditBox:GetTop() or 0
+    else
+        origY = origEditBox:GetBottom() or 0
+    end
+
+    local offsetX = origLeft - (chatParentLeft * parentScale / origScale)
+    local offsetY = origY - (chatParentBottom * parentScale / origScale)
+
+    local anchorPoint = useTop and "TOPLEFT" or "BOTTOMLEFT"
+    overlay:SetPoint(anchorPoint, chatParent, "BOTTOMLEFT", offsetX, offsetY)
+end
+
+-- ---------------------------------------------------------------------------
 -- Show / Hide
 -- ---------------------------------------------------------------------------
 
@@ -219,21 +260,30 @@ function EditBox:Show(origEditBox)
     end
 
     -- Position & size
-    -- Anchor directly on top of the original editbox so it looks identical.
+    -- Position the overlay with absolute coordinates in the parent's space
+    -- rather than anchoring directly to the original editbox. This mirrors
+    -- the multiline editor's approach and avoids coordinate-space drift when
+    -- ChatFrame1 or the chat editbox has a non-1 effective scale (e.g., 4K
+    -- UI scaling, chat-frame addons).
     local overlay = self.Overlay
     local cfg = YapperTable.Config.EditBox or {}
-    local chatParent = YapperTable.Utils:GetChatParent()
-    overlay:SetParent(chatParent)
-    overlay:ClearAllPoints()
-    overlay:SetPoint("TOPLEFT", origEditBox, "TOPLEFT", 0, 0)
-    overlay:SetPoint("BOTTOMRIGHT", origEditBox, "BOTTOMRIGHT", 0, 0)
-    overlay:Show()  -- ensure visible (CEBE may have hidden it on close)
+    local origWidth  = origEditBox:GetWidth() or 32
+    local origHeight = origEditBox:GetHeight() or 32
 
-    -- Match scale for addons that resize chat frames.
-    local parentScale = chatParent:GetEffectiveScale()
-    if parentScale == 0 then parentScale = UIParent:GetEffectiveScale() end
-    local scale = origEditBox:GetEffectiveScale() / parentScale
-    overlay:SetScale(scale)
+    -- Track whether the overlay is currently anchored from its top edge
+    -- (tall-font mode) so fullscreen-aware parent changes can re-anchor
+    -- it correctly.
+    local anchorTop = false
+    overlay._yapperReposition = function()
+        if self.Overlay and self.OrigEditBox then
+            RepositionOverlay(self.Overlay, self.OrigEditBox, anchorTop)
+        end
+    end
+
+    RepositionOverlay(overlay, origEditBox)
+    overlay:SetWidth(origWidth)
+    overlay:SetHeight(origHeight)
+    overlay:Show()  -- ensure visible (CEBE may have hidden it on close)
 
     -- Font
     -- Config overrides Blizzard's font; otherwise inherit.
@@ -265,8 +315,9 @@ function EditBox:Show(origEditBox)
     local finalH        = math_max(minH, fontNeeded)
     if finalH > blizzH then
         overlay:ClearAllPoints()
-        overlay:SetPoint("TOPLEFT", origEditBox, "TOPLEFT", 0, 0)
-        overlay:SetPoint("RIGHT", origEditBox, "RIGHT", 0, 0)
+        anchorTop = true
+        RepositionOverlay(overlay, origEditBox, true)
+        overlay:SetWidth(origWidth)
         overlay:SetHeight(finalH)
     end
 

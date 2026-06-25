@@ -77,7 +77,22 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         if edit.SetTextColor then
             edit:SetTextColor(textCfg.r or 1, textCfg.g or 1, textCfg.b or 1, textCfg.a or 1)
         end
+
+        -- In proxy mode the original editbox is visible behind us, so copy
+        -- its vertical text insets so Yapper's text sits on the same baseline.
+        -- We keep Yapper's horizontal insets (1, 6) because the label width
+        -- differs from Blizzard's header width.
+        local origEB = editBox.OrigEditBox
+        if origEB and origEB.GetTextInsets and edit.SetTextInsets then
+            local _, _, origTop, origBottom = origEB:GetTextInsets()
+            edit:SetTextInsets(1, 6, origTop or 0, origBottom or 0)
+        end
         return
+    end
+
+    -- Non-proxy mode: restore Yapper's default text insets.
+    if edit.SetTextInsets then
+        edit:SetTextInsets(1, 6, 0, 0)
     end
 
     local shadCol     = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
