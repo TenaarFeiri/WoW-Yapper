@@ -98,6 +98,17 @@ function EditBox:EnsureProxyBackgroundShown()
                 if eb.SetAlpha then eb:SetAlpha(1.0) end
             end)
         end
+        -- In proxy mode the Blizzard editbox is only a visual shell under Yapper.
+        -- Keep its text empty so deferred OpenChat/ParseText writes never show underneath.
+        if self.Overlay and self.Overlay:IsShown() and eb and eb.GetText and eb.SetText then
+            local blizzText = eb:GetText() or ""
+            if blizzText ~= "" then
+                pcall(function() eb:SetText("") end)
+            end
+        end
+        if self.EnsureProxyHeaderHidden then
+            self:EnsureProxyHeaderHidden(eb)
+        end
     end)
 end
 
@@ -309,11 +320,18 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 if not isInsert and Core.IsWhisperSlashPrefill(text) then
                     local preTarget, preRemainder = Core.ParseWhisperSlash(text)
                     if preTarget then
+                        local curText = targetBox:GetText() or ""
+                        local nextText = preRemainder or ""
+                        local keepExistingText = (targetBox == self.OverlayEdit)
+                            and self.Overlay and self.Overlay:IsShown()
+                            and curText ~= "" and nextText == ""
                         self._ignoreSetText = nil
                         self.ChatType = "WHISPER"
                         self.Target   = preTarget
                         self._ignoreSetText = true
-                        targetBox:SetText(preRemainder or "")
+                        if not keepExistingText and nextText ~= curText then
+                            targetBox:SetText(nextText)
+                        end
                         self._ignoreSetText = nil
                         eb:SetText("")
                         self:RefreshLabel()
@@ -329,6 +347,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 if not isInsert and Core.IsChannelSlashPrefill(text) then
                     local chanType, chanTarget, chanRemainder = Core.ParseChannelSlash(text)
                     if chanType then
+                        local curText = targetBox:GetText() or ""
+                        local nextText = chanRemainder or ""
+                        local keepExistingText = (targetBox == self.OverlayEdit)
+                            and self.Overlay and self.Overlay:IsShown()
+                            and curText ~= "" and nextText == ""
                         self._ignoreSetText = nil
                         self.ChatType = chanType
                         if chanType == "CHANNEL" then
@@ -340,7 +363,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             self.ChannelName = nil
                         end
                         self._ignoreSetText = true
-                        targetBox:SetText(chanRemainder or "")
+                        if not keepExistingText and nextText ~= curText then
+                            targetBox:SetText(nextText)
+                        end
                         self._ignoreSetText = nil
                         eb:SetText("")
                         self:RefreshLabel()
@@ -350,6 +375,19 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
 
                 local cur = targetBox:GetText() or ""
+                -- When overlay is already active, preserve user text against
+                -- stale native SetText payloads (common on refocus in proxy mode).
+                -- Explicit slash-prefill paths are handled above and still allowed.
+                if not isInsert and targetBox == self.OverlayEdit
+                    and self.Overlay and self.Overlay:IsShown()
+                    and cur ~= "" and text ~= cur then
+                    if eb and eb.SetText then
+                        eb:SetText("")
+                    end
+                    self:EnsureProxyBackgroundShown()
+                    self._ignoreSetText = nil
+                    return
+                end
                 if text ~= cur then
                     targetBox:SetText(text)
                 end
@@ -654,10 +692,64 @@ function EditBox:HookAllChatFrames()
             if focusOverrideIntercepted or overlayAlreadyShown then
 
                 if overlayAlreadyShown then
+                    -- Overlay already shown: apply slash-prefill channel/target
+                    -- immediately so link-click channel switching works without
+                    -- requiring a full Show() cycle.
+                    if text and text ~= "" and self.OverlayEdit then
+                        if Core.IsChannelSlashPrefill(text) then
+                            local ct, tgt, remainder = Core.ParseChannelSlash(text)
+                            if ct then
+                                self.ChatType = ct
+                                if ct == "CHANNEL" then
+                                    self.Target = tgt
+                                    self.ChannelName = tgt and ResolveChannelName(tonumber(tgt)) or nil
+                                else
+                                    self.Target = nil
+                                    self.ChannelName = nil
+                                end
+                                self:RefreshLabel()
+                                if YapperTable.API then
+                                    YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
+                                end
+
+                                -- If OpenChat wrote the raw slash prefill into the
+                                -- overlay directly, strip it to the parsed remainder.
+                                local cur = self.OverlayEdit:GetText() or ""
+                                if cur == text then
+                                    local nextText = remainder or ""
+                                    self.OverlayEdit:SetText(nextText)
+                                    self.OverlayEdit:SetCursorPosition(#nextText)
+                                end
+                            end
+                        elseif Core.IsWhisperSlashPrefill(text) then
+                            local tgt, remainder = Core.ParseWhisperSlash(text)
+                            if tgt then
+                                self.ChatType = "WHISPER"
+                                self.Target = tgt
+                                self.ChannelName = nil
+                                self:RefreshLabel()
+                                if YapperTable.API then
+                                    YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
+                                end
+
+                                local cur = self.OverlayEdit:GetText() or ""
+                                if cur == text then
+                                    local nextText = remainder or ""
+                                    self.OverlayEdit:SetText(nextText)
+                                    self.OverlayEdit:SetCursorPosition(#nextText)
+                                end
+                            end
+                        end
+                    end
+
                     -- Overlay already shown (TRP3 case): just reclaim focus immediately
                     if self.OverlayEdit then
                         self.OverlayEdit:SetFocus()
                     end
+                    self:EnsureProxyBackgroundShown()
+                    C_Timer.After(0, function()
+                        self:EnsureProxyBackgroundShown()
+                    end)
                     self._openingWatchdog = false
                     return
                 end
@@ -772,52 +864,92 @@ function EditBox:HookAllChatFrames()
                 self._suppressOpenChatHook = true
                 local ok, result = pcall(orig, data, menuInputData, menuProxy)
                 self._suppressOpenChatHook = nil
-                _G.CHAT_FOCUS_OVERRIDE = hadOverride
 
-                -- Record the channel the menu just applied to the active editbox.
-                local active = (ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
-                    or (ChatFrameUtil.GetLastActiveWindow and ChatFrameUtil.GetLastActiveWindow())
-                    or self.OrigEditBox
-                if active and active.GetChatType then
+                -- Record/adopt the channel the menu applied to the active editbox.
+                -- Apply twice (now + next frame) to cover responders that finalize
+                -- chatType/target on deferred updates.
+                local function CaptureMenuSelection()
+                    local active = (ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
+                        or (ChatFrameUtil.GetLastActiveWindow and ChatFrameUtil.GetLastActiveWindow())
+                        or (ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow())
+                        or self.OrigEditBox
+                    if not (active and active.GetChatType) then return nil end
+
                     local ct = active:GetChatType()
-                    if ct and ct ~= "" then
-                        local tgt, chanName
-                        if ct == "WHISPER" or ct == "BN_WHISPER" then
-                            tgt = active.GetAttribute and active:GetAttribute("tellTarget")
-                        elseif ct == "CHANNEL" then
-                            tgt = active.GetAttribute and active:GetAttribute("channelTarget")
-                            chanName = tgt and ResolveChannelName(tonumber(tgt)) or nil
-                        end
-                        self._explicitChannel = {
-                            chatType    = ct,
-                            target      = tgt,
-                            channelName = chanName,
-                            t           = GetTime(),
-                        }
+                    if not (ct and ct ~= "") then return nil end
 
-                        -- If Yapper is already open, adopt the channel right away;
-                        -- the deferred Show() path only runs when opening fresh.
-                        if self.Overlay and self.Overlay:IsShown() then
-                            self._explicitChannel = nil
-                            self.ChatType    = ct
-                            self.Target      = tgt
-                            self.ChannelName = chanName
-                            self:RefreshLabel()
-                            self:EnsureProxyBackgroundShown()
-                            if YapperTable.API then
-                                YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
-                            end
-                            if self.OverlayEdit then
-                                self.OverlayEdit:SetFocus()
-                            end
-                            -- Hide the Blizzard editbox that was shown by OpenChat
-                            -- to prevent it from staying visible and accepting input
-                            if active and active.Hide and active ~= self.OrigEditBox then
-                                pcall(function() active:Hide() end)
-                            end
+                    local tgt, chanName
+                    if ct == "WHISPER" or ct == "BN_WHISPER" then
+                        tgt = active.GetAttribute and active:GetAttribute("tellTarget")
+                    elseif ct == "CHANNEL" then
+                        tgt = active.GetAttribute and active:GetAttribute("channelTarget")
+                        chanName = tgt and ResolveChannelName(tonumber(tgt)) or nil
+                    end
+
+                    return {
+                        chatType = ct,
+                        target = tgt,
+                        channelName = chanName,
+                        active = active,
+                    }
+                end
+
+                local function AdoptMenuSelection(selection)
+                    if not selection then return end
+
+                    self._explicitChannel = {
+                        chatType    = selection.chatType,
+                        target      = selection.target,
+                        channelName = selection.channelName,
+                        t           = GetTime(),
+                    }
+
+                    -- If Yapper is already open, adopt immediately while preserving text.
+                    if self.Overlay and self.Overlay:IsShown() then
+                        local ct = selection.chatType
+                        local tgt = selection.target
+                        local chanName = selection.channelName
+                        local changed = (self.ChatType ~= ct)
+                            or (self.Target ~= tgt)
+                            or (self.ChannelName ~= chanName)
+                        self._explicitChannel = nil
+                        self.ChatType    = ct
+                        self.Target      = tgt
+                        self.ChannelName = chanName
+                        self:RefreshLabel()
+                        self:UpdateFocusOverride()
+                        self:EnsureProxyBackgroundShown()
+                        if changed and YapperTable.API then
+                            YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
+                        end
+                        if selection.active and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
+                            pcall(function() ChatFrameUtil.DeactivateChat(selection.active) end)
+                        end
+                        if self.OverlayEdit and self.OverlayEdit.SetFocus then
+                            self.OverlayEdit:SetFocus()
                         end
                     end
                 end
+
+                -- Capture while override is still cleared, then restore it.
+                local immediateSelection = CaptureMenuSelection()
+                _G.CHAT_FOCUS_OVERRIDE = hadOverride
+
+                AdoptMenuSelection(immediateSelection)
+                C_Timer.After(0, function()
+                    local deferredHadOverride = _G.CHAT_FOCUS_OVERRIDE
+                    _G.CHAT_FOCUS_OVERRIDE = nil
+                    local deferredSelection = CaptureMenuSelection()
+                    _G.CHAT_FOCUS_OVERRIDE = deferredHadOverride
+
+                    AdoptMenuSelection(deferredSelection)
+                    if self.Overlay and self.Overlay:IsShown() then
+                        if self.OverlayEdit and self.OverlayEdit.SetFocus then
+                            self.OverlayEdit:SetFocus()
+                        end
+                        self:EnsureProxyBackgroundShown()
+                    end
+                end)
 
                 if not ok then return nil end
                 return result

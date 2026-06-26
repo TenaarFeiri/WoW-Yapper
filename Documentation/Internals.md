@@ -391,11 +391,11 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L481`](../Src/EditBox.lua#L481))
-  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L459`](../Src/EditBox.lua#L459))
-  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L518`](../Src/EditBox.lua#L518))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L557`](../Src/EditBox.lua#L557))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L546`](../Src/EditBox.lua#L546))
+  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L512`](../Src/EditBox.lua#L512))
+  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L490`](../Src/EditBox.lua#L490))
+  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L549`](../Src/EditBox.lua#L549))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L588`](../Src/EditBox.lua#L588))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L577`](../Src/EditBox.lua#L577))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L87`](../Src/EditBox.lua#L87))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L119`](../Src/EditBoxCompat.lua#L119))
@@ -425,18 +425,18 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L39`](`../Src/EditBox.lua#L39`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L452`](`../Src/EditBox.lua#L452`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L453`](`../Src/EditBox.lua#L453`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L454`](`../Src/EditBox.lua#L454`))
-  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L308`](`../Src/EditBox.lua#L308`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L456`](`../Src/EditBox.lua#L456`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L481`](`../Src/EditBox.lua#L481`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L482`](`../Src/EditBox.lua#L482`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L485`](`../Src/EditBox.lua#L485`))
+  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L337`](`../Src/EditBox.lua#L337`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L487`](`../Src/EditBox.lua#L487`))
 - Methods:
   - `ClearLockdownState` ([`../Src/EditBox.lua#L71`](../Src/EditBox.lua#L71))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L106`](../Src/EditBox.lua#L106))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L135`](../Src/EditBox.lua#L135))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L337`](../Src/EditBox.lua#L337))
-  - `SetOnSend` ([`../Src/EditBox.lua#L503`](../Src/EditBox.lua#L503))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L509`](../Src/EditBox.lua#L509))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L366`](../Src/EditBox.lua#L366))
+  - `SetOnSend` ([`../Src/EditBox.lua#L534`](../Src/EditBox.lua#L534))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L540`](../Src/EditBox.lua#L540))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -446,8 +446,9 @@ Attached during overlay show lifecycle.
 
 - Description: Mirrors Blizzard editbox visual skin.
 - Methods:
-  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L649`](../Src/EditBox/SkinProxy.lua#L649))
-  - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L581`](../Src/EditBox/SkinProxy.lua#L581))
+  - [NEW] `EditBox:EnsureProxyHeaderHidden() → nil`: Re-hide Blizzard header/prompt elements that UpdateHeader may re-show. ([`../Src/EditBox/SkinProxy.lua#L580`](../Src/EditBox/SkinProxy.lua#L580))
+  - `EditBox:RestoreProxyMode() → nil`: Restore the original editbox to the state we found it in. ([`../Src/EditBox/SkinProxy.lua#L669`](../Src/EditBox/SkinProxy.lua#L669))
+  - `EditBox:ApplyProxyMode() → nil`: Activate wholesale proxy mode: keep the Blizzard editbox visible underneath. ([`../Src/EditBox/SkinProxy.lua#L599`](../Src/EditBox/SkinProxy.lua#L599))
   - `AttachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L18`](`../Src/EditBox/SkinProxy.lua#L18`))
   - `TintSkinProxyTextures` ([`../Src/EditBox/SkinProxy.lua#L506`](`../Src/EditBox/SkinProxy.lua#L506`))
   - `DetachBlizzardSkinProxy` ([`../Src/EditBox/SkinProxy.lua#L541`](`../Src/EditBox/SkinProxy.lua#L541`))
@@ -460,7 +461,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
 - Methods:
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L407`](../Src/EditBox/Overlay.lua#L407)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L405`](../Src/EditBox/Overlay.lua#L405)).
 
 ## EditBox.Handlers
 
@@ -498,7 +499,8 @@ Channel label and tab cycling.
 - Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
-  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L215`](../Src/Hooks/Label.lua#L215))
+  - [NEW] `EditBox:SyncAttributesToBlizzard() → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's ([`../Src/Hooks/Label.lua#L223`](../Src/Hooks/Label.lua#L223))
+  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L276`](../Src/Hooks/Label.lua#L276))
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.
@@ -530,6 +532,7 @@ Blizzard editbox hooks (taint-free).
 - Description: HookBlizzardEditBox(), HookAllChatFrames(), all secure hooks.
 - File: [`../Src/Hooks/Blizzard.lua`](../Src/Hooks/Blizzard.lua)
 - Methods:
+  - [NEW] `EditBox:EnsureProxyBackgroundShown() → nil`: In proxy mode the native editbox is the visible background. A channel link ([`../Src/Hooks/Blizzard.lua#L85`](../Src/Hooks/Blizzard.lua#L85))
   - `EditBox:HookBlizzardEditBox(blizzEditBox)` - Hook a single Blizzard editbox.
   - `EditBox:HookAllChatFrames()` - Hook all NUM_CHAT_WINDOWS editboxes.
 - Filters run:

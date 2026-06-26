@@ -22,6 +22,13 @@ local tonumber   = tonumber
 local math_max   = math.max
 local math_min   = math.min
 
+local function FireAPIEvent(event, ...)
+    local api = YapperTable and YapperTable.API
+    if type(api) == "table" and type(api.Fire) == "function" then
+        api:Fire(event, ...)
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- Positioning
 -- ---------------------------------------------------------------------------
@@ -283,6 +290,7 @@ function EditBox:Show(origEditBox)
     -- UI scaling, chat-frame addons).
     local overlay = self.Overlay
     local cfg = YapperTable.Config.EditBox or {}
+    local wasShown = overlay:IsShown()
     local origWidth  = origEditBox:GetWidth() or 32
     local origHeight = origEditBox:GetHeight() or 32
 
@@ -427,9 +435,9 @@ function EditBox:Show(origEditBox)
     -- Set the text: restore a draft if found, otherwise clear the box
     -- ONLY if we are coming from a hidden state. This prevents wipes
     -- when refocusing an already-visible overlay.
-    if not overlay:IsShown() then
+    if not wasShown then
         self.OverlayEdit:SetText(finalText)
-    elseif draftText then
+    elseif draftText and existingText == "" then
         self.OverlayEdit:SetText(finalText)
     end
 
@@ -460,10 +468,16 @@ function EditBox:Show(origEditBox)
 
     -- Focus the overlay. If an external addon (e.g. Chattynator) aggressively
     -- steals focus back via DeactivateChat hooks, reclaim it on the next frame.
-    self.OverlayEdit:SetFocus()
+    if self.OverlayEdit and type(self.OverlayEdit.SetFocus) == "function" then
+        self.OverlayEdit:SetFocus()
+    end
     C_Timer.After(0, function()
-        if self.Overlay and self.Overlay:IsShown() and not self.OverlayEdit:HasFocus() then
-            self.OverlayEdit:SetFocus()
+        if self.Overlay and self.Overlay:IsShown()
+            and self.OverlayEdit and type(self.OverlayEdit.HasFocus) == "function"
+            and not self.OverlayEdit:HasFocus() then
+            if type(self.OverlayEdit.SetFocus) == "function" then
+                self.OverlayEdit:SetFocus()
+            end
         end
     end)
 
@@ -472,9 +486,7 @@ function EditBox:Show(origEditBox)
     end
 
     -- API callback: notify external addons that editbox is shown.
-    if YapperTable.API then
-        YapperTable.API:Fire("EDITBOX_SHOW", self.ChatType, self.Target)
-    end
+    FireAPIEvent("EDITBOX_SHOW", self.ChatType, self.Target)
 end
 
 function EditBox:Hide(isHandoff)
@@ -520,31 +532,36 @@ function EditBox:Hide(isHandoff)
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
     local trimmed = text:match("^%s*(.-)%s*$") or ""
 
-    if not self._closedClean and trimmed ~= "" and YapperTable.History then
-        YapperTable.History:SaveDraft(self.OverlayEdit)
-        YapperTable.History:MarkDirty(true)
+    local history = YapperTable and YapperTable.History
+    if not self._closedClean and trimmed ~= ""
+        and type(history) == "table"
+        and type(history.SaveDraft) == "function"
+        and type(history.MarkDirty) == "function" then
+        history:SaveDraft(self.OverlayEdit)
+        history:MarkDirty(true)
     end
 
     -- Clear lockdown draft flag on clean close.
-    if self._closedClean then
+    if self._closedClean and type(self._lockdown) == "table" then
         self._lockdown.savedDraft = nil
     end
 
     self._closedClean = false
 
     -- If we're in handoff mode, restore the draft to Blizzard's editbox.
-    if isHandoff and prevOrig and prevOrig.SetText then
-        local draft = YapperTable.History and YapperTable.History:LoadDraft() or ""
+    if isHandoff and prevOrig and type(prevOrig.SetText) == "function" then
+        local draft = ""
+        if type(history) == "table" and type(history.LoadDraft) == "function" then
+            draft = history:LoadDraft() or ""
+        end
         prevOrig:SetText(draft)
-        if prevOrig.SetFocus then
+        if type(prevOrig.SetFocus) == "function" then
             prevOrig:SetFocus()
         end
     end
 
     -- EDITBOX_HIDE callback: notify external addons.
-    if YapperTable.API then
-        YapperTable.API:Fire("EDITBOX_HIDE")
-    end
+    FireAPIEvent("EDITBOX_HIDE")
 end
 
 --- Save draft, close overlay, and notify during lockdown.
@@ -571,15 +588,21 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
 
     -- Save as dirty draft for recovery on next open.
     -- Skip if isMultiline=true (draft already saved by Multiline:Exit with full multiline text).
-    if text ~= "" and YapperTable.History and not isMultiline then
-        YapperTable.History:SaveDraft(self.OverlayEdit)
-        YapperTable.History:MarkDirty(true)
+    local history = YapperTable and YapperTable.History
+    local lockdown = type(self._lockdown) == "table" and self._lockdown or nil
+    if text ~= "" and type(history) == "table" and not isMultiline
+        and type(history.SaveDraft) == "function"
+        and type(history.MarkDirty) == "function" then
+        history:SaveDraft(self.OverlayEdit)
+        history:MarkDirty(true)
         -- Mark that this draft was saved due to lockdown so callers
         -- can decide whether to restore it to Blizzard's editbox.
-        self._lockdown.savedDraft = true
-    elseif isMultiline then
+        if lockdown then
+            lockdown.savedDraft = true
+        end
+    elseif isMultiline and lockdown then
         -- Draft was already saved by multiline mode. Just mark it as a lockdown draft.
-        self._lockdown.savedDraft = true
+        lockdown.savedDraft = true
     end
 
     -- OnHide won't double-save because _closedClean is true.
@@ -597,12 +620,15 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
     end
 
     -- Optionally restore the draft to Blizzard's editbox immediately.
-    if not bypassOpen and self.OrigEditBox and self.OrigEditBox.SetText then
-        local draft = YapperTable.History and YapperTable.History:LoadDraft() or ""
+    if not bypassOpen and self.OrigEditBox and type(self.OrigEditBox.SetText) == "function" then
+        local draft = ""
+        if type(history) == "table" and type(history.LoadDraft) == "function" then
+            draft = history:LoadDraft() or ""
+        end
         self.OrigEditBox:SetText(draft)
         C_Timer.After(0, function()
             local eb = self.OrigEditBox
-            if eb and eb.SetFocus then eb:SetFocus() end
+            if eb and type(eb.SetFocus) == "function" then eb:SetFocus() end
         end)
     end
 end
@@ -647,12 +673,6 @@ function EditBox:ApplyConfigToLiveOverlay(force)
                 self.ChannelLabel:SetFontObject(fontObj)
             end
         end
-    end
-
-    -- Fill colour
-    local fill = cfg.FillColour
-    if fill and type(fill) == "table" then
-        self.OverlayEdit:SetTextColor(fill.r, fill.g, fill.b, fill.a or 1)
     end
 
     -- Border

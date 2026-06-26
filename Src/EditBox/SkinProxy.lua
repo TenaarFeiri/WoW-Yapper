@@ -575,6 +575,24 @@ end
 --- Hidden by ApplyProxyMode so our own ChannelLabel is the only visible prefix.
 local PROXY_HIDE_KEYS = { "header", "headerSuffix", "prompt", "NewcomerHint", "languageHeader" }
 
+--- Re-hide Blizzard header/prompt elements that UpdateHeader may re-show.
+--- Safe to call repeatedly while proxy mode is active.
+function EditBox:EnsureProxyHeaderHidden(origEditBox)
+    local cfg = YapperTable.Config and YapperTable.Config.EditBox
+    local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+    if not isProxy then return end
+
+    local eb = origEditBox or self._proxyOrigEditBox or self.OrigEditBox
+    if not eb then return end
+
+    for _, key in ipairs(PROXY_HIDE_KEYS) do
+        local part = eb[key]
+        if part and part.IsShown and part:IsShown() then
+            pcall(function() part:Hide() end)
+        end
+    end
+end
+
 --- Activate proxy mode: keep the Blizzard editbox visible underneath.
 --- Saves the editbox's pre-state on self._proxyPrevState so RestoreProxyMode
 --- can put it back when Yapper closes.

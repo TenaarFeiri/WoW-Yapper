@@ -200,11 +200,6 @@ function EditBox:RefreshLabel()
         self.OverlayEdit:SetTextColor(resolvedR, resolvedG, resolvedB, 1)
     end
 
-    -- Update fill colour if configured
-    if cfg.FillColour and type(cfg.FillColour) == "table" then
-        self.OverlayEdit:SetTextColor(cfg.FillColour.r, cfg.FillColour.g, cfg.FillColour.b, cfg.FillColour.a or 1)
-    end
-
     -- Fire label updated callback
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_LABEL_UPDATED", label, resolvedR, resolvedG, resolvedB)

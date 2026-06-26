@@ -11,7 +11,13 @@ The Blizzard editbox background underneath Yapper now stays visible and stable i
 
 When you change channels via slash commands (like `/e `) while Yapper is open, the Blizzard editbox's visual state now updates immediately instead of only after closing/reopening.
 
-**Known issue:** When changing channels via the speech bubble menu while Yapper is open in proxy mode, the Blizzard editbox may briefly show text underneath. This may fight with Yapper. It's being tracked.
+## Bugfixes
+- Fixed issue where text could be wiped by clicking on channels in the chat while writing.
+- Fixed stall that occurred when opening Yapper from the speech bubble menu.
+- Fixed BNet colour being overridden by legacy code.
+- Fixed issue where text could vertically offset on large monitor (technically implemented earlier but documented here, go figure)
+
+**Known issues:** ???
 
 # NEW IN 2.2.0
 ## IM mode got a serious overhaul
