@@ -16,6 +16,7 @@ When you change channels via slash commands (like `/e `) while Yapper is open, t
 - Fixed stall that occurred when opening Yapper from the speech bubble menu.
 - Fixed BNet colour being overridden by legacy code.
 - Fixed issue where text could vertically offset on large monitor (technically implemented earlier but documented here, go figure)
+- Fixed defect in deferred focus logic which would trigger an error when using self: too late in the lifecycle.
 
 **Known issues:** ???
 

@@ -471,22 +471,28 @@ function EditBox:Show(origEditBox)
     if self.OverlayEdit and type(self.OverlayEdit.SetFocus) == "function" then
         self.OverlayEdit:SetFocus()
     end
-    C_Timer.After(0, function()
-        if self.Overlay and self.Overlay:IsShown()
-            and self.OverlayEdit and type(self.OverlayEdit.HasFocus) == "function"
-            and not self.OverlayEdit:HasFocus() then
-            if type(self.OverlayEdit.SetFocus) == "function" then
-                self.OverlayEdit:SetFocus()
-            end
-        end
-    end)
-
     if State and not State:IsMultiline() then
         YapperAPI:SetState("EDITING")
     end
 
     -- API callback: notify external addons that editbox is shown.
     FireAPIEvent("EDITBOX_SHOW", self.ChatType, self.Target)
+
+    local overlay = self.Overlay
+    local overlayEdit = self.OverlayEdit
+    local after = C_Timer and C_Timer.After
+    if after then
+        after(0, function()
+            if overlay and overlay:IsShown()
+                and overlayEdit and type(overlayEdit.HasFocus) == "function"
+                and not overlayEdit:HasFocus() then
+                if type(overlayEdit.SetFocus) == "function" then
+                    overlayEdit:SetFocus()
+                end
+            end
+        end)
+    end
+
 end
 
 function EditBox:Hide(isHandoff)
