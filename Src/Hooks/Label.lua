@@ -11,6 +11,7 @@ local Utils = YapperTable.Utils
 -- Note: Hooks/Label.lua loads before Interface.lua, so use full path for Interface
 local Core = YapperTable.EditBoxHooksCore
 local CHATTYPE_TO_OVERRIDE_KEY = Core.CHATTYPE_TO_OVERRIDE_KEY
+local GROUP_CHAT_TYPES = Core.GROUP_CHAT_TYPES
 local BuildLabelText = Core.BuildLabelText
 local GetLabelUsableWidth = Core.GetLabelUsableWidth
 local ResetLabelToBaseFont = Core.ResetLabelToBaseFont
@@ -26,6 +27,13 @@ local tonumber   = tonumber
 local math_abs   = math.abs
 local string     = string
 
+local function IsUnambiguousBnetTarget(target)
+    if not target then return false end
+    local text = tostring(target)
+    if text == "" then return false end
+    return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
+end
+
 -- ---------------------------------------------------------------------------
 -- Label
 -- ---------------------------------------------------------------------------
@@ -40,6 +48,7 @@ function EditBox:RefreshLabel()
     local effectiveType = self.ChatType
     local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
     if currentKey == "WHISPER" and self.Target and YapperTable.Router
+        and IsUnambiguousBnetTarget(self.Target)
         and type(YapperTable.Router.ResolveBnetTarget) == "function" then
         local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(self.Target)
         if presenceID or bnetAccountID then
@@ -272,6 +281,51 @@ function EditBox:SyncAttributesToBlizzard()
     end
 end
 
+--- Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral
+--- sticky state when Yapper closes.
+---
+--- Why this is needed: GetChatType()/GetTellTarget() read directly from the
+--- "chatType"/"tellTarget" secure attributes, which SyncAttributesToBlizzard
+--- writes for colour parity while Yapper is open. In *classic* chatStyle,
+--- Blizzard's ChatFrameEditBoxMixin:Deactivate() merely Hide()s the editbox and
+--- skips ResetChatTypeToSticky (only the "im" branch resets). In proxy mode the
+--- editbox stays live as the visible background, so a whisper context Yapper
+--- pushed into it bleeds into the next open. Mirror Blizzard's own
+--- ResetChatTypeToSticky so the proxy frame returns to its sticky type.
+---
+--- Dedicated whisper windows are unaffected: their stickyType is WHISPER and the
+--- tellTarget is restored from chatFrame.chatTarget on the next activate.
+function EditBox:ResetSyncedAttributes()
+    local blizzEditBox = self.OrigEditBox
+    if not (blizzEditBox and blizzEditBox.SetAttribute and blizzEditBox.GetAttribute) then
+        return
+    end
+    if blizzEditBox == self.OverlayEdit then return end
+
+    local sticky = blizzEditBox:GetAttribute("stickyType") or "SAY"
+
+    -- Guard against our own SetAttribute hook looping / mirroring to LastUsed.
+    self._syncingAttributes = true
+    blizzEditBox:SetAttribute("chatType", sticky)
+    if sticky ~= "WHISPER" and sticky ~= "BN_WHISPER" then
+        blizzEditBox:SetAttribute("tellTarget", nil)
+    end
+    if sticky ~= "CHANNEL" then
+        blizzEditBox:SetAttribute("channelTarget", nil)
+    end
+    self._syncingAttributes = nil
+
+    -- Keep our attribute cache consistent with the reset state so the next
+    -- Show() doesn't read a stale whisper target from it.
+    if self._attrCache then
+        self._attrCache[blizzEditBox] = {}
+    end
+
+    if blizzEditBox.UpdateHeader then
+        pcall(function() blizzEditBox:UpdateHeader() end)
+    end
+end
+
 --- Returns the subset of _TAB_CYCLE entries currently available to the player.
 function EditBox:GetAvailableChatTypes()
     local result = {}
@@ -370,12 +424,49 @@ end
 
 --- Save selection for stickiness across show/hide.
 function EditBox:PersistLastUsed()
-    if self.ChatType and self.ChatType ~= "" then
-        self.LastUsed = {
-            chatType = self.ChatType,
-            target   = self.Target,
-            language = self.Language,
-        }
+    local ct = self.ChatType
+
+    local function NormaliseWhisperTarget(v)
+        if v == nil then return nil end
+        local s = tostring(v)
+        if s == "" then return nil end
+        -- Compare by canonical base name so first-use renormalisation
+        -- (e.g. "Name" -> "Name-Realm") still matches the same whisper.
+        return s:gsub("%-.*$", ""):lower()
+    end
+
+    -- An externally-initiated whisper (right-click a unit frame → Whisper while
+    -- Yapper is open) is transient: it must not become the global sticky and
+    -- bleed onto non-whisper tabs. Skip the LastUsed overwrite while the active
+    -- selection is still that untouched external whisper. The whisper itself is
+    -- unaffected (this only governs persistence). If the user changes target or
+    -- channel, the comparison no longer matches and normal persistence resumes.
+    if self._externalWhisperTarget
+        and (ct == "WHISPER" or ct == "BN_WHISPER")
+        and NormaliseWhisperTarget(self.Target) == NormaliseWhisperTarget(self._externalWhisperTarget) then
+        self:RecordTabChannel()
+        return
+    end
+
+    if ct and ct ~= "" then
+        local policy = YapperTable.ChannelPolicy
+        if policy and type(policy.BuildPersistedLastUsed) == "function" then
+            local resolved = policy:BuildPersistedLastUsed({
+                chatType = ct,
+                target = self.Target,
+                language = self.Language,
+            }, self.LastUsed, YapperTable.Config and YapperTable.Config.EditBox, GROUP_CHAT_TYPES)
+            if resolved then
+                self.LastUsed = resolved
+            end
+        else
+            -- Safe fallback mirrors existing sticky semantics.
+            self.LastUsed = {
+                chatType = ct,
+                target   = self.Target,
+                language = self.Language,
+            }
+        end
     end
 
     -- Session-only per-tab channel memory (non-whisper tabs).

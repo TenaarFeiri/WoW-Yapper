@@ -196,6 +196,13 @@ function History:SaveDraft(editBox, isMultiline)
     if not editBox then return end
     local text = editBox:GetText() or ""
 
+    local function NormaliseWhisperTarget(v)
+        if v == nil then return nil end
+        local s = tostring(v)
+        if s == "" then return nil end
+        return s:gsub("%-.*$", ""):lower()
+    end
+
     -- Bail if empty or just whitespace. We don't want a "zombie" spacebar
     -- click to overwrite a previously saved multi-sentence draft.
     local trimmed = text:match("^%s*(.-)%s*$") or ""
@@ -210,8 +217,21 @@ function History:SaveDraft(editBox, isMultiline)
         draft.target    = ml and ml.Target
         draft.multiline = true
     else
-        draft.chatType  = YapperTable.EditBox and YapperTable.EditBox.ChatType
-        draft.target    = YapperTable.EditBox and YapperTable.EditBox.Target
+        local eb = YapperTable.EditBox
+        local ct = eb and eb.ChatType
+        local tgt = eb and eb.Target
+        -- Don't bind a draft to a transient external whisper (unit-frame
+        -- right-click). Persisting the whisper chatType/target would re-open on
+        -- that whisper once on the next show, bleeding the target. Keep the typed
+        -- text but let the channel resolve normally.
+        if eb and eb._externalWhisperTarget
+            and (ct == "WHISPER" or ct == "BN_WHISPER")
+            and NormaliseWhisperTarget(tgt) == NormaliseWhisperTarget(eb._externalWhisperTarget) then
+            ct = nil
+            tgt = nil
+        end
+        draft.chatType  = ct
+        draft.target    = tgt
         draft.multiline = false
     end
     draft.dirty = true

@@ -391,11 +391,12 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L512`](../Src/EditBox.lua#L512))
-  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L490`](../Src/EditBox.lua#L490))
-  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L549`](../Src/EditBox.lua#L549))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L588`](../Src/EditBox.lua#L588))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L577`](../Src/EditBox.lua#L577))
+  - [NEW] `EditBox:ApplyProgrammaticPrefill(text, box) → nil`: Apply text prefill to the overlay editbox and mirror any UX side-effects ([`../Src/EditBox.lua#L563`](../Src/EditBox.lua#L563))
+  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L533`](../Src/EditBox.lua#L533))
+  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L511`](../Src/EditBox.lua#L511))
+  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L589`](../Src/EditBox.lua#L589))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L628`](../Src/EditBox.lua#L628))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L617`](../Src/EditBox.lua#L617))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L87`](../Src/EditBox.lua#L87))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L119`](../Src/EditBoxCompat.lua#L119))
@@ -425,18 +426,18 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L39`](`../Src/EditBox.lua#L39`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L481`](`../Src/EditBox.lua#L481`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L482`](`../Src/EditBox.lua#L482`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L485`](`../Src/EditBox.lua#L485`))
-  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L337`](`../Src/EditBox.lua#L337`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L487`](`../Src/EditBox.lua#L487`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L502`](`../Src/EditBox.lua#L502`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L503`](`../Src/EditBox.lua#L503`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L506`](`../Src/EditBox.lua#L506`))
+  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L350`](`../Src/EditBox.lua#L350`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L508`](`../Src/EditBox.lua#L508`))
 - Methods:
   - `ClearLockdownState` ([`../Src/EditBox.lua#L71`](../Src/EditBox.lua#L71))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L106`](../Src/EditBox.lua#L106))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L135`](../Src/EditBox.lua#L135))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L366`](../Src/EditBox.lua#L366))
-  - `SetOnSend` ([`../Src/EditBox.lua#L534`](../Src/EditBox.lua#L534))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L540`](../Src/EditBox.lua#L540))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L387`](../Src/EditBox.lua#L387))
+  - `SetOnSend` ([`../Src/EditBox.lua#L555`](../Src/EditBox.lua#L555))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L580`](../Src/EditBox.lua#L580))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -499,8 +500,9 @@ Channel label and tab cycling.
 - Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
-  - [NEW] `EditBox:SyncAttributesToBlizzard() → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's ([`../Src/Hooks/Label.lua#L223`](../Src/Hooks/Label.lua#L223))
-  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L276`](../Src/Hooks/Label.lua#L276))
+  - [NEW] `EditBox:ResetSyncedAttributes() → nil`: Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral ([`../Src/Hooks/Label.lua#L298`](../Src/Hooks/Label.lua#L298))
+  - [NEW] `EditBox:SyncAttributesToBlizzard() → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's ([`../Src/Hooks/Label.lua#L232`](../Src/Hooks/Label.lua#L232))
+  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L330`](../Src/Hooks/Label.lua#L330))
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.
@@ -742,19 +744,19 @@ Initialised on `ADDON_LOADED`; hooks overlay on `PLAYER_ENTERING_WORLD`.
 - Description: Persistent chat history, draft store, undo/redo snapshots.
 - Methods:
   - `History:SaveDraft(editBox, isMultiline) → nil`: Save a draft from any EditBox (overlay or multiline). ([`../Src/History.lua#L195`](../Src/History.lua#L195))
-  - `History:GetDraft() → string? text, string? chatType, string? target, boolean? multiline`: Return the saved draft if dirty. ([`../Src/History.lua#L225`](../Src/History.lua#L225))
+  - `History:GetDraft() → string? text, string? chatType, string? target, boolean? multiline`: Return the saved draft if dirty. ([`../Src/History.lua#L245`](../Src/History.lua#L245))
   - `InitDB` ([`../Src/History.lua#L72`](`../Src/History.lua#L72`))
   - `SaveDB` ([`../Src/History.lua#L113`](`../Src/History.lua#L113`))
   - `AddChatHistory` ([`../Src/History.lua#L134`](`../Src/History.lua#L134`))
   - `GetChatHistory` ([`../Src/History.lua#L171`](`../Src/History.lua#L171`))
   - `GetDraftStore` ([`../Src/History.lua#L182`](`../Src/History.lua#L182`))
-  - `MarkDirty` ([`../Src/History.lua#L234`](`../Src/History.lua#L234`))
-  - `ClearDraft` ([`../Src/History.lua#L239`](`../Src/History.lua#L239`))
-  - `CancelPauseTimer` ([`../Src/History.lua#L259`](`../Src/History.lua#L259`))
-  - `AddSnapshot` ([`../Src/History.lua#L289`](`../Src/History.lua#L289`))
-  - `Undo` ([`../Src/History.lua#L333`](`../Src/History.lua#L333`))
-  - `Redo` ([`../Src/History.lua#L349`](`../Src/History.lua#L349`))
-  - `HookOverlayEditBox` ([`../Src/History.lua#L377`](`../Src/History.lua#L377`))
+  - `MarkDirty` ([`../Src/History.lua#L254`](`../Src/History.lua#L254`))
+  - `ClearDraft` ([`../Src/History.lua#L259`](`../Src/History.lua#L259`))
+  - `CancelPauseTimer` ([`../Src/History.lua#L279`](`../Src/History.lua#L279`))
+  - `AddSnapshot` ([`../Src/History.lua#L309`](`../Src/History.lua#L309`))
+  - `Undo` ([`../Src/History.lua#L353`](`../Src/History.lua#L353`))
+  - `Redo` ([`../Src/History.lua#L369`](`../Src/History.lua#L369`))
+  - `HookOverlayEditBox` ([`../Src/History.lua#L397`](`../Src/History.lua#L397`))
 - Global state touched:
   - `_G.YapperLocalHistory`.
 

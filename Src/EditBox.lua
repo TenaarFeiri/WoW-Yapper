@@ -310,13 +310,26 @@ local function GetLastTellTargetInfo()
         return nil, nil
     end
 
+    local function IsUnambiguousBnetTarget(target)
+        if not target then return false end
+        local text = tostring(target)
+        if text == "" then return false end
+        -- Only auto-upgrade to BN when the identifier is clearly BN-specific.
+        -- Character names can overlap BN friends' active toons and must remain WHISPER.
+        return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
+    end
+
     if lastType ~= "BN_WHISPER" then
-        -- If the last tell is actually a BNet friend, switch to BN_WHISPER.
-        if not YapperTable.Router then YapperTable.Error:Throw("MISSING_ROUTER") end
-        local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTell)
-        if bnetAccountID or presenceID then
-            lastType = "BN_WHISPER"
-            lastTell = bnetAccountID or presenceID
+        -- Only auto-detect BN when the source token is explicit BN syntax.
+        if IsUnambiguousBnetTarget(lastTell) then
+            if not YapperTable.Router then YapperTable.Error:Throw("MISSING_ROUTER") end
+            local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTell)
+            if bnetAccountID or presenceID then
+                lastType = "BN_WHISPER"
+                lastTell = bnetAccountID or presenceID
+            else
+                lastType = "WHISPER"
+            end
         else
             lastType = "WHISPER"
         end
@@ -343,9 +356,17 @@ local function GetLastToldTargetInfo()
         return nil, nil
     end
 
+    local function IsUnambiguousBnetTarget(target)
+        if not target then return false end
+        local text = tostring(target)
+        if text == "" then return false end
+        return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
+    end
+
     if lastType ~= "BN_WHISPER" then
         -- Verify BNet status, same as GetLastTellTargetInfo.
-        if YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetTarget then
+        if IsUnambiguousBnetTarget(lastTold)
+            and YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetTarget then
             local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTold)
             if bnetAccountID or presenceID then
                 lastType = "BN_WHISPER"
@@ -533,6 +554,25 @@ end
 
 function EditBox:SetOnSend(fn)
     self.OnSend = fn
+end
+
+--- Apply text prefill to the overlay editbox and mirror any UX side-effects
+--- that are normally driven by user input handlers.
+---@param text string
+---@param box EditBox|nil Optional target box; defaults to OverlayEdit.
+function EditBox:ApplyProgrammaticPrefill(text, box)
+    local targetBox = box or self.OverlayEdit
+    if not targetBox or type(targetBox.SetText) ~= "function" then
+        return
+    end
+
+    targetBox:SetText(text or "")
+
+    -- Programmatic SetText does not mark input as user-typed, so
+    -- Handlers.lua OnTextChanged slash UX won't run. Mirror the slash hint.
+    if text == "/" and YapperTable.Emotes and type(YapperTable.Emotes.ShowHint) == "function" then
+        YapperTable.Emotes:ShowHint(targetBox)
+    end
 end
 
 --- If fn(blizzEditBox) returns true, the overlay is suppressed.

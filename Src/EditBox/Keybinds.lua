@@ -32,6 +32,14 @@ local function LogVerbose(msg)
     YapperTable.Utils:VerbosePrint(msg)
 end
 
+local function IsNativeChatEditBox(eb)
+    if not eb or eb == EditBox.OverlayEdit or not eb.GetName then
+        return false
+    end
+    local name = eb:GetName()
+    return type(name) == "string" and name:match("^ChatFrame%d+EditBox$") ~= nil
+end
+
 -- ---------------------------------------------------------------------------
 -- Secure Button Creation
 -- ---------------------------------------------------------------------------
@@ -178,10 +186,17 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
     end
 
-    -- Prefer the last active window's editbox so undocked windows work correctly
-    -- in both IM and Classic mode. Fall back to DEFAULT_CHAT_FRAME.editBox.
-    local targetEditBox = EditBox._lastActiveIMEditBox
-        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+    -- Prefer the currently active native chat editbox first; IM history can lag
+    -- behind during whisper retarget/close sequences and reopen stale contexts.
+    local activeWindow = (ChatFrameUtil and ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
+        or (ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow())
+    local targetEditBox = IsNativeChatEditBox(activeWindow) and activeWindow or nil
+    if not targetEditBox and IsNativeChatEditBox(EditBox._lastActiveIMEditBox) then
+        targetEditBox = EditBox._lastActiveIMEditBox
+    end
+    if not targetEditBox then
+        targetEditBox = (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox
+    end
 
     Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
     local ok, err = pcall(function()
@@ -195,7 +210,11 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     
     -- Pre-fill text if specified (applied immediately; Show() has already run)
     if prefillText and EditBox.OverlayEdit then
-        EditBox.OverlayEdit:SetText(prefillText)
+        if type(EditBox.ApplyProgrammaticPrefill) == "function" then
+            EditBox:ApplyProgrammaticPrefill(prefillText, EditBox.OverlayEdit)
+        else
+            EditBox.OverlayEdit:SetText(prefillText)
+        end
     end
 
     -- Transfer any keystrokes captured by the focus trap before overlay was ready

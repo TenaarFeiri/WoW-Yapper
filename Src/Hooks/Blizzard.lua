@@ -275,6 +275,20 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 local ch = c.channelTarget
 
                 if (ct == "WHISPER" or ct == "BN_WHISPER") and tt and tt ~= "" then
+                    -- If an external-whisper episode is active and Blizzard
+                    -- renormalised the target here (e.g. a cross-realm whisper
+                    -- where "Char" becomes "Char-Realm"), keep the marker in sync
+                    -- so the persistence/draft gates still treat it as transient.
+                    -- Match by base name only, so a deliberate mid-open /w to a
+                    -- different person still persists normally.
+                    local ext = self._externalWhisperTarget
+                    if ext then
+                        local extBase = tostring(ext):gsub("%-.*$", ""):lower()
+                        local ttBase  = tostring(tt):gsub("%-.*$", ""):lower()
+                        if extBase == ttBase then
+                            self._externalWhisperTarget = tt
+                        end
+                    end
                     self.ChatType = ct
                     self.Target   = tt
                     self:RefreshLabel()
@@ -506,6 +520,17 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     end
                     if cfTarget and cfTarget ~= "" then
                         self.Target = cfTarget
+                        if self.ChatType == "CHANNEL" then
+                            self.ChannelName = ResolveChannelName(tonumber(cfTarget))
+                        end
+                    elseif self.ChatType ~= "WHISPER"
+                        and self.ChatType ~= "BN_WHISPER"
+                        and self.ChatType ~= "CHANNEL" then
+                        -- Switching from a whisper/channel tab to a non-target
+                        -- tab (e.g. General/SAY) must clear stale targets,
+                        -- otherwise PersistLastUsed can cling to old whispers.
+                        self.Target = nil
+                        self.ChannelName = nil
                     end
                 end
                 self:RefreshLabel()
@@ -1028,14 +1053,76 @@ function EditBox:HookAllChatFrames()
                 return
             end
 
+            local function IsNativeChatEditBox(eb)
+                if not eb or eb == self.OverlayEdit or not eb.GetName then
+                    return false
+                end
+                local name = eb:GetName()
+                return type(name) == "string" and name:match("^ChatFrame%d+EditBox$") ~= nil
+            end
+
             local blizzBox = chatFrame and chatFrame.editBox
-            if not blizzBox then
+            if not IsNativeChatEditBox(blizzBox) then
                 blizzBox = ChatEdit_GetActiveWindow()
+            end
+            if not IsNativeChatEditBox(blizzBox) then
+                local fallback = self.OrigEditBox
+                    or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                    or _G.ChatFrame1EditBox
+                if IsNativeChatEditBox(fallback) then
+                    blizzBox = fallback
+                else
+                    blizzBox = nil
+                end
+            end
+
+            -- If Yapper is already open, retarget in-place and avoid reopening
+            -- Blizzard's editbox path (prevents SendTell reentrancy races).
+            if self.Overlay and self.Overlay:IsShown() then
+                local overlayText = (self.OverlayEdit and self.OverlayEdit.GetText and self.OverlayEdit:GetText()) or ""
+
+                if IsNativeChatEditBox(blizzBox) then
+                    self:_IMPushActive(blizzBox)
+                    if blizzBox ~= self.OrigEditBox then
+                        -- In Classic+IM tab mode, SendTell can fire before the
+                        -- destination editbox has stable geometry/ownership.
+                        -- Re-anchoring here risks snapping the visible input to
+                        -- an unintended host. Retarget in-place and let normal
+                        -- tab/show hooks perform the swap when stable.
+                        local chatStyle = GetCVar and GetCVar("chatStyle")
+                        if chatStyle ~= "im" then
+                            -- Reuse Show()'s existing tab/proxy swap path to keep
+                            -- editbox ownership transitions consistent.
+                            self:Show(blizzBox)
+                        end
+                    end
+                end
+
+                self.ChatType = "WHISPER"
+                self.Target = target
+                self.ChannelName = nil
+                -- Mark this as an externally-initiated (transient) whisper so it
+                -- does not overwrite the global LastUsed sticky and bleed onto
+                -- non-whisper tabs (e.g. General) when reopened.
+                self._externalWhisperTarget = target
+                self:RefreshLabel()
+
+                if overlayText ~= "" and self.OverlayEdit and self.OverlayEdit.SetText then
+                    self.OverlayEdit:SetText(overlayText)
+                    self.OverlayEdit:SetCursorPosition(#overlayText)
+                end
+
+                if self.OverlayEdit and self.OverlayEdit.SetFocus then
+                    self.OverlayEdit:SetFocus()
+                end
+                self:EnsureProxyBackgroundShown()
+                self._openingWatchdog = false
+                return
             end
 
             -- Capture any text already typed (user was fast)
             local existingText = ""
-            if blizzBox then
+            if IsNativeChatEditBox(blizzBox) then
                 existingText = blizzBox:GetText() or ""
             end
 
@@ -1043,7 +1130,7 @@ function EditBox:HookAllChatFrames()
             -- Hide() triggers Deactivate → ResetChatTypeToSticky → SetChatType("SAY"),
             -- which overwrites the _attrCache whisper info that Show() depends on.
             local savedCache
-            if blizzBox then
+            if IsNativeChatEditBox(blizzBox) then
                 savedCache = self._attrCache[blizzBox]
                 -- Deep-copy so the SetAttribute hook doesn't corrupt our snapshot
                 if savedCache then
@@ -1053,24 +1140,28 @@ function EditBox:HookAllChatFrames()
             end
 
             -- Close Blizzard's editbox so proxy mode can re-show it cleanly.
-            if blizzBox then
+            if IsNativeChatEditBox(blizzBox) then
                 blizzBox:Hide()
                 blizzBox:SetText("")
             end
 
             -- Restore the cache that Hide()/Deactivate poisoned.
-            if blizzBox and savedCache then
+            if IsNativeChatEditBox(blizzBox) and savedCache then
                 self._attrCache[blizzBox] = savedCache
             end
 
             -- Show Yapper — Show() reads _attrCache and picks up the whisper context
             -- set by Blizzard's ParseText (SetAttribute "chatType"/"tellTarget").
-            self:Show(blizzBox)
+            self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
 
             -- Force whisper context AFTER Show() as the final authority,
             -- in case the cache was stale or overwritten by a race.
             self.ChatType = "WHISPER"
             self.Target = target
+            -- Mark this as an externally-initiated (transient) whisper so it
+            -- does not overwrite the global LastUsed sticky and bleed onto
+            -- non-whisper tabs (e.g. General) when reopened.
+            self._externalWhisperTarget = target
 
             if existingText ~= "" and self.OverlayEdit and self.OverlayEdit.SetText then
                 self.OverlayEdit:SetText(existingText)
@@ -1187,7 +1278,7 @@ function EditBox:HookAllChatFrames()
             local cfTarget = chatFrame.chatTarget
             YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..tostring(cfType).." chatTarget="..tostring(cfTarget))
 
-            if cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
+            if chatFrame.isTemporary and cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
                 and cfTarget and cfTarget ~= "" then
                 -- Whisper tab: restore from Blizzard's chatTarget.
                 ApplyOrStashSwitch(chatFrame, {

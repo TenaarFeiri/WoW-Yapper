@@ -204,6 +204,50 @@ function EditBox:Show(origEditBox)
             and blizzTell and blizzTell ~= "")
         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
+    local frameChatType, frameChatTarget, frameChannelName
+    if origEditBox then
+        local liveFrame = origEditBox.chatFrame
+            or (origEditBox.GetParent and origEditBox:GetParent())
+        if liveFrame then
+            local liveType = liveFrame.chatType
+            -- Only trust whisper frame context from true temporary whisper tabs.
+            -- Non-temporary frames can momentarily report WHISPER after SendTell,
+            -- which would incorrectly override tab/channel selection once.
+            if (liveType == "WHISPER" or liveType == "BN_WHISPER")
+                and not liveFrame.isTemporary then
+                liveType = nil
+            end
+            frameChatType = liveType
+            frameChatTarget = liveFrame.chatTarget
+            if frameChatType == "CHANNEL" and frameChatTarget then
+                frameChannelName = ResolveChannelName(tonumber(frameChatTarget))
+            end
+        end
+    end
+
+    -- Fallback for IM/undocked whisper windows: if attribute cache missed the
+    -- target this frame, prefer the chatFrame's live chatType/chatTarget over
+    -- LastUsed so active DM tabs don't collapse back to SAY.
+    if not blizzHasTarget and origEditBox then
+        local liveFrame = origEditBox.chatFrame
+            or (origEditBox.GetParent and origEditBox:GetParent())
+        if liveFrame then
+            local liveType = liveFrame.chatType
+            local liveTarget = liveFrame.chatTarget
+            if (liveType == "WHISPER" or liveType == "BN_WHISPER")
+                and liveFrame.isTemporary
+                and liveTarget and liveTarget ~= "" then
+                blizzType = liveType
+                blizzTell = liveTarget
+                blizzHasTarget = true
+            elseif liveType == "CHANNEL" and liveTarget and liveTarget ~= "" then
+                blizzType = "CHANNEL"
+                blizzChan = liveTarget
+                blizzHasTarget = true
+            end
+        end
+    end
+
     -- Priority for picking the channel on open:
     --   0. Re-Whisper keybind — primed by our ReplyTell2 hook immediately before
     --      this Show fires. Consumed once and cleared.
@@ -215,26 +259,37 @@ function EditBox:Show(origEditBox)
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
     -- REMOVED: Pending re-whisper priority (was #1) - ReplyTell2 hook removed
-    if pendingTabSwitch and pendingTabSwitch.chatType then
-        -- Highest priority: a tab/window was clicked (Yapper open or closed).
-        self.ChatType    = pendingTabSwitch.chatType
-        self.Language    = pendingTabSwitch.language
+    local policy = YapperTable.ChannelPolicy
+    local resolvedSelection
+    if policy and type(policy.ResolveOpenSelection) == "function" then
+        resolvedSelection = policy:ResolveOpenSelection({
+            pendingTabSwitch = pendingTabSwitch,
+            explicitChannel = explicitChannel,
+            lockSavedDraft = self._lockdown.savedDraft,
+            blizzHasTarget = blizzHasTarget,
+            blizzType = blizzType,
+            blizzTell = blizzTell,
+            blizzChan = blizzChan,
+            blizzLang = blizzLang,
+            lastUsed = self.LastUsed,
+            frameChatType = frameChatType,
+            frameChatTarget = frameChatTarget,
+            frameChannelName = frameChannelName,
+        })
+    end
+
+    if resolvedSelection then
+        self.ChatType = resolvedSelection.chatType
+        self.Language = resolvedSelection.language
+        self.Target = resolvedSelection.target
+        self.ChannelName = resolvedSelection.channelName
+    elseif pendingTabSwitch and pendingTabSwitch.chatType then
+        -- Fallback mirrors the existing priority path.
+        self.ChatType = pendingTabSwitch.chatType
+        self.Language = pendingTabSwitch.language
             or blizzLang or (self.LastUsed and self.LastUsed.language) or nil
-        self.Target      = pendingTabSwitch.target
+        self.Target = pendingTabSwitch.target
         self.ChannelName = pendingTabSwitch.channelName
-    elseif explicitChannel and not self._lockdown.savedDraft then
-        self.ChatType    = explicitChannel.chatType
-        self.Language    = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
-        self.Target      = explicitChannel.target
-        self.ChannelName = explicitChannel.channelName
-    elseif blizzHasTarget and not self._lockdown.savedDraft then
-        self.ChatType = blizzType
-        self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
-        self.Target   = blizzTell or blizzChan or nil
-    elseif (self.LastUsed and self.LastUsed.chatType) and not self._lockdown.savedDraft then
-        self.ChatType = self.LastUsed.chatType
-        self.Language = blizzLang or (self.LastUsed and self.LastUsed.language) or nil
-        self.Target   = self.LastUsed.target or blizzTell or blizzChan or nil
     else
         self.ChatType = (self.LastUsed and self.LastUsed.chatType)
             or blizzType
@@ -242,9 +297,15 @@ function EditBox:Show(origEditBox)
         self.Language = blizzLang
             or (self.LastUsed and self.LastUsed.language)
             or nil
-        self.Target   = (self.LastUsed and self.LastUsed.target)
+        self.Target = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
             or nil
+    end
+
+    -- Safety net: non-target chat types must not carry stale whisper/channel targets.
+    if self.ChatType ~= "WHISPER" and self.ChatType ~= "BN_WHISPER" and self.ChatType ~= "CHANNEL" then
+        self.Target = nil
+        self.ChannelName = nil
     end
 
     -- Smartly switch from Party/Raid to Instance if the Home group is missing.
@@ -526,12 +587,27 @@ function EditBox:Hide(isHandoff)
     end
 
     -- Save LastUsed for stickiness across show/hide.
-    if self.ChatType and self.ChatType ~= "" then
-        self.LastUsed = {
-            chatType = self.ChatType,
-            target   = self.Target,
-            language = self.Language,
-        }
+    -- PersistLastUsed applies StickyChannel/StickyGroupChannel rules while
+    -- still preserving per-tab channel memory via RecordTabChannel.
+    if self.PersistLastUsed then
+        self:PersistLastUsed()
+    end
+
+    -- The external-whisper episode (unit-frame right-click) ends on close.
+    -- NOTE: self._externalWhisperTarget is intentionally NOT cleared here.
+    -- PersistLastUsed (above) already consumed it, but the draft-save block
+    -- below also needs it so an external whisper's channel binding isn't
+    -- persisted into a draft. It is cleared after that block instead.
+
+    -- Undo the chat attributes SyncAttributesToBlizzard pushed onto the Blizzard
+    -- proxy editbox. Classic-style Deactivate() skips ResetChatTypeToSticky, so a
+    -- whisper context would otherwise stay stuck on the live proxy frame and bleed
+    -- into the next open. Skip during handoff (we're intentionally restoring the
+    -- Blizzard box) and during lockdown (SetAttribute is unsafe in combat).
+    if not isHandoff
+        and self.ResetSyncedAttributes
+        and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+        pcall(function() self:ResetSyncedAttributes() end)
     end
 
     -- Auto-save draft on clean close (no text, or user pressed Escape).
@@ -546,6 +622,10 @@ function EditBox:Hide(isHandoff)
         history:SaveDraft(self.OverlayEdit)
         history:MarkDirty(true)
     end
+
+    -- The external-whisper episode (unit-frame right-click) ends on close.
+    -- Cleared after the draft-save block so the draft gate above can see it.
+    self._externalWhisperTarget = nil
 
     -- Clear lockdown draft flag on clean close.
     if self._closedClean and type(self._lockdown) == "table" then
