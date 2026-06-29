@@ -183,7 +183,7 @@ flowchart TD
 
 Reentrancy note (issue #21 fix):
 
-- Show hook uses `_inBlizzShowHook` guard and defers focus reclaim via `C_Timer.After(0, ...)` to avoid recursive focus ping-pong with Blizzard `ActivateChat` ([`Src/Hooks/Blizzard.lua#L1006`](../Src/Hooks/Blizzard.lua#L1006)).
+- Show hook uses `_inBlizzShowHook` guard and defers focus reclaim via `C_Timer.After(0, ...)` to avoid recursive focus ping-pong with Blizzard `ActivateChat` ([`Src/Hooks/Blizzard.lua#L1013`](../Src/Hooks/Blizzard.lua#L1013)).
 
 ## Hot path 3: Spellcheck path
 

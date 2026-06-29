@@ -51,6 +51,32 @@ FILE_SECTION_MAP = {
     "Error.lua": ("Internals.md", "## Utilities"),
 }
 
+
+def get_doc_target(rel_lua_path):
+    """Resolve the documentation target for a Lua file path.
+
+    Explicit entries in FILE_SECTION_MAP win. Unknown modules fall back to a
+    section name derived from their path so new folders remain self-describing.
+    """
+    if rel_lua_path in FILE_SECTION_MAP:
+        return FILE_SECTION_MAP[rel_lua_path]
+
+    rel_path = rel_lua_path[:-4] if rel_lua_path.endswith(".lua") else rel_lua_path
+    parts = [part for part in rel_path.split("/") if part]
+    if not parts:
+        return None
+
+    if parts[0] == "Policies":
+        return ("Internals.md", "## Policies")
+
+    if parts[0] == "Bridges":
+        return ("Internals.md", f"## {parts[-1]}")
+
+    if len(parts) > 1:
+        return ("Internals.md", f"## {'.'.join(parts)}")
+
+    return ("Internals.md", f"## {parts[0]}")
+
 # Regex to find links like ([`../Path/File.lua#L123`](../Path/File.lua#L123))
 # or ([`File.lua#L123`](`../File.lua#L123`))
 LINK_RE = re.compile(r'\(\[`([^#]+)#L(\d+)`\]\(`?([^#`)]+)`?#L(\d+)`?\)\)')
@@ -346,6 +372,7 @@ if __name__ == "__main__":
                         
                         summary, signature = extract_comment_info(lua_path, line_no)
                         
-                        if rel_lua_path in FILE_SECTION_MAP:
-                            target_md, target_section = FILE_SECTION_MAP[rel_lua_path]
+                        target = get_doc_target(rel_lua_path)
+                        if target:
+                            target_md, target_section = target
                             inject_to_doc(target_md, target_section, table.split('.')[-1], func, rel_lua_path, line_no, summary, signature)

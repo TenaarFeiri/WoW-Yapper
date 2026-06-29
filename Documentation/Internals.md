@@ -46,7 +46,7 @@ Loaded at startup; used by most modules.
 
 - Description: Print/debug/fullscreen/chat utility helpers.
 - Fields:
-  - `_G.YAPPER_UTILS: table` alias for debug access ([`../Src/Utils.lua#L98`](../Src/Utils.lua#L98)).
+  - `_G.YAPPER_UTILS: table` alias for debug access ([`../Src/Utils.lua#L123`](../Src/Utils.lua#L123)).
 - Methods:
   - `Utils:Print(...) → nil` ([`../Src/Utils.lua#L19`](../Src/Utils.lua#L19))
   - `Utils:VerbosePrint(...) → nil` ([`../Src/Utils.lua#L33`](../Src/Utils.lua#L33))
@@ -54,7 +54,7 @@ Loaded at startup; used by most modules.
   - `Utils:GetChatParent() → Frame` ([`../Src/Utils.lua#L48`](../Src/Utils.lua#L48))
   - `Utils:MakeFullscreenAware(frame) → nil` ([`../Src/Utils.lua#L60`](../Src/Utils.lua#L60))
   - `Utils:IsChatLockdown() → boolean` ([`../Src/Utils.lua#L89`](../Src/Utils.lua#L89))
-  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L139`](../Src/Utils.lua#L139))
+  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L164`](../Src/Utils.lua#L164))
 
 ## Error
 
@@ -554,6 +554,7 @@ Self-initialising on `ADDON_LOADED`; activates automatically when LibGopher is d
   - `_gopher: table|nil` ([`../Src/Bridges/GopherBridge.lua#L26`](`../Src/Bridges/GopherBridge.lua#L26`))
 - Methods:
   - `Send` ([`../Src/Bridges/GopherBridge.lua#L158`](`../Src/Bridges/GopherBridge.lua#L158`))
+  - `NeedsHardwareEvent() → boolean`: Returns true when Gopher still needs a hardware event before Yapper may continue opening the editbox. ([`../Src/Bridges/GopherBridge.lua#L225`](../Src/Bridges/GopherBridge.lua#L225))
   - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L206`](`../Src/Bridges/GopherBridge.lua#L206`))
   - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L213`](`../Src/Bridges/GopherBridge.lua#L213`))
 
@@ -588,6 +589,18 @@ Initialised by `Chat:Init`.
   - `IsFocusActive` ([`../Src/Bridges/WIMBridge.lua#L25`](`../Src/Bridges/WIMBridge.lua#L25`))
   - `IsLoaded` ([`../Src/Bridges/WIMBridge.lua#L42`](`../Src/Bridges/WIMBridge.lua#L42`))
   - `Init` ([`../Src/Bridges/WIMBridge.lua#L50`](`../Src/Bridges/WIMBridge.lua#L50`))
+
+## Policies
+
+Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
+
+- Description: Policy objects expose decision methods but do not perform startup work or register runtime hooks.
+- Modules:
+  - `LockdownPolicy:IsChatLockdown() → boolean`: Returns true when chat messaging lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L13`](../Src/Policies/LockdownPolicy.lua#L13))
+  - `LockdownPolicy:IsCombatLockdown() → boolean`: Returns true when protected-frame combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L19`](../Src/Policies/LockdownPolicy.lua#L19))
+  - `LockdownPolicy:IsChatOrCombatLockdown() → boolean`: Returns true when either chat or combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L24`](../Src/Policies/LockdownPolicy.lua#L24))
+  - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L70`](../Src/Policies/ChannelPolicy.lua#L70))
+  - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L107`](../Src/Policies/ChannelPolicy.lua#L107))
 
 ## Router
 
@@ -637,7 +650,7 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - Queue state: `_lastEscTime` ([`../Src/Queue.lua#L185`](`../Src/Queue.lua#L185`))
   - Queue state: `ContinueFrame` ([`../Src/Queue.lua#L188`](`../Src/Queue.lua#L188`))
 - Methods:
-  - `Queue:IsAcceptableAck() → nil`: Check if a received chat event is an acceptable acknowledgement for an expected event. ([`../Src/Queue.lua#L517`](../Src/Queue.lua#L517))
+  - `Queue:IsAcceptableAck() → nil`: Check if a received chat event is an acceptable acknowledgement for an expected event. ([`../Src/Queue.lua#L528`](../Src/Queue.lua#L528))
   - `Init` ([`../Src/Queue.lua#L194`](../Src/Queue.lua#L194))
   - `Reset` ([`../Src/Queue.lua#L213`](../Src/Queue.lua#L213))
   - `IsOpenWorld` ([`../Src/Queue.lua#L230`](../Src/Queue.lua#L230))
@@ -653,22 +666,22 @@ Initialised by `Chat:Init`; registers many chat confirm events.
   - `RequiresHardwareEvent` ([`../Src/Queue.lua#L393`](../Src/Queue.lua#L393))
   - `SendNext` ([`../Src/Queue.lua#L398`](../Src/Queue.lua#L398))
   - `BeginEntry` ([`../Src/Queue.lua#L434`](../Src/Queue.lua#L434))
-  - `HandleAck` ([`../Src/Queue.lua#L460`](../Src/Queue.lua#L460))
-  - `AssumeAck` ([`../Src/Queue.lua#L469`](../Src/Queue.lua#L469))
-  - `RawSend` ([`../Src/Queue.lua#L479`](../Src/Queue.lua#L479))
-  - `Complete` ([`../Src/Queue.lua#L500`](../Src/Queue.lua#L500))
-  - `OnChatEvent` ([`../Src/Queue.lua#L527`](../Src/Queue.lua#L527))
-  - `OnOpenChat` ([`../Src/Queue.lua#L595`](../Src/Queue.lua#L595))
-  - `TryContinue` ([`../Src/Queue.lua#L605`](../Src/Queue.lua#L605))
-  - `ResetStallTimer` ([`../Src/Queue.lua#L626`](../Src/Queue.lua#L626))
-  - `CancelStallTimer` ([`../Src/Queue.lua#L643`](../Src/Queue.lua#L643))
-  - `OnStallTimeout` ([`../Src/Queue.lua#L650`](../Src/Queue.lua#L650))
-  - `CreateContinueFrame` ([`../Src/Queue.lua#L670`](../Src/Queue.lua#L670))
-  - `ShowContinuePrompt` ([`../Src/Queue.lua#L730`](../Src/Queue.lua#L730))
-  - `HideContinuePrompt` ([`../Src/Queue.lua#L767`](../Src/Queue.lua#L767))
-  - `EnableEscapeCancel` ([`../Src/Queue.lua#L778`](../Src/Queue.lua#L778))
-  - `DisableEscapeCancel` ([`../Src/Queue.lua#L811`](../Src/Queue.lua#L811))
-  - `Cancel` ([`../Src/Queue.lua#L818`](../Src/Queue.lua#L818))
+  - `HandleAck` ([`../Src/Queue.lua#L471`](../Src/Queue.lua#L471))
+  - `AssumeAck` ([`../Src/Queue.lua#L480`](../Src/Queue.lua#L480))
+  - `RawSend` ([`../Src/Queue.lua#L490`](../Src/Queue.lua#L490))
+  - `Complete` ([`../Src/Queue.lua#L511`](../Src/Queue.lua#L511))
+  - `OnChatEvent` ([`../Src/Queue.lua#L538`](../Src/Queue.lua#L538))
+  - `OnOpenChat` ([`../Src/Queue.lua#L606`](../Src/Queue.lua#L606))
+  - `TryContinue` ([`../Src/Queue.lua#L616`](../Src/Queue.lua#L616))
+  - `ResetStallTimer` ([`../Src/Queue.lua#L637`](../Src/Queue.lua#L637))
+  - `CancelStallTimer` ([`../Src/Queue.lua#L654`](../Src/Queue.lua#L654))
+  - `OnStallTimeout` ([`../Src/Queue.lua#L661`](../Src/Queue.lua#L661))
+  - `CreateContinueFrame` ([`../Src/Queue.lua#L681`](../Src/Queue.lua#L681))
+  - `ShowContinuePrompt` ([`../Src/Queue.lua#L741`](../Src/Queue.lua#L741))
+  - `HideContinuePrompt` ([`../Src/Queue.lua#L778`](../Src/Queue.lua#L778))
+  - `EnableEscapeCancel` ([`../Src/Queue.lua#L789`](../Src/Queue.lua#L789))
+  - `DisableEscapeCancel` ([`../Src/Queue.lua#L822`](../Src/Queue.lua#L822))
+  - `Cancel` ([`../Src/Queue.lua#L829`](../Src/Queue.lua#L829))
 - Events registered:
   - `CHAT_MSG_SAY`, `CHAT_MSG_YELL`, `CHAT_MSG_EMOTE`, `CHAT_MSG_WHISPER_INFORM`, `CHAT_MSG_BN_WHISPER_INFORM`, `CHAT_MSG_CHANNEL`, `CHAT_MSG_COMMUNITIES_CHANNEL`, `CHAT_MSG_PARTY`, `CHAT_MSG_PARTY_LEADER`, `CHAT_MSG_RAID`, `CHAT_MSG_RAID_LEADER`, `CHAT_MSG_RAID_WARNING`, `CHAT_MSG_INSTANCE_CHAT`, `CHAT_MSG_INSTANCE_CHAT_LEADER`, `CHAT_MSG_GUILD`, `CHAT_MSG_OFFICER` (registered from `ALL_CONFIRM_EVENTS`) ([`../Src/Queue.lua#L130-L156`](../Src/Queue.lua#L130-L156), [`../Src/Queue.lua#L190-L194`](../Src/Queue.lua#L190-L194)).
   - Hook to `ChatFrameUtil.OpenChat` for continue flow.
@@ -685,7 +698,7 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
   - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L95`](../Src/Chat.lua#L95))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L198`](../Src/Chat.lua#L198))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L207`](../Src/Chat.lua#L207))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:
@@ -949,7 +962,9 @@ Per-category page builders called by `BuildConfigUI`.
 ## Utilities
 
 - Methods:
-  - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L133`](../Src/Utils.lua#L133))
-  - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L115`](../Src/Utils.lua#L115))
-  - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L107`](../Src/Utils.lua#L107))
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L167`](../Src/Utils.lua#L167))
+  - [NEW] `Utils:IsChatOrCombatLockdown() → nil`: Return true when either chat-messaging or combat lockdown is active. ([`../Src/Utils.lua#L114`](../Src/Utils.lua#L114))
+  - [NEW] `Utils:IsCombatLockdown() → nil`: Return true when protected-frame combat restrictions are active. ([`../Src/Utils.lua#L101`](../Src/Utils.lua#L101))
+  - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L158`](../Src/Utils.lua#L158))
+  - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L140`](../Src/Utils.lua#L140))
+  - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L132`](../Src/Utils.lua#L132))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L192`](../Src/Utils.lua#L192))
