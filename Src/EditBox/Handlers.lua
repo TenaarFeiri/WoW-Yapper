@@ -471,12 +471,20 @@ function EditBox:SetupOverlayScripts()
 
         YapperTable.Utils:DebugPrint("OnEnterPressed: SENDING text=" .. tostring(trimmed):sub(1,40) .. ", chatType=" .. tostring(self.ChatType))
 
+        local didSend = true
         if self.OnSend then
-            self.OnSend(trimmed, self.ChatType or "SAY", lang, self.Target)
+            didSend = (self.OnSend(trimmed, self.ChatType or "SAY", lang, self.Target) ~= false)
         else
             if C_ChatInfo and C_ChatInfo.SendChatMessage then
                 C_ChatInfo.SendChatMessage(trimmed, self.ChatType or "SAY", lang, self.Target)
             end
+        end
+
+        -- The send path can veto delivery (e.g. lockdown flipped between
+        -- the early guard and the actual dispatch). In that case, keep the
+        -- current compose state; the send path has already handled handoff.
+        if not didSend then
+            return
         end
 
         -- Track outgoing whispers as reply targets too (move to front).
@@ -754,6 +762,7 @@ function EditBox:SetupOverlayScripts()
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     frame:RegisterEvent("CHALLENGE_MODE_START")
     frame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+    frame:RegisterEvent("ENCOUNTER_STATE_CHANGED")
     -- Track incoming whispers so we can cycle reply targets.
     frame:RegisterEvent("CHAT_MSG_WHISPER")
     frame:RegisterEvent("CHAT_MSG_BN_WHISPER")
@@ -774,7 +783,16 @@ function EditBox:SetupOverlayScripts()
     end)
 
     frame:HookScript("OnEvent", function(_, event, ...)
-        if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START" then
+        local isLockdownStartEvent = (event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START")
+        local isLockdownEndEvent = (event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED")
+
+        if event == "ENCOUNTER_STATE_CHANGED" then
+            local isInProgress = select(1, ...) == true
+            isLockdownStartEvent = isInProgress
+            isLockdownEndEvent = not isInProgress
+        end
+
+        if isLockdownStartEvent then
             self:UpdateFocusOverride()
             -- Helper: begin the deferred handoff.
             local function beginDeferredHandoff()
@@ -833,7 +851,7 @@ function EditBox:SetupOverlayScripts()
                     self._lockdown.ticker = nil
                 end
             end)
-        elseif event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED" then
+        elseif isLockdownEndEvent then
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
             YapperAPI:SetState("IDLE")

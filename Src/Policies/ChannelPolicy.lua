@@ -1,6 +1,7 @@
 --[[
-    ChannelPolicy.lua
+    Policies/ChannelPolicy.lua
     Central policy helpers for channel selection and sticky persistence.
+    Passive module: declares policy methods only; performs no startup work.
 
     Phase 1 goal: provide a single hub for policy decisions while preserving
     current behavior at existing call sites.

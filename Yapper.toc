@@ -21,6 +21,11 @@
 ## OptionalDeps: LibStub, LibDataBroker-1.1, LibDBIcon-1.0
 
 Src/Core.lua
+
+# Policies — centralized decision modules, loaded before downstream consumers.
+Src/Policies/LockdownPolicy.lua
+Src/Policies/ChannelPolicy.lua
+
 Src/Utils.lua
 Src/Migrations.lua
 Src/Error.lua
@@ -48,7 +53,6 @@ Src/EditBox/SkinProxy.lua
 Src/EditBox/Overlay.lua
 Src/EditBox/Handlers.lua
 Src/EditBox/Keybinds.lua
-Src/ChannelPolicy.lua
 
 # Src/Hooks/Hub.lua first, other hooks depend on it.
 Src/Hooks/Hub.lua

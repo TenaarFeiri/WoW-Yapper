@@ -93,6 +93,16 @@ end
 
 --- Process a message from the user.
 function Chat:OnSend(text, chatType, language, target)
+    -- Final pre-dispatch guard: if chat lockdown activated between key handling
+    -- and this send call, handoff and keep the message as a draft.
+    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+        local eb = YapperTable.EditBox
+        if eb and eb.HandoffToBlizzard and eb.Overlay and eb.Overlay:IsShown() then
+            eb:HandoffToBlizzard(false, true)
+        end
+        return false
+    end
+
     -- PRE_SEND filter: external addons can modify or cancel the send.
     local API = YapperTable.API
     if API then
@@ -102,7 +112,7 @@ function Chat:OnSend(text, chatType, language, target)
             language = language,
             target   = target,
         })
-        if payload == false then return end
+        if payload == false then return false end
         text     = payload.text
         chatType = payload.chatType
         language = payload.language
@@ -128,8 +138,7 @@ function Chat:OnSend(text, chatType, language, target)
 
     -- Short — send directly, UNLESS it contains newlines (which Blizzard truncates).
     if #text <= limit and not text:find("\n", 1, true) then
-        self:DirectSend(text, chatType, language, target)
-        return
+        return self:DirectSend(text, chatType, language, target)
     end
 
     -- If message is long but the chat type is not splittable, handle
@@ -137,19 +146,17 @@ function Chat:OnSend(text, chatType, language, target)
     if not SPLITTABLE[chatType] then
         if chatType == "WHISPER" or chatType == "BN_WHISPER" then
             -- Truncate whisper to limit and send.
-            self:DirectSend(text:sub(1, limit), chatType, language, target)
-            return
+            return self:DirectSend(text:sub(1, limit), chatType, language, target)
         end
         YapperTable.Error:PrintError("BAD_CHAT_TYPE", tostring(chatType))
-        return
+        return false
     end
 
     -- Long message — split and queue.
     local Chunking = YapperTable.Chunking
     if not Chunking then
         YapperTable.Error:PrintError("UNKNOWN", "Chunking module missing")
-        self:DirectSend(text:sub(1, limit), chatType, language, target)
-        return
+        return self:DirectSend(text:sub(1, limit), chatType, language, target)
     end
 
     -- PRE_CHUNK filter: external addons can modify text before splitting.
@@ -160,7 +167,7 @@ function Chat:OnSend(text, chatType, language, target)
             limit    = limit,
             chatType = chatType,
         })
-        if chunkPayload == false then return end
+        if chunkPayload == false then return false end
         text  = chunkPayload.text
         limit = chunkPayload.limit
         continuationPrefix = chunkPayload.continuationPrefix
@@ -175,8 +182,7 @@ function Chat:OnSend(text, chatType, language, target)
 
     -- Edge case: single chunk after split.
     if #chunks <= 1 then
-        self:DirectSend(chunks[1] or text, chatType, language, target)
-        return
+        return self:DirectSend(chunks[1] or text, chatType, language, target)
     end
 
     -- Feed to Queue for ordered delivery.
@@ -185,17 +191,29 @@ function Chat:OnSend(text, chatType, language, target)
     if not Q then
         -- No queue — fire all at once.
         for _, chunk in ipairs(chunks) do
-            self:DirectSend(chunk, chatType, language, target)
+            if self:DirectSend(chunk, chatType, language, target) == false then
+                return false
+            end
         end
-        return
+        return true
     end
 
     Q:Enqueue(chunks, chatType, language, target)
     Q:Flush(true)
+    return true
 end
 
 --- Send a single message through Router (or raw fallback).
 function Chat:DirectSend(msg, chatType, language, target)
+    -- Last-chance guard: lockdown might flip after OnSend's initial check.
+    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+        local eb = YapperTable.EditBox
+        if eb and eb.HandoffToBlizzard and eb.Overlay and eb.Overlay:IsShown() then
+            eb:HandoffToBlizzard(false, true)
+        end
+        return false
+    end
+
     -- Record outgoing message for adaptive learning
     if YapperTable.Spellcheck and YapperTable.Spellcheck.YAS then
         local sc = YapperTable.Spellcheck
@@ -241,7 +259,7 @@ function Chat:DirectSend(msg, chatType, language, target)
                 local handle = API:_createClaim(msg, chatType, language, target, owner)
                 API:Fire("POST_CLAIMED", handle, msg, chatType, language, target)
             end
-            return
+            return false
         end
         -- Allow the filter to modify fields.
         msg      = deliverPayload.text or msg
@@ -251,13 +269,21 @@ function Chat:DirectSend(msg, chatType, language, target)
     end
 
     if YapperTable.Router then
-        YapperTable.Router:Send(msg, chatType, language, target)
+        if YapperTable.Router:Send(msg, chatType, language, target) == false then
+            return false
+        end
     else
-        C_ChatInfo.SendChatMessage(msg, chatType, language, target)
+        if C_ChatInfo and C_ChatInfo.SendChatMessage then
+            C_ChatInfo.SendChatMessage(msg, chatType, language, target)
+        else
+            return false
+        end
     end
 
     -- POST_SEND callback: notify external addons.
     if API then
         API:Fire("POST_SEND", msg, chatType, language, target)
     end
+
+    return true
 end

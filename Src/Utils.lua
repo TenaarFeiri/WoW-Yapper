@@ -87,11 +87,36 @@ end
 
 -- Return true if chat is currently under a real lockdown condition.
 function Utils:IsChatLockdown()
-    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
-        and C_ChatInfo.InChatMessagingLockdown() then
+    local policy = YapperTable and YapperTable.LockdownPolicy
+    if policy and type(policy.IsChatLockdown) == "function" then
+        return policy:IsChatLockdown() == true
+    end
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
+        return C_ChatInfo.InChatMessagingLockdown() == true
+    end
+    return false
+end
+
+-- Return true when protected-frame combat restrictions are active.
+function Utils:IsCombatLockdown()
+    local policy = YapperTable and YapperTable.LockdownPolicy
+    if policy and type(policy.IsCombatLockdown) == "function" then
+        return policy:IsCombatLockdown() == true
+    end
+    if InCombatLockdown and InCombatLockdown() then
         return true
     end
     return false
+end
+
+-- Return true when either chat-messaging or combat lockdown is active.
+-- Useful for paths that manipulate secure/protected attributes.
+function Utils:IsChatOrCombatLockdown()
+    local policy = YapperTable and YapperTable.LockdownPolicy
+    if policy and type(policy.IsChatOrCombatLockdown) == "function" then
+        return policy:IsChatOrCombatLockdown() == true
+    end
+    return self:IsChatLockdown() or self:IsCombatLockdown()
 end
 
 -- Expose globally — other addons and compat patches may use this.

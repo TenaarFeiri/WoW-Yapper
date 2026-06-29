@@ -4,11 +4,36 @@ This page is the runtime map for Yapper at this commit.
 
 Primary load-order source: [`Yapper.toc`](../Yapper.toc).
 
+## Policy module contract
+
+Policy files in `Src/Policies/` are rule containers only. They must be passive and
+must not perform startup work on load.
+
+Rules:
+
+- Policies define callable decision methods only.
+- Policies do not register events, create timers, hook functions, or create frames.
+- Policies do not drive flow themselves; owner modules call into policies.
+- Policy load-time side effects are limited to table export (for example
+  `YapperTable.LockdownPolicy = LockdownPolicy`).
+- `Src/Policies/LockdownPolicy.lua` must remain the first policy loaded after
+  `Src/Core.lua` in `Yapper.toc` so lockdown checks are available to downstream
+  modules during early load/login contexts.
+
+Quick review checklist for new policies:
+
+- No `RegisterEvent`, `C_Timer`, `hooksecurefunc`, or frame creation in policy file.
+- No implicit execution path outside method calls.
+- Export once, then wait for callers.
+
 ## Module load map (TOC order)
 
 ```text
 Src/Core.lua
+Src/Policies/LockdownPolicy.lua
+Src/Policies/ChannelPolicy.lua
 Src/Utils.lua
+Src/Migrations.lua
 Src/Error.lua
 Src/Frames.lua
 Src/Events.lua
@@ -37,19 +62,23 @@ Src/Bridges/GopherBridge.lua
 Src/Bridges/TypingTrackerBridge.lua
 Src/Bridges/RPPrefixBridge.lua
 Src/Bridges/WIMBridge.lua
-Src/Bridges/ElvUIBridge.lua
+Src/Bridges/TotalRP3Bridge.lua
+Src/Bridges/CEBEBridge.lua
+Src/Bridges/LanguagesBridge.lua
 Src/Router.lua
 Src/Chunking.lua
 Src/Queue.lua
 Src/Chat.lua
 Src/Multiline.lua
 Src/Autocomplete.lua
+Src/Emotes.lua
 Src/History.lua
 Src/Theme.lua
 Src/Themes/Blizzard.lua
 Src/Interface.lua
 Src/Interface/Schema.lua
 Src/Interface/Config.lua
+Src/Interface/WhatsNew.lua
 Src/Interface/Window.lua
 Src/Interface/Widgets.lua
 Src/Interface/Pages.lua

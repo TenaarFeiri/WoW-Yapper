@@ -628,6 +628,13 @@ end
 
 --- Hook all NUM_CHAT_WINDOWS editboxes.  Call once on init.
 function EditBox:HookAllChatFrames()
+    local function EnsureEditBoxHooked(eb)
+        if not eb then return end
+        if not self.HookedBoxes[eb] then
+            self:HookBlizzardEditBox(eb)
+        end
+    end
+
     -- Link runtime LastUsed to the persistent config table.
     local cfg = YapperTable.Config and YapperTable.Config.EditBox
     if cfg and cfg.LastUsed then
@@ -647,7 +654,7 @@ function EditBox:HookAllChatFrames()
     for i = 1, (NUM_CHAT_WINDOWS or 10) do
         local eb = _G["ChatFrame" .. i .. "EditBox"]
         if eb then
-            self:HookBlizzardEditBox(eb)
+            EnsureEditBoxHooked(eb)
         end
     end
 
@@ -1240,6 +1247,7 @@ function EditBox:HookAllChatFrames()
 
             local chatFrame = FCF_GetChatFrameByID(tab:GetID())
             if not chatFrame then return end
+            EnsureEditBoxHooked(chatFrame.editBox)
 
             -- Save the outgoing frame's state before we switch context.
             -- When Yapper is OPEN, the blizzEditBox Show hook already recorded the
@@ -1308,6 +1316,7 @@ function EditBox:HookAllChatFrames()
         local editBox = self
         hooksecurefunc("FCF_MaximizeFrame", function(chatFrame)
             if not chatFrame or not chatFrame.editBox then return end
+            EnsureEditBoxHooked(chatFrame.editBox)
             editBox:_IMPushActive(chatFrame.editBox)
             -- Restore the remembered channel state for this window.
             editBox:_IMApplyWindowMemory(chatFrame)

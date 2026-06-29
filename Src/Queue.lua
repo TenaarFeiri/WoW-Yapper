@@ -434,6 +434,17 @@ end
 function Queue:BeginEntry(entry)
     self.PendingEntry = entry
     self:TrackPendingAck(entry)
+
+    -- Last-chance guard: lockdown can flip between SendNext() checks and
+    -- actual dispatch. Requeue instead of attempting a blocked send.
+    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+        self.PendingEntry = nil
+        self:ClearPendingAck()
+        table_insert(self.Entries, 1, entry)
+        self:ShowContinuePrompt()
+        return
+    end
+
     self:RawSend(entry)
 
     local expectedEvent = self.PendingAckEvent

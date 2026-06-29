@@ -259,13 +259,14 @@ function EditBox:Show(origEditBox)
     --   3. LastUsed sticky — remember the last channel the user chose.
     --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
     -- REMOVED: Pending re-whisper priority (was #1) - ReplyTell2 hook removed
+    local lockSavedDraft = type(self._lockdown) == "table" and self._lockdown.savedDraft == true
     local policy = YapperTable.ChannelPolicy
     local resolvedSelection
     if policy and type(policy.ResolveOpenSelection) == "function" then
         resolvedSelection = policy:ResolveOpenSelection({
             pendingTabSwitch = pendingTabSwitch,
             explicitChannel = explicitChannel,
-            lockSavedDraft = self._lockdown.savedDraft,
+            lockSavedDraft = lockSavedDraft,
             blizzHasTarget = blizzHasTarget,
             blizzType = blizzType,
             blizzTell = blizzTell,
@@ -442,7 +443,7 @@ function EditBox:Show(origEditBox)
     -- Restore draft if available, otherwise use Blizzard's text.
     local draftText
     local draftMultiline = false
-    if not blizzHasTarget and YapperTable.History then
+    if (lockSavedDraft or not blizzHasTarget) and YapperTable.History then
         local text, draftType, draftTarget, isML = YapperTable.History:GetDraft()
         if text then
             draftText = text
@@ -450,6 +451,10 @@ function EditBox:Show(origEditBox)
             if draftType then self.ChatType = draftType end
             if draftTarget then self.Target = draftTarget end
             YapperTable.History:MarkDirty(false)
+            -- Lockdown drafts are one-shot recovery payloads.
+            if lockSavedDraft and type(self._lockdown) == "table" then
+                self._lockdown.savedDraft = false
+            end
             YapperTable.Utils:VerbosePrint("Draft recovered: " ..
                 #text .. " chars" .. (draftMultiline and " (multiline)" or "") .. ".")
         end
@@ -606,7 +611,7 @@ function EditBox:Hide(isHandoff)
     -- Blizzard box) and during lockdown (SetAttribute is unsafe in combat).
     if not isHandoff
         and self.ResetSyncedAttributes
-        and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+        and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsChatOrCombatLockdown()) then
         pcall(function() self:ResetSyncedAttributes() end)
     end
 
@@ -627,8 +632,9 @@ function EditBox:Hide(isHandoff)
     -- Cleared after the draft-save block so the draft gate above can see it.
     self._externalWhisperTarget = nil
 
-    -- Clear lockdown draft flag on clean close.
-    if self._closedClean and type(self._lockdown) == "table" then
+    -- Clear lockdown draft flag on normal clean closes.
+    -- Handoff closes should preserve the flag so next open can recover.
+    if self._closedClean and not isHandoff and type(self._lockdown) == "table" then
         self._lockdown.savedDraft = nil
     end
 
