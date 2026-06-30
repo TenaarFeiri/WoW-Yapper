@@ -29,7 +29,7 @@ When you change channels via slash commands (like `/e `) while Yapper is open, t
 - Fixed BNet colour being overridden by legacy code.
 - Fixed issue where text could vertically offset on large monitor (technically implemented earlier but documented here, go figure)
 - Fixed defect in deferred focus logic which would trigger an error when using self: too late in the lifecycle.
-- Fixed stale whisper/channel metadata carry-over under adversarial state corruption tests.
+- Fixed edge case where stale whisper/channel metadata could carry over into the next open.
 
 ## Compatibility and safety notes
 - Yapper no longer delegates posting through LibGopher.
