@@ -10,11 +10,106 @@ local TotalRP3Bridge = {}
 YapperTable.TotalRP3Bridge = TotalRP3Bridge
 TotalRP3Bridge._initialised = false
 
+local function IsTRP3Loaded()
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded("totalRP3")
+    end
+    return _G.TRP3_API ~= nil or _G.AddOn_TotalRP3 ~= nil
+end
+
+local function IsUsableName(name)
+    return type(name) == "string" and name ~= "" and name ~= UNKNOWNOBJECT
+end
+
+local function PickRPNameFromTRP3API(unit)
+    if not _G.TRP3_API then return nil end
+    unit = unit or "player"
+
+    -- Preferred: register API (current shown RP name for a unit)
+    local registerAPI = _G.TRP3_API.register
+    if registerAPI and type(registerAPI.getUnitRPName) == "function" then
+        local ok, name = pcall(registerAPI.getUnitRPName, unit)
+        if ok and IsUsableName(name) then
+            return name
+        end
+    end
+
+    -- Fallback: profile API first-name field (player profile only)
+    if unit ~= "player" then
+        return nil
+    end
+    local profileAPI = _G.TRP3_API.profile
+    if profileAPI and type(profileAPI.getData) == "function" then
+        local ok, firstName = pcall(profileAPI.getData, "player", "characteristics", "FN")
+        if ok and IsUsableName(firstName) then
+            return firstName
+        end
+    end
+
+    return nil
+end
+
+local function PickRPNameFromTRP3User()
+    if not (_G.AddOn_TotalRP3 and _G.AddOn_TotalRP3.Player and _G.AddOn_TotalRP3.Player.GetCurrentUser) then
+        return nil
+    end
+
+    local okUser, user = pcall(_G.AddOn_TotalRP3.Player.GetCurrentUser)
+    if not okUser or not user then return nil end
+
+    if type(user.GetCustomColoredRoleplayingName) == "function" then
+        local ok, name = pcall(function() return user:GetCustomColoredRoleplayingName() end)
+        if ok and IsUsableName(name) then
+            -- Strip color escapes if present so label text stays plain.
+            name = name:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+            if IsUsableName(name) then
+                return name
+            end
+        end
+    end
+
+    return nil
+end
+
+function TotalRP3Bridge:GetUnitDisplayName(unit)
+    unit = unit or "player"
+    local fallback = UnitName and UnitName(unit) or "You"
+    if not IsTRP3Loaded() then
+        return fallback
+    end
+
+    local name = PickRPNameFromTRP3API(unit)
+    if not name and unit == "player" then
+        name = PickRPNameFromTRP3User()
+    end
+    return name or fallback
+end
+
+--- Returns the best available RP display name for the player when TRP3 is loaded.
+--- Falls back to UnitName("player") if no TRP3 name can be resolved.
+function TotalRP3Bridge:GetPlayerDisplayName()
+    return self:GetUnitDisplayName("player")
+end
+
 --- Call once during startup (self-initialising).
 function TotalRP3Bridge:Init()
     -- Prevent multiple initialisations
     if self._initialised then return end
     self._initialised = true
+
+    if _G.YapperAPI and type(_G.YapperAPI.RegisterFilter) == "function" then
+        self._labelFilterHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_LABEL", function(payload)
+            if type(payload) ~= "table" then return payload end
+            if payload.chatType ~= "EMOTE" then return payload end
+
+            local unit = payload.unit or "player"
+            local rpName = TotalRP3Bridge:GetUnitDisplayName(unit)
+            if IsUsableName(rpName) then
+                payload.label = rpName
+            end
+            return payload
+        end, 10)
+    end
 
     -- We only need to register the protocols if Yapper API is available.
     if not _G.YapperAPI then return end

@@ -27,8 +27,17 @@ Register/unregister:
 
 - Signature: `callback(payload) → payload|false`
 - Payload: `{ chatType: string|nil, target: string|nil }`
-- Fired from [`Src/Hooks/Blizzard.lua#L174`](../Src/Hooks/Blizzard.lua#L174), [`Src/Hooks/Blizzard.lua#L458`](../Src/Hooks/Blizzard.lua#L458), and [`Src/EditBox/Keybinds.lua#L165`](../Src/EditBox/Keybinds.lua#L165).
+- Fired from [`Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L119`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L119), [`Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L543`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L543), and [`Src/EditBox/Keybinds.lua#L165`](../Src/EditBox/Keybinds.lua#L165).
 - Return `false` to suppress overlay open.
+
+### `PRE_EDITBOX_LABEL`
+
+- Payload: `{ chatType: string|nil, target: string|number|nil, channelName: string|nil, label: string|nil, unit: string|nil }`
+- Fired from [`Src/EditBox/Overlay.lua#L259`](../Src/EditBox/Overlay.lua#L259).
+- Fires when `BuildLabelText` resolves label text for the editbox UI.
+- Intended use: mutate `payload.label` for specific channels (for example EMOTE/RP name formatting).
+- This hook is non-blocking: returning `false` is ignored and Yapper falls back to default label logic.
+- Yapper snapshots the original payload (deep copy) before filter execution and restores from that snapshot if a filter returns malformed/corrupted payload data.
 
 ### `PRE_SEND`
 
@@ -82,8 +91,8 @@ Register/unregister:
 
 Register/unregister:
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L337`](../Src/API.lua#L337))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L397`](../Src/API.lua#L397))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L338`](../Src/API.lua#L338))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L398`](../Src/API.lua#L398))
 
 ### Event list
 
@@ -223,9 +232,9 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `YapperAPI:OpenSettingsCategory(id) → boolean success`: Open Yapper's settings window to a specific category. ([`../Src/API.lua#L1355`](../Src/API.lua#L1355))
-  - [NEW] `YapperAPI:GetRegisteredSettingsCategories() → table`: Get a list of registered settings categories (excludes internal ones). ([`../Src/API.lua#L1342`](../Src/API.lua#L1342))
-  - [NEW] `YapperAPI:UnregisterSettingsCategory(id) → nil`: Unregister a previously registered settings category. ([`../Src/API.lua#L1324`](../Src/API.lua#L1324))
-  - [NEW] `YapperAPI:RegisterSettingsCategory(id, label, options) → boolean success`: Register a settings category in Yapper's settings window. ([`../Src/API.lua#L1284`](../Src/API.lua#L1284))
-  - `YapperAPI:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/API.lua#L955`](../Src/API.lua#L955))
-  - `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1203`](../Src/API.lua#L1203))
+  - [NEW] `YapperAPI:OpenSettingsCategory(id) → boolean success`: Open Yapper's settings window to a specific category. ([`../Src/API.lua#L1356`](../Src/API.lua#L1356))
+  - [NEW] `YapperAPI:GetRegisteredSettingsCategories() → table`: Get a list of registered settings categories (excludes internal ones). ([`../Src/API.lua#L1343`](../Src/API.lua#L1343))
+  - [NEW] `YapperAPI:UnregisterSettingsCategory(id) → nil`: Unregister a previously registered settings category. ([`../Src/API.lua#L1325`](../Src/API.lua#L1325))
+  - [NEW] `YapperAPI:RegisterSettingsCategory(id, label, options) → boolean success`: Register a settings category in Yapper's settings window. ([`../Src/API.lua#L1285`](../Src/API.lua#L1285))
+  - `YapperAPI:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/API.lua#L956`](../Src/API.lua#L956))
+  - `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1204`](../Src/API.lua#L1204))

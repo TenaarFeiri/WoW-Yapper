@@ -78,37 +78,10 @@ local function InstallUnitPopupWhisperOverride()
 
         print(string_format("[Yapper] Mixin whisper override -> %s", tostring(fullName)))
 
-        -- If already open, just retarget in place.
+        -- If already open, retarget in place via the shared routing helper so
+        -- this path and the SendTell hook cannot drift apart.
         if eb.Overlay and eb.Overlay:IsShown() then
-            local overlayText = (eb.OverlayEdit and eb.OverlayEdit.GetText and eb.OverlayEdit:GetText()) or ""
-
-            if blizzBox and blizzBox ~= eb.OrigEditBox then
-                local chatStyle = GetCVar and GetCVar("chatStyle")
-                if chatStyle ~= "im" then
-                    eb:Show(blizzBox)
-                end
-            end
-
-            eb.ChatType = "WHISPER"
-            eb.Target = fullName
-            eb.ChannelName = nil
-            eb._externalWhisperTarget = fullName
-            eb:RefreshLabel()
-
-            if overlayText ~= "" and eb.OverlayEdit and eb.OverlayEdit.SetText then
-                eb.OverlayEdit:SetText(overlayText)
-                eb.OverlayEdit:SetCursorPosition(#overlayText)
-            end
-
-            if eb.OverlayEdit and eb.OverlayEdit.SetFocus then
-                eb.OverlayEdit:SetFocus()
-            end
-
-            if eb.EnsureProxyBackgroundShown then
-                eb:EnsureProxyBackgroundShown()
-            end
-
-            eb._openingWatchdog = false
+            eb:RetargetOpenWhisper(fullName, blizzBox)
             return
         end
 

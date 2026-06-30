@@ -30,6 +30,7 @@ local registeredLinkProtocols = {} -- [prefix] = true; populated by RegisterLink
 -- found here or in FILTER_ALIASES.
 local VALID_FILTERS = {
     PRE_EDITBOX_SHOW        = true, -- {chatType, target} → payload|false; suppress overlay open
+    PRE_EDITBOX_LABEL       = true, -- {chatType, target, channelName, label, unit} → payload|false; mutate label text
     PRE_MULTILINE_SHOW      = true, -- {text, chatType, language, target} → payload|false; block/modify multiline open
     PRE_SEND                = true, -- {text, chatType, language, target} → payload|false; rewrite or block send
     PRE_CHUNK               = true, -- {text, limit, chatType} → payload|false; modify or skip chunking

@@ -252,19 +252,65 @@ end
 -- Build the label string and colour for a given chat mode.
 local function BuildLabelText(chatType, target, channelName)
     local label
-    if chatType == "BN_WHISPER" and target then
+    local api = YapperTable and YapperTable.API
+    if api and type(api.RunFilter) == "function" then
+        local function DeepCopy(value)
+            if type(value) ~= "table" then
+                return value
+            end
+            local out = {}
+            for k, v in pairs(value) do
+                out[k] = DeepCopy(v)
+            end
+            return out
+        end
+
+        -- PRE_EDITBOX_LABEL is intentionally non-blocking:
+        -- label resolution is a core UX path and must always produce a value.
+        -- Filters may mutate payload.label, but cancellation is ignored.
+        -- We snapshot the original payload and restore from it if a filter
+        -- returns malformed/corrupted values.
+        local filterPayload = {
+            chatType = chatType,
+            target = target,
+            channelName = channelName,
+            label = nil,
+            unit = (chatType == "EMOTE") and "player" or nil,
+        }
+        local originalPayload = DeepCopy(filterPayload)
+        local payload = api:RunFilter("PRE_EDITBOX_LABEL", filterPayload)
+
+        if payload == false or type(payload) ~= "table" then
+            payload = originalPayload
+        else
+            if payload.chatType ~= nil and type(payload.chatType) ~= "string" then
+                payload.chatType = originalPayload.chatType
+            end
+            if payload.channelName ~= nil and type(payload.channelName) ~= "string" then
+                payload.channelName = originalPayload.channelName
+            end
+            if payload.unit ~= nil and type(payload.unit) ~= "string" then
+                payload.unit = originalPayload.unit
+            end
+        end
+
+        -- Non-blocking label hook: ignore cancellation and fall back to default label logic.
+        if type(payload.label) == "string" and payload.label ~= "" then
+            label = payload.label
+        end
+    end
+
+    if not label and chatType == "BN_WHISPER" and target then
         local display = target
         if YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetDisplay then
             display = YapperTable.Router:ResolveBnetDisplay(target) or target
         end
         label = "To " .. display .. ":"
-    elseif chatType == "WHISPER" and target then
+    elseif not label and chatType == "WHISPER" and target then
         label = "To " .. target .. ":"
-    elseif chatType == "EMOTE" then
-        -- Show the player's character name for emotes.
-        local name = UnitName and UnitName("player") or "You"
-        label = name
-    elseif chatType == "CHANNEL" then
+    elseif not label and chatType == "EMOTE" then
+        label = UnitName and UnitName("player") or "You"
+    elseif not label and chatType == "CHANNEL" then
         if channelName and channelName ~= "" then
             label = channelName
         elseif target then
@@ -273,7 +319,7 @@ local function BuildLabelText(chatType, target, channelName)
             label = "Channel"
         end
         label = label .. ":"
-    else
+    elseif not label then
         local pretty = LABEL_PREFIXES[chatType]
         label = pretty or (chatType or "Say")
     end

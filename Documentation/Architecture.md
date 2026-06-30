@@ -56,7 +56,11 @@ Src/Hooks/ShowHide.lua
 Src/Hooks/Label.lua
 Src/Hooks/History.lua
 Src/Hooks/Slash.lua
-Src/Hooks/Blizzard.lua
+Src/Hooks/BlizzardHookCtl/00_Common.lua
+Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua
+Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua
+Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua
+Src/Hooks/BlizzardHookCtl/40_IMWindowMemory.lua
 Src/EditBoxCompat.lua
 Src/Bridges/GopherBridge.lua
 Src/Bridges/TypingTrackerBridge.lua
@@ -183,7 +187,7 @@ flowchart TD
 
 Reentrancy note (issue #21 fix):
 
-- Show hook uses `_inBlizzShowHook` guard and defers focus reclaim via `C_Timer.After(0, ...)` to avoid recursive focus ping-pong with Blizzard `ActivateChat` ([`Src/Hooks/Blizzard.lua#L1013`](../Src/Hooks/Blizzard.lua#L1013)).
+- Show hook uses `_inBlizzShowHook` guard and defers focus reclaim via `C_Timer.After(0, ...)` to avoid recursive focus ping-pong with Blizzard `ActivateChat` ([`Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L435`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L435)).
 
 ## Hot path 3: Spellcheck path
 

@@ -121,28 +121,30 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
             }
         end
 
-        -- Sync attributes if requested
+        -- IMPORTANT: Do not write chatType/tellTarget/channelTarget attributes
+        -- during lockdown from keybind code. Those SetAttribute writes can taint
+        -- the native header path (UpdateHeader) when Blizzard focuses the box.
+        -- In lockdown we delegate fully to Blizzard's own OpenChat flow.
         if syncAttributes then
-            SyncAttributesToBlizzard()
+            LogVerbose("Keybind lockdown fallback: skipping SyncAttributesToBlizzard to avoid taint")
         end
 
         if ChatFrameUtil and ChatFrameUtil.OpenChat then
-            ChatFrameUtil.OpenChat()
+            -- Preserve OPENCHATSLASH semantics in fallback mode while still
+            -- using Blizzard as the authority during lockdown.
+            if prefillText and prefillText ~= "" then
+                ChatFrameUtil.OpenChat(prefillText)
+            else
+                ChatFrameUtil.OpenChat()
+            end
         end
         return
     end
     
-    -- Restore pre-lockdown LastUsed state if lockdown has ended
+    -- Lockdown ended: clear pre-lockdown stash. Post-lockdown authority is
+    -- now handled by ResyncFromBlizzardAfterLockdown, so we must not reapply
+    -- stale pre-lockdown channel/target snapshots here.
     if Keybinds._preLockdownLastUsed and not inLockdown then
-        if EditBox.LastUsed then
-            EditBox.LastUsed.chatType = Keybinds._preLockdownLastUsed.chatType
-            EditBox.LastUsed.target = Keybinds._preLockdownLastUsed.target
-            EditBox.LastUsed.language = Keybinds._preLockdownLastUsed.language
-            -- Also restore current state for immediate use
-            EditBox.ChatType = Keybinds._preLockdownLastUsed.chatType
-            EditBox.Target = Keybinds._preLockdownLastUsed.target
-            EditBox.Language = Keybinds._preLockdownLastUsed.language
-        end
         Keybinds._preLockdownLastUsed = nil
     end
 

@@ -749,6 +749,117 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- External whisper routing
+-- ---------------------------------------------------------------------------
+-- Shared by the ChatFrameUtil.SendTell hook (non-menu callers: chat name
+-- left-click, LFG, Professions, Communities, ItemRef) and the
+-- UnitPopupWhisperButtonMixin override (all unit-popup menu whispers). One
+-- implementation so the two entry points cannot drift apart or fight.
+
+--- True only for Blizzard's native ChatFrameN editboxes (never our overlay).
+function EditBox:IsNativeChatEditBox(eb)
+    if not eb or eb == self.OverlayEdit or type(eb.GetName) ~= "function" then
+        return false
+    end
+    local name = eb:GetName()
+    return type(name) == "string" and name:match("^ChatFrame%d+EditBox$") ~= nil
+end
+
+--- Retarget the already-open overlay onto an external (transient) whisper.
+--- Preconditions: the overlay must already be shown and `target` must be a
+--- non-empty string.  Returns true on success, false if a precondition fails
+--- so callers fail fast instead of silently doing nothing.
+function EditBox:RetargetOpenWhisper(target, blizzBox)
+    if not (self.Overlay and self.Overlay:IsShown()) then
+        return false
+    end
+    if type(target) ~= "string" or target == "" then
+        return false
+    end
+
+    local overlayText = (self.OverlayEdit and self.OverlayEdit:GetText()) or ""
+
+    if self:IsNativeChatEditBox(blizzBox) then
+        self:_IMPushActive(blizzBox)
+        -- In Classic+IM tab mode SendTell can fire before the destination box
+        -- has stable geometry; re-anchoring there risks snapping to the wrong
+        -- host, so only reanchor outside IM mode.  Show() performs the
+        -- tab/proxy swap.
+        if blizzBox ~= self.OrigEditBox and GetCVar("chatStyle") ~= "im" then
+            self:Show(blizzBox)
+        end
+    end
+
+    self.ChatType = "WHISPER"
+    self.Target = target
+    self.ChannelName = nil
+    -- Transient external whisper: must not become the global LastUsed sticky.
+    self._externalWhisperTarget = target
+    self:RefreshLabel()
+
+    if overlayText ~= "" and self.OverlayEdit then
+        self.OverlayEdit:SetText(overlayText)
+        self.OverlayEdit:SetCursorPosition(#overlayText)
+    end
+
+    if self.OverlayEdit then
+        self.OverlayEdit:SetFocus()
+    end
+
+    self:EnsureProxyBackgroundShown()
+    self._openingWatchdog = false
+    return true
+end
+
+--- Record a message sent through Blizzard's native editbox (lockdown / bypass /
+--- handoff fallback) into Yapper's persistent history.  Wired to the
+--- `ChatFrame.OnEditBoxPreSendText` EventRegistry event.  Only native
+--- ChatFrameEditBoxMixin boxes fire that event; the overlay sends through
+--- Yapper's own pipeline and never triggers it, so there is no double-record.
+function EditBox:RecordFallbackSend(editBox)
+    local History = YapperTable.History
+    if not (History and type(History.AddChatHistory) == "function") then
+        return
+    end
+    if not editBox or type(editBox.GetText) ~= "function" then
+        return
+    end
+
+    local text = editBox:GetText()
+    if type(text) ~= "string" or text == "" then
+        return
+    end
+
+    local utils = YapperTable.Utils
+    -- Never read, compare, or store secret values (BN tokens, obfuscated text).
+    if utils and utils:IsSecret(text) then
+        return
+    end
+    -- Mirror Blizzard's own send guard: only record when a non-space char exists
+    -- (slash commands are already cleared by ParseText before this fires).
+    if not text:find("%S") then
+        return
+    end
+
+    -- Read channel context via the ChatFrameEditBoxBaseMixin getters.
+    local chatType = (type(editBox.GetChatType) == "function") and editBox:GetChatType() or nil
+    local target
+    if chatType == "WHISPER" or chatType == "BN_WHISPER" then
+        target = (type(editBox.GetTellTarget) == "function") and editBox:GetTellTarget() or nil
+    elseif chatType == "CHANNEL" then
+        target = (type(editBox.GetChannelTarget) == "function") and editBox:GetChannelTarget() or nil
+    end
+
+    -- Keep the message text but drop unstorable secret channel context.
+    if target ~= nil and utils and utils:IsSecret(target) then
+        chatType = nil
+        target = nil
+    end
+
+    History:AddChatHistory(text, chatType, target)
+end
+
 --- Re-apply current config values to a live overlay if visible.
 -- @param force boolean: when true, apply regardless of SettingsHaveChanged flag.
 function EditBox:ApplyConfigToLiveOverlay(force)

@@ -11,9 +11,9 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L274`](../Yapper.lua#L274)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L399`](../Yapper.lua#L399)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L269`](../Yapper.lua#L269)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L394`](../Yapper.lua#L394)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -104,14 +104,14 @@ Loaded before all integration hooks.
 - Description: Internal dispatch table behind public `_G.YapperAPI`.
 - Fields:
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
-  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1233`](../Src/API.lua#L1233)).
+  - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1234`](../Src/API.lua#L1234)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1045`](../Src/API.lua#L1045))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1219`](../Src/API.lua#L1219))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1254`](../Src/API.lua#L1254))
-  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L535`](../Src/API.lua#L535)) — returns the number of entries in the FSM state history.
-  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L526`](../Src/API.lua#L526)) — returns a specific state transition log entry.
-  - `API:GetStateLogs() → table` ([`../Src/API.lua#L516`](../Src/API.lua#L516)) — returns the full circular buffer of state transitions.
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1046`](../Src/API.lua#L1046))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1220`](../Src/API.lua#L1220))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1255`](../Src/API.lua#L1255))
+  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L536`](../Src/API.lua#L536)) — returns the number of entries in the FSM state history.
+  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L527`](../Src/API.lua#L527)) — returns a specific state transition log entry.
+  - `API:GetStateLogs() → table` ([`../Src/API.lua#L517`](../Src/API.lua#L517)) — returns the full circular buffer of state transitions.
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -433,7 +433,7 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L512`](`../Src/EditBox.lua#L512`))
 - Methods:
   - `ClearLockdownState` ([`../Src/EditBox.lua#L75`](../Src/EditBox.lua#L75))
-  - `AddReplyTarget` ([`../Src/EditBox.lua#L110`](../Src/EditBox.lua#L110))
+  - `AddReplyTarget` ([`../Src/EditBox.lua#L109`](../Src/EditBox.lua#L109))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L139`](../Src/EditBox.lua#L139))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L391`](../Src/EditBox.lua#L391))
   - `SetOnSend` ([`../Src/EditBox.lua#L559`](../Src/EditBox.lua#L559))
@@ -462,7 +462,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
 - Methods:
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L405`](../Src/EditBox/Overlay.lua#L405)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L451`](../Src/EditBox/Overlay.lua#L451)).
 
 ## EditBox.Handlers
 
@@ -488,6 +488,9 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
+  - [NEW] `EditBox:RecordFallbackSend() → nil`: Record a message sent through Blizzard's native editbox (lockdown / bypass / ([`../Src/Hooks/ShowHide.lua#L820`](../Src/Hooks/ShowHide.lua#L820))
+  - [NEW] `EditBox:RetargetOpenWhisper() → nil`: Retarget the already-open overlay onto an external (transient) whisper. ([`../Src/Hooks/ShowHide.lua#L773`](../Src/Hooks/ShowHide.lua#L773))
+  - [NEW] `EditBox:IsNativeChatEditBox() → nil`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L761`](../Src/Hooks/ShowHide.lua#L761))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
   - `EditBox:HandoffToBlizzard(silent?, bypassOpen?, isMultiline?)` - Lockdown handoff.
@@ -532,9 +535,9 @@ Slash command forwarding.
 Blizzard editbox hooks (taint-free).
 
 - Description: HookBlizzardEditBox(), HookAllChatFrames(), all secure hooks.
-- File: [`../Src/Hooks/Blizzard.lua`](../Src/Hooks/Blizzard.lua)
+- File: [`../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua`](../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua), [`../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua), [`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua), [`../Src/Hooks/BlizzardHookCtl/40_IMWindowMemory.lua`](../Src/Hooks/BlizzardHookCtl/40_IMWindowMemory.lua)
 - Methods:
-  - [NEW] `EditBox:EnsureProxyBackgroundShown() → nil`: In proxy mode the native editbox is the visible background. A channel link ([`../Src/Hooks/Blizzard.lua#L85`](../Src/Hooks/Blizzard.lua#L85))
+  - [NEW] `EditBox:EnsureProxyBackgroundShown() → nil`: In proxy mode the native editbox is the visible background. A channel link ([`../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua#L8`](../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua#L8))
   - `EditBox:HookBlizzardEditBox(blizzEditBox)` - Hook a single Blizzard editbox.
   - `EditBox:HookAllChatFrames()` - Hook all NUM_CHAT_WINDOWS editboxes.
 - Filters run:
@@ -968,4 +971,10 @@ Per-category page builders called by `BuildConfigUI`.
   - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L158`](../Src/Utils.lua#L158))
   - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L140`](../Src/Utils.lua#L140))
   - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L132`](../Src/Utils.lua#L132))
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L192`](../Src/Utils.lua#L192))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L201`](../Src/Utils.lua#L201))
+
+## TotalRP3Bridge
+
+- Methods:
+  - [NEW] `TotalRP3Bridge:GetPlayerDisplayName() → nil`: Returns the best available RP display name for the player when TRP3 is loaded. ([`../Src/Bridges/TotalRP3Bridge.lua#L90`](../Src/Bridges/TotalRP3Bridge.lua#L90))
+  - [NEW] `TotalRP3Bridge:GetUnitDisplayName() → nil`: No description provided. ([`../Src/Bridges/TotalRP3Bridge.lua#L74`](../Src/Bridges/TotalRP3Bridge.lua#L74))

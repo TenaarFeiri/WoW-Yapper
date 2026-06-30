@@ -60,7 +60,11 @@ Src/Hooks/ShowHide.lua
 Src/Hooks/Label.lua
 Src/Hooks/History.lua
 Src/Hooks/Slash.lua
-Src/Hooks/Blizzard.lua
+Src/Hooks/BlizzardHookCtl/00_Common.lua
+Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua
+Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua
+Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua
+Src/Hooks/BlizzardHookCtl/40_IMWindowMemory.lua
 Src/EditBoxCompat.lua
 
 # These files must load in this order:

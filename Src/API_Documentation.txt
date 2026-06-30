@@ -72,7 +72,16 @@
     PRE_EDITBOX_SHOW  chatType, target               yes
       Fires before the overlay opens.  Return false to suppress it.
       Used by WIMBridge to yield focus when WIM owns the whisper window.
-      Emission sites: Src/Hooks/Blizzard.lua, Src/EditBox/Keybinds.lua.
+      Emission sites: Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua, Src/EditBox/Keybinds.lua.
+
+    PRE_EDITBOX_LABEL chatType, target, channelName, label, unit   no*
+      Fires when BuildLabelText resolves the channel label text.
+      Use this to mutate `label` for a specific chatType (for example,
+      EMOTE labels in RP addons). Return the payload table.
+      `false` is ignored for this hook (label selection remains non-blocking).
+      Yapper snapshots the original payload via deep-copy before running
+      filters and restores from that snapshot if returned data is malformed.
+      Emission site: Src/EditBox/Overlay.lua.
 
     PRE_MULTILINE_SHOW text, chatType, language, target yes
       Fires before the expanded multiline editor opens.
@@ -574,6 +583,7 @@
     • Filters MUST return the payload table (or false).  Returning nil
       is treated as "continue unchanged" for safety, but please don't
       rely on it — always return the payload explicitly.
+      Exception: PRE_EDITBOX_LABEL is non-blocking and ignores cancellation.
 
     • Filter payloads are plain tables.  Modify fields in-place; do not
       replace the table itself (return the same reference).
