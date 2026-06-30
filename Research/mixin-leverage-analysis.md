@@ -287,66 +287,43 @@ it always sees the post-correction value.
 
 ### CANDIDATE 5: EventRegistry `ChatFrame.OnEditBoxFocusGained` — ActivateChat hook
 **Current hook:** `hooksecurefunc(ChatFrameUtil, "ActivateChat", ...)` at Blizzard.lua:1014.  
+**Verdict after verification: DO NOT REPLACE.**
 
-ActivateChat triggers when any chat editbox is explicitly activated (IM mode focus).
-The hook body:
-- Guards `_suppressActivateChatHook`.
-- In IM mode: defers `self:Show(editBox)` one frame.
-- In classic mode: sets `_activateChatTriggered` flag.
+Verified Blizzard call sites for `ChatFrameUtil.ActivateChat` (wow-ui-source):
+- `ChatFrameEditBox.lua:391` — `OnEditFocusGained`
+- `ChatFrameUtil.lua:399` — `OpenChat`
+- `ChatFrameUtil.lua:437` — `FocusActiveWindow`
+- `ChatFrameUtil.lua:842` — dock selection path
 
-**EventRegistry alternative:** `ChatFrame.OnEditBoxFocusGained` fires from inside
-`ChatFrameEditBoxMixin:OnEditFocusGained()` → `EventRegistry:TriggerEvent("ChatFrame.OnEditBoxFocusGained", self)`.  This fires whenever any ChatFrameEditBoxMixin editbox gains focus.
-
-**Can we replace?**  
-Partially.  `ActivateChat` calls more than just `SetFocus` — it calls `editBox:Show()`,
-`editBox:SetFrameStrata("DIALOG")`, etc.  The EventRegistry event fires from `OnEditFocusGained`,
-which is a script handler on the editbox frame.  We could use it as a signal that focus was
-gained, but we'd lose the `chatFrame` context we get from `ActivateChat`'s argument.
-
-`ChatFrame.OnEditBoxFocusGained` payload is `(editBox)` — same as the `editBox` argument to
-`ActivateChat`.  So the transition is possible.
-
-**Should we?**  
-**Cautiously yes for the IM-mode branch** (defer Show).  The classic-mode flag
-(`_activateChatTriggered`) is a minor state signal that could equivalently be set from the
-EventRegistry callback.
-
-**Risk:** Registering via EventRegistry fires for _all_ ChatFrameEditBox instances, not just
-ones we've hooked.  The existing `ActivateChat` hook also fires for all.  Same coverage.
-
-**Verdict: Low-risk refactor opportunity.** Can replace the ActivateChat hook with EventRegistry
-callback.  Removes one global hooksecurefunc.  Defer to Phase 2.
+`ChatFrame.OnEditBoxFocusGained` only fires from `OnEditFocusGained` (1 of 4 sites).  The
+`OpenChat`/`FocusActiveWindow`/dock paths call `ActivateChat` directly; some of them re-enter
+`SetFocus` (which re-fires the event) but not all, and the timing differs (event fires *before*
+ActivateChat completes, the hook fires *after*).  A 1:1 swap would change coverage and ordering.
+**Not behaviour-preserving.  Keep the hook.**
 
 ---
 
 ### CANDIDATE 6: EventRegistry `ChatFrame.OnEditBoxFocusLost` — DeactivateChat hook
-**Current hook:** `hooksecurefunc(ChatFrameUtil, "DeactivateChat", ...)` at Blizzard.lua:1002.
+**Current hook:** `hooksecurefunc(ChatFrameUtil, "DeactivateChat", ...)` at Blizzard.lua:1002.  
+**Verdict after verification: DO NOT REPLACE.**
 
-Body is 6 lines: if the deactivated box is Yapper's OrigEditBox and the overlay is shown,
-call `EnsureProxyBackgroundShown()`.
+The hook re-shows the proxy background when `OrigEditBox` is deactivated while the overlay is
+shown.  Verified Blizzard call sites for `ChatFrameUtil.DeactivateChat` (wow-ui-source):
+- `ChatFrameEditBox.lua:380` — `OnHide`
+- `ChatFrameEditBox.lua:399` — `OnEditFocusLost`
+- `ChatFrameEditBox.lua:537` — `ClearChat` (im/voice path)
+- `ChatFrameUtil.lua:448` — `ActivateChat` deactivating the **previous** active box
+- `ChatFrameUtil.lua:840/843` — dock close path
+- `FloatingChatFrame.lua:765` — floating frame teardown
 
-`ChatFrame.OnEditBoxFocusLost` fires from `ChatFrameEditBoxMixin:OnEditFocusLost()`.
-`DeactivateChat` calls `editBox:Deactivate()` which calls `ClearFocus()`, which triggers
-`OnEditFocusLost`.  The EventRegistry event fires with `(editBox)` — sufficient to identify which
-box lost focus.
+`ChatFrame.OnEditBoxFocusLost` only fires from `OnEditFocusLost` (1 of 6 sites).  The proxy box
+often does **not** have focus (the overlay does), so the deactivations that matter — `OnHide`,
+`ClearChat`, and especially `ActivateChat` deactivating the previous box — would never reach an
+`OnEditBoxFocusLost` callback.  A swap would silently drop proxy-background re-shows in exactly
+those cases.
 
-**Can we replace?** Yes.  
-**Should we?** **Yes** — this is the easiest swap and removes a global hooksecurefunc.
-
-```lua
--- Replace DeactivateChat hook with:
-EventRegistry:RegisterCallback("ChatFrame.OnEditBoxFocusLost", function(ownerID, editBox)
-    if editBox ~= EditBox.OrigEditBox then return end
-    if not (EditBox.Overlay and EditBox.Overlay:IsShown()) then return end
-    EditBox:EnsureProxyBackgroundShown()
-end)
-```
-
-**Risk:** `DeactivateChat` also calls `editBox:SetFrameStrata("LOW")` before `Deactivate`.  If
-anything Yapper needs depends on strata changes, the EventRegistry fires after strata is already
-set — fine, we just call `EnsureProxyBackgroundShown()`.
-
-**Verdict: ADOPT in Phase 1.**
+**My earlier "Phase 1, zero risk" rating for this swap was wrong.**  `DeactivateChat` is a strict
+superset of the focus-lost event.  **Keep the hook.**
 
 ---
 
@@ -410,17 +387,25 @@ So the cache must stay for that snapshot purpose.
 
 | # | Hook/Code | Can be replaced? | Should be replaced? | Mechanism | Priority |
 |---|-----------|-----------------|---------------------|-----------|---------|
-| 5 | `blizzEditBox.Show` | No | No — MUST keep | Timing-critical preemption | N/A |
+| 5 | `blizzEditBox.Show` | No | No — MUST keep | ResetChatType mutation window | N/A |
 | 7 | `ChatFrameUtil.OpenChat` | No | No — MUST keep | Global entry point with complex branching | N/A |
 | 12 | `FCF_Tab_OnClick` | No | No — no mixin surface | Tab switching has no EventRegistry event | N/A |
 | 1 | `blizzEditBox.SetAttribute` | No (notification side) | No | No equivalent push event | N/A |
 | 2 | `blizzEditBox.SetText` | No | No | Deferred prefill stripping has no better hook | N/A |
-| 10 | `ChatFrameUtil.SendTell` | Partial (mixin for menu callers) | Keep for non-menu callers | mixin override covers 80%+; hook covers rest | Keep both |
+| 10 | `ChatFrameUtil.SendTell` | Partial (mixin for menu callers) | Keep for non-menu callers | mixin override + `RetargetOpenWhisper` helper | **Done** |
 | 11 | `ChatEdit_InsertLink` | No (edge case) | No — already minimal | InsertLink routes correctly when overlay shown | N/A |
-| 16 | MENU_CHAT_SHORTCUTS responder wrap | Partial | Not worth simplifying | Menu.ModifyMenu already used correctly | Refine body comment |
-| 8 | `ChatFrameUtil.DeactivateChat` | **Yes** | **Yes** — Phase 1 | EventRegistry `ChatFrame.OnEditBoxFocusLost` | Phase 1 |
-| 9 | `ChatFrameUtil.ActivateChat` | **Yes** | **Yes** — Phase 2 | EventRegistry `ChatFrame.OnEditBoxFocusGained` | Phase 2 |
-| 6 | `blizzEditBox.OnEditFocusLost` (per-box) | **Yes** | **Yes** — Phase 2 | EventRegistry `ChatFrame.OnEditBoxFocusLost` | Phase 2 |
+| 16 | MENU_CHAT_SHORTCUTS responder wrap | Partial | Not worth simplifying | Menu.ModifyMenu already used correctly | Keep |
+| 8 | `ChatFrameUtil.DeactivateChat` | **No** (verified) | **No** | Focus event is a strict subset of call sites | Keep |
+| 9 | `ChatFrameUtil.ActivateChat` | **No** (verified) | **No** | Focus event is a strict subset of call sites | Keep |
+| — | `ChatFrame.OnEditBoxPreSendText` | n/a (additive) | **Yes — done** | EventRegistry callback → fallback history | **Done** |
+
+### Verification note (correction to earlier draft)
+
+An earlier draft rated the DeactivateChat/ActivateChat swaps as safe Phase 1/2 work.  Verifying
+the Blizzard call sites showed the focus EventRegistry events are a **strict subset** of where
+those functions are invoked, so the swaps are **not** behaviour-preserving.  They have been
+re-classified as "keep".  The genuinely safe, additive win was wiring `OnEditBoxPreSendText` for
+fallback history — which has been implemented.
 
 ---
 
@@ -499,52 +484,59 @@ native path.
 
 ---
 
-## 7. Phased Reduction Plan
+## 7. What Was Implemented (2026-06-30)
 
-### Phase 1 — Zero regression risk (~1 hour)
-1. Replace the `DeactivateChat` hooksecurefunc (Blizzard.lua:1002) with
-   `EventRegistry:RegisterCallback("ChatFrame.OnEditBoxFocusLost", ...)`.
-   - Removes one global hook.
-   - Same coverage (all ChatFrameEditBoxMixin instances).
-   - Same timing.
+After verification, the following changes were made. The EventRegistry focus-event swaps were
+**deliberately not done** (see §4 verification note).
 
-### Phase 2 — Low regression risk (~2–3 hours, test in all chat modes)
-2. Replace the `ActivateChat` hooksecurefunc (Blizzard.lua:1014) with
-   `EventRegistry:RegisterCallback("ChatFrame.OnEditBoxFocusGained", ...)`.
-3. Replace the per-box `HookScript("OnEditFocusLost", ...)` at Blizzard.lua:615 with
-   EventRegistry `ChatFrame.OnEditBoxFocusLost` — removes the per-editbox install from
-   `HookBlizzardEditBox`.
-   - Both callbacks can be registered once at startup rather than once per editbox.
+### 7.1 `ChatFrame.OnEditBoxPreSendText` -> fallback history (additive, safe)
+- New `EditBox:RecordFallbackSend(editBox)` in `Src/Hooks/ShowHide.lua`.
+- Registered once in `EditBox:HookAllChatFrames` (`Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua`) guarded by
+  `self._fallbackHistoryRegistered`.
+- Captures messages sent through Blizzard's native editbox during lockdown / bypass / handoff
+  into Yapper's persistent history, so Up/Down history stays complete for the fallback path.
+- Reads channel context via the `ChatFrameEditBoxBaseMixin` getters (`GetChatType`,
+  `GetTellTarget`, `GetChannelTarget`) - the sensible use of that mixin surface.
+- Guards every value with `Utils:IsSecret` before reading/comparing/storing; drops secret
+  channel context but keeps the plain message text.
+- No double-record: the overlay is not a ChatFrameEditBoxMixin and never fires this event.
 
-### Phase 3 — Body cleanup (no hook count change)
-4. Add inline documentation to the MENU_CHAT_SHORTCUTS responder-wrap block explaining:
-   - Why FOCUS_OVERRIDE must be cleared before OpenChat.
-   - Why two-pass deferred capture is needed.
-   - This is the _correct_ surface; no simplification is possible.
+### 7.2 Unified external whisper routing (clean up SendTell vs mixin override)
+- New `EditBox:RetargetOpenWhisper(target, blizzBox)` and `EditBox:IsNativeChatEditBox(eb)` in
+  `Src/Hooks/ShowHide.lua` - one implementation of "retarget the open overlay onto a whisper".
+- The `SendTell` hook (`Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua`) and the `UnitPopupWhisperButtonMixin` override
+  (`Yapper.lua`) both delegate their "Yapper already open" path to this helper, so they cannot
+  drift apart or fight.
+- `RetargetOpenWhisper` returns `false` when preconditions fail (overlay not shown, empty
+  target) so callers fail fast rather than silently no-op.
+- The `SendTell` hook now fails fast on unusable input: `if type(target) ~= "string" or
+  target == "" then return end` and the lockdown bail, leaving Blizzard's native box untouched
+  instead of attempting elaborate fallback.
+- The duplicated local `IsNativeChatEditBox` closure inside the SendTell hook was removed in
+  favour of the shared method.
 
-### Do not pursue
-- Replacing the `Show` hook with EventRegistry.
-- Replacing the `OpenChat` hook.
-- Replacing the `FCF_Tab_OnClick` hook.
-- Applying `ChatFrameEditBoxBaseMixin` to OverlayEdit.
-- Removing the `SendTell` hook.
+### 7.3 Not done (and why)
+- DeactivateChat / ActivateChat -> EventRegistry focus events: focus events are a strict subset
+  of the call surface (§4). Swapping would silently drop proxy-background re-shows and
+  IM/open activations.
+- Show / OpenChat / FCF_Tab_OnClick / SetAttribute / SetText: no safe mixin or event surface.
+- Applying `ChatFrameEditBoxBaseMixin` to OverlayEdit: would taint and create dual state (§5D).
 
 ---
 
-## 8. Expected Outcome of All Phases
+## 8. Expected Outcome
 
-| Metric | Current | After Phase 1+2 | Change |
-|--------|---------|-----------------|--------|
-| Global hooksecurefunc count | 14 | 12 | −2 |
-| Per-box HookScript installs | 2 (Show + OnEditFocusLost) | 1 (Show) | −1 |
-| State flags driving hook re-entrancy | 18+ | 17 | −1 (suppress flag for DeactivateChat) |
-| EventRegistry callbacks | 0 | 3 (FocusLost×2, FocusGained×1) | +3 |
-| Code coverage of whisper entry points | Same | Same | No change |
+| Metric | Before | After this change | Change |
+|--------|--------|-------------------|--------|
+| Global hooksecurefunc count | 14 | 14 | 0 |
+| Duplicate whisper-routing implementations | 2 (SendTell hook + mixin override) | 1 (`RetargetOpenWhisper`) | −1 |
+| EventRegistry callbacks | 0 | 1 (`OnEditBoxPreSendText`) | +1 |
+| Fallback (lockdown/bypass) sends recorded in history | No | Yes | new feature |
+| Whisper entry-point coverage | full | full | unchanged |
 
-The absolute hook count reduction is modest (−3).  The real gain is:
-- Moving from per-editbox subscriptions to system-wide callbacks for focus events.
-- Removing one `_suppressActivateChatHook` flag that guards ActivateChat re-entrancy.
-- Making the focus-tracking path more self-documenting (EventRegistry registration is explicit).
+The hook count did not drop — the verified-safe reductions turned out to be unsafe.  The real
+gains are: a single source of truth for external whisper routing (the two entry points can no
+longer fight), fail-fast preconditions on that path, and fallback sends now landing in history.
 
 ---
 
