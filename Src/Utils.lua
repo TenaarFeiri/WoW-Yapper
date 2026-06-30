@@ -162,7 +162,7 @@ end
 -- Return true if the supplied value is secret (obfuscated) and should be
 -- treated with caution. Prefer the built-in WoW API when available.
 function Utils:IsSecret(value)
-    if not value or value == "" then return true end
+    if value == nil or value == false then return true end
     if type(issecretvalue) == "function" then
         local ok, res = pcall(issecretvalue, value)
         if ok and res == true then
@@ -176,8 +176,17 @@ function Utils:IsSecret(value)
         end
     end
     -- Fallback heuristic: battle.net obfuscated tokens include "|K".
-    if type(value) == "string" and value:find("|K") then return true end
-    if type(value) == "string" and value:match("^%s*$") then return true end
+    if type(value) == "string" then
+        local okMask, hasMask = pcall(function()
+            return value:find("|K", 1, true) ~= nil
+        end)
+        if okMask and hasMask then return true end
+
+        local okEmpty, isEmpty = pcall(function()
+            return value:match("^%s*$") ~= nil
+        end)
+        if okEmpty and isEmpty then return true end
+    end
     return false
 end
 

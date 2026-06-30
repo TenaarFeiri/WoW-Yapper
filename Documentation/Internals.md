@@ -391,13 +391,13 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:ApplyProgrammaticPrefill(text, box) → nil`: Apply text prefill to the overlay editbox and mirror any UX side-effects ([`../Src/EditBox.lua#L563`](../Src/EditBox.lua#L563))
-  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L533`](../Src/EditBox.lua#L533))
-  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L511`](../Src/EditBox.lua#L511))
-  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L589`](../Src/EditBox.lua#L589))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L628`](../Src/EditBox.lua#L628))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L617`](../Src/EditBox.lua#L617))
-  - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L87`](../Src/EditBox.lua#L87))
+  - [NEW] `EditBox:ApplyProgrammaticPrefill(text, box) → nil`: Apply text prefill to the overlay editbox and mirror any UX side-effects ([`../Src/EditBox.lua#L567`](../Src/EditBox.lua#L567))
+  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L537`](../Src/EditBox.lua#L537))
+  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L515`](../Src/EditBox.lua#L515))
+  - [NEW] `EditBox:CreateFocusTrap() → nil`: Create a hidden focus-trap EditBox. ([`../Src/EditBox.lua#L593`](../Src/EditBox.lua#L593))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L632`](../Src/EditBox.lua#L632))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L621`](../Src/EditBox.lua#L621))
+  - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L91`](../Src/EditBox.lua#L91))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L119`](../Src/EditBoxCompat.lua#L119))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
@@ -426,18 +426,18 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L39`](`../Src/EditBox.lua#L39`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L502`](`../Src/EditBox.lua#L502`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L503`](`../Src/EditBox.lua#L503`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L506`](`../Src/EditBox.lua#L506`))
-  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L350`](`../Src/EditBox.lua#L350`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L508`](`../Src/EditBox.lua#L508`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L506`](`../Src/EditBox.lua#L506`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L507`](`../Src/EditBox.lua#L507`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L510`](`../Src/EditBox.lua#L510`))
+  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L354`](`../Src/EditBox.lua#L354`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L512`](`../Src/EditBox.lua#L512`))
 - Methods:
-  - `ClearLockdownState` ([`../Src/EditBox.lua#L71`](../Src/EditBox.lua#L71))
-  - `AddReplyTarget` ([`../Src/EditBox.lua#L106`](../Src/EditBox.lua#L106))
-  - `NextReplyTarget` ([`../Src/EditBox.lua#L135`](../Src/EditBox.lua#L135))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L387`](../Src/EditBox.lua#L387))
-  - `SetOnSend` ([`../Src/EditBox.lua#L555`](../Src/EditBox.lua#L555))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L580`](../Src/EditBox.lua#L580))
+  - `ClearLockdownState` ([`../Src/EditBox.lua#L75`](../Src/EditBox.lua#L75))
+  - `AddReplyTarget` ([`../Src/EditBox.lua#L110`](../Src/EditBox.lua#L110))
+  - `NextReplyTarget` ([`../Src/EditBox.lua#L139`](../Src/EditBox.lua#L139))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L391`](../Src/EditBox.lua#L391))
+  - `SetOnSend` ([`../Src/EditBox.lua#L559`](../Src/EditBox.lua#L559))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L584`](../Src/EditBox.lua#L584))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -599,8 +599,8 @@ Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
   - `LockdownPolicy:IsChatLockdown() → boolean`: Returns true when chat messaging lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L13`](../Src/Policies/LockdownPolicy.lua#L13))
   - `LockdownPolicy:IsCombatLockdown() → boolean`: Returns true when protected-frame combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L19`](../Src/Policies/LockdownPolicy.lua#L19))
   - `LockdownPolicy:IsChatOrCombatLockdown() → boolean`: Returns true when either chat or combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L24`](../Src/Policies/LockdownPolicy.lua#L24))
-  - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L70`](../Src/Policies/ChannelPolicy.lua#L70))
-  - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L107`](../Src/Policies/ChannelPolicy.lua#L107))
+  - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L85`](../Src/Policies/ChannelPolicy.lua#L85))
+  - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L140`](../Src/Policies/ChannelPolicy.lua#L140))
 
 ## Router
 
@@ -610,6 +610,7 @@ Initialised by `Chat:Init`.
 - Fields:
   - `SendChatMessage`, `BNSendWhisper`, `ClubSendMessage` cached function refs ([`../Src/Router.lua#L26-L28`](../Src/Router.lua#L26-L28)).
 - Methods:
+  - [NEW] `ChannelPolicy:SanitizeCommittedSelection(current) → table|nil`: Normalize a runtime selection before persistence/commit. ([`../Src/Policies/ChannelPolicy.lua#L123`](../Src/Policies/ChannelPolicy.lua#L123))
   - `ResolveBnetTarget` ([`../Src/Router.lua#L59`](`../Src/Router.lua#L59`))
   - `_ResolveBnetTargetUncached` ([`../Src/Router.lua#L81`](`../Src/Router.lua#L81`))
   - `ResolveBnetDisplay` ([`../Src/Router.lua#L114`](`../Src/Router.lua#L114`))

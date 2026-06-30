@@ -425,6 +425,9 @@ end
 --- Save selection for stickiness across show/hide.
 function EditBox:PersistLastUsed()
     local ct = self.ChatType
+    local target = self.Target
+    local language = self.Language
+    local channelName = self.ChannelName
 
     local function NormaliseWhisperTarget(v)
         if v == nil then return nil end
@@ -448,13 +451,29 @@ function EditBox:PersistLastUsed()
         return
     end
 
+    local policy = YapperTable.ChannelPolicy
+    if policy and type(policy.SanitizeCommittedSelection) == "function" then
+        local sanitized = policy:SanitizeCommittedSelection({
+            chatType = ct,
+            target = target,
+            language = language,
+            channelName = channelName,
+        })
+        if sanitized then
+            ct = sanitized.chatType
+            target = sanitized.target
+            language = sanitized.language
+            channelName = sanitized.channelName
+        end
+    end
+
     if ct and ct ~= "" then
-        local policy = YapperTable.ChannelPolicy
         if policy and type(policy.BuildPersistedLastUsed) == "function" then
             local resolved = policy:BuildPersistedLastUsed({
                 chatType = ct,
-                target = self.Target,
-                language = self.Language,
+                target = target,
+                language = language,
+                channelName = channelName,
             }, self.LastUsed, YapperTable.Config and YapperTable.Config.EditBox, GROUP_CHAT_TYPES)
             if resolved then
                 self.LastUsed = resolved
@@ -463,8 +482,8 @@ function EditBox:PersistLastUsed()
             -- Safe fallback mirrors existing sticky semantics.
             self.LastUsed = {
                 chatType = ct,
-                target   = self.Target,
-                language = self.Language,
+                target   = target,
+                language = language,
             }
         end
     end

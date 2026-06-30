@@ -885,12 +885,67 @@ function EditBox:SetupOverlayScripts()
         elseif event == "CHAT_MSG_WHISPER" or event == "CHAT_MSG_BN_WHISPER" then
             -- Incoming whisper: arg2 is sender name for both events.
             local sender = select(2, ...)
-            if sender and sender ~= "" then
+            local utils = YapperTable.Utils
+
+            local function IsSecretValue(v)
+                return utils and utils.IsSecret and utils:IsSecret(v) == true
+            end
+
+            local function HasComparableTarget(v)
+                if v == nil then return false end
+                if IsSecretValue(v) then return false end
+                if type(v) == "string" then
+                    local ok, nonEmpty = pcall(function()
+                        return v:match("%S") ~= nil
+                    end)
+                    return ok and nonEmpty
+                end
+                return true
+            end
+
+            local senderKnown = HasComparableTarget(sender)
+            if senderKnown then
                 if event == "CHAT_MSG_BN_WHISPER" then
                     self:AddReplyTarget(sender, "BN_WHISPER")
                 else
                     self:AddReplyTarget(sender, "WHISPER")
                 end
+            end
+
+            local function NormaliseWhisperTarget(v, whisperKind)
+                if not HasComparableTarget(v) then return nil end
+                local s = v:lower()
+                if whisperKind == "WHISPER" then
+                    -- Realm suffixes are transient across WoW whisper flows.
+                    s = s:gsub("%-.*$", "")
+                end
+                return s
+            end
+
+            local kind = (event == "CHAT_MSG_BN_WHISPER") and "BN_WHISPER" or "WHISPER"
+            local activeEditBox = self.OrigEditBox
+                or self._lastActiveIMEditBox
+                or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+            local activeFrame = activeEditBox and (activeEditBox.chatFrame
+                or (activeEditBox.GetParent and activeEditBox:GetParent())) or nil
+            local activeType = activeFrame and activeFrame.chatType or nil
+            local activeTarget = activeFrame and activeFrame.chatTarget or nil
+            local frameIsWhisper = (activeType == "WHISPER" or activeType == "BN_WHISPER")
+            local activeTargetKnown = HasComparableTarget(activeTarget)
+            local senderSecret = IsSecretValue(sender)
+
+            local targetsMatch = senderKnown and activeTargetKnown
+                and (NormaliseWhisperTarget(sender, kind) == NormaliseWhisperTarget(activeTarget, kind))
+            local trustKnownTarget = senderSecret and frameIsWhisper and activeTargetKnown
+
+            if targetsMatch or trustKnownTarget then
+                local affinityType = frameIsWhisper and activeType or kind
+                self._incomingWhisperAffinity = {
+                    chatType = affinityType,
+                    target = activeTarget,
+                    t = GetTime and GetTime() or nil,
+                    frameName = activeFrame and activeFrame.GetName and activeFrame:GetName() or nil,
+                }
             end
         elseif event == "UPDATE_CHAT_COLOR" then
             -- Blizzard chat colour changed: refresh label if it matches our current channel.

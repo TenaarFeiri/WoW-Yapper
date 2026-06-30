@@ -9,6 +9,152 @@ local string_format = string.format
 local type   = type
 local pairs  = pairs
 local select = select
+local tostring = tostring
+
+local _unitPopupWhisperOriginalOnClick = nil
+
+local function InstallUnitPopupWhisperOverride()
+    if YapperTable._unitPopupWhisperOverrideInstalled then
+        return true
+    end
+
+    local mixin = _G.UnitPopupWhisperButtonMixin
+    if type(mixin) ~= "table" or type(mixin.OnClick) ~= "function" then
+        return false
+    end
+
+    if not _unitPopupWhisperOriginalOnClick then
+        _unitPopupWhisperOriginalOnClick = mixin.OnClick
+    end
+
+    mixin.OnClick = function(self, contextData)
+        local eb = YapperTable and YapperTable.EditBox
+        local utils = YapperTable and YapperTable.Utils
+
+        if not eb or type(eb.Show) ~= "function" or not contextData then
+            return _unitPopupWhisperOriginalOnClick(self, contextData)
+        end
+
+        if utils and utils.IsChatLockdown and utils:IsChatLockdown() then
+            return _unitPopupWhisperOriginalOnClick(self, contextData)
+        end
+
+        local isBNetAccount = contextData.bnetIDAccount
+        if not isBNetAccount then
+            local playerLocation = contextData.playerLocation
+            if playerLocation and playerLocation.IsBattleNetGUID then
+                isBNetAccount = playerLocation:IsBattleNetGUID()
+            end
+        end
+
+        -- Keep Blizzard's native BNet path untouched.
+        if isBNetAccount then
+            return _unitPopupWhisperOriginalOnClick(self, contextData)
+        end
+
+        local unit = contextData.unit
+        if unit and not UnitIsHumanPlayer(unit) then
+            return
+        end
+
+        local fullName = nil
+        if UnitPopupSharedUtil and UnitPopupSharedUtil.GetFullPlayerName then
+            fullName = UnitPopupSharedUtil.GetFullPlayerName(contextData)
+        end
+
+        if type(fullName) ~= "string" or fullName == "" then
+            return _unitPopupWhisperOriginalOnClick(self, contextData)
+        end
+
+        local blizzBox = contextData.chatFrame and contextData.chatFrame.editBox
+        if not blizzBox then
+            blizzBox = eb.OrigEditBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox
+        end
+
+        local existingText = ""
+        if blizzBox and blizzBox.GetText then
+            existingText = blizzBox:GetText() or ""
+        end
+
+        print(string_format("[Yapper] Mixin whisper override -> %s", tostring(fullName)))
+
+        -- If already open, just retarget in place.
+        if eb.Overlay and eb.Overlay:IsShown() then
+            local overlayText = (eb.OverlayEdit and eb.OverlayEdit.GetText and eb.OverlayEdit:GetText()) or ""
+
+            if blizzBox and blizzBox ~= eb.OrigEditBox then
+                local chatStyle = GetCVar and GetCVar("chatStyle")
+                if chatStyle ~= "im" then
+                    eb:Show(blizzBox)
+                end
+            end
+
+            eb.ChatType = "WHISPER"
+            eb.Target = fullName
+            eb.ChannelName = nil
+            eb._externalWhisperTarget = fullName
+            eb:RefreshLabel()
+
+            if overlayText ~= "" and eb.OverlayEdit and eb.OverlayEdit.SetText then
+                eb.OverlayEdit:SetText(overlayText)
+                eb.OverlayEdit:SetCursorPosition(#overlayText)
+            end
+
+            if eb.OverlayEdit and eb.OverlayEdit.SetFocus then
+                eb.OverlayEdit:SetFocus()
+            end
+
+            if eb.EnsureProxyBackgroundShown then
+                eb:EnsureProxyBackgroundShown()
+            end
+
+            eb._openingWatchdog = false
+            return
+        end
+
+        if blizzBox and blizzBox.Hide then
+            blizzBox:Hide()
+            if blizzBox.SetText then
+                blizzBox:SetText("")
+            end
+        end
+
+        eb:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
+        eb.ChatType = "WHISPER"
+        eb.Target = fullName
+        eb.ChannelName = nil
+        eb._externalWhisperTarget = fullName
+
+        if existingText ~= "" and eb.OverlayEdit and eb.OverlayEdit.SetText then
+            eb.OverlayEdit:SetText(existingText)
+        end
+
+        eb:RefreshLabel()
+    end
+
+    YapperTable._unitPopupWhisperOverrideInstalled = true
+
+    return true
+end
+
+local function RegisterUnitPopupOverrideFallback()
+    if YapperTable._unitPopupWhisperFallbackRegistered then
+        return
+    end
+
+    if not YapperTable.Events or not YapperTable.Events.Register then
+        return
+    end
+
+    YapperTable.Events:Register("PARENT_FRAME", "ADDON_LOADED", function(addonName)
+        if addonName ~= "Blizzard_UnitPopup" and addonName ~= "Blizzard_UnitPopupShared" then
+            return
+        end
+        InstallUnitPopupWhisperOverride()
+    end, "UNITPOPUP_WHISPER_OVERRIDE")
+
+    YapperTable._unitPopupWhisperFallbackRegistered = true
+end
 
 local function GetBypassBindingHint()
     local key1, key2 = nil, nil
@@ -193,6 +339,12 @@ local function OnPlayerEnteringWorld()
     -- Hook all Blizzard chat editboxes with our taint-free overlay.
     if YapperTable.EditBox then
         YapperTable.EditBox:HookAllChatFrames()
+    end
+
+    -- Override unit-popup whisper button to route menu-based character whispers
+    -- directly into Yapper before Blizzard opens/parses the native editbox.
+    if not InstallUnitPopupWhisperOverride() then
+        RegisterUnitPopupOverrideFallback()
     end
 
     -- Register keybind overrides if enabled.

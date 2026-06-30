@@ -204,6 +204,13 @@ function EditBox:Show(origEditBox)
             and blizzTell and blizzTell ~= "")
         or (blizzType == "CHANNEL" and blizzChan and blizzChan ~= "")
 
+    local incomingWhisperAffinity = self._incomingWhisperAffinity
+    if incomingWhisperAffinity and incomingWhisperAffinity.t and GetTime
+        and (GetTime() - incomingWhisperAffinity.t) > 5 then
+        incomingWhisperAffinity = nil
+        self._incomingWhisperAffinity = nil
+    end
+
     local frameChatType, frameChatTarget, frameChannelName
     if origEditBox then
         local liveFrame = origEditBox.chatFrame
@@ -276,7 +283,24 @@ function EditBox:Show(origEditBox)
             frameChatType = frameChatType,
             frameChatTarget = frameChatTarget,
             frameChannelName = frameChannelName,
+            incomingWhisperAffinity = incomingWhisperAffinity,
+            now = GetTime and GetTime() or nil,
+            existingSelection = {
+                chatType = self.ChatType,
+                target = self.Target,
+                language = self.Language,
+                channelName = self.ChannelName,
+            },
         })
+    end
+
+    if incomingWhisperAffinity and resolvedSelection then
+        local affinityTarget = incomingWhisperAffinity.target
+        local isResolvedWhisper = (resolvedSelection.chatType == "WHISPER"
+            or resolvedSelection.chatType == "BN_WHISPER")
+        if isResolvedWhisper and affinityTarget and resolvedSelection.target == affinityTarget then
+            self._incomingWhisperAffinity = nil
+        end
     end
 
     if resolvedSelection then

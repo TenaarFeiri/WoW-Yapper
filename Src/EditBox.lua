@@ -45,6 +45,10 @@ EditBox._attrCache         = {}
 -- Not persisted across reloads.
 EditBox._tabChannelMemory  = {}
 
+-- Short-lived hint captured from incoming whispers when the active chat frame
+-- is a matching whisper tab/window. Consumed by open-selection policy.
+EditBox._incomingWhisperAffinity = nil
+
 -- Lockdown state (combat / M+ handoff FSM).
 -- Grouped to keep the state machine self-contained.
 EditBox._lockdown = {
@@ -101,12 +105,12 @@ function EditBox:UpdateFocusOverride()
 end
 
 -- Reply-queue helpers
--- Reply-queue helpers
 
 function EditBox:AddReplyTarget(name, kind)
-    if not name or name == "" then return end
+    if name == nil then return end
     -- Is it a secret? Then don't add it.
     if Utils:IsSecret(name) then return end
+    if type(name) == "string" and name == "" then return end
     kind = kind or "WHISPER"
     -- Normalize short kinds
     if kind == "BN" then kind = "BN_WHISPER" end
