@@ -3,6 +3,18 @@
 
 Clicking channel links ([Guild], [General], etc.) now opens Yapper on that channel instead of Blizzard's editbox. Channel slash commands like `/1`, `/g`, `/p` correctly switch channels in Yapper without showing raw slash text. The speech bubble menu also updates Yapper's channel when it's already open.
 
+## Whisper reliability improvements
+
+Whisper opens now route through a shared retarget path, so right-click whispers and direct whisper actions behave the same way when Yapper is already open. This reduces cases where whisper opens could drift between different code paths or fail silently.
+
+## Better fallback history
+
+If chat falls back to Blizzard's native editbox (lockdown/bypass/handoff), sent messages are now captured into Yapper history. Your Up/Down history stays complete instead of feeling like messages disappeared.
+
+## TRP3 emote labels (when available)
+
+When Total RP 3 is installed, EMOTE labels can use RP display names through Yapper's filter pipeline. This keeps labels consistent with RP identity formatting without hard-coding addon-specific logic into core overlay code.
+
 ## Proxy mode stability
 
 The Blizzard editbox background underneath Yapper now stays visible and stable in Classic style when Yapper opens or processes channel changes. When Yapper closes or sends a message, the Blizzard editbox is properly deactivated and hidden.
@@ -17,8 +29,15 @@ When you change channels via slash commands (like `/e `) while Yapper is open, t
 - Fixed BNet colour being overridden by legacy code.
 - Fixed issue where text could vertically offset on large monitor (technically implemented earlier but documented here, go figure)
 - Fixed defect in deferred focus logic which would trigger an error when using self: too late in the lifecycle.
+- Fixed stale whisper/channel metadata carry-over under adversarial state corruption tests.
 
-**Known issues:** ???
+## Compatibility and safety notes
+- Yapper no longer delegates posting through LibGopher.
+- If LibGopher is detected, Yapper now warns you, identifies the likely owning addon, and offers to disable it with a reload.
+
+**Known issues:**
+- Battle.net whisper routing intentionally stays on Blizzard's native path and can still feel different from normal whisper flows.
+- If you keep LibGopher-enabled addons active, posting can break while using Yapper; use the new disable prompt if you hit this.
 
 # NEW IN 2.2.0
 ## IM mode got a serious overhaul
