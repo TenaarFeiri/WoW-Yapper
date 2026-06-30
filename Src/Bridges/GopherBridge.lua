@@ -1,44 +1,33 @@
 --[[
-    Compatibility bridge for LibGopher.
+        GopherBridge (deprecation notifier)
 
-    When LibGopher is present (e.g. bundled with CrossRP), Yapper delegates
-    actual sending to Gopher's hooked globals so that:
-        • Gopher's queue, throttler, and confirmation system remain active.
-        • Other addons that Listen() on Gopher events (CrossRP) still work.
-        • Yapper controls its own splitting — we set a huge TempChunkSize so
-          Gopher passes our pre-split chunks through untouched.
-
-    When LibGopher is absent, this module sleeps and Router uses the
-    normal Yapper pipeline.
+        Yapper intentionally no longer supports LibGopher/CrossRP send delegation.
+        This bridge now serves only this purpose:
+            1) Detect LibGopher presence.
+            2) Tell the user which addon likely owns it.
+            3) Offer to disable that addon (with reload) and warn about breakage.
 ]]
 
 local YapperName, YapperTable = ...
 
-local GopherBridge            = {}
-YapperTable.GopherBridge      = GopherBridge
+local GopherBridge       = {}
+YapperTable.GopherBridge = GopherBridge
 
--- Localise Lua globals for performance
-local type     = type
-local tonumber = tonumber
-local pcall    = pcall
+local type = type
+local pcall = pcall
+local tostring = tostring
+local string_lower = string.lower
+local string_find = string.find
 
-GopherBridge.active           = false -- true after a successful Init
-GopherBridge._gopher          = nil
-GopherBridge._filterHandle    = nil -- PRE_EDITBOX_SHOW filter handle
-GopherBridge._initAttempted    = false -- true once we've tried to init
+GopherBridge.present = false
+GopherBridge.ownerAddon = nil
+GopherBridge._warnShown = false
+GopherBridge._initAttempted = false
+GopherBridge._sessionCheckDone = false
+GopherBridge._preEditboxShowHandle = nil
 
--- A chunk size large enough that Gopher will never re-split our text.
-local PASSTHROUGH_CHUNK_SIZE  = 6000
+local POPUP_KEY = "YAPPER_GOPHER_REMOVED_SUPPORT"
 
--- Event frame for self-contained discovery
-local eventFrame = CreateFrame("Frame")
-eventFrame:Hide()
-
--- ---------------------------------------------------------------------------
--- Detection
--- ---------------------------------------------------------------------------
-
---- Find and return the LibGopher public table, or nil.
 local function FindGopher()
     ---@diagnostic disable-next-line: undefined-field
     if _G.LibGopher and type(_G.LibGopher) == "table" then
@@ -51,216 +40,165 @@ local function FindGopher()
     return nil
 end
 
--- ---------------------------------------------------------------------------
--- Init
--- ---------------------------------------------------------------------------
+local function IsAddonLoaded(name)
+    local fn = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+    if not fn then return false end
+    local ok, loaded = pcall(fn, name)
+    return ok and loaded == true
+end
 
---- Internal init attempt. Called on load and on ADDON_LOADED events.
---- Self-contained: no external caller needed.
-local function TryInit()
-    local self = GopherBridge
-    if self.active or self._initAttempted then return end
+local function GetAddonField(name, field)
+    if not GetAddOnMetadata or type(name) ~= "string" then return nil end
+    local ok, value = pcall(GetAddOnMetadata, name, field)
+    if ok and type(value) == "string" and value ~= "" then
+        return value
+    end
+    return nil
+end
+
+local function FindLikelyOwnerAddon()
+    local getInfo = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
+    local getNum = (C_AddOns and C_AddOns.GetNumAddOns) or GetNumAddOns
+    if not getInfo or not getNum then
+        if IsAddonLoaded("CrossRP") then return "CrossRP" end
+        return nil
+    end
+
+    local bestEmbedded = nil
+    local bestMention = nil
+    local num = getNum() or 0
+
+    for i = 1, num do
+        local name, title, _, loadable, reason = getInfo(i)
+        if type(name) == "string" and name ~= "" then
+            local loaded = IsAddonLoaded(name)
+            local present = loadable == true
+                or reason == "DISABLED"
+                or reason == "INSECURE"
+                or reason == "DEMAND_LOADED"
+                or reason == nil
+
+            if loaded and present then
+                local embeds = GetAddonField(name, "X-Embeds") or ""
+                local deps = GetAddonField(name, "Dependencies") or ""
+                local optionalDeps = GetAddonField(name, "OptionalDeps") or ""
+                local notes = GetAddonField(name, "Notes") or title or ""
+
+                local haystack = string_lower(table.concat({
+                    name,
+                    title or "",
+                    embeds,
+                    deps,
+                    optionalDeps,
+                    notes,
+                }, " "))
+
+                if string_find(haystack, "gopher", 1, true) then
+                    if string_find(string_lower(embeds), "gopher", 1, true)
+                        or string_find(string_lower(deps), "gopher", 1, true)
+                        or string_find(string_lower(optionalDeps), "gopher", 1, true) then
+                        bestEmbedded = bestEmbedded or name
+                    else
+                        bestMention = bestMention or name
+                    end
+                end
+            end
+        end
+    end
+
+    if bestEmbedded then return bestEmbedded end
+    if bestMention then return bestMention end
+    if IsAddonLoaded("CrossRP") then return "CrossRP" end
+    return nil
+end
+
+local function DisableAddon(name)
+    if type(name) ~= "string" or name == "" then return end
+    local disable = (C_AddOns and C_AddOns.DisableAddOn) or DisableAddOn
+    if disable then
+        pcall(disable, name)
+    end
+end
+
+local function ShowWarningPopup(ownerAddon)
+    if GopherBridge._warnShown then return end
+
+    local ownerText = ownerAddon or "Unknown addon"
+    if not StaticPopupDialogs[POPUP_KEY] then
+        StaticPopupDialogs[POPUP_KEY] = {
+            text = "|cFFFF6600Warning: LibGopher detected|r\n\nDetected in: |cFFFFFFFF%s|r\n\nYapper intentionally removed LibGopher support. Keeping this addon active can break posting while using Yapper.\n\nYou can continue, or disable that addon now (requires reload).",
+            button1 = "Keep Addon Enabled",
+            button2 = "Disable + Reload",
+            OnAccept = function()
+                if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
+                    YapperTable.Utils:Print("warn", "LibGopher remains enabled. Posting may break while using Yapper.")
+                end
+            end,
+            OnCancel = function(_, data)
+                local addon = data
+                DisableAddon(addon)
+                if ReloadUI then
+                    ReloadUI()
+                end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = false,
+            preferredIndex = 3,
+        }
+    end
+
+    StaticPopup_Show(POPUP_KEY, ownerText, nil, ownerAddon)
+    GopherBridge._warnShown = true
+end
+
+local function TryDetectAndWarn()
+    if GopherBridge._sessionCheckDone then return end
+    GopherBridge._sessionCheckDone = true
+
     local gopher = FindGopher()
-    if not gopher then return end -- Will retry on next ADDON_LOADED
-    self:_DoInit(gopher)
-end
+    if not gopher then return end
 
---- Actually perform init once Gopher is found.
---- gopher parameter is already validated by TryInit.
-function GopherBridge:_DoInit(gopher)
-    if self.active or self._initAttempted then return end
-    self._initAttempted = true
+    GopherBridge._initAttempted = true
+    GopherBridge.present = true
+    GopherBridge.ownerAddon = FindLikelyOwnerAddon()
 
-    -- Make sure the API we need actually exists.
-    if type(gopher.SetTempChunkSize) ~= "function" then return end
-
-    self._gopher = gopher
-    self.active  = true
-    
-    if YapperTable.Utils then
-        YapperTable.Utils:VerbosePrint("GopherBridge: LibGopher detected — sending through Gopher's pipeline.")
+    local owner = GopherBridge.ownerAddon or "Unknown addon"
+    if YapperTable and YapperTable.Utils and YapperTable.Utils.Print then
+        YapperTable.Utils:Print("warn", "LibGopher detected (owner: " .. tostring(owner) .. "). Yapper no longer supports it.")
     end
-    
-    -- Stop watching for addon loads - we're done
-    eventFrame:UnregisterEvent("ADDON_LOADED")
-    eventFrame:Hide()
 
-    if not _G.YapperAPI then return end
-
-    -- Register PRE_EDITBOX_SHOW filter to coordinate with Gopher's hardware event needs.
-    -- We only block when Gopher specifically needs a hardware event, not for general
-    -- busy states. This allows Yapper to open for normal sending while still
-    -- coordinating for hardware-event-required states.
-    self._filterHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_SHOW", function(payload)
-            local gopher = self._gopher
-            -- Check if Gopher specifically needs a hardware event to continue.
-            if self:NeedsHardwareEvent() then
-                -- Nudge Gopher to try to consume this keystroke internally.
-                -- TryContinuePrompt checks ThrottlerHealth() and will advance if possible.
-                if type(gopher.Internal.TryContinuePrompt) == "function" then
-                    gopher.Internal.TryContinuePrompt()
-                -- Fallback to direct keystroke injection
-                elseif type(gopher.Internal.PipeThrottlerKeystroke) == "function" then
-                    gopher.Internal.PipeThrottlerKeystroke()
-                end
-                -- Check again after nudge - if Gopher consumed the event, allow Yapper to open.
-                -- Otherwise we must block because Gopher needs this hardware event.
-                if not self:NeedsHardwareEvent() then
-                    return payload
-                end
-                return false
-            end
-            -- Hide Blizzard editboxes which Gopher may have shown during normal processing.
-            for i = 1, 10 do
-                local editBox = _G["ChatFrame" .. i .. "EditBox"]
-                if editBox then
-                    editBox:Hide()
-                end
-            end
-            return payload
-        end)
-
-    -- Register PRE_DELIVER filter to claim send authority.
-    -- Return false to trigger delegation; Chat.lua creates the claim and
-    -- fires POST_CLAIMED. We handle the actual send in the callback.
-    self._deliverFilterHandle = _G.YapperAPI:RegisterFilter("PRE_DELIVER", function(payload)
-        -- Claim this send for Gopher's pipeline. The actual work happens
-        -- in POST_CLAIMED callback (proper delegation pipeline).
-        return false
-    end)
-
-    -- Handle claimed sends: send via Gopher and immediately resolve.
-    -- Gopher manages its own confirmation/timeout; we just bridge it.
-    self._claimedCallback = _G.YapperAPI:RegisterCallback("POST_CLAIMED", function(handle, msg, chatType, language, target)
-        self:Send(msg, chatType, language, target)
-        _G.YapperAPI:ResolvePost(handle)
-    end)
-
-    return
+    ShowWarningPopup(GopherBridge.ownerAddon)
 end
 
--- ---------------------------------------------------------------------------
--- Sending
--- ---------------------------------------------------------------------------
+function GopherBridge:IsPresent()
+    return self.present == true
+end
 
---- Send a single pre-split chunk through Gopher's hooked globals.
---- Gopher will queue/throttle/confirm it, and fire its own events so that
---- CrossRP and other listeners still work.
----
---- We set TempChunkSize to a huge value so Gopher's splitter is effectively
---- a no-op for our already-split text.
----
---- @param msg      string   The message text (already split by Yapper).
---- @param chatType string   "SAY", "EMOTE", "WHISPER", "BN_WHISPER", etc.
---- @param language any      Language ID, club ID, or nil.
---- @param target   any      Channel name, whisper target, streamId, etc.
---- @return boolean          true if the send was handed to Gopher.
-function GopherBridge:Send(msg, chatType, language, target)
-    if not self.active or not self._gopher then return false end
-    if not msg or msg == "" then return false end
+function GopherBridge:GetOwnerAddon()
+    return self.ownerAddon
+end
 
-    chatType = chatType or "SAY"
+local function RegisterPreEditboxShowProbe()
+    if GopherBridge._preEditboxShowHandle then return end
+    if not _G.YapperAPI or type(_G.YapperAPI.RegisterFilter) ~= "function" then return end
 
-    -- Tell Gopher not to re-split this chunk.
-    self._gopher.SetTempChunkSize(PASSTHROUGH_CHUNK_SIZE)
+    GopherBridge._preEditboxShowHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_SHOW", function(payload)
+        TryDetectAndWarn()
 
-    -- Battle.net whisper
-    if chatType == "BN_WHISPER" or chatType == "BNET" then
-        local presenceID = tonumber(target)
-        if not presenceID then
-            YapperTable.Utils:DebugPrint(
-                "GopherBridge: BNet whisper with no valid presenceID.")
-            return false
+        -- Detection is intentionally once per session.
+        if GopherBridge._sessionCheckDone and GopherBridge._preEditboxShowHandle then
+            _G.YapperAPI:UnregisterFilter(GopherBridge._preEditboxShowHandle)
+            GopherBridge._preEditboxShowHandle = nil
         end
-        -- Call the *hooked* global so Gopher intercepts it.
-        _G.BNSendWhisper(presenceID, msg)
-        return true
-    end
 
-    -- Community / Club
-    if chatType == "CLUB" then
-        -- In WoW, Club and Stream IDs are 64-bit integers passed as strings.
-        -- Converting them to numbers causes precision loss.
-        local clubId   = language
-        local streamId = target
-        if clubId and streamId and _G.C_Club then
-            _G.C_Club.SendMessage(clubId, streamId, msg)
-            return true
-        end
-        return false
-    end
-
-    -- Normalise language parameter to match Router's behaviour
-    -- This ensures racial languages and other custom languages are properly resolved
-    language = YapperTable.Core:GetCharacterLanguage(language)
-
-    -- Everything else (SAY, EMOTE, YELL, PARTY, RAID, WHISPER, CHANNEL…)
-    C_ChatInfo.SendChatMessage(msg, chatType, language, target)
-    return true
+        return payload
+    end, 1)
 end
 
--- ---------------------------------------------------------------------------
--- Query helpers
--- ---------------------------------------------------------------------------
+RegisterPreEditboxShowProbe()
 
-function GopherBridge:IsActive()
-    return self.active == true
-end
 
---- Return true if Gopher is processing.
---- Uses Gopher's own SendingActive() API.
---- Keeps Yapper from trying to engage until Gopher is done posting.
-function GopherBridge:IsBusy()
-    if not self.active or not self._gopher then return false end
-    if type(self._gopher.SendingActive) == "function" then
-        return self._gopher.SendingActive() == true
-    end
-    return false
-end
 
---- Return true if Gopher specifically needs a hardware event to continue.
---- This is more granular than IsBusy() - it only returns true when Gopher
---- is blocked waiting for user input (say/yell/channel require hardware events).
---- Normal sending/throttling states return false, allowing Yapper to open.
-function GopherBridge:NeedsHardwareEvent()
-    if not self.active or not self._gopher then return false end
-    -- Use internal state directly - prompt_continue is true when Gopher's
-    -- throttler returned "PROMPT" status and is showing the continue frame.
-    local internal = self._gopher.Internal
-    if internal and internal.prompt_continue == true then
-        return true
-    end
-    return false
-end
-
--- ---------------------------------------------------------------------------
--- Self-contained discovery
--- ---------------------------------------------------------------------------
--- Watch for ADDON_LOADED to catch when Gopher loads (it may load after Yapper).
--- Stop at PLAYER_ENTERING_WORLD (all addons should be loaded by then).
-
-eventFrame:SetScript("OnEvent", function(self, event, ...)
-    if event == "ADDON_LOADED" then
-        TryInit()
-    elseif event == "PLAYER_ENTERING_WORLD" then
-        -- Last chance - try once more, then give up
-        TryInit()
-        eventFrame:UnregisterEvent("ADDON_LOADED")
-        eventFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
-        eventFrame:Hide()
-    end
-end)
-
--- Start watching immediately
-if IsLoggedIn() then
-    -- Already in world, try now
-    TryInit()
-else
-    eventFrame:RegisterEvent("ADDON_LOADED")
-    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    eventFrame:Show()
-    -- Also try immediately in case Gopher is already loaded
-    TryInit()
-end
 
 

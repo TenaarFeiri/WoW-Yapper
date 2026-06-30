@@ -69,7 +69,7 @@ Src/EditBoxCompat.lua
 
 # These files must load in this order:
 # Bridges/ — compatibility bridges for third-party addons.
-#   GopherBridge        — compatibility bridge for LibGopher (CrossRP, etc.).
+#   GopherBridge        — LibGopher detector + deprecation warning/unload prompt.
 #   TypingTrackerBridge — signals Simply_RP_Typing_Tracker when the overlay is active.
 #   RPPrefixBridge      — prepends the RP Prefix (Zee) prefix to the first chunk only.
 #   Tracer              — debug utility for tracking message flow.
