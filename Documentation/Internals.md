@@ -553,11 +553,11 @@ Self-initialising on `ADDON_LOADED`; activates automatically when LibGopher is d
 
 - Description: LibGopher delivery bridge.
 - Fields:
-  - `active: boolean` ([`../Src/Bridges/GopherBridge.lua#L129`](`../Src/Bridges/GopherBridge.lua#L129`))
+  [MISSING] - `active: boolean` ([`../Src/Bridges/GopherBridge.lua#L129`](`../Src/Bridges/GopherBridge.lua#L129`))
   [MISSING] - `_gopher: table|nil` ([`../Src/Bridges/GopherBridge.lua#L26`](`../Src/Bridges/GopherBridge.lua#L26`))
 - Methods:
-  - [NEW] `GopherBridge:GetOwnerAddon() → nil`: No description provided. ([`../Src/Bridges/GopherBridge.lua#L178`](../Src/Bridges/GopherBridge.lua#L178))
-  - [NEW] `GopherBridge:IsPresent() → nil`: No description provided. ([`../Src/Bridges/GopherBridge.lua#L174`](../Src/Bridges/GopherBridge.lua#L174))
+  - [NEW] `GopherBridge:GetOwnerAddon() → nil`: No description provided. ([`../Src/Bridges/GopherBridge.lua#L181`](../Src/Bridges/GopherBridge.lua#L181))
+  - [NEW] `GopherBridge:IsPresent() → nil`: No description provided. ([`../Src/Bridges/GopherBridge.lua#L177`](../Src/Bridges/GopherBridge.lua#L177))
   [MISSING] - `Send` ([`../Src/Bridges/GopherBridge.lua#L158`](`../Src/Bridges/GopherBridge.lua#L158`))
   [MISSING] - `NeedsHardwareEvent() → boolean`: Returns true when Gopher still needs a hardware event before Yapper may continue opening the editbox. ([`../Src/Bridges/GopherBridge.lua#L225`](../Src/Bridges/GopherBridge.lua#L225))
   [MISSING] - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L206`](`../Src/Bridges/GopherBridge.lua#L206`))

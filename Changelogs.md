@@ -1,4 +1,4 @@
-# NEW IN 2.2.1-beta
+# NEW IN 2.2.1
 ## Channel switching improvements
 
 Clicking channel links ([Guild], [General], etc.) now opens Yapper on that channel instead of Blizzard's editbox. Channel slash commands like `/1`, `/g`, `/p` correctly switch channels in Yapper without showing raw slash text. The speech bubble menu also updates Yapper's channel when it's already open.
@@ -9,19 +9,19 @@ Whisper opens now route through a shared retarget path, so right-click whispers 
 
 ## Better fallback history
 
-If chat falls back to Blizzard's native editbox (lockdown/bypass/handoff), sent messages are now captured into Yapper history. Your Up/Down history stays complete instead of feeling like messages disappeared.
+If chat falls back to Blizzard's native editbox (lockdown/bypass/handoff), sent messages are now captured into Yapper history and can be navigated with Up/Down in Yapper.
 
 ## TRP3 emote labels (when available)
 
-When Total RP 3 is installed, EMOTE labels can use RP display names through Yapper's filter pipeline. This keeps labels consistent with RP identity formatting without hard-coding addon-specific logic into core overlay code.
+When Total RP 3 is installed, EMOTE labels can use RP display names through Yapper's filter pipeline.
 
 ## Proxy mode stability
 
-The Blizzard editbox background underneath Yapper now stays visible and stable in Classic style when Yapper opens or processes channel changes. When Yapper closes or sends a message, the Blizzard editbox is properly deactivated and hidden.
+Stability fixes for proxy mode to make behaviour more consistent between tabs and windows.
 
 ## Live channel sync
 
-When you change channels via slash commands (like `/e `) while Yapper is open, the Blizzard editbox's visual state now updates immediately instead of only after closing/reopening.
+When you change channels via slash commands (like `/e `) while Yapper is open, this channel is now properly synchronised to the Blizzard editbox, in most cases. Exceptions include lockdown events, among some fringe cases where it can't and for no given reason. \*shrug\*
 
 ## Bugfixes
 - Fixed issue where text could be wiped by clicking on channels in the chat while writing.

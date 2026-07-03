@@ -126,7 +126,10 @@ local function ShowWarningPopup(ownerAddon)
     local ownerText = ownerAddon or "Unknown addon"
     if not StaticPopupDialogs[POPUP_KEY] then
         StaticPopupDialogs[POPUP_KEY] = {
-            text = "|cFFFF6600Warning: LibGopher detected|r\n\nDetected in: |cFFFFFFFF%s|r\n\nYapper intentionally removed LibGopher support. Keeping this addon active can break posting while using Yapper.\n\nYou can continue, or disable that addon now (requires reload).",
+            text = "|cFFFF6600Warning: LibGopher detected|r\n\nDetected in: |cFFFFFFFF%s|r\n\nYapper no longer supports addons that use LibGopher." .. 
+            " LibGopher is a library that enables message splitting by replacing Blizzard's internal functions. Even if the addon doesn't use its splitting features, it still passively engages outgoing chat posts.\n\n" .. 
+            "This not only causes Yapper's system to fight with it, LibGopher blocks your chat during boss fights and M+." .. 
+            "\nYapper does everything LibGopher does internally, as do contemporary replacements.\n\nYou can continue, though it's not recommended, or disable that addon now (requires reload).",
             button1 = "Keep Addon Enabled",
             button2 = "Disable + Reload",
             OnAccept = function()
