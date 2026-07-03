@@ -153,8 +153,8 @@
 
     Example — log every sent message:
 
-        YapperAPI:RegisterCallback("POST_SEND", function(text, chatType, target)
-            print("Yapper sent:", text, "to", chatType, target)
+        YapperAPI:RegisterCallback("POST_SEND", function(text, chatType, language, target)
+          print("Yapper sent:", text, "to", chatType, language, target)
         end)
 
     Example — react to settings changes:
