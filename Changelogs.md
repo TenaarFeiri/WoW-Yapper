@@ -1,3 +1,9 @@
+# 2.2.2
+
+## Bugfixes
+- Fixed taint issue where Yapper would block `Copy Character Name` and `Set Focus` from the rightclick menu.
+- Attempted fix for a bug which caused `/r` to behave somewhat inconsistently between Battle.Net and Normal Whispers.
+
 # NEW IN 2.2.1
 ## Channel switching improvements
 

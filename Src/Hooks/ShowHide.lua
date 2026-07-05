@@ -753,9 +753,10 @@ end
 -- External whisper routing
 -- ---------------------------------------------------------------------------
 -- Shared by the ChatFrameUtil.SendTell hook (non-menu callers: chat name
--- left-click, LFG, Professions, Communities, ItemRef) and the
--- UnitPopupWhisperButtonMixin override (all unit-popup menu whispers). One
--- implementation so the two entry points cannot drift apart or fight.
+-- left-click, LFG, Professions, Communities, ItemRef) and the unit-popup
+-- Menu.ModifyMenu responder in Hooks/UnitPopup.lua (all unit-popup menu
+-- whispers). One implementation so the two entry points cannot drift apart
+-- or fight.
 
 --- True only for Blizzard's native ChatFrameN editboxes (never our overlay).
 function EditBox:IsNativeChatEditBox(eb)

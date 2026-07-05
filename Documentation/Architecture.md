@@ -56,6 +56,7 @@ Src/Hooks/ShowHide.lua
 Src/Hooks/Label.lua
 Src/Hooks/History.lua
 Src/Hooks/Slash.lua
+Src/Hooks/UnitPopup.lua
 Src/Hooks/BlizzardHookCtl/00_Common.lua
 Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua
 Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua

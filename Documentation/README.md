@@ -5,4 +5,5 @@
 - [Internals](Internals.md) — internal `_G.Yapper` / `YapperTable` surface (unstable).
 - [Globals](Globals.md) — `_G.*`, slash commands, bindings quick reference.
 - [Migration](Migration.md) — migration notes for 1.x → 2.x integrations.
+- [UnitPopupWhisper](UnitPopupWhisper.md) — unit-popup whisper interception, taint, and the Menu.ModifyMenu approach.
 - [Tools](Tools.md) — developer tools for dictionary management, blocklists, and documentation.

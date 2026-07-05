@@ -302,9 +302,16 @@ local function GetLastTellTargetInfo()
         end
     end
 
-    if (not lastTell or lastTell == "") and ChatEdit_GetLastTellTarget then
-        lastTell = ChatEdit_GetLastTellTarget()
-        lastType = nil
+    if not lastTell or lastTell == "" then
+        -- Blizzard's list is maintained natively on every incoming whisper of
+        -- BOTH kinds and returns (target, chatType).  Keep the type: guessing
+        -- it back from the name misclassifies BNet friends (account names
+        -- rarely contain '#') as character whispers.
+        if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
+            lastTell, lastType = ChatFrameUtil.GetLastTellTarget()
+        elseif ChatEdit_GetLastTellTarget then
+            lastTell, lastType = ChatEdit_GetLastTellTarget()
+        end
         if Utils:IsSecret(lastTell) then
             return nil, nil
         end

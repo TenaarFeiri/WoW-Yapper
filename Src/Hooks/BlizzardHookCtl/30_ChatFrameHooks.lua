@@ -475,9 +475,11 @@ function EditBox:HookAllChatFrames()
 
     -- Intercept whispers initiated OUTSIDE the unit-popup menu: chat name
     -- left-click, LFG, Professions, Communities, ItemRef.  Menu whispers are
-    -- handled earlier by the UnitPopupWhisperButtonMixin override, which never
-    -- calls SendTell, so the two paths do not overlap.  Fires AFTER Blizzard's
-    -- editbox opens, so we snapshot its whisper state and reopen as Yapper.
+    -- handled earlier by the Menu.ModifyMenu responder in Hooks/UnitPopup.lua,
+    -- which never calls SendTell (except during lockdown, where this hook
+    -- early-returns anyway), so the two paths do not overlap.  Fires AFTER
+    -- Blizzard's editbox opens, so we snapshot its whisper state and reopen
+    -- as Yapper.
     if ChatFrameUtil and ChatFrameUtil.SendTell and not self._sendTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendTell", function(target, chatFrame)
             TriggerTrace("ChatFrameUtil.SendTell", string.format("target=%s frame=%s",

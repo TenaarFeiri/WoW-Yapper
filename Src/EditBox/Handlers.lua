@@ -910,6 +910,24 @@ function EditBox:SetupOverlayScripts()
                 else
                     self:AddReplyTarget(sender, "WHISPER")
                 end
+            elseif event == "CHAT_MSG_BN_WHISPER" then
+                -- Sender name is secret/unusable: fall back to the numeric
+                -- BN account ID (arg13), which is never secret and which
+                -- Router:Send accepts directly for BN_WHISPER.  Without this
+                -- the queue front goes stale and /r replies to the wrong
+                -- (older) whisperer.  Prefer a resolvable display name.
+                local bnSenderID = select(13, ...)
+                if type(bnSenderID) == "number" and bnSenderID > 0 then
+                    local replyTarget = bnSenderID
+                    if C_BattleNet and C_BattleNet.GetAccountInfoByID then
+                        local ok, info = pcall(C_BattleNet.GetAccountInfoByID, bnSenderID)
+                        if ok and type(info) == "table" and info.accountName
+                            and not IsSecretValue(info.accountName) then
+                            replyTarget = info.accountName
+                        end
+                    end
+                    self:AddReplyTarget(replyTarget, "BN_WHISPER")
+                end
             end
 
             local function NormaliseWhisperTarget(v, whisperKind)
