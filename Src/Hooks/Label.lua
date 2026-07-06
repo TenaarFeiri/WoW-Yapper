@@ -27,12 +27,7 @@ local tonumber   = tonumber
 local math_abs   = math.abs
 local string     = string
 
-local function IsUnambiguousBnetTarget(target)
-    if not target then return false end
-    local text = tostring(target)
-    if text == "" then return false end
-    return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
-end
+local IsUnambiguousBnetTarget = function(target) return Utils:IsUnambiguousBnetTarget(target) end
 
 -- ---------------------------------------------------------------------------
 -- Label
@@ -429,14 +424,7 @@ function EditBox:PersistLastUsed()
     local language = self.Language
     local channelName = self.ChannelName
 
-    local function NormaliseWhisperTarget(v)
-        if v == nil then return nil end
-        local s = tostring(v)
-        if s == "" then return nil end
-        -- Compare by canonical base name so first-use renormalisation
-        -- (e.g. "Name" -> "Name-Realm") still matches the same whisper.
-        return s:gsub("%-.*$", ""):lower()
-    end
+    local NormaliseWhisperTarget = function(v) return Utils:NormaliseCharName(v) end
 
     -- An externally-initiated whisper (right-click a unit frame → Whisper while
     -- Yapper is open) is transient: it must not become the global sticky and

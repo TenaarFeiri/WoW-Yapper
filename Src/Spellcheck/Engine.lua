@@ -15,6 +15,8 @@ local NormaliseVowels = Spellcheck.NormaliseVowels -- built-in fallback
 local SuggestionKey   = Spellcheck.SuggestionKey
 local IsWordByte      = Spellcheck.IsWordByte
 local IsWordStartByte = Spellcheck.IsWordStartByte
+local IsDebugEnabled  = Spellcheck.IsDebugEnabled
+local IterWords       = Spellcheck.IterWords
 local SCORE_WEIGHTS   = Spellcheck._SCORE_WEIGHTS
 local RAID_ICONS      = Spellcheck._RAID_ICONS
 
@@ -41,11 +43,6 @@ local string_char     = string.char
 local string_format   = string.format
 
 local Utils = YapperTable.Utils
-
--- Debug flag helper
-local function IsDebugEnabled()
-    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
-end
 
 -- ---------------------------------------------------------------------------
 -- Engine accessor helper
@@ -104,39 +101,20 @@ function Spellcheck:CollectMisspellings(text, dict)
     local skipFirstWord = isSlashCommand and emotePickerVisible
     local isFirstWord = true
 
-    local idx = 1
-    while idx <= #text do
-        local byte = text:byte(idx)
-        if not byte then break end
-
-        if IsWordStartByte(byte) then
-            local s = idx
-            idx = idx + 1
-            while idx <= #text do
-                local b = text:byte(idx)
-                if not b or not IsWordByte(b) then break end
-                idx = idx + 1
+    for s, e, word in IterWords(text) do
+        local shouldAdd = true
+        if isFirstWord then
+            isFirstWord = false
+            if skipFirstWord then
+                shouldAdd = false
             end
-            local e = idx - 1
-            local word = text:sub(s, e)
-            local norm = NormaliseWord(word)
+        end
 
-            local shouldAdd = true
-            if isFirstWord then
-                isFirstWord = false
-                if skipFirstWord then
-                    shouldAdd = false
-                end
-            end
-
-            if shouldAdd
-                and not self:IsRangeIgnored(s, e, ignoreRanges)
-                and self:ShouldCheckWord(word, minLen)
-                and not self:IsWordCorrect(word) then
-                out[#out + 1] = { startPos = s, endPos = e, word = word }
-            end
-        else
-            idx = idx + 1
+        if shouldAdd
+            and not self:IsRangeIgnored(s, e, ignoreRanges)
+            and self:ShouldCheckWord(word, minLen)
+            and not self:IsWordCorrect(word) then
+            out[#out + 1] = { startPos = s, endPos = e, word = word }
         end
     end
 
@@ -149,30 +127,12 @@ function Spellcheck:CollectAffixMatches(text, dict)
     local out = {}
     if not text or text == "" then return out end
 
-    local idx = 1
-    while idx <= #text do
-        local byte = text:byte(idx)
-        if not byte then break end
-
-        if IsWordStartByte(byte) then
-            local s = idx
-            idx = idx + 1
-            while idx <= #text do
-                local b = text:byte(idx)
-                if not b or not IsWordByte(b) then break end
-                idx = idx + 1
+    for s, e, word in IterWords(text) do
+        if self:ShouldCheckWord(word, 3) then
+            local isCorrect, isAffix = self:IsWordCorrect(word)
+            if isCorrect and isAffix then
+                out[#out + 1] = { startPos = s, endPos = e, word = word }
             end
-            local e = idx - 1
-            local word = text:sub(s, e)
-
-            if self:ShouldCheckWord(word, 3) then
-                local isCorrect, isAffix = self:IsWordCorrect(word)
-                if isCorrect and isAffix then
-                    out[#out + 1] = { startPos = s, endPos = e, word = word }
-                end
-            end
-        else
-            idx = idx + 1
         end
     end
 
@@ -425,33 +385,16 @@ function Spellcheck:GetWordAtCursor(text, cursor)
     local skipFirstWord = isSlashCommand and emotePickerVisible
     local isFirstWord = true
 
-    local idx = 1
-    while idx <= #text do
-        local byte = text:byte(idx)
-        if not byte then break end
-        if IsWordStartByte(byte) then
-            local s = idx
-            idx = idx + 1
-            while idx <= #text do
-                local b = text:byte(idx)
-                if not b or not IsWordByte(b) then break end
-                idx = idx + 1
-            end
-            local e = idx - 1
-            local word = text:sub(s, e)
+    for s, e, word in IterWords(text) do
+        local isCurrentFirstWord = isFirstWord
+        isFirstWord = false
 
-            local isCurrentFirstWord = isFirstWord
-            isFirstWord = false
-
-            if isCurrentFirstWord and skipFirstWord then
-                -- Skip returning this word for autocomplete
-            elseif caret >= s and caret <= (e + 1)
-                and not self:IsRangeIgnored(s, e, ignoreRanges)
-                and self:ShouldCheckWord(word, minLen) then
-                return { word = word, startPos = s, endPos = e }
-            end
-        else
-            idx = idx + 1
+        if isCurrentFirstWord and skipFirstWord then
+            -- Skip returning this word for autocomplete
+        elseif caret >= s and caret <= (e + 1)
+            and not self:IsRangeIgnored(s, e, ignoreRanges)
+            and self:ShouldCheckWord(word, minLen) then
+            return { word = word, startPos = s, endPos = e }
         end
     end
     return nil

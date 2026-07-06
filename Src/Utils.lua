@@ -191,6 +191,36 @@ function Utils:IsSecret(value)
 end
 
 -- ---------------------------------------------------------------------------
+-- Name normalisation helpers
+-- ---------------------------------------------------------------------------
+
+--- Strip the realm suffix from a character name and lowercase it.
+--- e.g. "Arthas-Frostmourne" → "arthas"
+--- @param name any
+--- @return string|nil
+function Utils:NormaliseCharName(name)
+    if name == nil then return nil end
+    local s = tostring(name)
+    if s == "" then return nil end
+    return s:gsub("%-.*$", ""):lower()
+end
+
+-- ---------------------------------------------------------------------------
+-- BNet helpers
+-- ---------------------------------------------------------------------------
+
+--- Returns true when target is unambiguously a Battle.net identifier
+--- (numeric presence/account ID or contains a BattleTag '#').
+--- @param target any
+--- @return boolean
+function Utils:IsUnambiguousBnetTarget(target)
+    if not target then return false end
+    local text = tostring(target)
+    if text == "" then return false end
+    return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
+end
+
+-- ---------------------------------------------------------------------------
 -- String helpers
 -- ---------------------------------------------------------------------------
 

@@ -321,18 +321,9 @@ local function GetLastTellTargetInfo()
         return nil, nil
     end
 
-    local function IsUnambiguousBnetTarget(target)
-        if not target then return false end
-        local text = tostring(target)
-        if text == "" then return false end
-        -- Only auto-upgrade to BN when the identifier is clearly BN-specific.
-        -- Character names can overlap BN friends' active toons and must remain WHISPER.
-        return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
-    end
-
     if lastType ~= "BN_WHISPER" then
         -- Only auto-detect BN when the source token is explicit BN syntax.
-        if IsUnambiguousBnetTarget(lastTell) then
+        if Utils:IsUnambiguousBnetTarget(lastTell) then
             if not YapperTable.Router then YapperTable.Error:Throw("MISSING_ROUTER") end
             local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTell)
             if bnetAccountID or presenceID then
@@ -367,16 +358,9 @@ local function GetLastToldTargetInfo()
         return nil, nil
     end
 
-    local function IsUnambiguousBnetTarget(target)
-        if not target then return false end
-        local text = tostring(target)
-        if text == "" then return false end
-        return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
-    end
-
     if lastType ~= "BN_WHISPER" then
         -- Verify BNet status, same as GetLastTellTargetInfo.
-        if IsUnambiguousBnetTarget(lastTold)
+        if Utils:IsUnambiguousBnetTarget(lastTold)
             and YapperTable and YapperTable.Router and YapperTable.Router.ResolveBnetTarget then
             local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(lastTold)
             if bnetAccountID or presenceID then

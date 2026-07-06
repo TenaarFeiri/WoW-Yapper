@@ -11,6 +11,7 @@ local Spellcheck          = YapperTable.Spellcheck
 -- Re-localise shared helpers from hub.
 local SuggestionKey       = Spellcheck.SuggestionKey
 local MAX_SUGGESTION_ROWS = Spellcheck._MAX_SUGGESTION_ROWS
+local IsDebugEnabled      = Spellcheck.IsDebugEnabled
 
 -- Re-localise Lua globals.
 local type                = type
@@ -25,11 +26,6 @@ local math_floor          = math.floor
 local string_sub          = string.sub
 local string_format       = string.format
 local table_insert        = table.insert
-
--- Debug flag helper
-local function IsDebugEnabled()
-    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
-end
 
 function Spellcheck:Bind(editBox, overlay)
     self.EditBox = editBox
