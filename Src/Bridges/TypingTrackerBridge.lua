@@ -36,7 +36,6 @@ end
 
 local function SignalTyping(chatType)
     if not IsLoaded() then return end
-    if InCombatLockdown() then return end
 
     if YapperTable.Config.System.EnableTypingTrackerBridge == false then
         return
@@ -65,7 +64,6 @@ end
 
 local function SignalNotTyping()
     if not IsLoaded() then return end
-    if InCombatLockdown() then return end
 
     local api = GetAPI()
 

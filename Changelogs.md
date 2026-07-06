@@ -1,3 +1,13 @@
+# 2.2.3
+
+### Bug Fixes
+- Fixed a bug where Yapper sometimes required multiple Enter presses to open the editbox after lockdown events (combat, zoning, etc.)
+- Fixed German dictionary syntax error that could cause loading failures
+ 
+### Performance
+- Editbox now opens faster: reduced input lag from keybind handling and optimized font/label rendering
+- Added caching for label fitting and truncation operations to avoid redundant calculations
+
 # 2.2.2
 
 ## Bugfixes

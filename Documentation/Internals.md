@@ -488,9 +488,9 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
-  - [NEW] `EditBox:RecordFallbackSend() → nil`: Record a message sent through Blizzard's native editbox (lockdown / bypass / ([`../Src/Hooks/ShowHide.lua#L853`](../Src/Hooks/ShowHide.lua#L853))
-  - [NEW] `EditBox:RetargetOpenWhisper() → nil`: Retarget the already-open overlay onto an external (transient) whisper. ([`../Src/Hooks/ShowHide.lua#L806`](../Src/Hooks/ShowHide.lua#L806))
-  - [NEW] `EditBox:IsNativeChatEditBox() → nil`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L794`](../Src/Hooks/ShowHide.lua#L794))
+  - [NEW] `EditBox:RecordFallbackSend() → nil`: Record a message sent through Blizzard's native editbox (lockdown / bypass / ([`../Src/Hooks/ShowHide.lua#L849`](../Src/Hooks/ShowHide.lua#L849))
+  - [NEW] `EditBox:RetargetOpenWhisper() → nil`: Retarget the already-open overlay onto an external (transient) whisper. ([`../Src/Hooks/ShowHide.lua#L802`](../Src/Hooks/ShowHide.lua#L802))
+  - [NEW] `EditBox:IsNativeChatEditBox() → nil`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L790`](../Src/Hooks/ShowHide.lua#L790))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
   - `EditBox:HandoffToBlizzard(silent?, bypassOpen?, isMultiline?)` - Lockdown handoff.
@@ -569,11 +569,11 @@ Initialised by `Chat:Init` (state refresh), then driven by overlay callbacks.
 
 - Description: Signals external typing tracker addon.  Correctly snapshots/restores configuration from the active profile root (global or per-character) during activation/deactivation.
 - Methods:
-  - `UpdateState` ([`../Src/Bridges/TypingTrackerBridge.lua#L114`](`../Src/Bridges/TypingTrackerBridge.lua#L114`))
-  - `OnOverlayFocusGained` ([`../Src/Bridges/TypingTrackerBridge.lua#L150`](`../Src/Bridges/TypingTrackerBridge.lua#L150`))
-  - `OnOverlayFocusLost` ([`../Src/Bridges/TypingTrackerBridge.lua#L154`](`../Src/Bridges/TypingTrackerBridge.lua#L154`))
-  - `OnOverlaySent` ([`../Src/Bridges/TypingTrackerBridge.lua#L158`](`../Src/Bridges/TypingTrackerBridge.lua#L158`))
-  - `OnChannelChanged` ([`../Src/Bridges/TypingTrackerBridge.lua#L163`](`../Src/Bridges/TypingTrackerBridge.lua#L163`))
+  - `UpdateState` ([`../Src/Bridges/TypingTrackerBridge.lua#L112`](`../Src/Bridges/TypingTrackerBridge.lua#L112`))
+  - `OnOverlayFocusGained` ([`../Src/Bridges/TypingTrackerBridge.lua#L148`](`../Src/Bridges/TypingTrackerBridge.lua#L148`))
+  - `OnOverlayFocusLost` ([`../Src/Bridges/TypingTrackerBridge.lua#L152`](`../Src/Bridges/TypingTrackerBridge.lua#L152`))
+  - `OnOverlaySent` ([`../Src/Bridges/TypingTrackerBridge.lua#L156`](`../Src/Bridges/TypingTrackerBridge.lua#L156`))
+  - `OnChannelChanged` ([`../Src/Bridges/TypingTrackerBridge.lua#L161`](`../Src/Bridges/TypingTrackerBridge.lua#L161`))
 
 ## RPPrefixBridge
 
