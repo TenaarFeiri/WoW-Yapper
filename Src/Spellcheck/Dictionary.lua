@@ -57,8 +57,16 @@ function Spellcheck:LoadDictionary(locale)
         if success and data then
             self:RegisterDictionary(locale, data)
         else
+            -- On failure `data` holds the builder's error message; don't discard
+            -- it, or the cause of a failed dictionary load is impossible to trace.
+            local detail = success and "builder returned no data" or tostring(data)
+            if YapperTable.Utils then
+                YapperTable.Utils:DebugPrint("Spellcheck failed to load dictionary for "
+                    .. tostring(locale) .. ": " .. detail)
+            end
             if IsDebugEnabled() then
-                self:Notify("Spellcheck failed to load dictionary for " .. tostring(locale))
+                self:Notify("Spellcheck failed to load dictionary for " .. tostring(locale)
+                    .. ": " .. detail)
             end
         end
     end
