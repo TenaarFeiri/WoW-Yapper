@@ -353,7 +353,7 @@ local function ResetLabelToBaseFont(self)
     if self.OverlayEdit and self.OverlayEdit.GetFont then
         local face, size, flags = self.OverlayEdit:GetFont()
         if face and size then
-            self.ChannelLabel:SetFont(face, size, flags or "")
+            YapperTable.Utils:SetFontIfChanged(self.ChannelLabel, face, size, flags or "")
             return
         end
     end
@@ -366,40 +366,99 @@ local function ResetLabelToBaseFont(self)
     end
 end
 
+-- Memoisation for the label fit/truncate measurement loops. Both are pure
+-- functions of (text, available width, base font), but measuring requires
+-- SetFont/SetText + GetStringWidth churn on a live FontString every open.
+-- The cache is wiped wholesale when it grows past the cap; label texts are
+-- a small, recurring set (channel names) so hits dominate in practice.
+local labelFitCache      = {}
+local labelFitCacheCount = 0
+local LABEL_FIT_CACHE_MAX = 128
+
+local function LabelFitCacheKey(text, maxWidth, face, size, flags)
+    return text .. "\1" .. maxWidth .. "\1" .. face .. "\1" .. size .. "\1" .. (flags or "")
+end
+
+local function LabelFitCachePut(key, value)
+    if labelFitCacheCount >= LABEL_FIT_CACHE_MAX then
+        labelFitCache = {}
+        labelFitCacheCount = 0
+    end
+    labelFitCache[key] = value
+    labelFitCacheCount = labelFitCacheCount + 1
+end
+
 local function TruncateLabelToWidth(fontString, text, maxWidth)
     if not fontString or type(text) ~= "string" then
         return text
     end
 
-    fontString:SetText(text)
-    if (fontString:GetStringWidth() or 0) <= maxWidth then
-        return text
-    end
-
-    local truncated = text
-    while #truncated > 0 do
-        truncated = truncated:sub(1, #truncated - 1)
-        local candidate = truncated .. "..."
-        fontString:SetText(candidate)
-        if (fontString:GetStringWidth() or 0) <= maxWidth then
-            return candidate
+    local face, size, flags = fontString:GetFont()
+    local key
+    if face and size then
+        key = "T" .. LabelFitCacheKey(text, maxWidth, face, size, flags)
+        local cached = labelFitCache[key]
+        if cached ~= nil then
+            return cached
         end
     end
 
-    return "..."
+    local result
+    fontString:SetText(text)
+    if (fontString:GetStringWidth() or 0) <= maxWidth then
+        result = text
+    else
+        local truncated = text
+        while #truncated > 0 do
+            truncated = truncated:sub(1, #truncated - 1)
+            local candidate = truncated .. "..."
+            fontString:SetText(candidate)
+            if (fontString:GetStringWidth() or 0) <= maxWidth then
+                result = candidate
+                break
+            end
+        end
+        result = result or "..."
+    end
+
+    if key then
+        LabelFitCachePut(key, result)
+    end
+    return result
 end
 
 local function FitLabelFontToWidth(self, text, maxWidth)
     if not self or not self.ChannelLabel then return false end
 
     local fontString = self.ChannelLabel
-    fontString:SetText(text)
+    local face, size, flags = fontString:GetFont()
 
+    local key
+    if face and size then
+        key = "F" .. LabelFitCacheKey(text, maxWidth, face, size, flags)
+        local cached = labelFitCache[key]
+        if cached == false then
+            -- Reproduce the uncached failure state: the loop leaves the
+            -- FontString at the minimum size, which the subsequent
+            -- TruncateLabelToWidth measures against.
+            fontString:SetFont(face, 8, flags or "")
+            return false
+        elseif type(cached) == "number" then
+            -- Cached size that fit; apply without re-measuring.
+            if cached ~= size then
+                fontString:SetFont(face, cached, flags or "")
+            end
+            fontString:SetText(text)
+            return true
+        end
+    end
+
+    fontString:SetText(text)
     if (fontString:GetStringWidth() or 0) <= maxWidth then
+        if key then LabelFitCachePut(key, size) end
         return true
     end
 
-    local face, size, flags = fontString:GetFont()
     if not face or not size then
         return false
     end
@@ -411,10 +470,12 @@ local function FitLabelFontToWidth(self, text, maxWidth)
         fontString:SetFont(face, targetSize, flags or "")
         fontString:SetText(text)
         if (fontString:GetStringWidth() or 0) <= maxWidth then
+            if key then LabelFitCachePut(key, targetSize) end
             return true
         end
     end
 
+    if key then LabelFitCachePut(key, false) end
     return false
 end
 

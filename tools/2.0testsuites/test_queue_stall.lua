@@ -166,6 +166,16 @@ YapperTable.Router = {
 -- EditBox stub (needed by ShowContinuePrompt)
 YapperTable.EditBox = { Overlay = MockFrame() }
 
+-- Load the real state machine first: Queue.lua re-localises
+-- YapperTable.State at load time (TOC order guarantees it in production).
+_G.date = _G.date or os.date
+local state_loader, serr = loadfile("Src/State.lua")
+if not state_loader then
+    print("FATAL: " .. tostring(serr))
+    os.exit(1)
+end
+state_loader("Yapper", YapperTable)
+
 -- Load Queue.lua
 local loader, err = loadfile("Src/Queue.lua")
 if not loader then
@@ -193,6 +203,19 @@ local function ResetAll()
     registeredEvents = {}
     Queue:Reset()
     Queue:Init()  -- re-registers events
+end
+
+-- The legacy Queue.Active boolean was replaced by the State machine
+-- (SENDING / STALLED) exposed through YapperAPI:GetQueueState().
+local function QueueBusy()
+    local s = YapperAPI:GetQueueState()
+    return s.active == true or s.stalled == true
+end
+
+local function QueueIdle()
+    local s = YapperAPI:GetQueueState()
+    return s.active == false and s.stalled == false
+        and s.pending == 0 and s.inFlight == 0
 end
 
 Queue:Init()
@@ -226,7 +249,7 @@ EnqueueSAY(chunks)
 Queue:Flush(false)  -- no hardware event needed for INSTANCE_LOCAL
 
 -- First chunk should be in-flight
-check("Queue active after Flush", Queue.Active == true)
+check("Queue active after Flush", QueueBusy())
 check("First chunk sent", #sentMessages == 1 and sentMessages[1].text == chunks[1])
 check("PendingEntry set", Queue.PendingEntry ~= nil)
 
@@ -239,7 +262,7 @@ SimulateAckEvent("CHAT_MSG_SAY", chunks[2])
 check("Chunk 2 acked: chunk 3 now in-flight", #sentMessages == 3)
 
 SimulateAckEvent("CHAT_MSG_SAY", chunks[3])
-check("All chunks delivered, queue inactive", Queue.Active == false)
+check("All chunks delivered, queue inactive", QueueIdle())
 check("No entries remain", #Queue.Entries == 0)
 
 -- ===========================================================================
@@ -278,7 +301,7 @@ check("QUEUE_STALL remaining = 2", stallCallbacks[1].remaining == 2)
 local stateStalled = YapperAPI:GetQueueState()
 check("GetQueueState: stalled = true", stateStalled.stalled == true)
 check("GetQueueState: pending = 2", stateStalled.pending == 2)
-check("GetQueueState: active = true", stateStalled.active == true)
+check("GetQueueState: active = false while STALLED (distinct state)", stateStalled.active == false)
 
 -- User presses Enter → OnOpenChat fires
 Queue:OnOpenChat()
@@ -289,7 +312,7 @@ SimulateAckEvent("CHAT_MSG_SAY", "Chunk A.")
 check("Chunk B sent after ack", #sentMessages == 3)
 
 SimulateAckEvent("CHAT_MSG_SAY", "Chunk B.")
-check("Queue complete after all acks", Queue.Active == false)
+check("Queue complete after all acks", QueueIdle())
 check("QUEUE_COMPLETE fired once", completeCount == 1)
 
 -- ===========================================================================
@@ -325,7 +348,7 @@ Queue:OnOpenChat()
 check("Chunk 2 sent after second hardware event", #sentMessages == 2)
 
 SimulateAckEvent("CHAT_MSG_SAY", "Open world chunk 2.")
-check("Queue complete (open world)", Queue.Active == false)
+check("Queue complete (open world)", QueueIdle())
 
 Queue.ShowContinuePrompt = origShow  -- restore
 
@@ -344,11 +367,11 @@ end)
 
 EnqueueSAY({ "Cancel me 1.", "Cancel me 2.", "Cancel me 3." })
 Queue:Flush(false)
-check("Queue active before cancel", Queue.Active == true)
+check("Queue active before cancel", QueueBusy())
 
 local discarded = YapperAPI:CancelQueue()
 check("CancelQueue returns 3 (1 in-flight + 2 pending)", discarded == 3)
-check("Queue inactive after cancel", Queue.Active == false)
+check("Queue inactive after cancel", QueueIdle())
 check("QUEUE_COMPLETE fired on cancel", cancelCompleteCount == 1)
 
 -- ===========================================================================
@@ -367,7 +390,7 @@ SimulateAckEvent("CHAT_MSG_PARTY", "Party line 1.")
 check("Party chunk 2 sent after ack", #sentMessages == 2)
 
 SimulateAckEvent("CHAT_MSG_PARTY", "Party line 2.")
-check("Party queue complete", Queue.Active == false)
+check("Party queue complete", QueueIdle())
 
 -- ===========================================================================
 -- 6. GetQueueState when queue is idle

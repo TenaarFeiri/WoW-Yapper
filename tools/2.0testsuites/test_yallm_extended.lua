@@ -3,6 +3,12 @@ _G.YapperDB = {}
 _G.time = os.time
 
 local YapperName, YapperTable = "Yapper", {
+    Utils = {
+        EnsureTable = function(_, t) return type(t) == "table" and t or {} end,
+        Print = function() end,
+        VerbosePrint = function() end,
+        DebugPrint = function() end,
+    },
     Config = { 
         Spellcheck = { 
             Enabled = true, 
@@ -13,6 +19,8 @@ local YapperName, YapperTable = "Yapper", {
         System = { DEBUG = false }
     },
     Spellcheck = {
+        IsDebugEnabled = function() return false end,
+        Dictionaries = { enUS = {} }, -- YAS:IsEnabled requires a loaded dictionary
         IsEnabled = function() return true end,
         GetLocale = function() return "enUS" end,
         GetDictionary = function() return nil end, -- No ngram check for basic tests

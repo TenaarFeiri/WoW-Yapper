@@ -43,15 +43,14 @@ end
 local function RepositionOverlay(overlay, origEditBox, useTop)
     if not overlay or not origEditBox then return end
     local chatParent = YapperTable.Utils:GetChatParent()
-    overlay:SetParent(chatParent)
-    overlay:ClearAllPoints()
 
+    -- Compute the full target geometry before mutating anything; none of the
+    -- reads below depend on the overlay's own parent/scale/points.
     local parentScale = chatParent:GetEffectiveScale()
     if parentScale == 0 then parentScale = UIParent:GetEffectiveScale() end
     local origScale = origEditBox:GetEffectiveScale()
     if origScale == 0 then origScale = 1 end
     local scale = origScale / parentScale
-    overlay:SetScale(scale)
 
     local chatParentLeft   = chatParent:GetLeft() or 0
     local chatParentBottom = chatParent:GetBottom() or 0
@@ -67,6 +66,25 @@ local function RepositionOverlay(overlay, origEditBox, useTop)
     local offsetY = origY - (chatParentBottom * parentScale / origScale)
 
     local anchorPoint = useTop and "TOPLEFT" or "BOTTOMLEFT"
+
+    -- Skip the layout mutations when the overlay is already exactly where we
+    -- would put it (the common case: reopening over the same chat frame).
+    -- Compared against the widget's real state rather than a remembered one,
+    -- so external reparenting/moves can never leave a stale skip.
+    if overlay:GetParent() == chatParent and overlay:GetNumPoints() == 1 then
+        local curPoint, curRelTo, curRelPoint, curX, curY = overlay:GetPoint(1)
+        if curPoint == anchorPoint and curRelTo == chatParent
+            and curRelPoint == "BOTTOMLEFT"
+            and math.abs((curX or 0) - offsetX) < 0.01
+            and math.abs((curY or 0) - offsetY) < 0.01
+            and math.abs(overlay:GetScale() - scale) < 0.001 then
+            return
+        end
+    end
+
+    overlay:SetParent(chatParent)
+    overlay:ClearAllPoints()
+    overlay:SetScale(scale)
     overlay:SetPoint(anchorPoint, chatParent, "BOTTOMLEFT", offsetX, offsetY)
 end
 
@@ -117,6 +135,12 @@ function EditBox:Show(origEditBox)
         return
     end
     self:CreateOverlay()
+
+    -- Reopening the overlay ends any lockdown handoff. Without this reset a
+    -- stale handedOff=true (e.g. lockdown outlasting the REGEN_ENABLED
+    -- recovery poll) would make UpdateFocusOverride drop the focus override
+    -- mid-typing at the next lockdown start.
+    self._lockdown.handedOff = false
 
     -- Apply pending tab switch info if available (from FCF_Tab_OnClick hook)
     local pendingTabSwitch = self._pendingTabSwitch
@@ -407,11 +431,11 @@ function EditBox:Show(origEditBox)
         local face                          = cfgFace or baseFace
         local size                          = cfgSize > 0 and cfgSize or baseSize
         local flags                         = (cfgFlags ~= "") and cfgFlags or baseFlags
-        self.OverlayEdit:SetFont(face, size, flags)
+        Utils:SetFontIfChanged(self.OverlayEdit, face, size, flags)
     else
         -- Inherit Blizzard's font exactly.
         local face, size, flags = origEditBox:GetFont()
-        self.OverlayEdit:SetFont(face, size, flags)
+        Utils:SetFontIfChanged(self.OverlayEdit, face, size, flags)
     end
 
     -- Vertical scaling
@@ -695,6 +719,14 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
     end
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
     local trimmed = text:match("^%s*(.-)%s*$") or ""
+
+    -- Mark the handoff BEFORE UpdateFocusOverride: overlayActive must
+    -- evaluate false there so CHAT_FOCUS_OVERRIDE is cleared. A stale
+    -- override pointing at the hidden OverlayEdit makes Blizzard's
+    -- OpenChat (our lockdown Enter fallback) focus an invisible editbox
+    -- and silently eat the keypress. This flag also gates the
+    -- REGEN_ENABLED recovery ticker in Handlers.lua.
+    self._lockdown.handedOff = true
 
     YapperAPI:SetState("LOCKDOWN")
     self:UpdateFocusOverride()

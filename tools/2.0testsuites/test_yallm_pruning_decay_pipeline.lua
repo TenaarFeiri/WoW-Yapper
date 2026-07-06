@@ -30,6 +30,7 @@ local YapperName, YapperTable = "Yapper", {
         System = { DEBUG = false }
     },
     Utils = {
+        EnsureTable = function(_, t) return type(t) == "table" and t or {} end,
         Print = function(...) end,
         VerbosePrint = function(...) end,
         DebugPrint = function(...) end,
@@ -236,6 +237,7 @@ local db = YAS:GetLocaleDB("enUS")
 
 -- Record a rejection
 YAS:RecordRejection("teh", { { word = "the" }, { word = "they" } }, "enUS")
+local negKey = "teh:the"  -- RecordRejection key format: Clean(typo)..":"..Clean(candidate)
 
 local bonusFresh = YAS:GetBonus("the", "teh", nil, "enUS")
 

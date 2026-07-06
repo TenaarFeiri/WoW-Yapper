@@ -88,7 +88,12 @@ def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
         f.write(f'YapperAPI:RegisterDictionary("{locale}", function()\n')
         f.write('    local d = {\n')
         if extends:
-            f.write(f'        extends = "{extends}",\n')
+            # Callers have historically passed both bare ("enBase") and
+            # pre-quoted ('"enBase"') values; the latter produced a Lua
+            # syntax error (""enBase"") that silently broke the dictionary
+            # in-game. Normalise to a bare token before quoting.
+            extends_clean = str(extends).strip().strip('"').strip("'")
+            f.write(f'        extends = "{extends_clean}",\n')
             f.write('        isDelta = true,\n')
         else:
             f.write('        languageFamily = "en",\n')

@@ -1,0 +1,21 @@
+name: Tests
+
+# Runs the gating test suites on every push and pull request.
+# Free on public repositories. Lua 5.1 matches WoW's runtime semantics.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Run gating tests
+        run: LUA=lua5.1 LUAC=luac5.1 tools/run_tests.sh

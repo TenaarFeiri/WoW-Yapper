@@ -40,6 +40,7 @@ if suggestion == "hello" then
     print("  [PASS] GetSuggestion returns hello")
 else
     print("  [FAIL] GetSuggestion returned " .. tostring(suggestion))
+    os.exit(1)
 end
 
 -- Test Caret Offset Calculation

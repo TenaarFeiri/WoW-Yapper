@@ -240,6 +240,16 @@ local function CreateSecureButtonForBinding(bindingName, prefillText, syncAttrib
     local button = CreateFrame("Button", "YapperKeybindButton_" .. bindingName, nil, "SecureActionButtonTemplate")
     button:SetAttribute("type", "click")
     button:Hide() -- Hide the button, we only use it for keybind routing
+
+    -- Fire on key DOWN, like Blizzard's native OPENCHAT binding. A plain
+    -- Button defaults to LeftButtonUp, so the override CLICK binding would
+    -- only run PostClick on key RELEASE: the overlay opened a keypress-length
+    -- late, and any keys rolled between Enter-down and Enter-up had no
+    -- focused editbox to land in (hence action-bar bleed-through for fast
+    -- typists). With down-clicks the whole open path, including the final
+    -- OverlayEdit:SetFocus(), completes synchronously inside the Enter-down
+    -- event, so every subsequent key event already has a focused editbox.
+    button:RegisterForClicks("AnyDown")
     
     -- Use PostClick to run our insecure code after the secure click
     button:SetScript("PostClick", function()

@@ -206,6 +206,30 @@ function Utils:NormaliseCharName(name)
 end
 
 -- ---------------------------------------------------------------------------
+-- Widget helpers
+-- ---------------------------------------------------------------------------
+
+--- SetFont only when the target font differs from the current one.
+--- SetFont invalidates the FontString/EditBox layout even when the values are
+--- identical, so guarding it keeps hot paths (overlay open) cheap.
+--- @param widget table  Any widget with GetFont/SetFont (FontString, EditBox)
+--- @param face string
+--- @param size number
+--- @param flags string|nil
+--- @return boolean changed  True if SetFont was actually called.
+function Utils:SetFontIfChanged(widget, face, size, flags)
+    if not (widget and widget.GetFont and widget.SetFont) then return false end
+    if not (face and size) then return false end
+    flags = flags or ""
+    local curFace, curSize, curFlags = widget:GetFont()
+    if curFace == face and curSize == size and (curFlags or "") == flags then
+        return false
+    end
+    widget:SetFont(face, size, flags)
+    return true
+end
+
+-- ---------------------------------------------------------------------------
 -- BNet helpers
 -- ---------------------------------------------------------------------------
 
