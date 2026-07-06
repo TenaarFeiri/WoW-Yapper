@@ -64,6 +64,9 @@ local CODE = {
     -- Chat
     BAD_CHAT_TYPE                  = "Unsupported chat type: %s",
 
+    -- Migrations
+    MIGRATION_FAILED               = "Migration %s failed and was skipped: %s",
+
     -- Generic
     UNKNOWN                        = "Unknown error. String: %s || Detail: %s",
 }

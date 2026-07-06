@@ -161,11 +161,20 @@ end
 function Migrations:RunMigrations(configTable, configType)
     if not configTable or type(configTable) ~= "table" then return end
 
+    -- Each migration is isolated: a failure in one must not abort the rest of
+    -- SavedVariable initialisation, and must be surfaced rather than swallowed.
+    local function run(name, fn)
+        local ok, err = pcall(fn, self, configTable, configType)
+        if not ok and YapperTable.Error then
+            YapperTable.Error:PrintError("MIGRATION_FAILED", name, tostring(err))
+        end
+    end
+
     -- Always run YALLM → YAS migration if needed
-    self:MigrateYALLMToYAS(configTable, configType)
+    run("YALLM_TO_YAS", self.MigrateYALLMToYAS)
 
     -- Run ChannelColorMode migration
-    self:MigrateChannelColorMode(configTable, configType)
+    run("CHANNEL_COLOR_MODE", self.MigrateChannelColorMode)
 end
 
 --- Mark a migration as completed (for external callers)

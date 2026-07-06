@@ -243,9 +243,14 @@ local function CreateSecureButtonForBinding(bindingName, prefillText, syncAttrib
     
     -- Use PostClick to run our insecure code after the secure click
     button:SetScript("PostClick", function()
-        pcall(function()
+        local ok, err = pcall(function()
             HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end)
+        if not ok then
+            -- The click silently did nothing otherwise; leave a trace for diagnosis.
+            Utils:DebugPrint("Keybind PostClick failed for " .. tostring(bindingName)
+                .. ": " .. tostring(err))
+        end
     end)
     
     LogVerbose("Secure button created for binding: " .. bindingName)

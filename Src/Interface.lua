@@ -968,9 +968,13 @@ function Interface:CreateLauncher()
         if DBIcon then
             self.DBIcon = DBIcon
             local minimapCfg = self:GetMinimapButtonSettings()
-            pcall(function()
+            local ok, err = pcall(function()
                 DBIcon:Register(YapperName, self.MinimapLDBObject, minimapCfg)
             end)
+            if not ok then
+                -- don't fail silently
+                YapperTable.Utils:DebugPrint(YapperName .. ": DBIcon register failed:", tostring(err))
+            end
             self:ApplyMinimapButtonVisibility()
             return
         end
