@@ -688,17 +688,13 @@ function EditBox:Hide(isHandoff)
 
     self._closedClean = false
 
-    -- If we're in handoff mode, restore the draft to Blizzard's editbox.
-    if isHandoff and prevOrig and type(prevOrig.SetText) == "function" then
-        local draft = ""
-        if type(history) == "table" and type(history.LoadDraft) == "function" then
-            draft = history:LoadDraft() or ""
-        end
-        prevOrig:SetText(draft)
-        if type(prevOrig.SetFocus) == "function" then
-            prevOrig:SetFocus()
-        end
-    end
+    -- NOTE: no draft restore/SetFocus here for handoff closes. Every
+    -- HandoffToBlizzard call site uses bypassOpen=true ("save draft,
+    -- press Enter after combat to resume"), and the not-bypassOpen case
+    -- is handled inside HandoffToBlizzard itself. An unconditional
+    -- SetFocus here re-activated Blizzard's editbox right after
+    -- DeactivateChat closed it, leaving the (proxy-mode) skin frame
+    -- open after every draft-save handoff.
 
     -- EDITBOX_HIDE callback: notify external addons.
     FireAPIEvent("EDITBOX_HIDE")

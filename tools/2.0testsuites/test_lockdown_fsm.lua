@@ -318,6 +318,12 @@ check("handoff: focus override cleared (OpenChat fallback must not target the hi
     focusOverride == nil)
 check("handoff: overlay hidden", not EditBox.Overlay:IsShown())
 check("handoff: state = LOCKDOWN", YapperAPI._lastState == "LOCKDOWN")
+-- Regression: Hide(true) used to SetText+SetFocus the Blizzard editbox
+-- unconditionally, re-activating the (proxy-mode) skin frame right after
+-- DeactivateChat closed it. bypassOpen defaults true: Blizzard's box must
+-- stay untouched until the user presses Enter after combat.
+check("handoff (bypassOpen): Blizzard editbox not focused", blizzBox._focused == false)
+check("handoff (bypassOpen): Blizzard editbox text untouched", blizzBox:GetText() == "")
 
 -- ===========================================================================
 -- 4. Handoff draft semantics
