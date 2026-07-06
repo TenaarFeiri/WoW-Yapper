@@ -7,6 +7,7 @@ local YapperName, YapperTable = ...
 local YAS = {}
 YapperTable.Spellcheck.YAS = YAS -- Hook into internal table
 local Utils = YapperTable.Utils
+local IsDebugEnabled = YapperTable.Spellcheck.IsDebugEnabled
 
 -- Tuning Constants (used as fallbacks when config is not yet available)
 local FREQ_CAP = 2000      -- Max unique words to track
@@ -36,10 +37,6 @@ local string_format = string.format
 local string_sub = string.sub
 local string_lower = string.lower
 local string_gsub  = string.gsub
-
-local function IsDebugEnabled()
-    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
-end
 
 local function VerifyFreqIndex(db)
     if not IsDebugEnabled() then return end

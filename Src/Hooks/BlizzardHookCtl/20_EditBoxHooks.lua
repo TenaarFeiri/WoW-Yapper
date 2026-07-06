@@ -189,9 +189,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     -- different person still persists normally.
                     local ext = self._externalWhisperTarget
                     if ext then
-                        local extBase = tostring(ext):gsub("%-.*$", ""):lower()
-                        local ttBase  = tostring(tt):gsub("%-.*$", ""):lower()
-                        if extBase == ttBase then
+                        local Utils = YapperTable.Utils
+                        if Utils:NormaliseCharName(ext) == Utils:NormaliseCharName(tt) then
                             self._externalWhisperTarget = tt
                         end
                     end

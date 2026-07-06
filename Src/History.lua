@@ -196,12 +196,7 @@ function History:SaveDraft(editBox, isMultiline)
     if not editBox then return end
     local text = editBox:GetText() or ""
 
-    local function NormaliseWhisperTarget(v)
-        if v == nil then return nil end
-        local s = tostring(v)
-        if s == "" then return nil end
-        return s:gsub("%-.*$", ""):lower()
-    end
+    local NormaliseWhisperTarget = function(v) return YapperTable.Utils:NormaliseCharName(v) end
 
     -- Bail if empty or just whitespace. We don't want a "zombie" spacebar
     -- click to overwrite a previously saved multi-sentence draft.

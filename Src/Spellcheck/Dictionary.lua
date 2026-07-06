@@ -13,6 +13,7 @@ local Clamp           = Spellcheck.Clamp
 local NormaliseWord   = Spellcheck.NormaliseWord
 local NormaliseVowels = Spellcheck.NormaliseVowels
 local IsWordStartByte = Spellcheck.IsWordStartByte
+local IsDebugEnabled  = Spellcheck.IsDebugEnabled
 
 -- Re-localise Lua globals.
 local type            = type
@@ -28,11 +29,6 @@ local string_lower    = string.lower
 local string_format   = string.format
 local table_insert    = table.insert
 local table_sort      = table.sort
-
--- Debug flag helper
-local function IsDebugEnabled()
-    return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
-end
 
 -- Chunk size for async loading (from hub).
 local DICT_CHUNK_SIZE = Spellcheck._DICT_CHUNK_SIZE

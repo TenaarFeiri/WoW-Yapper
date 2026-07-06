@@ -30,8 +30,7 @@ local GetTime  = GetTime
 local tonumber = tonumber
 
 local function NormaliseName(name)
-    if not name or type(name) ~= "string" then return "" end
-    return name:gsub("%-.*$", ""):lower()
+    return Utils:NormaliseCharName(name) or ""
 end
 
 local POLICY_CLASS = {

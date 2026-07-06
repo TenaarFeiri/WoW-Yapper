@@ -729,6 +729,39 @@ function Spellcheck:_GetKBDistFromLayouts(layouts, layoutName)
     return tbl
 end
 
+-- ---------------------------------------------------------------------------
+-- Shared word iterator: iterates over word boundaries in text.
+-- Yields (startPos, endPos, word) for each word found.
+-- ---------------------------------------------------------------------------
+
+--- Iterate over all words in text, yielding start, end, word for each.
+--- @param text string
+--- @return function iterator
+local function IterWords(text)
+    local idx = 1
+    local len = #text
+    return function()
+        while idx <= len do
+            local byte = string_byte(text, idx)
+            if not byte then return nil end
+            if IsWordStartByte(byte) then
+                local s = idx
+                idx = idx + 1
+                while idx <= len do
+                    local b = string_byte(text, idx)
+                    if not b or not IsWordByte(b) then break end
+                    idx = idx + 1
+                end
+                local e = idx - 1
+                return s, e, string_sub(text, s, e)
+            else
+                idx = idx + 1
+            end
+        end
+        return nil
+    end
+end
+
 -- Export shared locals for sub-files to re-localise.
 Spellcheck._SCORE_WEIGHTS       = SCORE_WEIGHTS
 Spellcheck._MAX_SUGGESTION_ROWS = MAX_SUGGESTION_ROWS
@@ -741,3 +774,5 @@ Spellcheck.NormaliseVowels      = NormaliseVowels  -- built-in fallback; LOD eng
 Spellcheck.SuggestionKey        = SuggestionKey
 Spellcheck.IsWordByte           = IsWordByte
 Spellcheck.IsWordStartByte      = IsWordStartByte
+Spellcheck.IsDebugEnabled       = IsDebugEnabled
+Spellcheck.IterWords            = IterWords
