@@ -79,6 +79,23 @@ if [ "${1:-}" = "--syntax" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Phase 1b: documentation line-reference drift.
+# ---------------------------------------------------------------------------
+section "Documentation references (check_doc_refs.py)"
+if command -v python3 > /dev/null 2>&1; then
+    if python3 "$ROOT/tools/check_doc_refs.py"; then
+        echo "  [PASS] documentation line references"
+    else
+        FAILED=$((FAILED + 1))
+        FAILED_NAMES+=("doc-refs")
+        echo "  [FAIL] documentation line references drifted"
+        echo "         run: python3 tools/check_doc_refs.py --fix"
+    fi
+else
+    echo "  [SKIP] python3 not available"
+fi
+
+# ---------------------------------------------------------------------------
 # Phase 2 & 3: gating suites.
 # ---------------------------------------------------------------------------
 run_suite() {

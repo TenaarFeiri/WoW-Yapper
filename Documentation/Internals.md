@@ -167,7 +167,7 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `KnownLocales: string[]` ([`../Src/Spellcheck.lua#L39-L44`](../Src/Spellcheck.lua#L39-L44)).
   - `LocaleAddons: table` locale → addon name ([`../Src/Spellcheck.lua#L49-L55`](../Src/Spellcheck.lua#L49-L55)).
   - Frame references: `EditBox`, `Overlay`, `MeasureFS`, `SuggestionFrame`, `HintFrame` ([`../Src/Spellcheck.lua#L56-L58`](../Src/Spellcheck.lua#L56-L58), [`../Src/Spellcheck.lua#L61-L67`](../Src/Spellcheck.lua#L61-L67)).
-  - Underline/suggestion state: `UnderlinePool`, `Underlines`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L59-L60`](../Src/Spellcheck.lua#L59-L60), [`../Src/Spellcheck.lua#L62-L66`](../Src/Spellcheck.lua#L62-L66), [`../Src/Spellcheck.lua#L68`](../Src/Spellcheck.lua#L68)).
+  - Underline/suggestion state: `UnderlinePool`, `Underlines`, `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L59-L60`](../Src/Spellcheck.lua#L59-L60), [`../Src/Spellcheck.lua#L62-L66`](../Src/Spellcheck.lua#L62-L66), [`../Src/Spellcheck.lua#L78`](../Src/Spellcheck.lua#L78)).
   - Dictionary/user state: `UserDictCache` ([`../Src/Spellcheck.lua#L79`](`../Src/Spellcheck.lua#L79`))
   - Dictionary/user state: `_pendingLocaleLoads` ([`../Src/Spellcheck.lua#L80`](`../Src/Spellcheck.lua#L80`))
   - Dictionary/user state: `DictionaryBuilders` ([`../Src/Spellcheck.lua#L82`](`../Src/Spellcheck.lua#L82`))
@@ -345,24 +345,24 @@ Initialised from `Spellcheck:Init` when present.
   - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L668`](../Src/Spellcheck/Adaptive.lua#L668))
   - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L240`](../Src/Spellcheck/Adaptive.lua#L240))
   - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L115`](../Src/Spellcheck/Adaptive.lua#L115))
-  - `GetFreqCap` ([`../Src/Spellcheck/Adaptive.lua#L124`](`../Src/Spellcheck/Adaptive.lua#L124))
-  - `GetBiasCap` ([`../Src/Spellcheck/Adaptive.lua#L131`](`../Src/Spellcheck/Adaptive.lua#L131))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/Adaptive.lua#L138`](`../Src/Spellcheck/Adaptive.lua#L138))
-  - `Init` ([`../Src/Spellcheck/Adaptive.lua#L163`](`../Src/Spellcheck/Adaptive.lua#L163))
-  - `GetLocaleDB` ([`../Src/Spellcheck/Adaptive.lua#L190`](`../Src/Spellcheck/Adaptive.lua#L190))
-  - `IsSaneWord` ([`../Src/Spellcheck/Adaptive.lua#L264`](`../Src/Spellcheck/Adaptive.lua#L264))
-  - `RecordUsage` ([`../Src/Spellcheck/Adaptive.lua#L306`](`../Src/Spellcheck/Adaptive.lua#L306))
-  - `RecordSelection` ([`../Src/Spellcheck/Adaptive.lua#L353`](`../Src/Spellcheck/Adaptive.lua#L353))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/Adaptive.lua#L435`](`../Src/Spellcheck/Adaptive.lua#L435))
-  - `RecordRejection` ([`../Src/Spellcheck/Adaptive.lua#L531`](`../Src/Spellcheck/Adaptive.lua#L531))
-  - `RecordIgnored` ([`../Src/Spellcheck/Adaptive.lua#L565`](`../Src/Spellcheck/Adaptive.lua#L565))
-  - `GetBonus` ([`../Src/Spellcheck/Adaptive.lua#L613`](`../Src/Spellcheck/Adaptive.lua#L613))
-  - `Prune` ([`../Src/Spellcheck/Adaptive.lua#L714`](`../Src/Spellcheck/Adaptive.lua#L714))
-  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L763`](`../Src/Spellcheck/Adaptive.lua#L763))
-  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L779`](`../Src/Spellcheck/Adaptive.lua#L779))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L872`](`../Src/Spellcheck/Adaptive.lua#L872))
+  - `GetFreqCap` ([`../Src/Spellcheck/Adaptive.lua#L124`](../Src/Spellcheck/Adaptive.lua#L124))
+  - `GetBiasCap` ([`../Src/Spellcheck/Adaptive.lua#L131`](../Src/Spellcheck/Adaptive.lua#L131))
+  - `GetAutoThreshold` ([`../Src/Spellcheck/Adaptive.lua#L138`](../Src/Spellcheck/Adaptive.lua#L138))
+  - `Init` ([`../Src/Spellcheck/Adaptive.lua#L163`](../Src/Spellcheck/Adaptive.lua#L163))
+  - `GetLocaleDB` ([`../Src/Spellcheck/Adaptive.lua#L190`](../Src/Spellcheck/Adaptive.lua#L190))
+  - `IsSaneWord` ([`../Src/Spellcheck/Adaptive.lua#L264`](../Src/Spellcheck/Adaptive.lua#L264))
+  - `RecordUsage` ([`../Src/Spellcheck/Adaptive.lua#L306`](../Src/Spellcheck/Adaptive.lua#L306))
+  - `RecordSelection` ([`../Src/Spellcheck/Adaptive.lua#L353`](../Src/Spellcheck/Adaptive.lua#L353))
+  - `RecordImplicitCorrection` ([`../Src/Spellcheck/Adaptive.lua#L435`](../Src/Spellcheck/Adaptive.lua#L435))
+  - `RecordRejection` ([`../Src/Spellcheck/Adaptive.lua#L531`](../Src/Spellcheck/Adaptive.lua#L531))
+  - `RecordIgnored` ([`../Src/Spellcheck/Adaptive.lua#L565`](../Src/Spellcheck/Adaptive.lua#L565))
+  - `GetBonus` ([`../Src/Spellcheck/Adaptive.lua#L613`](../Src/Spellcheck/Adaptive.lua#L613))
+  - `Prune` ([`../Src/Spellcheck/Adaptive.lua#L714`](../Src/Spellcheck/Adaptive.lua#L714))
+  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L763`](../Src/Spellcheck/Adaptive.lua#L763))
+  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L779`](../Src/Spellcheck/Adaptive.lua#L779))
+  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L872`](../Src/Spellcheck/Adaptive.lua#L872))
 - Score model:
-  - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty and returns an additive score adjustment used in candidate ranking. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. ([`../Src/Spellcheck/Adaptive.lua#L603`](../Src/Spellcheck/Adaptive.lua#L603), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
+  - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty and returns an additive score adjustment used in candidate ranking. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. ([`../Src/Spellcheck/Adaptive.lua#L660`](../Src/Spellcheck/Adaptive.lua#L660), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
   - `Chat:DirectSend` records usage and ignored-word counts ([`../Src/Chat.lua#L199-L215`](../Src/Chat.lua#L199-L215)).
   - `Spellcheck.UI` records explicit suggestion picks/rejections ([`../Src/Spellcheck/UI.lua#L869-L962`](../Src/Spellcheck/UI.lua#L869-L962)).
@@ -421,7 +421,7 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - Runtime frames/state: `Language` ([`../Src/EditBox.lua#L34`](`../Src/EditBox.lua#L34`))
   - Runtime frames/state: `Target` ([`../Src/EditBox.lua#L35`](`../Src/EditBox.lua#L35`))
   - Runtime frames/state: `ChannelName` ([`../Src/EditBox.lua#L36`](`../Src/EditBox.lua#L36`))
-  - State tables: `HookedBoxes`, `LastUsed`, `ReplyQueue`, `_attrCache` ([`../Src/EditBox.lua#L30-L40`](../Src/EditBox.lua#L30-L40), [`../Src/EditBox.lua#L59`](../Src/EditBox.lua#L59)).
+  - State tables: `HookedBoxes`, `LastUsed`, `ReplyQueue`, `_attrCache` ([`../Src/EditBox.lua#L30-L40`](../Src/EditBox.lua#L30-L40), [`../Src/EditBox.lua#L41`](../Src/EditBox.lua#L41)).
   - History pointers: `HistoryIndex` ([`../Src/EditBox.lua#L38`](`../Src/EditBox.lua#L38`))
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L39`](`../Src/EditBox.lua#L39`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
@@ -470,7 +470,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
-  - `SetupOverlayScripts`, `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L35`](../Src/EditBox/Handlers.lua#L35), [`../Src/EditBox/Handlers.lua#L733`](../Src/EditBox/Handlers.lua#L733)).
+  - `SetupOverlayScripts`, `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L992`](../Src/EditBox/Handlers.lua#L992), [`../Src/EditBox/Handlers.lua#L992`](../Src/EditBox/Handlers.lua#L992)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -549,19 +549,19 @@ Blizzard editbox hooks (taint-free).
 
 ## GopherBridge
 
-Self-initialising on `ADDON_LOADED`; activates automatically when LibGopher is detected.
+Self-initialising on `ADDON_LOADED`. Deprecation notifier only: LibGopher/CrossRP
+send delegation was intentionally removed ("Gopher deletion prep", `1a28302`).
+The former send-path surface (`active`, `_gopher`, `Send`, `NeedsHardwareEvent`,
+`IsActive`, `IsBusy`) is gone with it.
 
-- Description: LibGopher delivery bridge.
+- Description: Detects LibGopher, identifies the addon that likely owns it,
+  warns the user about breakage, and offers to disable that addon (with reload).
 - Fields:
-  [MISSING] - `active: boolean` ([`../Src/Bridges/GopherBridge.lua#L129`](`../Src/Bridges/GopherBridge.lua#L129`))
-  [MISSING] - `_gopher: table|nil` ([`../Src/Bridges/GopherBridge.lua#L26`](`../Src/Bridges/GopherBridge.lua#L26`))
+  - `present: boolean` ([`../Src/Bridges/GopherBridge.lua#L22`](../Src/Bridges/GopherBridge.lua#L22))
+  - `ownerAddon: string|nil` ([`../Src/Bridges/GopherBridge.lua#L23`](../Src/Bridges/GopherBridge.lua#L23))
 - Methods:
-  - [NEW] `GopherBridge:GetOwnerAddon() → nil`: No description provided. ([`../Src/Bridges/GopherBridge.lua#L181`](../Src/Bridges/GopherBridge.lua#L181))
-  - [NEW] `GopherBridge:IsPresent() → nil`: No description provided. ([`../Src/Bridges/GopherBridge.lua#L177`](../Src/Bridges/GopherBridge.lua#L177))
-  [MISSING] - `Send` ([`../Src/Bridges/GopherBridge.lua#L158`](`../Src/Bridges/GopherBridge.lua#L158`))
-  [MISSING] - `NeedsHardwareEvent() → boolean`: Returns true when Gopher still needs a hardware event before Yapper may continue opening the editbox. ([`../Src/Bridges/GopherBridge.lua#L225`](../Src/Bridges/GopherBridge.lua#L225))
-  [MISSING] - `IsActive` ([`../Src/Bridges/GopherBridge.lua#L206`](`../Src/Bridges/GopherBridge.lua#L206`))
-  [MISSING] - `IsBusy` ([`../Src/Bridges/GopherBridge.lua#L213`](`../Src/Bridges/GopherBridge.lua#L213`))
+  - `GopherBridge:IsPresent() → boolean`: True when LibGopher was detected this session. ([`../Src/Bridges/GopherBridge.lua#L177`](../Src/Bridges/GopherBridge.lua#L177))
+  - `GopherBridge:GetOwnerAddon() → string|nil`: Best guess at the addon embedding LibGopher. ([`../Src/Bridges/GopherBridge.lua#L181`](../Src/Bridges/GopherBridge.lua#L181))
 
 ## TypingTrackerBridge
 
@@ -835,7 +835,7 @@ Build-time render schema module used by window/UI builders.
 
 - Description: Settings schema composition and category metadata.
 - Fields:
-  - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L514)).
+  - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L506-L514`](../Src/Interface/Schema.lua#L523)).
 - Methods:
   - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L344`](`../Src/Interface/Schema.lua#L344`))
   - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L489`](`../Src/Interface/Schema.lua#L489`))

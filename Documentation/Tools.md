@@ -49,6 +49,15 @@ Maintains the integrity of documentation by synchronizing line numbers in markdo
   - Updates `#LNNN` links in all `.md` files.
   - `--inject`: Automatically finds undocumented public methods and adds them to `Internals.md` or `API.md` with summaries extracted from Lua comments.
 
+### `check_doc_refs.py`
+Read-only CI gate against documentation line-reference drift. Verifies every `#LNNN` link in `Documentation/*.md` points at an existing line and, where the link sits next to a backticked signature, that the line actually defines that identifier.
+- **Usage**: `python3 tools/check_doc_refs.py [--fix]`
+- **Features**:
+  - Runs as part of `tools/run_tests.sh` (and therefore CI); exits non-zero on confident drift.
+  - `--fix`: relocates references whose identifier resolves to exactly one definition; ambiguous ones are reported for manual attention.
+  - Lines annotated `[MISSING]`/`[NEW]` (release.sh output awaiting human confirmation) are downgraded to warnings.
+- **Relationship to `sync_all_docs.py`**: that tool is the bulk *writer* used at release time; this one is the continuous *checker* that catches drift between releases without rewriting anything unasked.
+
 ### `find_orphans.py`
 Performs a structural audit of the Lua codebase to find unused functions, variables, and potential linguistic inconsistencies.
 - **Usage**: `python3 find_orphans.py`

@@ -7,8 +7,10 @@ re-localise `YapperTable.*` upvalues at load time.
 ## Verification
 
 ```
-tools/run_tests.sh            # all gating tests + syntax pass (what CI runs)
-tools/run_tests.sh --syntax   # luac -p over every shipped .lua only
+tools/run_tests.sh                      # gating tests + syntax + doc refs (what CI runs)
+tools/run_tests.sh --syntax             # luac -p over every shipped .lua only
+python3 tools/check_doc_refs.py         # verify Documentation/ #L line references
+python3 tools/check_doc_refs.py --fix   # auto-relocate drifted references
 ```
 
 - Tests live in `tools/2.0testsuites/`; see the README there for the
@@ -17,6 +19,10 @@ tools/run_tests.sh --syntax   # luac -p over every shipped .lua only
 - Always syntax-check generated dictionaries (`Dictionaries/**/*.lua`);
   they are produced by `tools/generate_phonetic_dict.py` and a malformed
   one fails silently in-game.
+- Documentation uses `file.lua#L<n>` links next to backticked signatures;
+  `check_doc_refs.py` verifies them and can relocate drifted ones. Lines
+  annotated `[MISSING]`/`[NEW]` come from release.sh and await human
+  confirmation — the checker treats those as warnings, not failures.
 
 ## Gotchas
 

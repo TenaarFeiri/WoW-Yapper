@@ -167,7 +167,7 @@ flowchart LR
 
 Bridge integration points:
 
-- **GopherBridge**: can become active sender path (`Router:Send` delegates to bridge send) ([`Src/Router.lua#L235-L240`](../Src/Router.lua#L235-L240), [`Src/Bridges/GopherBridge.lua#L103`](../Src/Bridges/GopherBridge.lua#L103)).
+- **GopherBridge**: deprecation notifier only — detects LibGopher, warns, and offers to disable the owning addon; send delegation was removed ([`Src/Bridges/GopherBridge.lua#L1-L9`](../Src/Bridges/GopherBridge.lua#L1-L9)).
 - **RPPrefixBridge**: pre-send text mutation via API filter ([`Src/Bridges/RPPrefixBridge.lua`](../Src/Bridges/RPPrefixBridge.lua)).
 - **TypingTrackerBridge**: overlay focus/send signal callbacks from editbox lifecycle ([`Src/Bridges/TypingTrackerBridge.lua`](../Src/Bridges/TypingTrackerBridge.lua)).
 - **WIMBridge**: can suppress editbox open via `PRE_EDITBOX_SHOW` ownership checks ([`Src/Bridges/WIMBridge.lua`](../Src/Bridges/WIMBridge.lua)).
@@ -332,7 +332,7 @@ Key files:
 
 ## Error handling
 
-Errors are centralised in [`Src/Error.lua`](../Src/Error.lua). Runtime throw path is `YapperTable.Error:Throw(code, ...)` ([`Src/Error.lua#L9`](../Src/Error.lua#L9)).
+Errors are centralised in [`Src/Error.lua`](../Src/Error.lua). Runtime throw path is `YapperTable.Error:Throw(code, ...)` ([`Src/Error.lua#L9`](../Src/Error.lua#L112)).
 
 | Code | Meaning |
 |---|---|

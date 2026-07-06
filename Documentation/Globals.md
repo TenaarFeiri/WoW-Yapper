@@ -15,9 +15,9 @@
 
 These are guaranteed only after Yapper handles `ADDON_LOADED`:
 
-- `_G.YapperDB` (account-wide) — initialised in [`Src/Core.lua#L362`](../Src/Core.lua#L362).
-- `_G.YapperLocalConf` (per-character config) — initialised in [`Src/Core.lua#L363`](../Src/Core.lua#L363).
-- `_G.YapperLocalHistory` (per-character history/drafts) — initialised in [`Src/Core.lua#L364`](../Src/Core.lua#L364).
+- `_G.YapperDB` (account-wide) — initialised in [`Src/Core.lua#L510`](../Src/Core.lua#L510).
+- `_G.YapperLocalConf` (per-character config) — initialised in [`Src/Core.lua#L511`](../Src/Core.lua#L511).
+- `_G.YapperLocalHistory` (per-character history/drafts) — initialised in [`Src/Core.lua#L512`](../Src/Core.lua#L512).
 
 See SavedVariables layout in [Architecture.md](Architecture.md#savedvariables-layout).
 
