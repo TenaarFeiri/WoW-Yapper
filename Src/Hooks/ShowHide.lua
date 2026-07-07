@@ -543,9 +543,6 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Clear the watchdog now that we've grabbed everything
-    self._openingWatchdog = false
-
     -- Set the text: restore a draft if found, otherwise clear the box
     -- ONLY if we are coming from a hidden state. This prevents wipes
     -- when refocusing an already-visible overlay.
@@ -848,7 +845,6 @@ function EditBox:RetargetOpenWhisper(target, blizzBox)
     end
 
     self:EnsureProxyBackgroundShown()
-    self._openingWatchdog = false
     return true
 end
 

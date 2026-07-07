@@ -121,7 +121,6 @@ function EditBox:HookAllChatFrames()
                 local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
                 if inLockdown then
                     -- Stay in Blizzard's box during lockdown
-                    self._openingWatchdog = false
                     return
                 else
                     -- Kick back to Yapper when not in lockdown
@@ -199,7 +198,6 @@ function EditBox:HookAllChatFrames()
                     C_Timer.After(0, function()
                         self:EnsureProxyBackgroundShown()
                     end)
-                    self._openingWatchdog = false
                     return
                 end
 
@@ -215,7 +213,6 @@ function EditBox:HookAllChatFrames()
                         self.OverlayEdit:SetFocus()
                     end
                 end)
-                self._openingWatchdog = false
                 return
             end
 
@@ -254,37 +251,23 @@ function EditBox:HookAllChatFrames()
                 end
             end
 
-            -- For all other cases (slash-starting text, specific chatFrame opens, etc.)
-            -- just signal the watchdog so ForwardTextToYapper can route to the overlay
-            -- while it isn't shown yet. Do NOT call Show() or pre-populate
-            -- _pendingOpenChatText here — the blizzard editbox Show() hook handles
-            -- opening the overlay on the next frame, by which point the physical key
-            -- char has already been consumed by the blizzard editbox, not ours.
-            --
-            -- Exception: tab clicks / chat-area clicks (chatFrame ~= nil with empty/nil text).
-            -- In IM mode, a click on the chat area is a user intent to open chat on that window.
-            -- In Classic mode, suppress to avoid spurious opens on tab navigation.
-            -- If Yapper is already open, allow text routing via watchdog regardless.
-            if chatFrame ~= nil and (text == nil or text == "") then
-                if self.Overlay and self.Overlay:IsShown() then
-                    -- Yapper is open: allow text routing via watchdog
-                    self._openingWatchdog = true
-                else
-                    -- Classic mode: suppress the open on tab navigation.
-                    -- IM mode is handled by the ActivateChat hook instead.
-                    local eb = chatFrame.editBox
-                    if eb and eb.GetName then
-                        self._suppressNextShowFor = eb:GetName()
-                        C_Timer.After(0, function()
-                            if self._suppressNextShowFor == eb:GetName() then
-                                self._suppressNextShowFor = nil
-                            end
-                        end)
-                    end
+            -- Tab clicks / chat-area clicks (chatFrame ~= nil with empty/nil text):
+            -- in Classic mode, suppress the spurious overlay open on tab navigation
+            -- while Yapper is closed. (IM mode is handled by the ActivateChat hook.)
+            -- Normal Enter-to-chat needs no early-capture flag here: the blizzard
+            -- editbox Show() hook opens the overlay on the next frame, by which point
+            -- the physical key char has already been consumed by the blizzard editbox.
+            if chatFrame ~= nil and (text == nil or text == "")
+                and not (self.Overlay and self.Overlay:IsShown()) then
+                local eb = chatFrame.editBox
+                if eb and eb.GetName then
+                    self._suppressNextShowFor = eb:GetName()
+                    C_Timer.After(0, function()
+                        if self._suppressNextShowFor == eb:GetName() then
+                            self._suppressNextShowFor = nil
+                        end
+                    end)
                 end
-            else
-                -- Normal Enter-to-chat or other cases
-                self._openingWatchdog = true
             end
         end)
         -- NOTE: Do NOT replace ChatFrameUtil.OpenChat with a tainted wrapper.

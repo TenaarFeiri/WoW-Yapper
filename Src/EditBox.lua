@@ -83,7 +83,6 @@ function EditBox:ClearLockdownState()
         ld.ticker = nil
     end
     ld.eventRunning = false
-    self._openingWatchdog = false
 end
 
 --- Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE

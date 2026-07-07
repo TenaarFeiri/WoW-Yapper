@@ -1,8 +1,14 @@
+# 2.2.4-a
+
+### Bug Fixes
+- Tightened up an earlier fix for the posting pipeline addons like Paste use. This should also fix issues with similar addons.
+
 # 2.2.4
 
 ### Bug Fixes
 - Fix for issue where addons calling ActivateChat to SetText, SendText and DeactiveChat fail with Yapper active.
 - - This does not guarantee compatibility but fixes some known issues.
+- - Fixes addons that open the chat editbox and drive it directly (e.g. PasteNG's "Default" target) having their message/commands silently dropped while Yapper is loaded.
 - Fix inconsistent whisper stickiness... again.
 - Fix inconsistent label resizing under certain circumstances.
 

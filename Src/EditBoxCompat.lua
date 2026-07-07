@@ -77,10 +77,38 @@ function YapperTable.InstallCompatMethods(box)
     box.UpdateNewcomerEditBoxHint = box.UpdateNewcomerEditBoxHint or function() end
     -- Some addons call deprecated wrappers like ChatEdit_SendText(editBox).
     -- Blizzard's SendText path expects these ChatFrameEditBoxBaseMixin methods.
-    -- Keep them as harmless no-ops for compatibility with overlay/multiline boxes.
-    box.ParseText = box.ParseText or function() end
+    -- OnPreSendText/AddHistory stay harmless no-ops; ParseText must be real.
     box.OnPreSendText = box.OnPreSendText or function() end
     box.AddHistory = box.AddHistory or function() end
+
+    -- Functional ParseText (feature parity, not pipeline hijacking).
+    -- Blizzard's ChatFrameEditBoxMixin.SendText — which addons like Paste and
+    -- PasteNG invoke via ChatEdit_SendText on the "active window" — calls
+    -- self:ParseText(1) BEFORE it dispatches, and on a native chat box that is
+    -- exactly where a "/command" line gets executed (see ChatFrameEditBox.lua
+    -- SendText -> ParseText). While Yapper is open, GetActiveWindow hands these
+    -- addons our overlay, so a no-op ParseText silently dropped every command
+    -- line — it fell through to C_ChatInfo.SendChatMessage and went out as
+    -- literal SAY text. Fix: execute slash lines through Yapper's existing
+    -- native-box forwarder and consume the text so the surrounding SendText
+    -- sees an empty box and does not re-send. Plain text is deliberately left
+    -- untouched — SendText dispatches it verbatim via SendChatMessage using
+    -- GetChatType()/languageID. Dumb paste: we never touch the addon's pipeline.
+    function box:ParseText(send)
+        -- Only act on the send path; parse-only calls (send ~= 1) are no-ops.
+        if send ~= 1 then return end
+        local text = self:GetText()
+        if not text or text == "" then return end
+        local trimmed = text:match("^%s*(.-)%s*$") or ""
+        -- Plain text: let Blizzard's SendText dispatch it verbatim.
+        if trimmed:sub(1, 1) ~= "/" then return end
+        -- Slash line: run it through the native-box forwarder (same untainted
+        -- path OnEnterPressed uses) and clear the box so SendText sends nothing.
+        if EditBox.ForwardSlashCommand then
+            EditBox:ForwardSlashCommand(trimmed)
+        end
+        self:SetText("")
+    end
 
     -- supportsSlashCommands = false: we do NOT want Blizzard's CHAT_FOCUS_OVERRIDE
     -- path to intercept slash-starting text (e.g. "/" key press, "/w name").

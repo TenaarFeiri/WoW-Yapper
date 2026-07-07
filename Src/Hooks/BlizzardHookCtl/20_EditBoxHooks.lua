@@ -222,7 +222,18 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         if state and state.IsMultiline and state:IsMultiline()
             and ml and ml.EditBox and ml.Frame and ml.Frame:IsShown() then
             targetBox = ml.EditBox
-        elseif self.Overlay and (self.Overlay:IsShown() or self._inBlizzShowHook or self._openingWatchdog) and self.OverlayEdit then
+        elseif self.Overlay and self.OverlayEdit
+            and (self.Overlay:IsShown() or self._inBlizzShowHook) then
+            -- Only mirror native-box text into the overlay when the overlay is
+            -- actually shown, or is mid-Show (the _inBlizzShowHook window). We
+            -- deliberately do NOT capture text before the overlay exists. That
+            -- early-open capture (the former `_openingWatchdog`) stole the
+            -- SetText from the standard external-addon contract
+            -- OpenChat("") -> GetActiveWindow -> SetText -> SendText (e.g.
+            -- PasteNG's "Default" target sets text on the native box then
+            -- immediately sends on that same native box), blanking the native
+            -- box so the send dispatched an empty string. Genuine slash-prefill
+            -- capture during a real open still runs via IsShown()/_inBlizzShowHook.
             targetBox = self.OverlayEdit
         end
 
@@ -505,15 +516,12 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         C_Timer.After(0, function()
             -- Check again in case state changed during defer
             if self.Overlay and self.Overlay:IsShown() then
-                self._openingWatchdog = false
                 return
             end
             if UserBypassingYapper() then
-                self._openingWatchdog = false
                 return
             end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
-                self._openingWatchdog = false
                 return
             end
 
@@ -525,7 +533,6 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 or self._lastActiveIMEditBox
                 or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
             if not targetEB then
-                self._openingWatchdog = false
                 return
             end
 
@@ -549,7 +556,6 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     if State and not State:IsIdle() then
                         YapperAPI:SetState("IDLE")
                     end
-                    self._openingWatchdog = false
                     return
                 end
             end
