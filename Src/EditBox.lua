@@ -96,7 +96,15 @@ function EditBox:UpdateFocusOverride()
         -- keep the override active so the user can finish typing (during the 1.5s idle timer).
         local overlayActive = self.Overlay and self.Overlay:IsShown() and not self._lockdown.handedOff
 
-        if not UserBypassingYapper and not BypassEditBox and not ((inLockdown or inCombat) and not overlayActive) and self.OverlayEdit then
+        -- Only install CHAT_FOCUS_OVERRIDE while Yapper is actually visible.
+        -- Keeping it active while hidden makes ChatFrameUtil.OpenChat("") short-circuit
+        -- to the hidden overlay and can break addons that rely on OpenChat +
+        -- ChatEdit_GetActiveWindow().
+        if overlayActive
+            and not UserBypassingYapper
+            and not BypassEditBox
+            and not ((inLockdown or inCombat) and not overlayActive)
+            and self.OverlayEdit then
             ChatFrameUtil.SetChatFocusOverride(self.OverlayEdit)
         else
             ChatFrameUtil.ClearChatFocusOverride()

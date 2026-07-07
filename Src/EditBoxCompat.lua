@@ -75,6 +75,12 @@ function YapperTable.InstallCompatMethods(box)
     box.UpdateHeader = box.UpdateHeader or function() end
     box.SetFocusRegionsShown = box.SetFocusRegionsShown or function() end
     box.UpdateNewcomerEditBoxHint = box.UpdateNewcomerEditBoxHint or function() end
+    -- Some addons call deprecated wrappers like ChatEdit_SendText(editBox).
+    -- Blizzard's SendText path expects these ChatFrameEditBoxBaseMixin methods.
+    -- Keep them as harmless no-ops for compatibility with overlay/multiline boxes.
+    box.ParseText = box.ParseText or function() end
+    box.OnPreSendText = box.OnPreSendText or function() end
+    box.AddHistory = box.AddHistory or function() end
 
     -- supportsSlashCommands = false: we do NOT want Blizzard's CHAT_FOCUS_OVERRIDE
     -- path to intercept slash-starting text (e.g. "/" key press, "/w name").

@@ -95,6 +95,36 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
     local editCfg = cfg or {}
     local stickyAll = (editCfg.StickyChannel ~= false)
     local stickyGroup = (editCfg.StickyGroupChannel ~= false)
+    local stickyWhisper = (editCfg.StickyWhisper == true)
+
+    -- Whispers are conversation-specific and, by default, must never become the
+    -- GLOBAL sticky. A whisper stored in LastUsed bleeds onto the
+    -- general/non-whisper tab and can be restored days later (stale week-old /w
+    -- report), because LastUsed is persisted per-character in YapperLocalConf.
+    -- Dedicated whisper tabs/windows restore their target from Blizzard's
+    -- chatTarget / frame context (blizzHasTarget), not from LastUsed, so demoting
+    -- here does not affect them. A whisper typed or opened (incl. right-click
+    -- menu) from a non-whisper tab is therefore a one-shot: revert the sticky to
+    -- the previous non-whisper channel, or SAY. This also self-heals any stale
+    -- whisper a prior version wrote into LastUsed.
+    --
+    -- Opt-out: when EditBox.StickyWhisper is enabled, whispers are treated like
+    -- any other channel and fall through to the normal sticky logic below.
+    if IsWhisperType(ct) and not stickyWhisper then
+        local prevType = previous and previous.chatType
+        if prevType and not IsWhisperType(prevType) then
+            return {
+                chatType = prevType,
+                target = (prevType == "CHANNEL") and previous.target or nil,
+                language = BuildStickyFallbackLanguage(current.language, previous),
+            }
+        end
+        return {
+            chatType = "SAY",
+            target = nil,
+            language = BuildStickyFallbackLanguage(current.language, previous),
+        }
+    end
 
     local keepSticky = stickyAll
         or (stickyGroup and type(groupChatTypes) == "table" and groupChatTypes[ct])

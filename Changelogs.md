@@ -1,3 +1,14 @@
+# 2.2.4
+
+### Bug Fixes
+- Fix for issue where addons calling ActivateChat to SetText, SendText and DeactiveChat fail with Yapper active.
+- - This does not guarantee compatibility but fixes some known issues.
+- Fix inconsistent whisper stickiness... again.
+- Fix inconsistent label resizing under certain circumstances.
+
+### Features
+- New setting added to enable sticky whisper in non-whisper tabs. Disabled by default.
+
 # 2.2.3
 
 ### Bug Fixes

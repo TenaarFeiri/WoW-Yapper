@@ -115,6 +115,8 @@ local SETTING_TOOLTIPS              = {
     "When enabled, the overlay remembers the last channel you used and reopens with it selected.",
     ["EditBox.StickyGroupChannel"] =
     "When 'Remember last channel' is off, group channels (Party, Instance, Raid, Raid Warning) still remain sticky. Uncheck to disable that too.",
+    ["EditBox.StickyWhisper"] =
+    "When enabled, whisper targets are also remembered on non-whisper tabs, so the overlay can reopen in whisper mode. When disabled (default), a whisper sent from a normal tab is a one-shot and the tab reverts to its previous channel. Dedicated whisper tabs always restore their target either way.",
     ["EditBox.RecoverOnEscape"] =
     "When enabled, ESC keeps your text as a draft. When disabled, ESC saves to history but discards drafts.",
     ["EditBox.AutocompleteEnabled"] =
@@ -187,6 +189,7 @@ local FRIENDLY_LABELS               = {
     ["EditBox.AutoFitLabel"] = "Auto-fit long labels",
     ["EditBox.StickyChannel"] = "Remember last channel",
     ["EditBox.StickyGroupChannel"] = "Keep group channels sticky",
+    ["EditBox.StickyWhisper"] = "Remember whisper targets",
     ["EditBox.RecoverOnEscape"] = "Recover text after ESC",
     ["EditBox.AutocompleteEnabled"] = "Autocomplete (ghost text)",
     ["EditBox.MinHeight"] = "Minimum input height",
@@ -225,6 +228,7 @@ local CATEGORIES                    = {
             -- Sticky channel behaviour
             "EditBox.StickyChannel",
             "EditBox.StickyGroupChannel",
+            "EditBox.StickyWhisper",
             "EditBox.RecoverOnEscape",
             -- Autocomplete
             "EditBox.AutocompleteEnabled",

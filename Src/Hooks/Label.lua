@@ -135,14 +135,21 @@ function EditBox:RefreshLabel()
         resolvedR, resolvedG, resolvedB = channelColors[currentKey].r, channelColors[currentKey].g, channelColors[currentKey].b
     end
 
+    -- Reset the label to its base font BEFORE measuring the background width.
+    -- UpdateLabelBackgroundForText measures the text via ChannelLabel's *current*
+    -- font, but with AutoFitLabel enabled a previous refresh may have left the
+    -- FontString shrunk. Measuring at that leftover size yields a different
+    -- LabelBg width every open, which feeds back into the usable width and the
+    -- auto-fit result — the visible resize-on-reopen jitter. Resetting first
+    -- makes the background width deterministic for a given label text.
+    ResetLabelToBaseFont(self)
+
     UpdateLabelBackgroundForText(self, label)
 
     local usableWidth = GetLabelUsableWidth(self)
     if self.ChannelLabel.SetWidth then
         self.ChannelLabel:SetWidth(usableWidth)
     end
-
-    ResetLabelToBaseFont(self)
 
     if cfg.AutoFitLabel == true then
         local fitOk = FitLabelFontToWidth(self, label, usableWidth)
@@ -424,20 +431,12 @@ function EditBox:PersistLastUsed()
     local language = self.Language
     local channelName = self.ChannelName
 
-    local NormaliseWhisperTarget = function(v) return Utils:NormaliseCharName(v) end
-
-    -- An externally-initiated whisper (right-click a unit frame → Whisper while
-    -- Yapper is open) is transient: it must not become the global sticky and
-    -- bleed onto non-whisper tabs. Skip the LastUsed overwrite while the active
-    -- selection is still that untouched external whisper. The whisper itself is
-    -- unaffected (this only governs persistence). If the user changes target or
-    -- channel, the comparison no longer matches and normal persistence resumes.
-    if self._externalWhisperTarget
-        and (ct == "WHISPER" or ct == "BN_WHISPER")
-        and NormaliseWhisperTarget(self.Target) == NormaliseWhisperTarget(self._externalWhisperTarget) then
-        self:RecordTabChannel()
-        return
-    end
+    -- NOTE: External (right-click menu / unit-frame) whispers no longer need a
+    -- dedicated skip here. ChannelPolicy:BuildPersistedLastUsed now demotes ALL
+    -- whispers (typed and external) to the previous non-whisper sticky, so a
+    -- whisper can never become the global LastUsed and bleed onto the
+    -- general/non-whisper tab. Dedicated whisper tabs restore from Blizzard's
+    -- chatTarget/frame context, not LastUsed, so they are unaffected.
 
     local policy = YapperTable.ChannelPolicy
     if policy and type(policy.SanitizeCommittedSelection) == "function" then

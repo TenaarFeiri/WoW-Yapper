@@ -168,6 +168,13 @@ local DEFAULTS = {
         StickyChannel         = true,
         StickyGroupChannel    = true,
 
+        -- When true, whisper targets are also remembered as the sticky channel
+        -- on non-whisper tabs (like any other channel). When false (default), a
+        -- whisper sent from a non-whisper tab is a one-shot and the tab reverts
+        -- to its previous non-whisper channel. Dedicated whisper tabs always
+        -- restore their target regardless of this setting.
+        StickyWhisper         = false,
+
         -- When true, ESC will store the current text as a recoverable draft.
         -- When false, ESC adds to text history but does not save drafts.
         RecoverOnEscape       = false,
