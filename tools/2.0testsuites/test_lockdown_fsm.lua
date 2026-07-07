@@ -293,12 +293,22 @@ chatLockdown = true
 EditBox:UpdateFocusOverride()
 check("chat lockdown + overlay closed: override cleared", focusOverride == nil)
 
--- No lockdown at all: override set (steady state).
+-- No lockdown, overlay OPEN: override set (steady state).
+ResetWorld()
+EditBox:Show(blizzBox)
+EditBox:UpdateFocusOverride()
+check("no lockdown + overlay open: override set (steady state)", focusOverride == EditBox.OverlayEdit)
+
+-- No lockdown, overlay CLOSED: override cleared. Yapper no longer keeps a
+-- stale CHAT_FOCUS_OVERRIDE pointing at the hidden overlay while closed — that
+-- made ChatFrameUtil.OpenChat("") short-circuit and broke addons relying on
+-- OpenChat -> ChatEdit_GetActiveWindow() -> ChatEdit_SendText() (e.g. Paste).
+-- Interception on the next open is re-established by the overlay Show hook.
 ResetWorld()
 EditBox:Show(blizzBox)
 EditBox:Hide()
 EditBox:UpdateFocusOverride()
-check("no lockdown: override set (steady state)", focusOverride == EditBox.OverlayEdit)
+check("no lockdown + overlay closed: override cleared", focusOverride == nil)
 
 -- ===========================================================================
 -- 3. HandoffToBlizzard clears the focus override (the 348668e regression)
