@@ -74,19 +74,12 @@ YapperTable.Events = {
 
 local overlay = MockFrame("YapperOverlay")
 local overlayEdit = MockEditBox("YapperOverlayEditBox")
-local focusTrap = MockEditBox("YapperFocusTrap")
-
 YapperTable.EditBox = {
     Overlay = overlay,
     OverlayEdit = overlayEdit,
     LastUsed = { chatType = "SAY", target = nil, language = nil },
-    _focusTrap = focusTrap,
-    _focusTrapText = "",
     Show = function(self)
         self.Overlay:Show()
-        if self._nextCapturedText ~= nil then
-            self._focusTrapText = self._nextCapturedText
-        end
     end,
     ApplyProgrammaticPrefill = function(self, text, box)
         box:SetText(text or "")
@@ -113,8 +106,6 @@ Keybinds:Init()
 local function clickBinding(bindingName, capturedText)
     overlay:Hide()
     overlayEdit:SetText("")
-    YapperTable.EditBox._focusTrapText = "stale"
-    YapperTable.EditBox._nextCapturedText = capturedText
     YapperTable.EditBox._focusOverrideUpdated = false
 
     local button = Keybinds._secureButtons[bindingName]
@@ -124,22 +115,23 @@ local function clickBinding(bindingName, capturedText)
         os.exit(1)
     end
     postClick(button)
-
-    YapperTable.EditBox._nextCapturedText = nil
 end
 
-print("Test 1: OPENCHAT keeps captured typing")
-clickBinding("OPENCHAT", "h")
-check("plain open transfers focus-trap text", overlayEdit:GetText() == "h")
+print("Test 1: OPENCHAT opens cleanly without a focus trap")
+clickBinding("OPENCHAT")
+check("plain open leaves text empty", overlayEdit:GetText() == "")
 check("plain open updates focus override", YapperTable.EditBox._focusOverrideUpdated == true)
+check("plain open shows overlay", overlay:IsShown())
 
-print("\nTest 2: OPENCHATSLASH suppresses duplicated slash")
-clickBinding("OPENCHATSLASH", "/")
+print("\nTest 2: OPENCHATSLASH pre-fills a single slash")
+clickBinding("OPENCHATSLASH")
 check("slash open keeps a single slash", overlayEdit:GetText() == "/")
 
-print("\nTest 3: OPENCHATSLASH preserves fast follow-up typing")
-clickBinding("OPENCHATSLASH", "/w")
-check("slash open merges overlap before follow-up text", overlayEdit:GetText() == "/w")
+print("\nTest 3: OPENCHATSLASH does not require focus-trap state")
+YapperTable.EditBox._focusTrap = nil
+YapperTable.EditBox._focusTrapText = "stale"
+clickBinding("OPENCHATSLASH")
+check("slash open ignores stale focus-trap text", overlayEdit:GetText() == "/")
 
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then

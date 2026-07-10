@@ -40,26 +40,6 @@ local function IsNativeChatEditBox(eb)
     return type(name) == "string" and name:match("^ChatFrame%d+EditBox$") ~= nil
 end
 
-local function MergeCapturedText(existingText, capturedText)
-    existingText = existingText or ""
-    capturedText = capturedText or ""
-    if capturedText == "" then
-        return existingText
-    end
-    if existingText == "" then
-        return capturedText
-    end
-
-    local maxOverlap = math.min(#existingText, #capturedText)
-    for overlap = maxOverlap, 1, -1 do
-        if existingText:sub(-overlap) == capturedText:sub(1, overlap) then
-            return existingText .. capturedText:sub(overlap + 1)
-        end
-    end
-
-    return existingText .. capturedText
-end
-
 -- ---------------------------------------------------------------------------
 -- Secure Button Creation
 -- ---------------------------------------------------------------------------
@@ -168,16 +148,6 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         Keybinds._preLockdownLastUsed = nil
     end
 
-    -- Grab focus instantly on the hidden trap so no action-bar keybinds
-    -- can leak through during the brief Show() window.  Do this as early
-    -- as possible after lockdown check to capture any keystrokes that
-    -- arrive before the overlay is ready.
-    if EditBox._focusTrap then
-        EditBox._focusTrap:SetFocus()
-        -- Clear any stale text from previous opens
-        EditBox._focusTrap:SetText("")
-    end
-
     -- Don't show if already shown to prevent state thrashing
     if EditBox.Overlay and EditBox.Overlay:IsShown() then
         if EditBox.OverlayEdit then
@@ -197,13 +167,6 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
             target   = filterTarget,
         })
         if result == false then
-            -- CRITICAL: Clear focus trap so user doesn't type into invisible void.
-            -- A filter blocked the open; we must clean up.
-            if EditBox._focusTrap then
-                EditBox._focusTrap:ClearFocus()
-                EditBox._focusTrap:SetText("")
-            end
-            EditBox._focusTrapText = ""
             return
         end
     end
@@ -237,13 +200,6 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         else
             EditBox.OverlayEdit:SetText(prefillText)
         end
-    end
-
-    -- Transfer any keystrokes captured by the focus trap before overlay was ready
-    if EditBox._focusTrapText and EditBox._focusTrapText ~= "" then
-        local currentText = EditBox.OverlayEdit:GetText() or ""
-        EditBox.OverlayEdit:SetText(MergeCapturedText(currentText, EditBox._focusTrapText))
-        EditBox._focusTrapText = ""  -- Clear for next open
     end
 
     -- Use the proper Blizzard function to set focus override
