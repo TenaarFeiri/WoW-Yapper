@@ -33,6 +33,7 @@ GATING_FROM_ROOT=(
     test_editbox_pipeline_stress_sim
     test_icon_gallery_api
     test_queue_stall
+    test_keybinds
     test_lockdown_fsm
 )
 

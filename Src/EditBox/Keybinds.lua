@@ -40,6 +40,26 @@ local function IsNativeChatEditBox(eb)
     return type(name) == "string" and name:match("^ChatFrame%d+EditBox$") ~= nil
 end
 
+local function MergeCapturedText(existingText, capturedText)
+    existingText = existingText or ""
+    capturedText = capturedText or ""
+    if capturedText == "" then
+        return existingText
+    end
+    if existingText == "" then
+        return capturedText
+    end
+
+    local maxOverlap = math.min(#existingText, #capturedText)
+    for overlap = maxOverlap, 1, -1 do
+        if existingText:sub(-overlap) == capturedText:sub(1, overlap) then
+            return existingText .. capturedText:sub(overlap + 1)
+        end
+    end
+
+    return existingText .. capturedText
+end
+
 -- ---------------------------------------------------------------------------
 -- Secure Button Creation
 -- ---------------------------------------------------------------------------
@@ -222,7 +242,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     -- Transfer any keystrokes captured by the focus trap before overlay was ready
     if EditBox._focusTrapText and EditBox._focusTrapText ~= "" then
         local currentText = EditBox.OverlayEdit:GetText() or ""
-        EditBox.OverlayEdit:SetText(currentText .. EditBox._focusTrapText)
+        EditBox.OverlayEdit:SetText(MergeCapturedText(currentText, EditBox._focusTrapText))
         EditBox._focusTrapText = ""  -- Clear for next open
     end
 
