@@ -32,6 +32,7 @@ and exit non-zero on failure.
 | test_editbox_pipeline_stress_sim | Pipeline stress (seeded RNG) — see caveat | repo root |
 | test_icon_gallery_api | Icon gallery API | repo root |
 | test_queue_stall | Queue + real State machine, stall/ack/cancel | repo root |
+| test_keybinds | Keybind open path, keydown open semantics, slash-prefill regression | repo root |
 | test_lockdown_fsm | Lockdown handoff FSM, focus-override lifecycle | repo root |
 | test_api_error | Error API | suite dir |
 | test_api_features | Public API surface | suite dir |
