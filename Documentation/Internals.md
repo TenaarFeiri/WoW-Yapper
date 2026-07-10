@@ -11,7 +11,7 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L283`](../Yapper.lua#L283)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L282`](../Yapper.lua#L282)).
 - Methods:
   - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L277`](../Yapper.lua#L277)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
