@@ -991,6 +991,6 @@ Per-category page builders called by `BuildConfigUI`.
 ## Bridges\WhisperMessengerBridge
 
 - Methods:
-  - [NEW] `Bridge:HookSecureButtonCreation() → nil`: Hook Keybinds.CreateSecureButtons so the bridge re-wraps whenever the ([`../Src/Bridges\WhisperMessengerBridge.lua#L141`](../Src/Bridges\WhisperMessengerBridge.lua#L141))
-  - [NEW] `Bridge:WrapReplyKeybind() → nil`: Wrap the REPLYTELL2 secure button's PostClick so the reply/re-whisper ([`../Src/Bridges\WhisperMessengerBridge.lua#L88`](../Src/Bridges\WhisperMessengerBridge.lua#L88))
-  - [NEW] `Bridge:IsWindowVisible() → boolean`: Check whether the WM window is currently visible. ([`../Src/Bridges\WhisperMessengerBridge.lua#L50`](../Src/Bridges\WhisperMessengerBridge.lua#L50))
+  - [NEW] `Bridge:HookSecureButtonCreation() → nil`: Hook Keybinds.CreateSecureButtons so the bridge re-wraps whenever the ([`../Src/Bridges/WhisperMessengerBridge.lua#L141`](../Src/Bridges/WhisperMessengerBridge.lua#L141))
+  - [NEW] `Bridge:WrapReplyKeybind() → nil`: Wrap the REPLYTELL2 secure button's PostClick so the reply/re-whisper ([`../Src/Bridges/WhisperMessengerBridge.lua#L88`](../Src/Bridges/WhisperMessengerBridge.lua#L88))
+  - [NEW] `Bridge:IsWindowVisible() → boolean`: Check whether the WM window is currently visible. ([`../Src/Bridges/WhisperMessengerBridge.lua#L50`](../Src/Bridges/WhisperMessengerBridge.lua#L50))

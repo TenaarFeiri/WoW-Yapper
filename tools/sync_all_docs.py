@@ -336,7 +336,7 @@ if __name__ == "__main__":
             if not filename.endswith(".lua"): continue
             
             lua_path = os.path.join(root, filename)
-            rel_lua_path = os.path.relpath(lua_path, SRC_DIR)
+            rel_lua_path = os.path.relpath(lua_path, SRC_DIR).replace(os.sep, '/')
             
             with open(lua_path, "r", encoding="utf-8", errors="ignore") as f:
                 lua_content = f.read()
