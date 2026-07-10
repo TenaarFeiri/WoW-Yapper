@@ -24,7 +24,28 @@ Write-Host "Building Yapper v$version..."
 
 # 0. Sync documentation before release
 Write-Host "Syncing documentation..."
-python "tools\sync_all_docs.py" --inject
+# Resolve a real Python executable; the Windows Store "python" stub is a no-op.
+$pyExe = $null
+foreach ($candidate in @(
+    "python.exe",
+    "python3.exe",
+    "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+    "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+    "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe"
+)) {
+    $resolved = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($resolved) {
+        # Skip the Windows Store App Execution Alias stub.
+        if ($resolved.Source -notlike "*\WindowsApps\*") {
+            $pyExe = $resolved.Source
+            break
+        }
+    }
+}
+if (-not $pyExe) {
+    throw "Python not found. Install Python or add it to PATH (excluding the Windows Store stub)."
+}
+& $pyExe "tools\sync_all_docs.py" --inject
 
 # Clean start
 Remove-Item -Path ".release" -Recurse -Force -ErrorAction SilentlyContinue

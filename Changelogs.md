@@ -1,3 +1,12 @@
+# 2.2.5
+
+### Bug Fixes:
+- No more double input when doing slash open.
+
+### New Feature
+- WhisperMessenger support added.
+ - KNOWN ISSUE: Some reply keybinds bleed through to WM's window and wipes written text. This occurs with Yapper disabled too, but if I can fix it in my bridge for Yapper users, I will.
+
 # 2.2.4-a
 
 ### Bug Fixes

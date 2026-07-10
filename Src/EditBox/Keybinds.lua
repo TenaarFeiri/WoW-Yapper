@@ -193,14 +193,13 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
     
-    -- Pre-fill text if specified (applied immediately; Show() has already run)
-    if prefillText and EditBox.OverlayEdit then
-        if type(EditBox.ApplyProgrammaticPrefill) == "function" then
-            EditBox:ApplyProgrammaticPrefill(prefillText, EditBox.OverlayEdit)
-        else
-            EditBox.OverlayEdit:SetText(prefillText)
-        end
-    end
+    -- NOTE: We intentionally do NOT apply prefillText here. Show() has already
+    -- focused the overlay synchronously inside the key-DOWN event, so the
+    -- physical char event (e.g. "/" for OPENCHATSLASH) fires on the focused
+    -- overlay immediately after all Lua returns.  Manually SetText("/") here
+    -- would double-fill: our "/" plus the physical char's "/" → "//".
+    -- The prefillText parameter is still used by the lockdown fallback above,
+    -- where Blizzard's OpenChat handles the char itself.
 
     -- Use the proper Blizzard function to set focus override
     if EditBox.UpdateFocusOverride then

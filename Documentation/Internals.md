@@ -702,8 +702,8 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Description: Send orchestrator (`EditBox -> Chunking -> Queue -> Router`).
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
-  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L95`](../Src/Chat.lua#L95))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L207`](../Src/Chat.lua#L207))
+  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L98`](../Src/Chat.lua#L98))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L210`](../Src/Chat.lua#L210))
 - Filters run:
   - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
 - Callbacks fired:
@@ -987,3 +987,10 @@ Per-category page builders called by `BuildConfigUI`.
 
 - Methods:
   - [NEW] `EditBox:InstallUnitPopupWhisperOverride() → nil`: Install the Menu.ModifyMenu registrations.  Idempotent; called from ([`../Src/Hooks/UnitPopup.lua#L194`](../Src/Hooks/UnitPopup.lua#L194))
+
+## Bridges\WhisperMessengerBridge
+
+- Methods:
+  - [NEW] `Bridge:HookSecureButtonCreation() → nil`: Hook Keybinds.CreateSecureButtons so the bridge re-wraps whenever the ([`../Src/Bridges\WhisperMessengerBridge.lua#L141`](../Src/Bridges\WhisperMessengerBridge.lua#L141))
+  - [NEW] `Bridge:WrapReplyKeybind() → nil`: Wrap the REPLYTELL2 secure button's PostClick so the reply/re-whisper ([`../Src/Bridges\WhisperMessengerBridge.lua#L88`](../Src/Bridges\WhisperMessengerBridge.lua#L88))
+  - [NEW] `Bridge:IsWindowVisible() → boolean`: Check whether the WM window is currently visible. ([`../Src/Bridges\WhisperMessengerBridge.lua#L50`](../Src/Bridges\WhisperMessengerBridge.lua#L50))

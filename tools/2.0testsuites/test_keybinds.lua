@@ -123,15 +123,17 @@ check("plain open leaves text empty", overlayEdit:GetText() == "")
 check("plain open updates focus override", YapperTable.EditBox._focusOverrideUpdated == true)
 check("plain open shows overlay", overlay:IsShown())
 
-print("\nTest 2: OPENCHATSLASH pre-fills a single slash")
+print("\nTest 2: OPENCHATSLASH does not manually pre-fill (physical char does it)")
 clickBinding("OPENCHATSLASH")
-check("slash open keeps a single slash", overlayEdit:GetText() == "/")
+check("slash open does not double-fill", overlayEdit:GetText() == "")
+check("slash open still shows overlay", overlay:IsShown())
+check("slash open still updates focus override", YapperTable.EditBox._focusOverrideUpdated == true)
 
 print("\nTest 3: OPENCHATSLASH does not require focus-trap state")
 YapperTable.EditBox._focusTrap = nil
 YapperTable.EditBox._focusTrapText = "stale"
 clickBinding("OPENCHATSLASH")
-check("slash open ignores stale focus-trap text", overlayEdit:GetText() == "/")
+check("slash open ignores stale focus-trap text", overlayEdit:GetText() == "")
 
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then

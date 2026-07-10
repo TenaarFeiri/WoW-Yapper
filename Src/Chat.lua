@@ -68,6 +68,9 @@ function Chat:Init()
     if YapperTable.WIMBridge then
         YapperTable.WIMBridge:Init()
     end
+    if YapperTable.WhisperMessengerBridge then
+        YapperTable.WhisperMessengerBridge:Init()
+    end
     if YapperTable.CEBEBridge then
         YapperTable.CEBEBridge:Init()
     end
