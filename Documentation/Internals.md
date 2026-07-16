@@ -502,9 +502,9 @@ Channel label and tab cycling.
 - Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
-  - [NEW] `EditBox:ResetSyncedAttributes() → nil`: Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral ([`../Src/Hooks/Label.lua#L300`](../Src/Hooks/Label.lua#L300))
+  - [NEW] `EditBox:ResetSyncedAttributes() → nil`: Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral ([`../Src/Hooks/Label.lua#L314`](../Src/Hooks/Label.lua#L314))
   - [NEW] `EditBox:SyncAttributesToBlizzard() → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's ([`../Src/Hooks/Label.lua#L234`](../Src/Hooks/Label.lua#L234))
-  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L332`](../Src/Hooks/Label.lua#L332))
+  - [NEW] `EditBox:GetAvailableChatTypes() → nil`: Returns the subset of _TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L346`](../Src/Hooks/Label.lua#L346))
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.

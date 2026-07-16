@@ -253,6 +253,20 @@ function EditBox:SyncAttributesToBlizzard()
 
     blizzEditBox:SetAttribute("chatType", overrideCT)
 
+    -- Keep Blizzard's stickyType in sync with the user's actual channel so
+    -- Blizzard's own ResetChatTypeToSticky() (called from Deactivate() on
+    -- handoff/ClearChat) reverts to the user's last channel instead of SAY.
+    -- Yapper routes sends through its own pipeline, so Blizzard's stickyType
+    -- would otherwise stay at its OnLoad default ("SAY") forever. Whispers are
+    -- demoted out (matching ChannelPolicy:BuildPersistedLastUsed) so a
+    -- transient whisper can't become the Blizzard sticky and bleed onto the
+    -- next non-whisper open. Safe: this runs only while the overlay is open
+    -- (i.e. outside lockdown), inside the _syncingAttributes guard, and
+    -- stickyType is not a key the SetAttribute hook mirrors into LastUsed.
+    if yapperChatType ~= "WHISPER" and yapperChatType ~= "BN_WHISPER" then
+        blizzEditBox:SetAttribute("stickyType", overrideCT)
+    end
+
     if yapperChatType == "WHISPER" or yapperChatType == "BN_WHISPER" then
         if self.Target then
             blizzEditBox:SetAttribute("tellTarget", self.Target)

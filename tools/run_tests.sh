@@ -35,6 +35,7 @@ GATING_FROM_ROOT=(
     test_queue_stall
     test_keybinds
     test_lockdown_fsm
+    test_sticky_sync
 )
 
 # Gating suites executed from the suite directory (they loadfile "../../Src/...").

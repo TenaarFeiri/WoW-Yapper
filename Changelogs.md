@@ -1,3 +1,8 @@
+# 2.2.6
+
+### Bug Fixes:
+- Fixed channel desync in dungeons (and combat lockdown generally): entering combat no longer reverts the chat channel to Say. Yapper now keeps Blizzard's `stickyType` attribute in sync with the user's actual channel, so Blizzard's own `Deactivate()` reverts to the user's last channel instead of `SAY`. Also restored a post-lockdown `LastUsed` safety net that was removed in the hook-split refactor and never replaced.
+
 # 2.2.5
 
 ### Bug Fixes:

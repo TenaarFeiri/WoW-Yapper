@@ -141,10 +141,24 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
     
-    -- Lockdown ended: clear pre-lockdown stash. Post-lockdown authority is
-    -- now handled by ResyncFromBlizzardAfterLockdown, so we must not reapply
-    -- stale pre-lockdown channel/target snapshots here.
+    -- Lockdown ended: restore the pre-lockdown LastUsed sticky so the next
+    -- open recovers the channel the user was on before combat, instead of
+    -- falling back to SAY (Blizzard's Deactivate reverts chatType to
+    -- stickyType, which Yapper keeps in sync via SyncAttributesToBlizzard,
+    -- but the keybind path bypasses Show()'s draft/affinity resolution and
+    -- needs LastUsed populated). Only LastUsed is restored — transient
+    -- ChatType/Target/Language are re-resolved by Show()'s
+    -- ResolveOpenSelection, so we don't risk thrashing overlay state. This
+    -- touches only Yapper-side tables (no secure attributes), so there is
+    -- no taint surface. Restores a safety net removed in 1ec4628 that was
+    -- never replaced (the comment referenced a ResyncFromBlizzardAfterLockdown
+    -- function that was never implemented).
     if Keybinds._preLockdownLastUsed and not inLockdown then
+        if EditBox.LastUsed then
+            EditBox.LastUsed.chatType = Keybinds._preLockdownLastUsed.chatType
+            EditBox.LastUsed.target = Keybinds._preLockdownLastUsed.target
+            EditBox.LastUsed.language = Keybinds._preLockdownLastUsed.language
+        end
         Keybinds._preLockdownLastUsed = nil
     end
 
