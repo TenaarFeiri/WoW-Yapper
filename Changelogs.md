@@ -1,9 +1,7 @@
 # 2.3.0
 
 ### New Feature
-- Languages support rewritten. Yapper now applies Languages' dialect substitution and its `[Language]` tag to your posts, built entirely on Languages' public API — Yapper no longer hooks, wraps, or borrows anything from LibChatFilter.
- - The tag is repeated on every chunk of a split post, so a long emote reads correctly from start to finish. Split posts now use Yapper's normal delineator layout, `» [Common] text`, rather than putting the tag ahead of the delineator.
- - If you have set a custom delineator containing letters, Yapper detects that Languages could not read the tag and moves it to the front of the chunk automatically. `/lyb` shows which layout is in use.
+- Languages support rewritten. Yapper now applies Languages' dialect substitution and its `[Language]` tag to your posts, built entirely on Languages' public API -- Yapper no longer hooks, wraps, or borrows anything from LibChatFilter.
  - Multi-paragraph posts get the dialect and tag applied per paragraph, since each paragraph is its own chat message.
  - Combat, faction, in-character (TRP3) and non-default-language rules all match Languages' own behaviour.
  - A message recalled from history and re-sent no longer stacks a second tag.
