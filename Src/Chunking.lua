@@ -327,15 +327,21 @@ local function FlushChunk(chunks, parts)
     return {}, 0
 end
 
--- Start a new chunk: prepend prefix and re-open active colour.
-local function StartNewChunk(parts, size, prefix, colour, continuationPrefix)
-    if continuationPrefix and continuationPrefix ~= "" then
+-- Start a new chunk with the configured prefixes and colour.
+local function StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
+    local hasContinuation = continuationPrefix and continuationPrefix ~= ""
+
+    if hasContinuation and continuationFirst then
         parts[#parts + 1] = continuationPrefix
         size = size + #continuationPrefix
     end
     if prefix ~= "" then
         parts[#parts + 1] = prefix
         size = size + #prefix
+    end
+    if hasContinuation and not continuationFirst then
+        parts[#parts + 1] = continuationPrefix
+        size = size + #continuationPrefix
     end
     if colour then
         parts[#parts + 1] = colour
@@ -357,17 +363,37 @@ end
 
 
 --- Split text into chunks that each fit within the byte limit.
---- @param continuationPrefix string|nil  Optional prefix to prepend to continuation chunks (2+).
-function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, delineator, prefix, continuationPrefix)
+---
+--- Fires the `PRE_CHUNK` filter once per contiguous run of text — after
+--- paragraph isolation, before any chunking decision — so every caller and
+--- every paragraph is treated consistently.  Filters may adjust the text and
+--- the byte limit, and may supply a `continuationPrefix` that is prepended to
+--- chunks 2+ (never to the head chunk).
+---
+--- @param text  string
+--- @param limit number|nil  Byte limit per chunk; defaults to the configured limit.
+--- @param opts  table|nil   { ignoreParagraphMerging, useDelineators, delineator,
+---                            chatType, language }
+--- @return string[]|nil chunks  `nil` when a `PRE_CHUNK` filter cancelled the send.
+function Chunking:Split(text, limit, opts)
+    opts = opts or {}
+
     -- Paragraph isolation for "Send All": keep each paragraph as a standalone chunk
-    if ignoreParagraphMerging and string_find(text, "\n") then
+    if opts.ignoreParagraphMerging and string_find(text, "\n") then
         local allChunks = {}
         -- Iterate over every line, splitting by \n
         for paragraph in string_gmatch(text .. "\n", "(.-)\n") do
             -- Only process non-empty lines (skip blank lines)
             if paragraph ~= "" then
                 -- Recurse into the standard splitting logic for this paragraph alone
-                local pChunks = self:Split(paragraph, limit, false, useDelineators, delineator, prefix, continuationPrefix)
+                local pChunks = self:Split(paragraph, limit, {
+                    ignoreParagraphMerging = false,
+                    useDelineators         = opts.useDelineators,
+                    delineator             = opts.delineator,
+                    chatType               = opts.chatType,
+                    language               = opts.language,
+                })
+                if not pChunks then return nil end
                 for _, chunk in ipairs(pChunks) do
                     allChunks[#allChunks + 1] = chunk
                 end
@@ -378,27 +404,44 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
 
     local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
 
-    limit          = limit or cfg.CHARACTER_LIMIT or 255
-    useDelineators = (useDelineators ~= nil) and useDelineators
-                     or (cfg.USE_DELINEATORS ~= false)
+    limit = limit or cfg.CHARACTER_LIMIT or 255
+
+    -- PRE_CHUNK filter: external addons can adjust the text or the limit, cancel
+    -- the send, or register a prefix for continuation chunks.
+    local continuationPrefix = nil
+    local continuationFirst  = false
+    local API = YapperTable.API
+    if API then
+        local payload = API:RunFilter("PRE_CHUNK", {
+            text     = text,
+            limit    = limit,
+            chatType = opts.chatType,
+            language = opts.language,
+        })
+        if payload == false then return nil end
+        text               = payload.text
+        limit              = payload.limit
+        continuationPrefix = payload.continuationPrefix
+        continuationFirst  = payload.continuationPrefixFirst == true
+    end
+
+    local useDelineators = (opts.useDelineators ~= nil) and opts.useDelineators
+                           or (cfg.USE_DELINEATORS ~= false)
+
     -- Normalize markers: accept explicit args or config values (which
     -- may already include or omit spacing).  Treat the marker as an
     -- opaque UTF-8 string and add spacing here to ensure consistent
     -- behaviour when building chunks.
     -- Use the public API to fetch the marker (eat our own dogfood).
-    local markerSource = delineator or (YapperAPI and YapperAPI:GetDelineator()) or ""
+    local markerSource = opts.delineator or (YapperAPI and YapperAPI:GetDelineator()) or ""
     local marker = NormaliseMarker(markerSource)
-    if marker == "" then
-        delineator = ""
-        prefix = ""
-    else
-        delineator = " " .. marker
-        prefix = marker .. " "
-    end
-
-    if not useDelineators then
+    local delineator, prefix
+    if marker == "" or not useDelineators then
         delineator = ""
         prefix     = ""
+    else
+        delineator = " " .. marker
+        prefix     = marker .. " "
     end
 
     -- Trim.
@@ -488,7 +531,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
             parts, size = FlushChunk(chunks, parts)
 
             -- Open new chunk (continuation).
-            size = StartNewChunk(parts, size, prefix, colour, continuationPrefix)
+            size = StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
             if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
 
             -- Re-inject the pulled-back parts, then the current token.
@@ -533,7 +576,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
-                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix)
+                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
                     if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                     -- Recalculate and loop.
                 else
@@ -561,7 +604,7 @@ function Chunking:Split(text, limit, ignoreParagraphMerging, useDelineators, del
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
                     parts, size = FlushChunk(chunks, parts)
-                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix)
+                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
                     if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                 end
             end

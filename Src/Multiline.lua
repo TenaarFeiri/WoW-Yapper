@@ -955,81 +955,23 @@ function Multiline:Submit()
 		self.EditBox:SetText("") -- Kill the storyteller zombie source
 	end
 
-	-- Run PRE_SEND filters once on the first post.
-	-- This is where RPPrefix prepends its prefix (first chunk only), and
-	-- where external filters can cancel or modify the send.
-	-- chatType/language/target may be updated by the filter payload.
+	-- Use the shared send pipeline for the whole composition.
 	local chatType = self.ChatType
 	local language = YapperTable.Core:GetCharacterLanguage(self.Language or (eb and eb.LastUsed and eb.LastUsed.language))
 	local target   = self.Target
 
-	local API      = YapperTable.API
-	if API then
-		local payload = API:RunFilter("PRE_SEND", {
-			text     = posts[1],
-			chatType = chatType,
-			language = language,
-			target   = target,
-		})
-		if payload == false then
-			-- Filter cancelled the send.
-			if eb then eb:Hide() end
-			return
-		end
-		posts[1] = payload.text
-		chatType = payload.chatType
-		language = payload.language
-		target   = payload.target
-	end
-
-	-- Record every post in history so the user can recall paragraphs with
-	-- the Up-arrow navigation in the single-line overlay.  posts[1] already
-	-- carries any PRE_SEND prefix (e.g. RPPrefix); subsequent posts don't.
-	if YapperTable.History then
-		for _, post in ipairs(posts) do
-			YapperTable.History:AddChatHistory(post, chatType, target)
-		end
-	end
-
-	-- Chunk every post and accumulate into one flat delivery list.
-	-- Chunking:Split handles delineators for posts that exceed the limit.
-	local Chunking  = YapperTable.Chunking
-	local cfg       = YapperTable.Config and YapperTable.Config.Chat or {}
-	local limit     = cfg.CHARACTER_LIMIT or 255
-
-	local allChunks = {}
-	for _, post in ipairs(posts) do
-		if Chunking and #post > limit then
-			local chunks = Chunking:Split(post, limit)
-			for _, chunk in ipairs(chunks) do
-				allChunks[#allChunks + 1] = chunk
-			end
-		else
-			allChunks[#allChunks + 1] = post
-		end
-	end
-
-	-- Deliver the flat chunk list as a single queued sequence.
 	local Chat = YapperTable.Chat
-	local Q    = YapperTable.Queue
-	if #allChunks == 1 then
-		if Chat then Chat:DirectSend(allChunks[1], chatType, language, target) end
-	elseif Q then
-		Q:Enqueue(allChunks, chatType, language, target)
-		Q:Flush(true)
-	elseif Chat then
-		for _, chunk in ipairs(allChunks) do
-			Chat:DirectSend(chunk, chatType, language, target)
-		end
+	local ok, sentChatType, sentLanguage, sentTarget = false, nil, nil, nil
+	if Chat then
+		ok, sentChatType, sentLanguage, sentTarget =
+			Chat:SendPosts(posts, chatType, language, target)
 	end
 
-	-- Persist sticky channel: mirror final chatType/target back into EditBox
-	-- so the overlay opens on the same channel next time.  Must happen before
-	-- Hide() because PersistLastUsed reads from eb.ChatType/Target.
-	if eb and type(eb.PersistLastUsed) == "function" then
-		eb.ChatType = chatType
-		eb.Target   = target
-		eb.Language = language
+	-- Persist the resolved channel before hiding the overlay.
+	if ok and eb and type(eb.PersistLastUsed) == "function" then
+		eb.ChatType = sentChatType
+		eb.Target   = sentTarget
+		eb.Language = sentLanguage
 		eb:PersistLastUsed()
 	end
 
