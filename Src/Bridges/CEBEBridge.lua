@@ -12,6 +12,7 @@ local _, YapperTable = ...
 
 local Bridge = {}
 YapperTable.CEBEBridge = Bridge
+Bridge._initialised = false
 
 -- ---------------------------------------------------------------------------
 -- Configuration
@@ -207,13 +208,17 @@ local function hookTabClick()
 end
 
 -- ---------------------------------------------------------------------------
--- Initialisation (called from Chat:Init)
+-- Initialisation
 -- ---------------------------------------------------------------------------
 
 function Bridge:Init()
+    if self._initialised then
+        return
+    end
     if not self:IsLoaded() then
         return
     end
+    self._initialised = true
 
     -- Communicate with CEBE
     communicateWithCEBE()
@@ -235,3 +240,12 @@ function Bridge:Init()
         YapperTable.Utils:DebugPrint("CEBEBridge: Initialized with CEBE_ACTIVE_HIDE=" .. tostring(CEBE_ACTIVE_HIDE))
     end
 end
+
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("ADDON_LOADED")
+frame:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_LOGIN" or Bridge:IsLoaded() then
+        Bridge:Init()
+    end
+end)

@@ -215,18 +215,15 @@ function Bridge:Init()
 end
 
 -- ---------------------------------------------------------------------------
--- Deferred init: handle WhisperMessenger loading after Yapper
+-- Deferred init
 -- ---------------------------------------------------------------------------
 
 local addonFrame = CreateFrame("Frame")
+addonFrame:RegisterEvent("PLAYER_LOGIN")
 addonFrame:RegisterEvent("ADDON_LOADED")
-addonFrame:SetScript("OnEvent", function(_, event, addonName)
-    if event ~= "ADDON_LOADED" then
-        return
-    end
 
-    -- Init when WhisperMessenger loads (it may load after Yapper).
-    if addonName == "WhisperMessenger" then
+addonFrame:SetScript("OnEvent", function(_, event, addonName)
+    if event == "PLAYER_LOGIN" or addonName == "WhisperMessenger" then
         Bridge:Init()
     end
 end)

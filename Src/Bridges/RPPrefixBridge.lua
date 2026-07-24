@@ -55,8 +55,7 @@ end
 -- Init
 -- ---------------------------------------------------------------------------
 
---- Called once from Chat:Init, after Router:Init has already cached
---- Router.SendChatMessage.  At PLAYER_ENTERING_WORLD all addons are loaded.
+--- Initialize after Router has cached its send function.
 ---
 --- @return boolean  true if RPPrefix was found and the bridge is now active.
 function RPPrefixBridge:Init()
@@ -65,6 +64,11 @@ function RPPrefixBridge:Init()
     local rp = FindRPPrefix()
     if not rp then
         YapperTable.Utils:VerbosePrint("RPPrefixBridge: RPPrefix not found — bridge inactive.")
+        return false
+    end
+
+    local Router = YapperTable.Router
+    if not Router or not Router.SendChatMessage then
         return false
     end
 
@@ -83,8 +87,7 @@ function RPPrefixBridge:Init()
 
     -- Replace Router.SendChatMessage with the raw API so the Queue's per-
     -- chunk calls go directly to Blizzard and bypass RPPrefix's hook.
-    local Router = YapperTable.Router
-    if Router and _rawSendChatMessage then
+    if _rawSendChatMessage then
         Router.SendChatMessage = _rawSendChatMessage
     end
 
@@ -112,6 +115,17 @@ function RPPrefixBridge:Init()
 
     return true
 end
+
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("ADDON_LOADED")
+frame:SetScript("OnEvent", function(_, event, addonName)
+    if event == "PLAYER_ENTERING_WORLD" or addonName == "RPPrefix" then
+        C_Timer.After(0, function()
+            RPPrefixBridge:Init()
+        end)
+    end
+end)
 
 --- Returns true if the bridge found RPPrefix and is active.
 function RPPrefixBridge:IsActive()

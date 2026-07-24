@@ -15,6 +15,7 @@ local _, YapperTable = ...
 
 local Bridge = {}
 YapperTable.WIMBridge = Bridge
+Bridge._initialised = false
 
 -- ---------------------------------------------------------------------------
 -- Detection
@@ -44,11 +45,12 @@ function Bridge:IsLoaded()
 end
 
 -- ---------------------------------------------------------------------------
--- Initialisation (called from Chat:Init)
+-- Initialisation
 -- ---------------------------------------------------------------------------
 
 function Bridge:Init()
-	if not _G.YapperAPI then return end
+	if self._initialised or not self:IsLoaded() or not _G.YapperAPI then return end
+	self._initialised = true
 
 	-- Suppress Yapper overlay when WIM owns whisper focus.
 	-- Priority 5 (runs early) so addons registering at default 10 can
@@ -71,3 +73,12 @@ function Bridge:Init()
 		return payload
 	end, 5)
 end
+
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("ADDON_LOADED")
+frame:SetScript("OnEvent", function(_, event, addonName)
+	if event == "PLAYER_LOGIN" or addonName == "WIM" then
+		Bridge:Init()
+	end
+end)

@@ -162,6 +162,15 @@ function Bridge:OnChannelChanged(newChatType)
     SignalChannelChanged(newChatType)
 end
 
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("ADDON_LOADED")
+frame:SetScript("OnEvent", function(_, event, addonName)
+    if event == "PLAYER_LOGIN" or addonName == "Simply_RP_Typing_Tracker" then
+        Bridge:UpdateState(nil)
+    end
+end)
+
 -- ---------------------------------------------------------------------------
 -- Debug Listener
 -- ---------------------------------------------------------------------------
