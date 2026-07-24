@@ -171,7 +171,10 @@ Bridge integration points:
 - **RPPrefixBridge**: pre-send text mutation via API filter ([`Src/Bridges/RPPrefixBridge.lua`](../Src/Bridges/RPPrefixBridge.lua)).
 - **TypingTrackerBridge**: overlay focus/send signal callbacks from editbox lifecycle ([`Src/Bridges/TypingTrackerBridge.lua`](../Src/Bridges/TypingTrackerBridge.lua)).
 - **WIMBridge**: can suppress editbox open via `PRE_EDITBOX_SHOW` ownership checks ([`Src/Bridges/WIMBridge.lua`](../Src/Bridges/WIMBridge.lua)).
+- **LanguagesBridge**: reproduces Languages' outgoing dialect substitution and `[Language]` tag using only `LanguagesAPI`. `PRE_SEND` rewrites the text per paragraph; `PRE_CHUNK` supplies the `continuationPrefix` so chunks 2+ stay tagged. It never touches LibChatFilter ([`Src/Bridges/LanguagesBridge.lua`](../Src/Bridges/LanguagesBridge.lua)).
 - **ElvUIBridge**: theme sync/reactivity, not in send path payload but in runtime UI lifecycle ([`Src/Bridges/ElvUIBridge.lua`](../Src/Bridges/ElvUIBridge.lua)).
+
+Bridges are self-bootstrapping: each registers its own `ADDON_LOADED`/`PLAYER_LOGIN` frame and attaches through the public `YapperAPI` surface. Core modules do not call into bridges, and bridges are not wired into `Chat:Init`. If a bridge needs something core does not expose, the fix is to extend the API, not to reach into core.
 
 ## Hot path 2: Open path
 

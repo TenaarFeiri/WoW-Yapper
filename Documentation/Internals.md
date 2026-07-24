@@ -580,9 +580,9 @@ Initialised by `Chat:Init`.
 
 - Description: Prefixes outgoing RP marker text.
 - Methods:
-  - `Init` ([`../Src/Bridges/RPPrefixBridge.lua#L62`](`../Src/Bridges/RPPrefixBridge.lua#L62`))
-  - `IsActive` ([`../Src/Bridges/RPPrefixBridge.lua#L117`](`../Src/Bridges/RPPrefixBridge.lua#L117`))
-  - `ApplyPrefix` ([`../Src/Bridges/RPPrefixBridge.lua#L138`](`../Src/Bridges/RPPrefixBridge.lua#L138`))
+  - `Init` ([`../Src/Bridges/RPPrefixBridge.lua#L61`](`../Src/Bridges/RPPrefixBridge.lua#L61`))
+  - `IsActive` ([`../Src/Bridges/RPPrefixBridge.lua#L131`](`../Src/Bridges/RPPrefixBridge.lua#L131`))
+  - `ApplyPrefix` ([`../Src/Bridges/RPPrefixBridge.lua#L152`](`../Src/Bridges/RPPrefixBridge.lua#L152`))
 
 ## WIMBridge
 
@@ -590,9 +590,9 @@ Initialised by `Chat:Init`.
 
 - Description: Cooperates with WIM focus ownership.
 - Methods:
-  - `IsFocusActive` ([`../Src/Bridges/WIMBridge.lua#L25`](`../Src/Bridges/WIMBridge.lua#L25`))
-  - `IsLoaded` ([`../Src/Bridges/WIMBridge.lua#L42`](`../Src/Bridges/WIMBridge.lua#L42`))
-  - `Init` ([`../Src/Bridges/WIMBridge.lua#L50`](`../Src/Bridges/WIMBridge.lua#L50`))
+  - `IsFocusActive` ([`../Src/Bridges/WIMBridge.lua#L26`](`../Src/Bridges/WIMBridge.lua#L26`))
+  - `IsLoaded` ([`../Src/Bridges/WIMBridge.lua#L43`](`../Src/Bridges/WIMBridge.lua#L43`))
+  - `Init` ([`../Src/Bridges/WIMBridge.lua#L51`](`../Src/Bridges/WIMBridge.lua#L51`))
 
 ## Policies
 
@@ -627,12 +627,16 @@ Initialised by `Chat:Init`.
 
 ## Chunking
 
-Called from `Chat:OnSend` for oversized messages.
+Called from `Chat:SendPosts` for every post, oversized or not, so that `PRE_CHUNK` fires uniformly.
 
 - Description: UTF-8 aware message splitting.
 - Methods:
-  - `Chunking:Split(text, limit, ignoreParagraphMerging?, useDelineators?, delineator?, prefix?) → string[]` ([`../Src/Chunking.lua#L361`](../Src/Chunking.lua#L361))
-  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L589`](../Src/Chunking.lua#L589))
+  - `Chunking:Split(text, limit, opts?) → string[]|nil` ([`../Src/Chunking.lua#L378`](../Src/Chunking.lua#L378))
+    - `opts`: `{ ignoreParagraphMerging?, useDelineators?, delineator?, chatType?, language? }`
+    - Fires the `PRE_CHUNK` filter once per contiguous text unit (after paragraph isolation). Returns `nil` when a filter cancels the send.
+    - Honours `payload.continuationPrefix` set by a `PRE_CHUNK` filter, charging it against the byte budget of every chunk after the first.
+    - Continuation chunks are assembled as `<delineator><continuationPrefix><text>`, or `<continuationPrefix><delineator><text>` when the filter sets `payload.continuationPrefixFirst`.
+  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L632`](../Src/Chunking.lua#L632))
 
 ## Queue
 
@@ -701,11 +705,16 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 
 - Description: Send orchestrator (`EditBox -> Chunking -> Queue -> Router`).
 - Methods:
-  - `Chat:Init() → nil` ([`../Src/Chat.lua#L41`](../Src/Chat.lua#L41))
-  - `Chat:OnSend(text, chatType, language, target) → nil` ([`../Src/Chat.lua#L98`](../Src/Chat.lua#L98))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L210`](../Src/Chat.lua#L210))
+  - `Chat:Init() → nil` ([`../Src/Chat.lua#L54`](../Src/Chat.lua#L54))
+  - `Chat:SendPosts(posts, chatType, language, target) → boolean, string|nil, number|nil, string|nil` ([`../Src/Chat.lua#L106`](../Src/Chat.lua#L106))
+  - `Chat:OnSend(text, chatType, language, target) → boolean` ([`../Src/Chat.lua#L212`](../Src/Chat.lua#L212))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L227`](../Src/Chat.lua#L227))
+- Invariants:
+  - `Chat:SendPosts` is the only send pipeline. `Chat:OnSend` (single-line overlay) and `Multiline:Submit` both funnel into it, so history, `PRE_SEND`, chunking, `PRE_CHUNK`, lockdown checks and stalled-queue recovery behave identically in both modes.
+  - Every post is chunked, then the whole composition is enqueued as **one** ordered sequence so ack tracking cannot interleave.
+  - History records the user's raw input *before* `PRE_SEND`, so recall returns what was typed and re-sending a recalled message cannot compound an addon's prefix.
 - Filters run:
-  - `PRE_SEND`, `PRE_CHUNK`, `PRE_DELIVER`.
+  - `PRE_SEND`, `PRE_DELIVER`. (`PRE_CHUNK` is fired by `Chunking:Split`.)
 - Callbacks fired:
   - `POST_SEND`, `POST_CLAIMED`.
 
@@ -724,16 +733,16 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Target` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1089`](../Src/Multiline.lua#L1089))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1074`](../Src/Multiline.lua#L1074))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1031`](../Src/Multiline.lua#L1031))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1016`](../Src/Multiline.lua#L1016))
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L153`](`../Src/Multiline.lua#L153`))
   - `CreateFrame` ([`../Src/Multiline.lua#L184`](`../Src/Multiline.lua#L184`))
   - `Enter` ([`../Src/Multiline.lua#L618`](`../Src/Multiline.lua#L618`))
   - `Exit` ([`../Src/Multiline.lua#L768`](`../Src/Multiline.lua#L768`))
   - `Submit` ([`../Src/Multiline.lua#L891`](`../Src/Multiline.lua#L891`))
-  - `Cancel` ([`../Src/Multiline.lua#L1040`](`../Src/Multiline.lua#L1040`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1100`](`../Src/Multiline.lua#L1100`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1109`](`../Src/Multiline.lua#L1109`))
+  - `Cancel` ([`../Src/Multiline.lua#L982`](`../Src/Multiline.lua#L982`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1042`](`../Src/Multiline.lua#L1042`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1051`](`../Src/Multiline.lua#L1051`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -994,3 +1003,17 @@ Per-category page builders called by `BuildConfigUI`.
   - [NEW] `Bridge:HookSecureButtonCreation() → nil`: Hook Keybinds.CreateSecureButtons so the bridge re-wraps whenever the ([`../Src/Bridges/WhisperMessengerBridge.lua#L141`](../Src/Bridges/WhisperMessengerBridge.lua#L141))
   - [NEW] `Bridge:WrapReplyKeybind() → nil`: Wrap the REPLYTELL2 secure button's PostClick so the reply/re-whisper ([`../Src/Bridges/WhisperMessengerBridge.lua#L88`](../Src/Bridges/WhisperMessengerBridge.lua#L88))
   - [NEW] `Bridge:IsWindowVisible() → boolean`: Check whether the WM window is currently visible. ([`../Src/Bridges/WhisperMessengerBridge.lua#L50`](../Src/Bridges/WhisperMessengerBridge.lua#L50))
+
+## LanguagesBridge
+
+Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised by core.
+
+- Description: Reproduces Languages' outgoing dialect substitution and `[Language]` tag from `LanguagesAPI` alone. Registers no LibChatFilter mutator and captures none.
+- Methods:
+  - [NEW] `LanguagesBridge:Init() → nil`: Register the `PRE_SEND` and `PRE_CHUNK` filters at priority 20. Idempotent; a no-op until both `LanguagesAPI` and `YapperAPI` exist. ([`../Src/Bridges/LanguagesBridge.lua#L142`](../Src/Bridges/LanguagesBridge.lua#L142))
+  - [NEW] `LanguagesBridge:Shutdown() → nil`: Unregister the filters and go dormant. ([`../Src/Bridges/LanguagesBridge.lua#L234`](../Src/Bridges/LanguagesBridge.lua#L234))
+  - [NEW] `LanguagesBridge:IsActive() → boolean`: Whether the filters are currently registered. ([`../Src/Bridges/LanguagesBridge.lua#L247`](../Src/Bridges/LanguagesBridge.lua#L247))
+- Invariants:
+  - `PRE_SEND` mutates `payload.text` only; `PRE_CHUNK` sets `payload.continuationPrefix` only. Both derive from one resolver, so the head chunk and continuation chunks can never disagree.
+  - The dialect gate and the tag gate are independent, matching upstream: a faction-suppressed tag does not suppress the dialect.
+- Diagnostics: `/lyb`.

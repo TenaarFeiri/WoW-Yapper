@@ -1,3 +1,29 @@
+# 2.3.0
+
+### New Feature
+- Languages support rewritten. Yapper now applies Languages' dialect substitution and its `[Language]` tag to your posts, built entirely on Languages' public API — Yapper no longer hooks, wraps, or borrows anything from LibChatFilter.
+ - The tag is repeated on every chunk of a split post, so a long emote reads correctly from start to finish. Split posts now use Yapper's normal delineator layout, `» [Common] text`, rather than putting the tag ahead of the delineator.
+ - If you have set a custom delineator containing letters, Yapper detects that Languages could not read the tag and moves it to the front of the chunk automatically. `/lyb` shows which layout is in use.
+ - Multi-paragraph posts get the dialect and tag applied per paragraph, since each paragraph is its own chat message.
+ - Combat, faction, in-character (TRP3) and non-default-language rules all match Languages' own behaviour.
+ - A message recalled from history and re-sent no longer stacks a second tag.
+
+### Bug Fixes
+- Fixed the multiline composer taking a completely separate send path from the single-line editbox. Both now use one pipeline, which fixes several inconsistencies at once:
+ - Filters registered by other addons (and by Yapper's own bridges) now run for multiline posts too.
+ - A stalled send queue is now recovered from when you submit from multiline, instead of the post sitting there.
+ - Posts too long for a channel that cannot be split are now rejected with the proper error in multiline, rather than being sent malformed.
+- Fixed a send that was cancelled -- by combat lockdown, or by an addon filter -- still being treated as successful, which cleared your editbox and lost the message.
+- Fixed chat history recording the *rewritten* message rather than what you actually typed. Pressing Up now returns your own words, and re-sending a recalled message no longer compounds prefixes added by other addons.
+- Fixed pasting several paragraphs recording only one history entry; each paragraph is now recalled separately.
+- Removed a dead whisper-truncation path that could never fire. Whispers were already being split correctly.
+
+### Under the hood
+- `PRE_CHUNK` now fires from the chunker itself, once per post, instead of from the send orchestrator only for oversized messages. Filters that adjust chunking now see every post.
+- `PRE_CHUNK` filters can set a `continuationPrefix` that Yapper prepends to every chunk after the first, with the byte cost accounted for automatically.
+- `Chunking:Split` now takes an options table instead of six positional arguments.
+- Bridges now self-bootstrap rather than rely on Yapper's Chat:Init.
+
 # 2.2.6
 
 ### Bug Fixes:

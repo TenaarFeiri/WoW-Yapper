@@ -42,14 +42,22 @@ Register/unregister:
 ### `PRE_SEND`
 
 - Payload: `{ text: string, chatType: string, language: any, target: string|number|nil }`
-- Fired from [`Src/Chat.lua#L100`](../Src/Chat.lua#L100) and [`Src/Multiline.lua#L968`](../Src/Multiline.lua#L968).
-- Return `false` to cancel send.
+- Fired from [`Src/Chat.lua#L154`](../Src/Chat.lua#L154), inside `Chat:SendPosts` — the single send pipeline shared by the single-line overlay and the multiline composer.
+- Fires **once per send**, before chunking, and after the raw input has been recorded to history.
+- `payload.text` may contain `\n`. Yapper treats every line as a separate chat message, so a filter that prepends a prefix must prepend it to each line, not just the first.
+- A filter may rewrite `chatType`, `language` and `target`; the resolved values are what Yapper routes with and what the sticky-channel state is persisted from.
+- Return `false` to cancel the send.
 
 ### `PRE_CHUNK`
 
-- Payload: `{ text: string, limit: number, chatType: string }`
-- Fired from [`Src/Chat.lua#L159`](../Src/Chat.lua#L159).
-- Return `false` to abort chunking path.
+- Payload: `{ text: string, limit: number, chatType: string|nil, language: any }`
+- Fired from [`Src/Chunking.lua#L408`](../Src/Chunking.lua#L408), inside `Chunking:Split`.
+- Fires **once per contiguous text unit about to be chunked**, after paragraph isolation, and for every post — including posts short enough to need no splitting.
+- A filter may lower `payload.limit` or rewrite `payload.text`.
+- A filter may set `payload.continuationPrefix: string`, which the chunker prepends to every chunk after the first and charges against the byte budget automatically. Do not also reduce `limit` to make room for it.
+- Ordering within a continuation chunk is `<delineator><continuationPrefix><text>` — for example `» [Common] text`.
+- A filter may also set `payload.continuationPrefixFirst: boolean`. Set it when the prefix is parsed by a receiving addon that requires it at the head of the message; the chunker then emits `<continuationPrefix><delineator><text>` instead. Yapper's delineator is user-configurable free text, so a prefix with a strict anchor should not assume what precedes it.
+- Return `false` to cancel the send; `Chunking:Split` then returns `nil` and the caller aborts.
 
 ### `PRE_DELIVER`
 
