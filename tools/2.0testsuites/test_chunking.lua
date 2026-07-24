@@ -28,10 +28,12 @@ _G.IsAddOnLoaded = nil
 _G.YapperAPI = {
     GetDelineator = function() return ">>" end,
     GetRegisteredAtomicPatterns = function() return {} end,
+    RunFilter = function(_, _, payload) return payload end,
 }
 
 local YapperName = "Yapper"
 local YapperTable = {
+    API = _G.YapperAPI,
     Config = {
         Chat = {
             CHARACTER_LIMIT = 255,
@@ -55,7 +57,7 @@ local Chunking = YapperTable.Chunking
 -- ===========================================================================
 print("\nTest 1: Short text - no splitting")
 
-local result = Chunking:Split("Hello, World!", 255, false, false)
+local result = Chunking:Split("Hello, World!", 255)
 check("single chunk returned", #result == 1)
 check("text unchanged", result[1] == "Hello, World!")
 
@@ -64,11 +66,11 @@ check("text unchanged", result[1] == "Hello, World!")
 -- ===========================================================================
 print("\nTest 2: Empty and whitespace text")
 
-local empty = Chunking:Split("", 255, false, false)
+local empty = Chunking:Split("", 255)
 check("empty string returns one empty chunk", #empty == 1)
 check("empty chunk is empty", empty[1] == "")
 
-local ws = Chunking:Split("   ", 255, false, false)
+local ws = Chunking:Split("   ", 255)
 check("whitespace-only returns one empty chunk", #ws == 1)
 check("whitespace trimmed to empty", ws[1] == "")
 
@@ -78,7 +80,7 @@ check("whitespace trimmed to empty", ws[1] == "")
 print("\nTest 3: Exact limit boundary")
 
 local exact = string.rep("a", 50)
-local res = Chunking:Split(exact, 50, false, false)
+local res = Chunking:Split(exact, 50)
 check("text at exactly the limit stays in one chunk", #res == 1)
 check("text content preserved", res[1] == exact)
 
@@ -92,7 +94,7 @@ local words = {}
 for i = 1, 20 do words[i] = "word" .. i end
 local longText = table.concat(words, " ")  -- ~120 chars
 
-local chunks = Chunking:Split(longText, 30, false, false)
+local chunks = Chunking:Split(longText, 30)
 check("multiple chunks created", #chunks > 1)
 
 -- Verify no chunk exceeds the limit.
@@ -108,7 +110,10 @@ check("all chunks within limit", allFit)
 print("\nTest 5: Splitting with delineators")
 
 local longMsg = "This is a longer message that should be split into multiple chunks when the limit is very small."
-local chunksD = Chunking:Split(longMsg, 40, false, true, ">>")
+local chunksD = Chunking:Split(longMsg, 40, {
+    useDelineators = true,
+    delineator = ">>",
+})
 check("delineated: multiple chunks", #chunksD > 1)
 
 -- First chunk should end with " >>" if delineators are on.
@@ -135,7 +140,7 @@ print("\nTest 6: Splitting with delineators disabled")
 
 -- Override config to disable delineators.
 YapperTable.Config.Chat.USE_DELINEATORS = false
-local chunksND = Chunking:Split(longMsg, 40, false, false)
+local chunksND = Chunking:Split(longMsg, 40, { useDelineators = false })
 YapperTable.Config.Chat.USE_DELINEATORS = true  -- restore
 check("no-delineator: multiple chunks", #chunksND > 1)
 
@@ -151,7 +156,7 @@ check("no delineator markers present", noDelineator)
 print("\nTest 7: Colour code preservation")
 
 local coloured = "|cFF00FF00This is a very long green coloured message that needs to be split because it is over the limit.|r"
-local chunksC = Chunking:Split(coloured, 60, false, false)
+local chunksC = Chunking:Split(coloured, 60)
 check("colour text splits into multiple chunks", #chunksC > 1)
 
 -- Second chunk should re-open the colour.
@@ -172,7 +177,7 @@ print("\nTest 8: Hyperlink atomicity")
 
 local link = "|cFF0000FF|Hitem:12345:0:0:0|h[Epic Sword]|h|r"
 local withLink = "Before " .. link .. " after text that goes on and on to fill space."
-local chunksL = Chunking:Split(withLink, 80, false, false)
+local chunksL = Chunking:Split(withLink, 80)
 
 -- The link should appear intact in one of the chunks.
 local linkFound = false
@@ -190,7 +195,7 @@ print("\nTest 9: Texture escape atomicity")
 
 local texture = "|TInterface/Icons/Spell_Nature_Starfall:16|t"
 local withTex = "Start " .. texture .. " " .. string.rep("x", 100)
-local chunksT = Chunking:Split(withTex, 80, false, false)
+local chunksT = Chunking:Split(withTex, 80)
 
 local texFound = false
 for _, chunk in ipairs(chunksT) do
@@ -207,7 +212,7 @@ print("\nTest 10: Atlas escape atomicity")
 
 local atlas = "{star}"
 local withAtlas = "Rating: " .. atlas .. " " .. string.rep("y", 100)
-local chunksA = Chunking:Split(withAtlas, 50, false, false)
+local chunksA = Chunking:Split(withAtlas, 50)
 
 local atlasFound = false
 for _, chunk in ipairs(chunksA) do
@@ -223,7 +228,7 @@ check("atlas escape kept intact", atlasFound)
 print("\nTest 11: Paragraph isolation")
 
 local paragraphs = "First paragraph here.\nSecond paragraph here.\nThird paragraph."
-local chunksP = Chunking:Split(paragraphs, 255, true, false)
+local chunksP = Chunking:Split(paragraphs, 255, { ignoreParagraphMerging = true })
 check("each paragraph is a separate chunk", #chunksP == 3)
 check("first paragraph correct", chunksP[1] == "First paragraph here.")
 check("second paragraph correct", chunksP[2] == "Second paragraph here.")
@@ -231,7 +236,7 @@ check("third paragraph correct", chunksP[3] == "Third paragraph.")
 
 -- Blank lines are skipped.
 local withBlanks = "Line one.\n\nLine two.\n\n\nLine three."
-local chunksBlanks = Chunking:Split(withBlanks, 255, true, false)
+local chunksBlanks = Chunking:Split(withBlanks, 255, { ignoreParagraphMerging = true })
 check("blank lines are skipped", #chunksBlanks == 3)
 
 -- ===========================================================================
@@ -241,7 +246,7 @@ print("\nTest 12: UTF-8 safety")
 
 -- Build a string with multi-byte chars (e.g. e-acute = 2 bytes in UTF-8).
 local utf8text = string.rep("\xC3\xA9", 30)  -- 30x "e" = 60 bytes
-local chunksU = Chunking:Split(utf8text, 20, false, false)
+local chunksU = Chunking:Split(utf8text, 20)
 
 local allValidUTF8 = true
 for _, chunk in ipairs(chunksU) do
@@ -264,7 +269,7 @@ check("no broken UTF-8 sequences at chunk boundaries", allValidUTF8)
 print("\nTest 13: Very long word force-cut")
 
 local longWord = string.rep("x", 100)
-local chunksLW = Chunking:Split(longWord, 30, false, false)
+local chunksLW = Chunking:Split(longWord, 30)
 check("long word gets force-split", #chunksLW > 1)
 
 local allUnder = true
@@ -288,10 +293,18 @@ check("prefix is '>> '", prefix == ">> ")
 print("\nTest 15: Continuation prefix")
 
 local contText = "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu."
-local chunksCont = Chunking:Split(contText, 50, false, false, nil, nil, "[cont] ")
+local continuationEnabled = true
+_G.YapperAPI.RunFilter = function(_, hook, payload)
+    if continuationEnabled and hook == "PRE_CHUNK" then
+        payload.continuationPrefix = "[cont] "
+    end
+    return payload
+end
+local chunksCont = Chunking:Split(contText, 50)
+continuationEnabled = false
 check("continuation: multiple chunks", #chunksCont > 1)
 if #chunksCont > 1 then
-    check("continuation prefix on chunk 2", chunksCont[2]:match("^%[cont%] ") ~= nil)
+    check("continuation prefix on chunk 2", chunksCont[2]:match("^>> %[cont%] ") ~= nil)
     check("no continuation prefix on chunk 1", not chunksCont[1]:match("^%[cont%] "))
 end
 
