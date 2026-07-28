@@ -84,7 +84,7 @@ end
 
 local function SignalChannelChanged(newChatType)
     if not IsLoaded() then return end
-    if InCombatLockdown() then return end
+    if InCombatLockdown() then SignalNotTyping() return end
 
     if YapperTable.Config.System.EnableTypingTrackerBridge == false then
         return
