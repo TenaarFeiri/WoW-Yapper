@@ -7,6 +7,7 @@ local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
 local Utils = YapperTable.Utils
 
+
 -- Resolve locals from Hub.lua
 -- Note: Hooks/Label.lua loads before Interface.lua, so use full path for Interface
 local Core = YapperTable.EditBoxHooksCore
@@ -501,7 +502,7 @@ end
 function EditBox:OnTabPressed()
     if not self.Overlay or not self.Overlay:IsShown() then return end
 
-    local text = self.OverlayEdit:GetText() or ""
+    local text = YapperTable.Recolour.CanonicalText(self.OverlayEdit)
     local trimmed = text:match("^%s*(.-)%s*$") or ""
 
     -- If empty, cycle chat types

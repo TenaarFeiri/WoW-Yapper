@@ -97,7 +97,8 @@ function YapperTable.InstallCompatMethods(box)
     function box:ParseText(send)
         -- Only act on the send path; parse-only calls (send ~= 1) are no-ops.
         if send ~= 1 then return end
-        local text = self:GetText()
+        -- Canonical read: harmless on foreign boxes, required on ours.
+        local text = YapperTable.Recolour.CanonicalText(self)
         if not text or text == "" then return end
         local trimmed = text:match("^%s*(.-)%s*$") or ""
         -- Plain text: let Blizzard's SendText dispatch it verbatim.

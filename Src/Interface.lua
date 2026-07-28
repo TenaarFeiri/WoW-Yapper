@@ -592,13 +592,6 @@ function Interface:BuildConfigUI()
                         item.path,
                         cursor
                     )
-                elseif item.kind == "spellcheck_underline" then
-                    self:CreateSpellcheckUnderlineDropdown(
-                        frame.ContentFrame,
-                        self:GetFriendlyLabel(item),
-                        item.path,
-                        cursor
-                    )
                 elseif item.kind == "theme" then
                     self:CreateThemeDropdown(
                         frame.ContentFrame,

@@ -8,6 +8,7 @@ local EditBox = YapperTable.EditBox
 local State = YapperTable.State
 local Utils = YapperTable.Utils
 
+
 -- Resolve locals from Hub.lua
 local Core = YapperTable.EditBoxHooksCore
 local ResolveChannelName = Core.ResolveChannelName
@@ -524,8 +525,11 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Combine draft, existing overlay text, and external text
-    local existingText = self.OverlayEdit:GetText() or ""
+    -- Combine draft, existing overlay text, and external text.
+    -- Canonical read: the overlay may retain recolour escapes across a
+    -- hide/show cycle, and the find/concat dedupe below assumes both sides
+    -- are escape-free.
+    local existingText = YapperTable.Recolour.CanonicalText(self.OverlayEdit)
     local finalText = draftText or ""
     if existingText ~= "" then
         if not draftText then
@@ -673,6 +677,11 @@ function EditBox:Hide(isHandoff)
 
     -- Auto-save draft on clean close (no text, or user pressed Escape).
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+    -- The overlay may carry display-only escapes (spellcheck recolouring);
+    -- strip before anything downstream (draft check, Blizzard handoff) sees it.
+    if YapperTable.Utils then
+        text = YapperTable.Utils:StripDisplayEscapes(text)
+    end
     local trimmed = text:match("^%s*(.-)%s*$") or ""
 
     local history = YapperTable and YapperTable.History
@@ -722,6 +731,11 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
         return
     end
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+    -- The overlay may carry display-only escapes (spellcheck recolouring);
+    -- strip before anything downstream (draft check, Blizzard handoff) sees it.
+    if YapperTable.Utils then
+        text = YapperTable.Utils:StripDisplayEscapes(text)
+    end
     local trimmed = text:match("^%s*(.-)%s*$") or ""
 
     -- Mark the handoff BEFORE UpdateFocusOverride: overlayActive must
@@ -776,6 +790,10 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
         local draft = ""
         if type(history) == "table" and type(history.LoadDraft) == "function" then
             draft = history:LoadDraft() or ""
+        end
+        -- Backstop: Blizzard's editbox must never receive display escapes.
+        if YapperTable.Utils then
+            draft = YapperTable.Utils:StripDisplayEscapes(draft)
         end
         self.OrigEditBox:SetText(draft)
         C_Timer.After(0, function()

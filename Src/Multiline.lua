@@ -7,7 +7,7 @@
 	delineates paragraphs by blank lines for sequential queued delivery.
 
 	Features & Integrations:
-		- Spellcheck: Underline rendering and suggestion panel sync.
+		- Spellcheck: Suggestion panel sync and caret anchoring.
 		- Autocomplete: Ghost-text acceptance and channel cycling (Tab).
 		- History: Undo/Redo (Ctrl+Z/Y), auto-save drafts, and message logging.
 		- Icon Gallery: In-line emoji/icon picker ({word pattern).
@@ -37,6 +37,7 @@ local _, YapperTable                 = ...
 local Multiline                      = {}
 YapperTable.Multiline                = Multiline
 local State                          = YapperTable.State
+
 
 -- Localise Lua globals for performance
 local type                           = type
@@ -425,7 +426,7 @@ function Multiline:CreateFrame()
 		if YapperTable.IconGallery and YapperTable.IconGallery._suppressNextChar then
 			local ig = YapperTable.IconGallery
 			if ig._suppressChar == char then
-				local expected = ig._expectedText or (box:GetText() or "")
+				local expected = ig._expectedText or YapperTable.Recolour.CanonicalText(box)
 				local cursor   = ig._expectedCursor
 				box:SetText(expected)
 				if cursor then box:SetCursorPosition(cursor) end
@@ -439,7 +440,7 @@ function Multiline:CreateFrame()
 		if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
 			local sc = YapperTable.Spellcheck
 			if sc._suppressChar == char then
-				local expected = sc._expectedText or (box:GetText() or "")
+				local expected = sc._expectedText or YapperTable.Recolour.CanonicalText(box)
 				local cursor   = sc._expectedCursor
 				box:SetText(expected)
 				if cursor then box:SetCursorPosition(cursor) end
@@ -456,9 +457,6 @@ function Multiline:CreateFrame()
 	-- Height is intentionally not auto-grown here: the EditBox lives inside
 	-- a ScrollFrame so the scrollbar handles overflow.  Auto-growing via
 	-- SetText/SetHeight would reset the cursor position on every keystroke.
-	-- We intentionally do NOT call Spellcheck:OnTextChanged here either —
-	-- spellcheck calls SetText() to apply corrections, which also resets
-	-- the cursor and makes the caret disappear.
 	edit:SetScript("OnTextChanged", function(box, isUserInput)
 		if not isUserInput then return end
 
@@ -483,7 +481,9 @@ function Multiline:CreateFrame()
 		-- boundary + idle-timer approach from History:HookOverlayEditBox.
 		local History = YapperTable.History
 		if History then
-			local text = box:GetText() or ""
+			-- Canonical read: snapshots and drafts replay with plain-text
+			-- byte math; display escapes would corrupt offsets and persist.
+			local text = YapperTable.Recolour.CanonicalText(box)
 			local name = box.GetName and box:GetName() or "YapperMultilineEdit"
 			local last = box._yapperLastText or ""
 
@@ -509,7 +509,7 @@ function Multiline:CreateFrame()
 			if box._yapperPauseTimer then box._yapperPauseTimer:Cancel() end
 			if #text > 0 then
 				box._yapperPauseTimer = C_Timer.NewTimer(0.5, function()
-					if box:GetText() == text then
+					if YapperTable.Recolour.CanonicalText(box) == text then
 						History:AddSnapshot(box, true)
 						History:SaveDraft(box, true)
 					end
@@ -523,7 +523,7 @@ function Multiline:CreateFrame()
 		end
 
 		if YapperTable.API and type(YapperTable.API.Fire) == "function" then
-			YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
+			YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", YapperTable.Recolour.CanonicalText(box), isUserInput, box)
 		end
 
 		-- Reset lockdown idle timer while user keeps typing
@@ -699,7 +699,7 @@ function Multiline:Enter(text, chatType, language, target)
 	-- Immediately persist the multiline draft so a /reload before any
 	-- keystroke doesn't lose the text we just set.
 	if YapperTable.History and self.EditBox then
-		local t = self.EditBox:GetText() or ""
+		local t = YapperTable.Recolour.CanonicalText(self.EditBox)
 		if t ~= "" then
 			YapperTable.History:SaveDraft(self.EditBox, true)
 		end
@@ -783,7 +783,7 @@ function Multiline:Exit(restoreText, suppressOverlay)
 		YapperTable.Autocomplete:UnbindMultiline()
 	end
 
-	local text = self.EditBox and self.EditBox:GetText() or ""
+	local text = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
 
 	-- Draft pipeline: persist the multiline draft for crash recovery before
 	-- the frame is destroyed.  On Cancel (restoreText=true) the draft is
@@ -894,7 +894,7 @@ function Multiline:Submit()
 	-- If in lockdown, save draft and close instead of attempting to send.
 	if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
 		if self.EditBox and YapperTable.History then
-			local text = self.EditBox:GetText() or ""
+			local text = YapperTable.Recolour.CanonicalText(self.EditBox)
 			if text ~= "" then
 				YapperTable.History:SaveDraft(self.EditBox, true)
 				YapperTable.History:MarkDirty(true)
@@ -904,7 +904,9 @@ function Multiline:Submit()
 		return
 	end
 
-	local rawText          = self.EditBox and self.EditBox:GetText() or ""
+	-- Canonical read: CollapseText and the send pipeline operate on
+	-- escape-free text (the SendPosts strip is a backstop, not the cleaner).
+	local rawText          = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
 	local posts            = CollapseText(rawText)
 	self._mlDraft          = nil -- discard any stashed draft; we're sending now
 	self._mlDraftCollapsed = nil
@@ -1017,7 +1019,7 @@ function Multiline:OnLockdownStart()
 	if not (self.Frame and self.Frame:IsShown()) then return end
 	if not State:IsMultiline() then return end
 
-	local text = self.EditBox and self.EditBox:GetText() or ""
+	local text = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
 	if text == "" then
 		self:Exit(false, true)
 		return

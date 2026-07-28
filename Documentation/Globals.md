@@ -15,16 +15,16 @@
 
 These are guaranteed only after Yapper handles `ADDON_LOADED`:
 
-- `_G.YapperDB` (account-wide) — initialised in [`Src/Core.lua#L517`](../Src/Core.lua#L517).
-- `_G.YapperLocalConf` (per-character config) — initialised in [`Src/Core.lua#L518`](../Src/Core.lua#L518).
-- `_G.YapperLocalHistory` (per-character history/drafts) — initialised in [`Src/Core.lua#L519`](../Src/Core.lua#L519).
+- `_G.YapperDB` (account-wide) — initialised in [`Src/Core.lua#L515`](../Src/Core.lua#L515).
+- `_G.YapperLocalConf` (per-character config) — initialised in [`Src/Core.lua#L516`](../Src/Core.lua#L516).
+- `_G.YapperLocalHistory` (per-character history/drafts) — initialised in [`Src/Core.lua#L517`](../Src/Core.lua#L517).
 
 See SavedVariables layout in [Architecture.md](Architecture.md#savedvariables-layout).
 
 ## Other `_G.*` registrations and mutations
 
 - `_G.YAPPER_UTILS = Utils` for debug/dev access ([`Src/Utils.lua#L123`](../Src/Utils.lua#L123)).
-- `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L852`](../Src/Interface.lua#L852)).
+- `function Yapper_FromCompartment(...)` creates `_G.Yapper_FromCompartment` implicitly ([`Src/Interface.lua#L845`](../Src/Interface.lua#L845)).
 
 ## Slash commands
 

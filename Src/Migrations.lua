@@ -152,6 +152,52 @@ function Migrations:MigrateChannelColorMode(configTable, configType)
 end
 
 -- ---------------------------------------------------------------------------
+-- Underline colour/style → MisspellingColour Migration (Version 2.4)
+-- ---------------------------------------------------------------------------
+
+--- Migrate the removed underline-style spellcheck rendering settings to the
+--- single MisspellingColour key used by the recolour engine. UnderlineColor
+--- carries over (alpha forced to 1.0 — it is text colour now); UnderlineStyle
+--- and HighlightColor are dropped.
+function Migrations:MigrateMisspellingColour(configTable, configType)
+    if not configTable or type(configTable) ~= "table" then return end
+    if not configTable.Spellcheck or type(configTable.Spellcheck) ~= "table" then return end
+
+    local sc = configTable.Spellcheck
+    local migrationKey = "MISSPELLING_COLOUR_" .. (configType or "UNKNOWN")
+
+    -- Skip if already migrated
+    if _completedMigrations[migrationKey] then return end
+
+    local migrated = false
+
+    if sc.UnderlineColor ~= nil then
+        local c = sc.UnderlineColor
+        if type(c) == "table" then
+            sc.MisspellingColour = { r = c.r or 1.0, g = c.g or 0.2, b = c.b or 0.2, a = 1.0 }
+        end
+        sc.UnderlineColor = nil
+        migrated = true
+    end
+
+    -- Removed with the underline-style rendering; no home in the new schema.
+    if sc.UnderlineStyle ~= nil then
+        sc.UnderlineStyle = nil
+        migrated = true
+    end
+    if sc.HighlightColor ~= nil then
+        sc.HighlightColor = nil
+        migrated = true
+    end
+
+    if migrated and YapperTable.Utils then
+        YapperTable.Utils:Print("info", "Migrated spellcheck underline settings to MisspellingColour.")
+    end
+
+    _completedMigrations[migrationKey] = true
+end
+
+-- ---------------------------------------------------------------------------
 -- API Migration Entry Point
 -- ---------------------------------------------------------------------------
 
@@ -175,6 +221,9 @@ function Migrations:RunMigrations(configTable, configType)
 
     -- Run ChannelColorMode migration
     run("CHANNEL_COLOR_MODE", self.MigrateChannelColorMode)
+
+    -- Run MisspellingColour migration
+    run("MISSPELLING_COLOUR", self.MigrateMisspellingColour)
 end
 
 --- Mark a migration as completed (for external callers)

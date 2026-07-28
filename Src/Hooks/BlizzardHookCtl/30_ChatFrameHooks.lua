@@ -17,6 +17,8 @@ local ParseLinkType = Ctl.ParseLinkType
 local type = type
 local tonumber = tonumber
 local tostring = tostring
+
+
 function EditBox:HookAllChatFrames()
     local function EnsureEditBoxHooked(eb)
         if not eb then return end
@@ -160,7 +162,7 @@ function EditBox:HookAllChatFrames()
 
                                 -- If OpenChat wrote the raw slash prefill into the
                                 -- overlay directly, strip it to the parsed remainder.
-                                local cur = self.OverlayEdit:GetText() or ""
+                                local cur = YapperTable.Recolour.CanonicalText(self.OverlayEdit)
                                 if cur == text then
                                     local nextText = remainder or ""
                                     self.OverlayEdit:SetText(nextText)
@@ -180,7 +182,7 @@ function EditBox:HookAllChatFrames()
                                     YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
                                 end
 
-                                local cur = self.OverlayEdit:GetText() or ""
+                                local cur = YapperTable.Recolour.CanonicalText(self.OverlayEdit)
                                 if cur == text then
                                     local nextText = remainder or ""
                                     self.OverlayEdit:SetText(nextText)

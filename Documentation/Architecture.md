@@ -43,7 +43,7 @@ Src/Spellcheck.lua
 Src/Spellcheck/Dictionary.lua
 Src/Spellcheck/Adaptive.lua
 Src/Spellcheck/UI.lua
-Src/Spellcheck/Underline.lua
+Src/Spellcheck/Recolour.lua
 Src/Spellcheck/Engine.lua
 Src/IconGallery.lua
 Src/EditBox.lua
@@ -128,7 +128,7 @@ Code anchors:
 User input / WoW chat events
   ├─ EditBox overlay stack
   │   ├─ EditBox.Overlay / Handlers / Hooks / SkinProxy
-  │   ├─ Spellcheck (UI + Underline + Engine + Dictionary + YAS)
+  │   ├─ Spellcheck (UI + Recolour + Engine + Dictionary + YAS)
   │   ├─ Autocomplete
   │   └─ Multiline editor
   │
@@ -191,20 +191,28 @@ flowchart TD
 
 Reentrancy note (issue #21 fix):
 
-- Show hook uses `_inBlizzShowHook` guard and defers focus reclaim via `C_Timer.After(0, ...)` to avoid recursive focus ping-pong with Blizzard `ActivateChat` ([`Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L418`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L418)).
+- Show hook uses `_inBlizzShowHook` guard and defers focus reclaim via `C_Timer.After(0, ...)` to avoid recursive focus ping-pong with Blizzard `ActivateChat` ([`Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L420`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L420)).
 
 ## Hot path 3: Spellcheck path
 
 ```mermaid
 flowchart LR
-    T["Text or cursor changed"] --> D["Debounce refresh"]
+    T["Text changed"] --> D["Debounce refresh"]
     D --> R["Rebuild spellcheck state"]
-    R --> C["Collect misspellings"]
+    R --> C["Collect misspellings (scan window)"]
     C --> DL["Run dictionary and phonetic lookups"]
     C --> EN["Run scoring and edit distance"]
     EN --> S["Update suggestion frame state"]
-    S --> U["Redraw underlines and hint"]
+    S --> U["Recolour misspelled words in-place and update hint"]
 ```
+
+Recolour note: `Recolour:Apply` wraps misspellings in `|cff…|r` escapes inside
+the EditBox text, so the widget's own renderer positions the marks — no
+geometry is derived for rendering (scroll, resize, and word-wrap need no
+work). Cursor-only changes therefore schedule no rendering pass. Outgoing
+text is stripped of display escapes at `Chat:SendPosts` entry and at Blizzard
+handoff writes; all module logic reads canonical (escape-free) text via
+`Recolour.CanonicalText`/`CanonicalCursor` ([`../Src/Spellcheck/Recolour.lua`](../Src/Spellcheck/Recolour.lua)).
 
 ## Detailed subsystem: YAS learning model
 

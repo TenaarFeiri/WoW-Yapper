@@ -274,6 +274,63 @@ Migrations:MigrateYALLMToYAS(localConf, "LOCAL")
 check("LOCAL migrated independently", localConf.Spellcheck.YASEnabled == false)
 
 -- ===========================================================================
+-- Test 11: MisspellingColour migration
+-- ===========================================================================
+print("\nTest 11: MisspellingColour migration")
+
+Migrations = LoadMigrations()
+printLog = {}
+
+local mcConfig = {
+    Spellcheck = {
+        UnderlineStyle = "highlight",
+        UnderlineColor = { r = 0.1, g = 0.9, b = 0.3, a = 0.9 },
+        HighlightColor = { r = 1.0, g = 0.18, b = 0.18, a = 0.36 },
+        ExistingKey = "untouched",
+    },
+}
+
+Migrations:MigrateMisspellingColour(mcConfig, "DB")
+
+check("MisspellingColour created", type(mcConfig.Spellcheck.MisspellingColour) == "table")
+check("colour carries over", mcConfig.Spellcheck.MisspellingColour.r == 0.1
+    and mcConfig.Spellcheck.MisspellingColour.g == 0.9
+    and mcConfig.Spellcheck.MisspellingColour.b == 0.3)
+check("alpha forced to 1.0", mcConfig.Spellcheck.MisspellingColour.a == 1.0)
+check("UnderlineColor removed", mcConfig.Spellcheck.UnderlineColor == nil)
+check("UnderlineStyle removed", mcConfig.Spellcheck.UnderlineStyle == nil)
+check("HighlightColor removed", mcConfig.Spellcheck.HighlightColor == nil)
+check("existing key untouched", mcConfig.Spellcheck.ExistingKey == "untouched")
+check("migration logged", #printLog > 0)
+
+-- Idempotence.
+printLog = {}
+Migrations:MigrateMisspellingColour(mcConfig, "DB")
+check("no log on second run", #printLog == 0)
+
+-- Only style keys present: they are removed but no colour is invented.
+Migrations = LoadMigrations()
+local styleOnly = { Spellcheck = { UnderlineStyle = "line" } }
+Migrations:MigrateMisspellingColour(styleOnly, "DB")
+check("style removed without colour source", styleOnly.Spellcheck.UnderlineStyle == nil)
+check("no MisspellingColour invented", styleOnly.Spellcheck.MisspellingColour == nil)
+
+-- Non-table UnderlineColor: removed, no colour created.
+Migrations = LoadMigrations()
+local badColour = { Spellcheck = { UnderlineColor = "red" } }
+Migrations:MigrateMisspellingColour(badColour, "DB")
+check("non-table UnderlineColor removed", badColour.Spellcheck.UnderlineColor == nil)
+check("no MisspellingColour from bad data", badColour.Spellcheck.MisspellingColour == nil)
+
+-- Nil/missing safety.
+Migrations = LoadMigrations()
+Migrations:MigrateMisspellingColour(nil, "DB")
+check("nil config doesn't crash", true)
+Migrations = LoadMigrations()
+Migrations:MigrateMisspellingColour({}, "DB")
+check("no Spellcheck key doesn't crash", true)
+
+-- ===========================================================================
 -- Results
 -- ===========================================================================
 print("\n" .. string.rep("-", 50))

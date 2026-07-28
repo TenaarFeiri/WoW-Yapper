@@ -36,6 +36,8 @@ GATING_FROM_ROOT=(
     test_keybinds
     test_lockdown_fsm
     test_sticky_sync
+    test_recolour
+    test_sendposts_strip
 )
 
 # Gating suites executed from the suite directory (they loadfile "../../Src/...").

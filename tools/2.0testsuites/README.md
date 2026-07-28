@@ -35,6 +35,8 @@ and exit non-zero on failure.
 | test_keybinds | Keybind open path, keydown open semantics, slash-prefill regression | repo root |
 | test_lockdown_fsm | Lockdown handoff FSM, focus-override lifecycle | repo root |
 | test_sticky_sync | Blizzard stickyType sync + post-lockdown LastUsed restore | repo root |
+| test_recolour | Recolour canonical/display translation + Apply/Clear engine | repo root |
+| test_sendposts_strip | SendPosts display-escape stripping (history + delivery) | repo root |
 | test_api_error | Error API | suite dir |
 | test_api_features | Public API surface | suite dir |
 | test_yallm_logic | Adaptive spellcheck (YAS) core logic | suite dir |

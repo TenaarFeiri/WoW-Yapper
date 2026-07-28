@@ -114,6 +114,16 @@ function Chat:SendPosts(posts, chatType, language, target)
     posts = SplitPosts(table.concat(posts, "\n"))
     if #posts == 0 then return false end
 
+    -- Strip display-only escapes (spellcheck recolouring injects colour codes
+    -- into the editbox; users may also paste them). Done before anything else
+    -- sees the text: history stays clean, PRE_SEND filters match on canonical
+    -- text, and chunk byte budgets are not inflated. Hyperlinks are preserved.
+    if YapperTable.Utils then
+        for i, post in ipairs(posts) do
+            posts[i] = YapperTable.Utils:StripDisplayEscapes(post)
+        end
+    end
+
     -- Record raw input before filters rewrite it.
     if YapperTable.History then
         for _, post in ipairs(posts) do

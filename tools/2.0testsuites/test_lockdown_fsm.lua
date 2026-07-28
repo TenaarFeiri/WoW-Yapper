@@ -209,6 +209,8 @@ YapperTable.Utils.GetChatParent = function() return _G.UIParent end
 YapperTable.Utils.MakeFullscreenAware = function() end
 
 loadModule("Src/State.lua")
+-- ShowHide reads canonical text through Recolour (production dependency).
+loadModule("Src/Spellcheck/Recolour.lua")
 loadModule("Src/EditBox.lua")
 
 -- YapperAPI global used by ShowHide/EditBox for state transitions.

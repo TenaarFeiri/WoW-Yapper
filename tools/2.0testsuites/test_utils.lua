@@ -218,6 +218,35 @@ check("VerbosePrint prints when VERBOSE=true", printCalled)
 _G.print = origPrint
 
 -- ===========================================================================
+-- Test 8: StripDisplayEscapes
+-- ===========================================================================
+print("\nTest 8: StripDisplayEscapes")
+
+check("plain text unchanged", Utils:StripDisplayEscapes("hello world") == "hello world")
+check("empty string unchanged", Utils:StripDisplayEscapes("") == "")
+check("nil returns empty string", Utils:StripDisplayEscapes(nil) == "")
+check("non-string returns empty string", Utils:StripDisplayEscapes(42) == "")
+check("colour wrap stripped", Utils:StripDisplayEscapes("|cffff0000hello|r") == "hello")
+check("colour open stripped mid-text", Utils:StripDisplayEscapes("say |cff00ff00hi|r there") == "say hi there")
+check("lowercase hex stripped", Utils:StripDisplayEscapes("|cff1a2b3cx|r") == "x")
+check("uppercase hex stripped", Utils:StripDisplayEscapes("|cFF1A2B3Cx|r") == "x")
+check("adjacent spans stripped", Utils:StripDisplayEscapes("|cffff0000a|r|cff00ff00b|r") == "ab")
+check("bare reset stripped", Utils:StripDisplayEscapes("a|rb") == "ab")
+check("named colour stripped", Utils:StripDisplayEscapes("|cnRED:hi|r") == "hi")
+check("texture escape stripped", Utils:StripDisplayEscapes("a|TInterface\\x:0|tb") == "ab")
+check("atlas escape stripped", Utils:StripDisplayEscapes("a|Aatlas:0|ab") == "ab")
+check("hyperlink preserved", Utils:StripDisplayEscapes("|Hitem:1234|h[Link]|h") == "|Hitem:1234|h[Link]|h")
+check("coloured hyperlink keeps link, loses colour",
+    Utils:StripDisplayEscapes("|cffff0000|Hitem:1|h[L]|h|r") == "|Hitem:1|h[L]|h")
+check("idempotent", (function()
+    local once = Utils:StripDisplayEscapes("|cffff0000hello|r world")
+    return Utils:StripDisplayEscapes(once) == once
+end)())
+check("realistic recoloured sentence",
+    Utils:StripDisplayEscapes("I |cffff3333mispelled|r a |cffff3333wurd|r here")
+        == "I mispelled a wurd here")
+
+-- ===========================================================================
 -- Results
 -- ===========================================================================
 print("\n" .. string.rep("-", 50))

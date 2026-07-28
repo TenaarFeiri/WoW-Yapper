@@ -8,6 +8,7 @@
 local _, YapperTable  = ...
 local Spellcheck      = YapperTable.Spellcheck
 
+
 -- Re-localise shared helpers from hub.
 local Clamp           = Spellcheck.Clamp
 local NormaliseWord   = Spellcheck.NormaliseWord
@@ -249,8 +250,7 @@ function Spellcheck:ResolveImplicitTrace(force)
     if not self._implicitTrace or not self.EditBox then return end
 
     local trace = self._implicitTrace
-    local text = self.EditBox:GetText() or ""
-    local cursor = self.EditBox:GetCursorPosition() or #text
+    local text, cursor = YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
     local caret = cursor + 1
 
     -- If not forced, only resolve if the cursor has left the word boundaries
@@ -293,8 +293,7 @@ end
 function Spellcheck:UpdateActiveWord()
     if not self.EditBox then return end
 
-    local text = self.EditBox:GetText() or ""
-    local cursor = self.EditBox:GetCursorPosition() or #text
+    local text, cursor = YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
     local dict = self:GetDictionary()
     local prevWord = self.ActiveWord
     local prevSuggestions = self.ActiveSuggestions

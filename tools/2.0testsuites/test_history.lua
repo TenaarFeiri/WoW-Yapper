@@ -70,6 +70,14 @@ if not loader then
 end
 loader(YapperName, YapperTable)
 
+-- History reads canonical text through Recolour (production dependency).
+local rc_loader, rc_err = loadfile("Src/Spellcheck/Recolour.lua")
+if not rc_loader then
+    print("FATAL: " .. tostring(rc_err))
+    os.exit(1)
+end
+rc_loader(YapperName, YapperTable)
+
 local History = YapperTable.History
 
 -- ===========================================================================

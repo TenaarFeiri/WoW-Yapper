@@ -24,8 +24,7 @@ local COLOUR_KEYS                   = {
     TextColor = true,
     BorderColor = true,
     ShadowColor = true,
-    UnderlineColor = true,
-    HighlightColor = true,
+    MisspellingColour = true,
 }
 
 local CHANNEL_OVERRIDE_OPTIONS      = {
@@ -76,15 +75,13 @@ local SETTING_TOOLTIPS              = {
     ["FrameSettings.MinimapButtonOffset"] =
     "Extra pixels away from the minimap center for the fallback minimap button.",
     ["FrameSettings.WhatsNewFontSize"] = "Sets the font size for the 'What's New' changelog window.",
-    ["Spellcheck.Enabled"] = "Underline and suggest replacements for misspelled words.",
+    ["Spellcheck.Enabled"] = "Highlight misspelled words in colour and suggest replacements.",
     ["Spellcheck.Locale"] =
     "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
     ["Spellcheck.KeyboardLayout"] =
     "Specify your physical keyboard layout (QWERTY, QWERTZ, or AZERTY) to improve suggestion accuracy by accounting for physical key proximity.",
-    ["Spellcheck.UnderlineStyle"] = "Choose between straight underline or highlight style.",
     ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
-    ["Spellcheck.UnderlineColor"] = "Change the colour of the standard spellcheck underline.",
-    ["Spellcheck.HighlightColor"] = "Change the colour of the spellcheck highlight style.",
+    ["Spellcheck.MisspellingColour"] = "Change the colour used to highlight misspelled words.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
     ["Spellcheck.SuggestionCacheSize"] = "How many unique word suggestion results to keep cached across the session. Avoids recalculating suggestions for the same misspelled word. Set to 0 to disable caching entirely (higher values use slightly more memory).",
     ["Spellcheck.MaxSuggestions"] = "Maximum number of suggestions shown (1-4).",
@@ -157,9 +154,7 @@ local FRIENDLY_LABELS               = {
     ["Spellcheck.Enabled"] = "Enable spellcheck",
     ["Spellcheck.Locale"] = "Spellcheck locale",
     ["Spellcheck.KeyboardLayout"] = "Keyboard layout",
-    ["Spellcheck.UnderlineStyle"] = "Underline style",
-    ["Spellcheck.UnderlineColor"] = "Underline colour",
-    ["Spellcheck.HighlightColor"] = "Highlight colour",
+    ["Spellcheck.MisspellingColour"] = "Misspelling colour",
     ["Spellcheck.MinWordLength"] = "Minimum word length",
     ["Spellcheck.MaxSuggestions"] = "Max suggestions",
     ["Spellcheck.MaxCandidates"] = "Max word candidates checked",
@@ -221,7 +216,6 @@ local CATEGORIES                    = {
             "Spellcheck.Enabled",
             "Spellcheck.Locale",
             "Spellcheck.KeyboardLayout",
-            "Spellcheck.UnderlineStyle",
             "Spellcheck.MaxCandidates",
             "Spellcheck.ReshuffleAttempts",
             "Spellcheck.MaxWrongLetters",
@@ -258,8 +252,7 @@ local CATEGORIES                    = {
             "EditBox.InputBg",
             "EditBox.LabelBg",
             "EditBox.ShadowColor",
-            "Spellcheck.UnderlineColor",
-            "Spellcheck.HighlightColor",
+            "Spellcheck.MisspellingColour",
             -- Font
             "EditBox.FontSize",
             "EditBox.FontFlags",
@@ -458,8 +451,6 @@ function Interface:BuildRenderSchema()
                         kind = "spellcheck_locale"
                     elseif JoinPath(nextPath) == "Spellcheck.KeyboardLayout" then
                         kind = "spellcheck_keyboard_layout"
-                    elseif JoinPath(nextPath) == "Spellcheck.UnderlineStyle" then
-                        kind = "spellcheck_underline"
                     elseif JoinPath(nextPath) == "Spellcheck.NgramKeyCapSize" then
                         -- HIDDEN: No longer a user-facing setting but functionality remains
                         kind = "hidden"

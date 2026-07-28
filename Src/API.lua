@@ -76,6 +76,12 @@ local EVENT_ALIASES = {
     ["YALLM_WORD_LEARNED"] = "YAS_WORD_LEARNED",
 }
 
+-- Deprecated config dot-path aliases for backward compatibility (maps old →
+-- canonical), resolved by YapperAPI:GetConfig with a deprecation warning.
+local CONFIG_KEY_ALIASES = {
+    ["Spellcheck.UnderlineColor"] = "Spellcheck.MisspellingColour",
+}
+
 local type                    = type
 local pairs                   = pairs
 local ipairs                  = ipairs
@@ -449,6 +455,14 @@ end
 --- Tables are shallow-copied to prevent mutation of live config.
 function YapperAPI:GetConfig(path)
     if type(path) ~= "string" then return nil end
+    local aliasTarget = CONFIG_KEY_ALIASES[path]
+    if aliasTarget then
+        -- Deprecated alias: allow but warn (same pattern as EVENT_ALIASES).
+        if YapperTable.Utils and YapperTable.Utils.Print then
+            YapperTable.Utils:Print("warn", "GetConfig: \"" .. path .. "\" is deprecated, use \"" .. aliasTarget .. "\" instead.")
+        end
+        path = aliasTarget
+    end
     local cfg = YapperTable.Config
     if type(cfg) ~= "table" then return nil end
 

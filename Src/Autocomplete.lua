@@ -26,6 +26,7 @@ local _, YapperTable     = ...
 local Autocomplete       = {}
 YapperTable.Autocomplete = Autocomplete
 
+
 -- Localise Lua globals for performance
 local type               = type
 local pairs              = pairs
@@ -665,8 +666,7 @@ function Autocomplete:OnTextChanged(editBox)
 		return
 	end
 
-	local text           = editBox:GetText()
-	local pos            = editBox:GetCursorPosition()
+	local text, pos      = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
 
 	local word, startIdx = self:ExtractWordAtCursor(text, pos)
 	if not word then
@@ -760,8 +760,7 @@ function Autocomplete:OnTabPressed(editBox)
 		return false
 	end
 
-	local text            = editBox:GetText()
-	local pos             = editBox:GetCursorPosition()
+	local text, pos       = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
 
 	local word, wordStart = self:ExtractWordAtCursor(text, pos)
 	if not word or word ~= self.CurrentPrefix then

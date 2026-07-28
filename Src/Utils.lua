@@ -206,6 +206,29 @@ function Utils:NormaliseCharName(name)
 end
 
 -- ---------------------------------------------------------------------------
+-- Escape-sequence helpers
+-- ---------------------------------------------------------------------------
+
+--- Strip display-only WoW escape sequences from text: colour opens/resets,
+--- texture escapes, and atlas markers. Hyperlinks (|H...|h...|h) are preserved
+--- — only their colour wrapping is removed; the link structure stays intact.
+--- Used to canonicalise editbox text (spellcheck recolouring injects colour
+--- escapes into the widget) and to sanitise outgoing chat text.
+--- @param text any
+--- @return string
+function Utils:StripDisplayEscapes(text)
+    if type(text) ~= "string" then return "" end
+    if text == "" then return text end
+    if not text:find("|", 1, true) then return text end
+    text = text:gsub("|c%x%x%x%x%x%x%x%x", "")
+    text = text:gsub("|cn[^:]*:", "")
+    text = text:gsub("|r", "")
+    text = text:gsub("|T.-|t", "")
+    text = text:gsub("|A.-|a", "")
+    return text
+end
+
+-- ---------------------------------------------------------------------------
 -- Widget helpers
 -- ---------------------------------------------------------------------------
 

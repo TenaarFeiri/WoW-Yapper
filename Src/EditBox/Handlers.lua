@@ -29,6 +29,7 @@ local strmatch = string.match
 local strlower = string.lower
 local strbyte  = string.byte
 
+
 function EditBox:SetupOverlayScripts()
     local edit         = self.OverlayEdit
     local frame        = self.Overlay
@@ -42,7 +43,8 @@ function EditBox:SetupOverlayScripts()
 
         local function FireChanged()
             if YapperTable.API then
-                YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", box:GetText(), isUserInput, box)
+                YapperTable.API:Fire("EDITBOX_TEXT_CHANGED",
+                    YapperTable.Recolour.CanonicalText(box), isUserInput, box)
             end
         end
 
@@ -56,7 +58,7 @@ function EditBox:SetupOverlayScripts()
         -- before further processing.
         if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
             local sc = YapperTable.Spellcheck
-            local textNow = box:GetText() or ""
+            local textNow = YapperTable.Recolour.CanonicalText(box)
             if sc._expectedText and sc._suppressChar and textNow == (sc._expectedText .. sc._suppressChar) then
                 updatingText = true
                 box:SetText(sc._expectedText)
@@ -76,7 +78,7 @@ function EditBox:SetupOverlayScripts()
         end
         if not isUserInput then return end
 
-        local text = box:GetText() or ""
+        local text = YapperTable.Recolour.CanonicalText(box)
 
         -- Update autocomplete ghost text on every user keystroke.
         if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
@@ -269,7 +271,9 @@ function EditBox:SetupOverlayScripts()
 
         -- Panic recovery: If state is MULTILINE but the multiline frame is not shown,
         -- we are in a zombie state that blocks the single-line Enter key.
-        local text = box:GetText() or ""
+        -- Canonical read: display text may carry recolour escapes, which must
+        -- not reach slash parsing, the send path, or Blizzard's history lines.
+        local text = YapperTable.Recolour.CanonicalText(box)
         local first = text:find("%S")
         local trimmed = first and text:sub(first, text:find("%s*$", first) - 1) or ""
 
@@ -531,7 +535,7 @@ function EditBox:SetupOverlayScripts()
             YapperTable.Spellcheck:HideSuggestions()
             return
         end
-        local text = box:GetText() or ""
+        local text = YapperTable.Recolour.CanonicalText(box)
         local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
         local recoverOnEscape = (cfg.RecoverOnEscape == true)
         if text == "" then
@@ -570,7 +574,7 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.IconGallery and YapperTable.IconGallery._suppressNextChar then
             local ig = YapperTable.IconGallery
             if ig._suppressChar == char then
-                local expected = ig._expectedText or (box:GetText() or "")
+                local expected = ig._expectedText or YapperTable.Recolour.CanonicalText(box)
                 local cursor   = ig._expectedCursor
                 box:SetText(expected)
                 if cursor then box:SetCursorPosition(cursor) end
@@ -585,7 +589,7 @@ function EditBox:SetupOverlayScripts()
             local sc = YapperTable.Spellcheck
             if sc._suppressChar == char then
                 -- Immediately restore expected text/cursor and clear flags.
-                local expected = sc._expectedText or (box:GetText() or "")
+                local expected = sc._expectedText or YapperTable.Recolour.CanonicalText(box)
                 local cursor = sc._expectedCursor
                 box:SetText(expected)
                 if cursor then box:SetCursorPosition(cursor) end
@@ -621,7 +625,7 @@ function EditBox:SetupOverlayScripts()
             elseif key == "DOWN" and YapperTable.Emotes:IsActive() then
                 YapperTable.Emotes:MoveSelection(1)
                 return
-            elseif key == "TAB" and box:GetText() == "/" then
+            elseif key == "TAB" and YapperTable.Recolour.CanonicalText(box) == "/" then
                 if YapperTable.Emotes.HintFrame and YapperTable.Emotes.HintFrame:IsShown() then
                     YapperTable.Emotes:OpenMenu(box)
                     return
@@ -635,7 +639,7 @@ function EditBox:SetupOverlayScripts()
             -- Shift+Enter: expand into multi-line storyteller editor.
             local ml = YapperTable.Multiline
             if ml and type(ml.Enter) == "function" and not (State and State:IsMultiline()) then
-                local text = box:GetText() or ""
+                local text = YapperTable.Recolour.CanonicalText(box)
                 ml:Enter(text, self.ChatType, self.Language, self.Target)
                 return
             end
@@ -690,7 +694,7 @@ function EditBox:SetupOverlayScripts()
         if not self._closedClean and YapperTable.History then
             local eb = self.OverlayEdit
             if eb then
-                local text = eb:GetText() or ""
+                local text = YapperTable.Recolour.CanonicalText(eb)
                 if text ~= "" then
                     YapperTable.History:SaveDraft(eb)
                     -- Normal (non-lockdown) saves should not be treated
@@ -796,7 +800,7 @@ function EditBox:SetupOverlayScripts()
             self:UpdateFocusOverride()
             -- Helper: begin the deferred handoff.
             local function beginDeferredHandoff()
-                local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
+                local text = self.OverlayEdit and YapperTable.Recolour.CanonicalText(self.OverlayEdit) or ""
                 if text == "" then
                     if self._lockdown.idleTimer then
                         self._lockdown.idleTimer:Cancel()

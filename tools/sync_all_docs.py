@@ -41,7 +41,6 @@ FILE_SECTION_MAP = {
     "Spellcheck.lua": ("Internals.md", "## Spellcheck"),
     "Spellcheck/Engine.lua": ("Internals.md", "## Spellcheck.Engine"),
     "Spellcheck/UI.lua": ("Internals.md", "## Spellcheck.UI"),
-    "Spellcheck/Underline.lua": ("Internals.md", "## Spellcheck.Underline"),
     "Spellcheck/Adaptive.lua": ("Internals.md", "## Spellcheck.YAS"),
     "Chat.lua": ("Internals.md", "## Chat"),
     "Multiline.lua": ("Internals.md", "## Multiline"),

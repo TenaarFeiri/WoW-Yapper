@@ -165,6 +165,29 @@ check("ResolvePost succeeds with valid handle", resolved == true)
 local resolveAgain = YapperAPI:ResolvePost(activeHandle)
 check("ResolvePost fails when called again", resolveAgain == false)
 
+-- ================= GetConfig deprecated key alias =================
+
+local warnLines = {}
+YapperTable.Utils.Print = function(_, preset, msg)
+    warnLines[#warnLines + 1] = tostring(preset) .. " " .. tostring(msg)
+end
+YapperTable.Config = {
+    Spellcheck = {
+        MisspellingColour = { r = 0.1, g = 0.2, b = 0.3, a = 1.0 },
+    },
+}
+
+local viaNew = YapperAPI:GetConfig("Spellcheck.MisspellingColour")
+check("GetConfig reads new key", type(viaNew) == "table" and viaNew.g == 0.2)
+
+warnLines = {}
+local viaOld = YapperAPI:GetConfig("Spellcheck.UnderlineColor")
+check("GetConfig resolves deprecated alias to same value",
+    type(viaOld) == "table" and viaOld.g == 0.2)
+check("deprecated alias warns", #warnLines == 1 and warnLines[1]:find("deprecated") ~= nil)
+
+check("GetConfig returns a copy, not live config", viaOld ~= YapperTable.Config.Spellcheck.MisspellingColour)
+
 cleanup()
 
 print(string.rep("-", 60))

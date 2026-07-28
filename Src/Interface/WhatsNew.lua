@@ -12,6 +12,116 @@ local _, YapperTable = ...
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
+    ["2.4.0"] = {
+        {
+            title = "Spellcheck now colours misspelled words",
+            body  = "Misspelled words are now shown in a single misspelling colour instead of underline or highlight. "
+                .. "The marking stays with the text as you scroll, resize, or wrap lines, and it works correctly in the multiline composer.",
+        },
+        {
+            title = "Colour codes stripped before sending",
+            body  = "Any |cff colour escapes pasted into chat (including the spellcheck marking) are stripped before a message is sent, "
+                .. "so they cannot leak into chat, history, or Blizzard's editbox during combat lockdown.",
+        },
+        {
+            title = "Multiline suggestion anchoring fixed",
+            body  = "The spellcheck suggestion dropdown and hint now anchor to the caret in the multiline editor, "
+                .. "even when the caret is on a wrapped line.",
+        },
+        {
+            title = "Settings cleanup",
+            body  = "The 'Underline style' setting and its two colour pickers are replaced by one 'Misspelling colour' picker. "
+                .. "Your previous underline colour is migrated automatically.",
+        },
+    },
+    ["2.3.0"] = {
+        {
+            title = "Languages integration overhauled",
+            body  = "Yapper now uses the Languages addon's public API for dialects and language tags. "
+                .. "Multiline posts, combat/faction/TRP3 rules, and per-paragraph handling now match Languages' own behaviour. "
+                .. "Recalling and re-sending a message no longer stacks a second [Language] tag.",
+        },
+        {
+            title = "Multiline and history fixes",
+            body  = "Multiline and single-line editors now share one send pipeline, so filters, stall recovery, "
+                .. "split-post errors, and cancelled-send handling work the same in both. History now records what you typed, "
+                .. "not the rewritten message, and multi-paragraph pastes create separate recallable entries.",
+        },
+    },
+    ["2.2.6"] = {
+        {
+            title = "Combat lockdown channel fix",
+            body  = "Entering combat lockdown no longer reverts your chat channel to Say, "
+                .. "fixing channel desync in dungeons and other instanced content.",
+        },
+    },
+    ["2.2.5"] = {
+        {
+            title = "Slash-open double input fixed",
+            body  = "Pressing a slash key to open chat no longer produces duplicated input.",
+        },
+        {
+            title = "WhisperMessenger support",
+            body  = "Added compatibility for WhisperMessenger. "
+                .. "Note: some reply keybinds may still briefly activate WM's window.",
+        },
+    },
+    ["2.2.4"] = {
+        {
+            title = "Addon-driven editbox and sticky fixes",
+            body  = "Addons that call ActivateChat to SetText, SendText, or Deactivate are now less likely to have "
+                .. "their messages or commands silently dropped. Sticky whisper and label resizing are also more consistent.",
+        },
+        {
+            title = "New sticky-whisper setting",
+            body  = "You can now enable sticky whisper in non-whisper tabs via the settings.",
+        },
+    },
+    ["2.2.3"] = {
+        {
+            title = "German dictionary and lockdown fixes",
+            body  = "Fixed a German dictionary syntax error that could block loading, "
+                .. "and reduced lag when opening the editbox after combat or zoning.",
+        },
+        {
+            title = "Faster editbox open",
+            body  = "Keybind handling and label rendering are now cached, so the chat window opens more quickly.",
+        },
+    },
+    ["2.2.2"] = {
+        {
+            title = "Taint and whisper fixes",
+            body  = "Right-click menu options like 'Copy Character Name' and 'Set Focus' no longer get blocked by Yapper. "
+                .. "Battle.Net and normal whisper /r behaviour should be more consistent.",
+        },
+    },
+    ["2.2.1"] = {
+        {
+            title = "Channel switching and whisper reliability",
+            body  = "Clicking channel links now opens Yapper on the right channel. Slash channels like /1, /g, and /p "
+                .. "switch cleanly without showing raw text. Whisper opens share a common retarget path, "
+                .. "and chat falling back to Blizzard's native editbox is recorded in Yapper history.",
+        },
+        {
+            title = "Proxy mode and live channel sync",
+            body  = "Proxy-mode stability is improved, and changing channel via slash commands while Yapper is open "
+                .. "now syncs to Blizzard's editbox in most cases. Yapper no longer delegates posting through LibGopher "
+                .. "and warns when it is present.",
+        },
+    },
+    ["2.2.0"] = {
+        {
+            title = "IM mode overhaul",
+            body  = "Yapper now anchors to whichever docked or floating chat window you click, follows focus when "
+                .. "switching tabs, minimizing, or closing, and restores the channel per window. "
+                .. "ChatFrame1 is the final fallback when nothing else is open.",
+        },
+        {
+            title = "Multiline and click-to-chat fixes",
+            body  = "The expanded multiline editor anchors to the window you opened it from and avoids clipping off-screen. "
+                .. "Clicking the chat message area in IM mode now opens Yapper instead of Blizzard's editbox.",
+        },
+    },
     ["2.1.29"] = {
         {
             title = "Whisper Integration Fix",

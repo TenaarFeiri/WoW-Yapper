@@ -98,6 +98,11 @@ local ig_loader, err2 = loadfile("Src/IconGallery.lua")
 assert(ig_loader, "failed to load Src/IconGallery.lua: " .. tostring(err2))
 ig_loader("Yapper", YapperTable)
 
+-- IconGallery reads canonical text through Recolour (production dependency).
+local rc_loader, rc_err = loadfile("Src/Spellcheck/Recolour.lua")
+assert(rc_loader, "failed to load Src/Spellcheck/Recolour.lua: " .. tostring(rc_err))
+rc_loader("Yapper", YapperTable)
+
 local YapperAPI = _G.YapperAPI
 assert(type(YapperAPI) == "table", "YapperAPI not created")
 assert(type(YapperTable.IconGallery) == "table", "IconGallery not created")

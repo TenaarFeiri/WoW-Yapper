@@ -62,8 +62,6 @@ Spellcheck.LocaleAddons = {
 Spellcheck.EditBox = nil
 Spellcheck.Overlay = nil
 Spellcheck.MeasureFS = nil
-Spellcheck.UnderlinePool = {}
-Spellcheck.Underlines = {}
 Spellcheck.SuggestionFrame = nil
 Spellcheck.SuggestionRows = {}
 Spellcheck.ActiveSuggestions = nil
@@ -657,12 +655,15 @@ function Spellcheck:GetUserDictWordCap()
     return Clamp(tonumber(cfg.UserDictWordCap) or 2000, 50, 10000)
 end
 
-function Spellcheck:GetUnderlineStyle()
+--- Effective misspelling colour ({ r, g, b, a? }), defaults to magenta.
+--- Used by the recolour engine via Recolour.ResolveColour.
+function Spellcheck:GetMisspellingColour()
     local cfg = self:GetConfig()
-    if cfg.UnderlineStyle == "highlight" then
-        return "highlight"
+    local c = cfg.MisspellingColour or cfg.UnderlineColor
+    if type(c) ~= "table" then
+        return { r = 1.0, g = 0.0, b = 1.0 }
     end
-    return "line"
+    return c
 end
 
 function Spellcheck:GetKeyboardLayout()

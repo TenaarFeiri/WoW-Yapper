@@ -13,6 +13,7 @@ local SuggestionKey       = Spellcheck.SuggestionKey
 local MAX_SUGGESTION_ROWS = Spellcheck._MAX_SUGGESTION_ROWS
 local IsDebugEnabled      = Spellcheck.IsDebugEnabled
 
+
 -- Re-localise Lua globals.
 local type                = type
 local pairs               = pairs
@@ -57,11 +58,13 @@ function Spellcheck:Bind(editBox, overlay)
 end
 
 --- Temporarily rebind spellcheck to the multiline editor.
---- Moves the underline layer to the new container frame so textures render
---- in the correct coordinate space.  Call UnbindMultiline() on exit.
+--- Recolouring targets whichever EditBox is bound, so the only work here is
+--- moving the suggestion/hint frames into the multiline container and
+--- flagging multiline anchoring via MLScrollFrame.  Call UnbindMultiline()
+--- on exit.
 ---@param editBox       Frame  The multiline EditBox.
----@param containerFrame Frame  The multiline container (for underline anchoring).
----@param scrollFrame   Frame  The ScrollFrame wrapping the EditBox (for GetVerticalScroll).
+---@param containerFrame Frame  The multiline container (for suggestion/hint parenting).
+---@param scrollFrame   Frame  The ScrollFrame wrapping the EditBox (bind flag).
 function Spellcheck:BindMultiline(editBox, containerFrame, scrollFrame)
     -- Save originals so we can restore them on exit.
     self._mlSavedEditBox     = self.EditBox
@@ -102,10 +105,6 @@ function Spellcheck:BindMultiline(editBox, containerFrame, scrollFrame)
             frame:SetParent(containerFrame)
         end
     end
-    reparent(self.UnderlineLayer)
-    if self.UnderlineLayer and containerFrame then
-        self.UnderlineLayer:SetAllPoints(containerFrame)
-    end
     reparent(self.SuggestionFrame)
     -- SetParent() resets the frame's strata to the new parent's strata (HIGH).
     -- Re-assert TOOLTIP so suggestion rows stay above the catcher (also TOOLTIP
@@ -144,10 +143,6 @@ function Spellcheck:UnbindMultiline()
         if frame and oldOverlay then
             frame:SetParent(oldOverlay)
         end
-    end
-    reparent(self.UnderlineLayer)
-    if self.UnderlineLayer and oldOverlay then
-        self.UnderlineLayer:SetAllPoints(oldOverlay)
     end
     reparent(self.SuggestionFrame)
     -- Re-assert TOOLTIP strata after reparenting back to the overlay.
@@ -248,7 +243,7 @@ function Spellcheck:UnloadAllDictionaries(purgeNow)
     self.ActiveSuggestions = nil
 
     -- Cleanup UI state
-    self:ClearUnderlines()
+    YapperTable.Recolour:Clear(self.EditBox)
     if self.SuggestionFrame then self.SuggestionFrame:Hide() end
     if self.HintFrame then self.HintFrame:Hide() end
 
@@ -281,7 +276,7 @@ function Spellcheck:ApplyState(enabled, locale)
     else
         -- When disabled, we don't automatically unload (user might just be toggling).
         -- The explicit "Unload" is handled by the UI popup or manual call.
-        self:ClearUnderlines()
+        YapperTable.Recolour:Clear(self.EditBox)
         if self.SuggestionFrame then self.SuggestionFrame:Hide() end
     end
     self:ScheduleRefresh()
@@ -300,7 +295,9 @@ function Spellcheck:OnTextChanged(editBox, isUserInput)
 
         -- Peek at the last character to detect word boundaries.
         -- If the user just hit space or punctuation, we fire immediately.
-        local text = editBox:GetText() or ""
+        -- Read canonical text: display text may end in a "|r" reset, which
+        -- would hide the real last character from this check.
+        local text = YapperTable.Recolour.CanonicalText(editBox)
         local lastChar = string_sub(text, -1)
         if lastChar:match("[%s%.%,%!%?%:%;]") then
             self:ScheduleRefresh(0)
@@ -324,9 +321,12 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
         self._lastCursorVisX = x
     end
 
-    -- Capture cursor height (= line height ≈ font size). Used by DrawUnderline
-    -- to size highlights/underlines correctly regardless of the overlay height
-    -- (which can vary when addons like ElvUI resize the chat editbox).
+    -- Capture cursor height (= line height ≈ font size) and visual Y for
+    -- multiline suggestion/hint anchoring (immune to overlay resizing done
+    -- by addons like ElvUI).
+    if type(y) == "number" then
+        self._lastCursorVisY = y
+    end
     if type(h) == "number" and h > 0 then
         self._lastCursorH = h
     end
@@ -334,8 +334,9 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
     -- Early-exit guard: if neither the cursor position nor the text has changed
     -- since the last call, skip all work. This prevents redundant processing
     -- during rapid OnCursorChanged fires (e.g. holding an arrow key).
-    local curPos = editBox:GetCursorPosition() or 0
-    local curText = editBox:GetText() or ""
+    -- Compared in canonical space so our own recolour injection doesn't
+    -- register as a change.
+    local curText, curPos = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
     if curPos == self._lastOnCursorPos and curText == self._lastOnCursorText then
         return
     end
@@ -345,27 +346,21 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
     self:UpdateActiveWord()
     self:UpdateHint()
 
-    -- Defer underline refresh to the next frame so we don't interfere
-    -- with the EditBox's native cursor rendering during this callback.
-    if not self._pendingCursorUpdate then
-        self._pendingCursorUpdate = true
-        C_Timer.After(0, function()
-            self._pendingCursorUpdate = nil
-            self:UpdateUnderlines()
-        end)
-    end
+    -- No rendering work here: injected colour does not move with the caret,
+    -- so cursor-only changes need no recolour pass. (The large-text scan
+    -- window recenters on the next text-driven Apply.)
 end
 
 function Spellcheck:OnOverlayHide()
     self:HideSuggestions()
-    self:ClearUnderlines()
+    YapperTable.Recolour:Clear(self.EditBox)
     self:HideHint()
 end
 
 function Spellcheck:ScheduleRefresh(delay)
     if not self:IsEnabled() then
         self:HideSuggestions()
-        self:ClearUnderlines()
+        YapperTable.Recolour:Clear(self.EditBox)
         self:HideHint()
         return
     end
@@ -389,12 +384,12 @@ function Spellcheck:Rebuild()
     if not self.EditBox then return end
     if not self:IsEnabled() then
         self:HideSuggestions()
-        self:ClearUnderlines()
+        YapperTable.Recolour:Clear(self.EditBox)
         self:HideHint()
         return
     end
 
-    self:UpdateUnderlines()
+    YapperTable.Recolour:Apply(self.EditBox)
     self:UpdateActiveWord()
     self:UpdateHint()
 end
@@ -557,7 +552,7 @@ Spellcheck.HintDelay = 0.25
 
 function Spellcheck:ScheduleHintShow()
     if not self.HintFrame or not self.EditBox then return end
-    local cursor = self.EditBox.GetCursorPosition and (self.EditBox:GetCursorPosition() or 0) or 0
+    local cursor = YapperTable.Recolour.CanonicalCursor(self.EditBox)
     local word = self.ActiveWord
     -- If we already have a timer scheduled for the same word+cursor, leave it.
     if self._hintTimer and self._pendingHintWord == word and self._pendingHintCursor == cursor then
@@ -573,7 +568,7 @@ function Spellcheck:ScheduleHintShow()
         self._hintTimer = C_Timer.NewTimer(self.HintDelay, function()
             -- If caret or word moved, abort showing.
             if not self.EditBox then return end
-            local curCursor = self.EditBox.GetCursorPosition and (self.EditBox:GetCursorPosition() or 0) or 0
+            local curCursor = YapperTable.Recolour.CanonicalCursor(self.EditBox)
             if IsDebugEnabled() then
                 self:Notify("Spellcheck:HintTimer fired; curCursor=" ..
                     tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
@@ -644,7 +639,17 @@ function Spellcheck:ShowHint()
     -- Avoid re-showing (and retriggering fade) if already visible.
     if self.HintFrame:IsShown() then return end
     self.HintFrame:ClearAllPoints()
-    self.HintFrame:SetPoint("TOPLEFT", self.EditBox, "BOTTOMLEFT", self._hintOffsetX or 0, self._hintOffsetY or -2)
+    if self.MLScrollFrame
+        and type(self._lastCursorVisX) == "number" and type(self._lastCursorVisY) == "number" then
+        -- Multiline: anchor just under the visual caret line (see
+        -- ShowSuggestions for why prefix measurement cannot be used here).
+        local boxWidth = (self.EditBox and self.EditBox:GetWidth()) or 200
+        local x = math_max(0, math_min(self._lastCursorVisX + (self._hintOffsetX or 0), boxWidth - 10))
+        local y = self._lastCursorVisY - (self._lastCursorH or 0) + (self._hintOffsetY or -2)
+        self.HintFrame:SetPoint("TOPLEFT", self.EditBox, "TOPLEFT", x, y)
+    else
+        self.HintFrame:SetPoint("TOPLEFT", self.EditBox, "BOTTOMLEFT", self._hintOffsetX or 0, self._hintOffsetY or -2)
+    end
     self.HintFrame:SetAlpha(0)
     self.HintFrame:Show()
     if UIFrameFadeIn then
@@ -665,7 +670,7 @@ function Spellcheck:UpdateHint()
     -- Only show the hint when a suggestion is eligible and the caret/word
     -- has changed since the last hint state. This reduces flicker caused by
     -- frequent OnUpdate/OnTextChanged refreshes.
-    local cursor = self.EditBox.GetCursorPosition and (self.EditBox:GetCursorPosition() or 0) or 0
+    local cursor = YapperTable.Recolour.CanonicalCursor(self.EditBox)
     local word = self.ActiveWord
 
     if self:IsSuggestionEligible() then
@@ -743,8 +748,8 @@ function Spellcheck:HandleKeyDown(key)
             -- For non-replacement actions (add/ignore), keep the current
             -- text/cursor as the expected state so OnChar can restore it.
             if self.EditBox then
-                self._expectedText = self.EditBox:GetText() or ""
-                self._expectedCursor = self.EditBox:GetCursorPosition()
+                self._expectedText, self._expectedCursor =
+                    YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
             end
             self:ApplySuggestion(tonumber(key))
             return true
@@ -875,11 +880,22 @@ function Spellcheck:ShowSuggestions()
     end
 
     local editBox = self.EditBox
-    local x = self:GetCaretXOffset()
     self.SuggestionFrame:ClearAllPoints()
-    -- Anchor above the editbox so the suggestions appear on top of the overlay.
-    self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x + (self._suggestOffsetX or 0),
-        self._suggestOffsetY or 4)
+    if self.MLScrollFrame
+        and type(self._lastCursorVisX) == "number" and type(self._lastCursorVisY) == "number" then
+        -- Multiline: anchor at the visual caret coordinates handed to
+        -- OnCursorChanged. Prefix measurement (GetCaretXOffset) assumes a
+        -- single line and cannot locate the caret on wrapped lines.
+        local boxWidth = (editBox and editBox:GetWidth()) or 200
+        local x = math_max(0, math_min(self._lastCursorVisX + (self._suggestOffsetX or 0), boxWidth - 10))
+        local y = self._lastCursorVisY + (self._suggestOffsetY or 4)
+        self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x, y)
+    else
+        local x = self:GetCaretXOffset()
+        -- Anchor above the editbox so the suggestions appear on top of the overlay.
+        self.SuggestionFrame:SetPoint("BOTTOMLEFT", editBox, "TOPLEFT", x + (self._suggestOffsetX or 0),
+            self._suggestOffsetY or 4)
+    end
 
     local fontSize = 10
     if editBox and editBox.GetFont then
@@ -1081,26 +1097,26 @@ function Spellcheck:ApplySuggestion(index)
         local locale = self:GetLocale()
         self:AddUserWord(locale, entry.value or self.ActiveWord)
         if self.EditBox then
-            self._expectedText = self.EditBox:GetText() or ""
-            self._expectedCursor = self.EditBox:GetCursorPosition()
+            self._expectedText, self._expectedCursor =
+                YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
         end
         self:HideSuggestions()
         self._textChangedFlag = true
-        -- Invalidate underline cache — user sets changed, not the text.
-        self._lastUnderlinesText = nil
+        -- Invalidate the detection cache — user sets changed, not the text.
+        YapperTable.Recolour:Invalidate()
         self:ScheduleRefresh()
         return
     elseif type(entry) == "table" and entry.kind == "ignore" then
         local locale = self:GetLocale()
         self:IgnoreWord(locale, entry.value or self.ActiveWord)
         if self.EditBox then
-            self._expectedText = self.EditBox:GetText() or ""
-            self._expectedCursor = self.EditBox:GetCursorPosition()
+            self._expectedText, self._expectedCursor =
+                YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
         end
         self:HideSuggestions()
         self._textChangedFlag = true
-        -- Invalidate underline cache — user sets changed, not the text.
-        self._lastUnderlinesText = nil
+        -- Invalidate the detection cache — user sets changed, not the text.
+        YapperTable.Recolour:Invalidate()
         self:ScheduleRefresh()
         return
     elseif type(entry) == "table" and entry.kind == "split" then
@@ -1111,7 +1127,7 @@ function Spellcheck:ApplySuggestion(index)
         -- safely no-ops via YAS's own empty-string guard.)
         local splitReplacement = entry.value
         if not splitReplacement then return end
-        local splitText  = self.EditBox and self.EditBox:GetText() or ""
+        local splitText  = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
         local splitStart = self.ActiveRange.startPos
         local splitEnd   = self.ActiveRange.endPos
         if not splitStart or not splitEnd then return end
@@ -1144,7 +1160,7 @@ function Spellcheck:ApplySuggestion(index)
     local replacement = (type(entry) == "table") and (entry.value or entry.word) or entry
     if not replacement then return end
 
-    local text = self.EditBox and self.EditBox:GetText() or ""
+    local text = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
     local startPos = self.ActiveRange.startPos
     local endPos = self.ActiveRange.endPos
     if not startPos or not endPos then return end
@@ -1194,4 +1210,100 @@ function Spellcheck:ApplySuggestion(index)
     end
 
     self:ScheduleRefresh()
+end
+function Spellcheck:GetCaretXOffset()
+    local editBox = self.EditBox
+    if not editBox then return 0 end
+
+    -- Canonical read: measurement must use the escape-free prefix or the
+    -- anchor drifts right by the injected colour-code bytes.
+    local text, cursor = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
+    local prefix = text:sub(1, cursor)
+
+    local leftInset = 0
+    if editBox.GetTextInsets then
+        leftInset = select(1, editBox:GetTextInsets()) or 0
+    end
+
+    -- MeasureFS is now parented to the Overlay (same scale as the EditBox),
+    -- so GetStringWidth() is already in the correct coordinate space.
+    local width = self:MeasureText(prefix)
+    local scroll = self:GetScrollOffset()
+
+    local x = leftInset + width - scroll
+
+    -- Clamp to the visible text area of the EditBox to prevent the tooltip
+    -- from flying off-screen or detaching during heavy horizontal scrolling.
+    local boxWidth = editBox:GetWidth() or 200
+    return math_max(leftInset, math_min(x, boxWidth - 10))
+end
+
+function Spellcheck:ApplyOverlayFont(fontString, maxSize)
+    local editBox = self.EditBox
+    if not editBox or not editBox.GetFont then return 10 end
+    local face, size, flags = editBox:GetFont()
+    if face and size then
+        if maxSize and size > maxSize then size = maxSize end
+        local curFace, curSize, curFlags = fontString:GetFont()
+        if curFace ~= face or curSize ~= size or curFlags ~= flags then
+            fontString:SetFont(face, size, flags or "")
+        end
+    end
+    return size or 10
+end
+
+function Spellcheck:MeasureText(text)
+    if not self.MeasureFS then return 0 end
+    local editBox = self.EditBox
+    if editBox and editBox.GetFont then
+        local face, size, flags = editBox:GetFont()
+        if face and size then
+            local curFace, curSize, curFlags = self.MeasureFS:GetFont()
+            if curFace ~= face or curSize ~= size or curFlags ~= flags then
+                self.MeasureFS:SetFont(face, size, flags or "")
+            end
+        end
+        -- Also synchronize character spacing if the EditBox uses it (e.g. custom skins)
+        if editBox.GetSpacing and self.MeasureFS.SetSpacing then
+            local spacing = editBox:GetSpacing() or 0
+            if (self.MeasureFS:GetSpacing() or 0) ~= spacing then
+                self.MeasureFS:SetSpacing(spacing)
+            end
+        end
+    end
+    self.MeasureFS:SetText(text or "")
+    return self.MeasureFS:GetStringWidth() or 0
+end
+
+-- Derive the horizontal scroll offset of a single-line EditBox.
+-- WoW doesn't expose GetHorizontalScroll() for EditBoxes; we use the
+-- visual cursor X that Blizzard passes to OnCursorChanged instead.
+function Spellcheck:GetScrollOffset()
+    if not self.EditBox or not self._lastCursorVisX then return 0 end
+    -- Canonical cursor: cache key and prefix slicing both operate in
+    -- escape-free space.
+    local cursor = YapperTable.Recolour.CanonicalCursor(self.EditBox)
+    if cursor == 0 then
+        self._lastScrollCursor = 0
+        self._lastScrollValue  = 0
+        return 0
+    end
+    -- Cache by cursor position: MeasureText is expensive (SetText + GetStringWidth).
+    -- The scroll offset can only change when the cursor moves, so skip re-measuring
+    -- when the cursor hasn't changed since the last call.
+    if self._lastScrollCursor == cursor then
+        return self._lastScrollValue or 0
+    end
+    local text = YapperTable.Recolour.CanonicalText(self.EditBox)
+    local prefix = text:sub(1, cursor)
+    local absoluteX = self:MeasureText(prefix)
+    local leftInset = 0
+    if self.EditBox.GetTextInsets then
+        leftInset = select(1, self.EditBox:GetTextInsets()) or 0
+    end
+    local offset           = (leftInset + absoluteX) - self._lastCursorVisX
+    offset                 = offset > 0 and offset or 0
+    self._lastScrollCursor = cursor
+    self._lastScrollValue  = offset
+    return offset
 end

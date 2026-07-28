@@ -150,8 +150,7 @@ function IconGallery:Select(index)
     if not data or not self._rawEditBox then return end
 
     local eb = self._rawEditBox
-    local text = eb:GetText() or ""
-    local pos = eb:GetCursorPosition()
+    local text, pos = YapperTable.Recolour.CanonicalTextAndCursor(eb)
 
     -- Find the '{' before the cursor to replace the query
     local pre = text:sub(1, pos)
@@ -188,8 +187,8 @@ function IconGallery:HandleKeyDown(key)
             if eb then
                 self._suppressNextChar = true
                 self._suppressChar     = key
-                self._expectedText     = eb:GetText()
-                self._expectedCursor   = eb:GetCursorPosition()
+                self._expectedText, self._expectedCursor =
+                    YapperTable.Recolour.CanonicalTextAndCursor(eb)
             end
             return true
         end
@@ -227,8 +226,7 @@ end
 ---@param anchorFrame table  Frame to anchor the popup against (e.g. the overlay or ML frame).
 function IconGallery:OnTextChanged(rawEditBox, anchorFrame)
     if not rawEditBox then return end
-    local text = rawEditBox:GetText() or ""
-    local pos  = rawEditBox:GetCursorPosition()
+    local text, pos = YapperTable.Recolour.CanonicalTextAndCursor(rawEditBox)
     local pre  = text:sub(1, pos)
 
     -- Match an open brace followed by word-chars with no closing brace.

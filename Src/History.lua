@@ -18,6 +18,7 @@ local tostring                = tostring
 local tonumber                = tonumber
 local GetTime                 = GetTime
 
+
 -- ---------------------------------------------------------------------------
 -- Configuration
 -- ---------------------------------------------------------------------------
@@ -194,7 +195,9 @@ end
 --- @param isMultiline boolean?  True when saving from the multiline editor.
 function History:SaveDraft(editBox, isMultiline)
     if not editBox then return end
-    local text = editBox:GetText() or ""
+    -- Canonical read: drafts persist to SavedVariables and must never
+    -- contain display-only recolour escapes.
+    local text = YapperTable.Recolour.CanonicalText(editBox)
 
     local NormaliseWhisperTarget = function(v) return YapperTable.Utils:NormaliseCharName(v) end
 
@@ -309,14 +312,16 @@ function History:AddSnapshot(editbox, force, textOverride, cursorOverride)
     if textOverride ~= nil then
         text = textOverride
     else
-        text = editbox:GetText() or ""
+        -- Canonical read: undo entries are replayed into the editbox with
+        -- plain-text byte math; storing display text would corrupt offsets.
+        text = YapperTable.Recolour.CanonicalText(editbox)
     end
 
     local cursor
     if cursorOverride ~= nil then
         cursor = cursorOverride
     else
-        cursor = editbox:GetCursorPosition() or 0
+        cursor = YapperTable.Recolour.CanonicalCursor(editbox)
     end
     local cur = buf.entries[buf.position]
 
@@ -365,7 +370,9 @@ function History:Redo(editbox)
     local buf = GetUndoBuffer(editbox)
     if not buf then return end
 
-    local currentText = editbox:GetText() or ""
+    -- Canonical read: undo entries are canonical, and recolour escapes in
+    -- the widget must not invalidate the redo chain.
+    local currentText = YapperTable.Recolour.CanonicalText(editbox)
     local currentEntry = buf.entries[buf.position]
 
     -- If user edited after undo, redo chain is invalid.
@@ -411,7 +418,9 @@ function History:HookOverlayEditBox()
         if not userInput then return end
 
         local name = box.GetName and box:GetName() or "YapperOverlayEdit"
-        local text = box:GetText() or ""
+        -- Canonical read: LastText feeds snapshot overrides and byte-delta
+        -- math; display escapes would corrupt both.
+        local text = YapperTable.Recolour.CanonicalText(box)
         local last = LastText[name] or ""
 
         local function IsWordBoundaryByte(b)
@@ -440,7 +449,7 @@ function History:HookOverlayEditBox()
         if box._yapperPauseTimer then box._yapperPauseTimer:Cancel() end
         if #text > 0 then
             box._yapperPauseTimer = C_Timer.NewTimer(0.5, function()
-                if box:GetText() == text then -- verify still matches
+                if YapperTable.Recolour.CanonicalText(box) == text then -- verify still matches
                     self:AddSnapshot(box, true)
                     self:SaveDraft(box)
                 end

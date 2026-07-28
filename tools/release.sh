@@ -26,7 +26,7 @@ rm -rf .release
 mkdir -p "$stage/Yapper"
 
 # 1. Main addon — strict whitelist of user-relevant files
-rsync -a --include='Src/***' --include='Changelogs.md' --include='Yapper.lua' \
+rsync -a --include='Src/***' --include='Yapper.lua' \
       --include='Yapper.toc' --include='Bindings.xml' --include='LICENSE' \
       --exclude='*' ./ "$stage/Yapper/"
 
