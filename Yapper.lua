@@ -10,7 +10,7 @@ local pairs  = pairs
 local select = select
 local tostring = tostring
 
-local function GetBypassBindingHint()
+local function GetBypassBindingHint(skipName)
     local key1, key2 = nil, nil
     if GetBindingKey then
         -- Primary lookup: binding name as defined in Bindings.xml.
@@ -32,11 +32,14 @@ local function GetBypassBindingHint()
     end
 
     if key1 and key2 then
+        if skipName then return PrettyKey(key1) .. "/" .. PrettyKey(key2) end
         return "'Bypass Yapper' keybind (currently " .. PrettyKey(key1) .. " / " .. PrettyKey(key2) .. ")"
     end
     if key1 then
+        if skipName then return PrettyKey(key1) end
         return "'Bypass Yapper' keybind (currently " .. PrettyKey(key1) .. ")"
     end
+    if skipName then return "Shift+Enter" end
     return "'Bypass Yapper' keybind (currently unbound; default Shift+Enter)"
 end
 
@@ -218,7 +221,9 @@ local function OnPlayerEnteringWorld()
         YapperTable.History:HookOverlayEditBox()
     end
 
-    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. " loaded. Use /yapper for settings. Use the " .. GetBypassBindingHint() .. " to drop down to Blizzard's text box if you run into issues like blocked actions (often caused by things like /target and /gquit).")
+    YapperTable.Utils:Print("v" .. YapperTable.Core:GetVersion() .. 
+    " loaded. Use /yapper for settings. Open chat with " .. GetBypassBindingHint(true) .. 
+    " to open the default editbox if your actions are blocked.")
 
     -- First-run appearance choice (once per schema bump),
     -- or What's New frame for returning users on a version bump.

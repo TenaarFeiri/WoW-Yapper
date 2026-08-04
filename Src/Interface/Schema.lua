@@ -359,6 +359,7 @@ function Interface:BuildRenderSchema()
             or full == "FrameSettings.MainWindowPosition"
             or full == "FrameSettings.UIFontOffset"
             or full == "EditBox.FontPad"
+            or full == "EditBox.MultilineHintDuration"
             or full == "Chat.STALL_TIMEOUT"
             or full == "Chat.CHARACTER_LIMIT"
             or full == "Chat.CHARACTER_LIMIT"

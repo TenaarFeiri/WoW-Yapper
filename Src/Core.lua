@@ -183,6 +183,9 @@ local DEFAULTS = {
         StorytellerWidth      = 400,
         StorytellerHeight     = 250,
 
+        -- Session-only onboarding hint shown beside the single-line overlay.
+        MultilineHintDuration = 5,
+
         -- Autocomplete (ghost text): on by default but only active when
         -- Spellcheck.Enabled is also true (depends on dictionary data).
         AutocompleteEnabled   = true,

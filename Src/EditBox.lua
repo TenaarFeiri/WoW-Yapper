@@ -65,6 +65,12 @@ EditBox._lockdown = {
 -- Overlay display state.
 EditBox._overlayUnfocused  = false -- True when overlay is visible but unfocused
 
+-- Session-only multiline onboarding hint state. The shown flag is deliberately
+-- not persisted: the hint is intended to appear once per login/reload session.
+EditBox.MultilineHint       = nil
+EditBox._multilineHintShown = false
+EditBox._multilineHintTimer = nil
+
 -- Reply queue for recent whisper targets (most-recent at index 1)
 EditBox.ReplyQueue         = {}
 local REPLY_QUEUE_MAX      = 20

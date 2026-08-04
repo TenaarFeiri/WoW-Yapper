@@ -483,6 +483,166 @@ end
 -- Overlay creation
 -- ---------------------------------------------------------------------------
 
+local MULTILINE_HINT_TEXT          = "Press Shift-Enter to go into multiline mode."
+local MULTILINE_HINT_GAP           = 8
+local MULTILINE_HINT_SCREEN_PAD    = 4
+local MULTILINE_HINT_FADE_DURATION = 0.25
+
+--- Cancel and hide the session-only multiline onboarding hint.
+--- The session flag is intentionally preserved so re-opening the overlay does
+--- not replay the hint after it has already been scheduled once.
+function EditBox:HideMultilineHint()
+    if self._multilineHintTimer and self._multilineHintTimer.Cancel then
+        self._multilineHintTimer:Cancel()
+    end
+    self._multilineHintTimer = nil
+
+    local hint = self.MultilineHint
+    if not hint then return end
+
+    if UIFrameFadeRemoveFrame then
+        UIFrameFadeRemoveFrame(hint)
+    end
+    hint:Hide()
+    hint:SetAlpha(1)
+end
+
+--- Create the non-interactive hint frame lazily, using UIParent as its parent
+--- so its absolute screen-space position is independent of chat-frame scale.
+function EditBox:CreateMultilineHint()
+    if self.MultilineHint then return end
+
+    local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    frame:SetFrameStrata("TOOLTIP")
+    frame:SetFrameLevel(10)
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(false)
+    frame:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 10,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    frame:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+    frame:SetBackdropBorderColor(0.9, 0.75, 0.2, 1)
+    frame:Hide()
+
+    local text = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("CENTER", frame, "CENTER", 0, 0)
+    text:SetJustifyH("CENTER")
+    text:SetText(MULTILINE_HINT_TEXT)
+    frame._fs = text
+
+    self.MultilineHint = frame
+
+    if YapperTable.Core and type(YapperTable.Core.RegisterFrame) == "function" then
+        YapperTable.Core:RegisterFrame("Overlay", "MultilineHint", frame)
+    end
+end
+
+--- Show the onboarding hint once during the current session and let it fade
+--- after the configured hold duration.
+function EditBox:ShowMultilineHint()
+    if self._multilineHintShown then return end
+    if not self.Overlay or not self.Overlay:IsShown() then return end
+
+    local multiline = YapperTable.Multiline
+    if multiline and multiline.Frame and multiline.Frame:IsShown() then return end
+
+    self._multilineHintShown = true
+    self:CreateMultilineHint()
+
+    local hint = self.MultilineHint
+    local text = hint._fs
+    if self.OverlayEdit and self.OverlayEdit.GetFont and text.SetFont then
+        local face, size, flags = self.OverlayEdit:GetFont()
+        if face and size then
+            text:SetFont(face, size, flags or "")
+        end
+    end
+
+    local hintWidth = math.ceil((text:GetStringWidth() or 0) + 12)
+    local hintHeight = math_max(20, (text:GetStringHeight() or 0) + 8)
+    hint:SetSize(hintWidth, hintHeight)
+
+    local screenW = UIParent:GetWidth() or 1024
+    local screenH = UIParent:GetHeight() or 768
+    local overlayLeft = self.Overlay:GetLeft() or 0
+    local overlayRight = self.Overlay:GetRight()
+        or (overlayLeft + (self.Overlay:GetWidth() or 0))
+    local overlayBottom = self.Overlay:GetBottom() or 0
+    local overlayTop = self.Overlay:GetTop()
+        or (overlayBottom + (self.Overlay:GetHeight() or 0))
+
+    local x
+    if overlayRight + MULTILINE_HINT_GAP + hintWidth
+        <= screenW - MULTILINE_HINT_SCREEN_PAD then
+        x = overlayRight + MULTILINE_HINT_GAP
+    elseif overlayLeft - MULTILINE_HINT_GAP - hintWidth
+        >= MULTILINE_HINT_SCREEN_PAD then
+        x = overlayLeft - MULTILINE_HINT_GAP - hintWidth
+    else
+        -- Neither side has enough room; clamp the right-side preference to the
+        -- viewport rather than allowing the hint to run off-screen.
+        x = overlayRight + MULTILINE_HINT_GAP
+        local maxX = screenW - hintWidth - MULTILINE_HINT_SCREEN_PAD
+        if maxX < MULTILINE_HINT_SCREEN_PAD then
+            maxX = MULTILINE_HINT_SCREEN_PAD
+        end
+        x = math_max(MULTILINE_HINT_SCREEN_PAD, math_min(x, maxX))
+    end
+
+    local y = overlayBottom + ((overlayTop - overlayBottom - hintHeight) / 2)
+    local maxY = screenH - hintHeight - MULTILINE_HINT_SCREEN_PAD
+    if maxY < MULTILINE_HINT_SCREEN_PAD then
+        maxY = MULTILINE_HINT_SCREEN_PAD
+    end
+    y = math_max(MULTILINE_HINT_SCREEN_PAD, math_min(y, maxY))
+
+    hint:ClearAllPoints()
+    hint:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+    hint:SetAlpha(0)
+    hint:Show()
+    if UIFrameFadeIn then
+        UIFrameFadeIn(hint, 0.12, 0, 1)
+    else
+        hint:SetAlpha(1)
+    end
+
+    local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
+    local holdDuration = tonumber(cfg.MultilineHintDuration) or 5
+    if holdDuration < 0 then holdDuration = 0 end
+
+    if not (C_Timer and C_Timer.NewTimer) then
+        hint:Hide()
+        hint:SetAlpha(1)
+        return
+    end
+
+    local holdTimer
+    holdTimer = C_Timer.NewTimer(holdDuration, function()
+        if self._multilineHintTimer ~= holdTimer then return end
+        self._multilineHintTimer = nil
+        if not hint:IsShown() then return end
+
+        if UIFrameFadeOut then
+            UIFrameFadeOut(hint, MULTILINE_HINT_FADE_DURATION, hint:GetAlpha() or 1, 0)
+        else
+            hint:SetAlpha(0)
+        end
+
+        local fadeTimer
+        fadeTimer = C_Timer.NewTimer(MULTILINE_HINT_FADE_DURATION, function()
+            if self._multilineHintTimer ~= fadeTimer then return end
+            self._multilineHintTimer = nil
+            hint:Hide()
+            hint:SetAlpha(1)
+        end)
+        self._multilineHintTimer = fadeTimer
+    end)
+    self._multilineHintTimer = holdTimer
+end
+
 local function UpdateLabelBackgroundForText(self, text)
     if not self or not self.LabelBg or not self.ChannelLabel then return end
     local cfg = YapperTable.Config.EditBox or {}
@@ -605,6 +765,12 @@ function EditBox:CreateOverlay()
     if YapperTable.Spellcheck and type(YapperTable.Spellcheck.Bind) == "function" then
         YapperTable.Spellcheck:Bind(edit, frame)
     end
+
+    -- A direct overlay hide also occurs when entering multiline mode, so keep
+    -- the independent screen-space hint lifecycle tied to this frame.
+    frame:HookScript("OnHide", function()
+        self:HideMultilineHint()
+    end)
 
     -- Hook into SendChatMessage so we can capture and propagate chatType, language and target
     -- to Yapper for synchronisity.

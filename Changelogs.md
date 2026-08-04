@@ -1,16 +1,28 @@
 # 2.4.0
 
-### New Feature
-- Spellcheck now marks misspelled words by colouring the word itself, instead of drawing an underline or highlight beneath it.
- - Marking is immune to horizontal/vertical scrolling, window resizing, and multiline word wrapping -- the colour travels with the text instead of being repositioned by measurement.
- - The "Underline style" setting and its two colour pickers are replaced by a single "Misspelling colour" picker. Your previous underline colour carries over automatically.
-- Fixed the spellcheck suggestion dropdown and hint anchoring to the wrong spot in the multiline editor when the caret was on a wrapped line; they now appear at the caret.
-- Colour codes pasted into chat (and the spellcheck marking itself) are now stripped before a message is sent, so they can never leak into chat, history, or Blizzard's editbox during combat lockdown handoff.
+### New Features
 
-### Under the hood
-- The underline texture geometry (texture pooling, font measurement for placement, scroll-offset derivation, multiline wrap simulation) is deleted; marking is done by injecting colour escapes into the editbox text (`Src/Spellcheck/Recolour.lua`).
-- All internal logic now reads "canonical" (escape-free) editbox text through a single translation layer, and outgoing text is sanitised at one point in the send pipeline.
-- `Spellcheck.UnderlineColor` is renamed to `Spellcheck.MisspellingColour` (migrated automatically; addons reading the old key via `YapperAPI:GetConfig` are forwarded with a deprecation warning).
+- Misspelled words are now coloured directly instead of being underlined or highlighted.
+- Added a first-use hint for multiline mode. It appears once per session and reminds you to press Shift-Enter.
+
+### Improvements
+
+- Spellcheck markings now stay with the text when scrolling, resizing the window, or wrapping lines in multiline mode.
+- Replaced the underline-style setting and its two colour pickers with a single Misspelling Colour option. Existing underline colours are carried over automatically.
+- Fixed the spellcheck suggestion list and hint appearing in the wrong place when the caret is on a wrapped line in the multiline editor.
+- Colour codes pasted into chat, including spellcheck markings, are now removed before sending. They will no longer appear in chat, history, or Blizzard’s editbox during combat handoff.
+- Improved opening blurb by shortening it and making clear the difference between OPENING chat with Shift-Enter, and pressing Shift-Enter WHILE Yapper is already open.
+
+### Bug Fixes
+
+- Fixed multiline mode not updating its background colour immediately when proxy mode was enabled. Changes now apply without requiring a reload.
+
+### Technical Changes
+
+- Removed the old underline-rendering system, including its texture pooling, font measurements, scroll-offset calculations, and multiline wrapping logic.
+- Added a common canonical-text layer so internal code consistently works with plain text while colour markings remain display-only.
+- Simplified outgoing message sanitisation so colour codes are removed in one place before sending.
+- Renamed `Spellcheck.UnderlineColor` to `Spellcheck.MisspellingColour`. Existing settings are migrated automatically, and addons using the old API key receive a deprecation warning.
 
 # 2.3.0
 

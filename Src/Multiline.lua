@@ -1125,28 +1125,27 @@ function Multiline:ApplyTheme()
 
 	local fillR, fillG, fillB, fillA = 0.05, 0.05, 0.05, 0.95
 	local rounded                    = false
-	-- _skinProxyTextures is stored on the EditBox module, not on the overlay frame.
-	local proxyActive                = eb and eb._skinProxyTextures
+	-- The current proxy path keeps the Blizzard editbox visible underneath and
+	-- does not populate _skinProxyTextures; that field belongs to the legacy
+	-- cloned-texture path. Match RefreshOverlayVisuals' mode check here.
+	local proxyActive = cfg.UseBlizzardSkinProxy == true
+		and cfg.UseLegacyCloneProxy ~= true
 
+	local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
 	if overlay and overlay._yapperFillColor and not proxyActive then
 		local c = overlay._yapperFillColor
 		fillR, fillG, fillB, fillA = c.r, c.g, c.b, c.a
 		rounded = overlay._yapperFillRounded == true
 	else
-		-- Fallback: read from config (same path the overlay uses).
-		local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
+		-- Always read the configured colour in proxy mode. The proxy intentionally
+		-- makes the single-line overlay transparent, so its cached fill is not a
+		-- valid source for multiline; theme colours have already been resolved into
+		-- config and must not overwrite a live reset here.
 		local inputBg = cfg.InputBg or {}
 		fillR = inputBg.r or 0.05
 		fillG = inputBg.g or 0.05
 		fillB = inputBg.b or 0.05
 		fillA = inputBg.a or 0.95
-		if activeTheme and activeTheme.inputBg then
-			local tbg = activeTheme.inputBg
-			fillR = tbg.r or fillR
-			fillG = tbg.g or fillG
-			fillB = tbg.b or fillB
-			fillA = tbg.a or fillA
-		end
 		rounded = (cfg.RoundedCorners == true)
 		if activeTheme and activeTheme.allowRoundedCorners == false then rounded = false end
 	end

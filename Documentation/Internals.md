@@ -11,9 +11,9 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 
 - Description: global namespace alias for the addon-private table.
 - Fields:
-  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L282`](../Yapper.lua#L282)).
+  - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L287`](../Yapper.lua#L287)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L277`](../Yapper.lua#L277)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L282`](../Yapper.lua#L282)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -21,21 +21,21 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 
 - Description: SavedVariables schema/default/migration authority.
 - Fields:
-  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L284`](../Src/Core.lua#L284)).
+  - `Yapper.Config: table` live config root ([`../Src/Core.lua#L287`](../Src/Core.lua#L287)).
 - Methods:
-  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L320`](../Src/Core.lua#L320))
-  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L384`](../Src/Core.lua#L384))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L824`](../Src/Core.lua#L824))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L622`](../Src/Core.lua#L622))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L351`](../Src/Core.lua#L351))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L290`](../Src/Core.lua#L290))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L512`](../Src/Core.lua#L512)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L645`](../Src/Core.lua#L645))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L649`](../Src/Core.lua#L649))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L653`](../Src/Core.lua#L653))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L666`](../Src/Core.lua#L666)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L731`](../Src/Core.lua#L731)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L845`](../Src/Core.lua#L845)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L323`](../Src/Core.lua#L323))
+  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L387`](../Src/Core.lua#L387))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L827`](../Src/Core.lua#L827))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L625`](../Src/Core.lua#L625))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L354`](../Src/Core.lua#L354))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L293`](../Src/Core.lua#L293))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L515`](../Src/Core.lua#L515)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L648`](../Src/Core.lua#L648))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L652`](../Src/Core.lua#L652))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L656`](../Src/Core.lua#L656))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L669`](../Src/Core.lua#L669)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L734`](../Src/Core.lua#L734)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L848`](../Src/Core.lua#L848)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -396,12 +396,12 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - [NEW] `EditBox:ApplyProgrammaticPrefill(text, box) → nil`: Apply text prefill to the overlay editbox and mirror any UX side-effects ([`../Src/EditBox.lua#L565`](../Src/EditBox.lua#L565))
-  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L535`](../Src/EditBox.lua#L535))
-  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L513`](../Src/EditBox.lua#L513))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L599`](../Src/EditBox.lua#L599))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L588`](../Src/EditBox.lua#L588))
-  - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L90`](../Src/EditBox.lua#L90))
+  - [NEW] `EditBox:ApplyProgrammaticPrefill(text, box) → nil`: Apply text prefill to the overlay editbox and mirror any UX side-effects ([`../Src/EditBox.lua#L571`](../Src/EditBox.lua#L571))
+  - [NEW] `EditBox:IsChatTypeAvailable() → nil`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L541`](../Src/EditBox.lua#L541))
+  - [NEW] `EditBox:GetResolvedChatType() → nil`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L519`](../Src/EditBox.lua#L519))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L605`](../Src/EditBox.lua#L605))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L594`](../Src/EditBox.lua#L594))
+  - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L96`](../Src/EditBox.lua#L96))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L154`](../Src/EditBoxCompat.lua#L154))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
@@ -430,18 +430,18 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - History pointers: `HistoryCache` ([`../Src/EditBox.lua#L39`](`../Src/EditBox.lua#L39`))
   - `_lockdown`, `_overlayUnfocused` *private by convention; do not rely on* ([`../Src/EditBox.lua#L44-L56`](../Src/EditBox.lua#L44-L56)).
   - Internal constants/closures exported for submodules (`_UserBypassingYapper`, `_SetUserBypassingYapper`, `_BypassEditBox`, `_SetBypassEditBox`, `_SLASH_MAP`, `_TAB_CYCLE`, `_LABEL_PREFIXES`, `_GROUP_CHAT_TYPES`, `_CHATTYPE_TO_OVERRIDE_KEY`, `_REPLY_QUEUE_MAX`) *private by convention; do not rely on* ([`../Src/EditBox.lua#L329-L338`](../Src/EditBox.lua#L329-L338)).
-  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L504`](`../Src/EditBox.lua#L504`))
-  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L505`](`../Src/EditBox.lua#L505`))
-  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L508`](`../Src/EditBox.lua#L508`))
-  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L359`](`../Src/EditBox.lua#L359`))
-  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L510`](`../Src/EditBox.lua#L510`))
+  - Internal helper exports: `IsWhisperSlashPrefill` ([`../Src/EditBox.lua#L510`](`../Src/EditBox.lua#L510`))
+  - Internal helper exports: `ParseWhisperSlash` ([`../Src/EditBox.lua#L511`](`../Src/EditBox.lua#L511`))
+  - Internal helper exports: `GetLastTellTargetInfo` — returns chatType and name of the last person who whispered *you* ([`../Src/EditBox.lua#L514`](`../Src/EditBox.lua#L514`))
+  - Internal helper exports: `GetLastToldTargetInfo` — returns chatType and name of the last person *you* whispered (outgoing). Uses `ChatFrameUtil.GetLastToldTarget`; stays in sync with both Yapper and Blizzard sends. ([`../Src/EditBox.lua#L365`](`../Src/EditBox.lua#L365`))
+  - Internal helper exports: `SetFrameFillColour` ([`../Src/EditBox.lua#L516`](`../Src/EditBox.lua#L516`))
 - Methods:
-  - `ClearLockdownState` ([`../Src/EditBox.lua#L75`](../Src/EditBox.lua#L75))
-  - `AddReplyTarget` ([`../Src/EditBox.lua#L116`](../Src/EditBox.lua#L116))
-  - `NextReplyTarget` ([`../Src/EditBox.lua#L146`](../Src/EditBox.lua#L146))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L389`](../Src/EditBox.lua#L389))
-  - `SetOnSend` ([`../Src/EditBox.lua#L557`](../Src/EditBox.lua#L557))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L582`](../Src/EditBox.lua#L582))
+  - `ClearLockdownState` ([`../Src/EditBox.lua#L81`](../Src/EditBox.lua#L81))
+  - `AddReplyTarget` ([`../Src/EditBox.lua#L122`](../Src/EditBox.lua#L122))
+  - `NextReplyTarget` ([`../Src/EditBox.lua#L152`](../Src/EditBox.lua#L152))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L395`](../Src/EditBox.lua#L395))
+  - `SetOnSend` ([`../Src/EditBox.lua#L563`](../Src/EditBox.lua#L563))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L588`](../Src/EditBox.lua#L588))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -466,7 +466,10 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
 - Methods:
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L512`](../Src/EditBox/Overlay.lua#L512)).
+  - [NEW] `EditBox:ShowMultilineHint() → nil`: Show the onboarding hint once during the current session and let it fade ([`../Src/EditBox/Overlay.lua#L545`](../Src/EditBox/Overlay.lua#L545))
+  - [NEW] `EditBox:CreateMultilineHint() → nil`: Create the non-interactive hint frame lazily, using UIParent as its parent ([`../Src/EditBox/Overlay.lua#L512`](../Src/EditBox/Overlay.lua#L512))
+  - [NEW] `EditBox:HideMultilineHint() → nil`: Cancel and hide the session-only multiline onboarding hint. ([`../Src/EditBox/Overlay.lua#L494`](../Src/EditBox/Overlay.lua#L494))
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L672`](../Src/EditBox/Overlay.lua#L672)).
 
 ## EditBox.Handlers
 
@@ -474,7 +477,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
-  - `SetupOverlayScripts`, `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L995`](../Src/EditBox/Handlers.lua#L995), [`../Src/EditBox/Handlers.lua#L995`](../Src/EditBox/Handlers.lua#L995)).
+  - `SetupOverlayScripts`, `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L996`](../Src/EditBox/Handlers.lua#L996), [`../Src/EditBox/Handlers.lua#L996`](../Src/EditBox/Handlers.lua#L996)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -492,9 +495,9 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
-  - [NEW] `EditBox:RecordFallbackSend() → nil`: Record a message sent through Blizzard's native editbox (lockdown / bypass / ([`../Src/Hooks/ShowHide.lua#L874`](../Src/Hooks/ShowHide.lua#L874))
-  - [NEW] `EditBox:RetargetOpenWhisper() → nil`: Retarget the already-open overlay onto an external (transient) whisper. ([`../Src/Hooks/ShowHide.lua#L828`](../Src/Hooks/ShowHide.lua#L828))
-  - [NEW] `EditBox:IsNativeChatEditBox() → nil`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L816`](../Src/Hooks/ShowHide.lua#L816))
+  - [NEW] `EditBox:RecordFallbackSend() → nil`: Record a message sent through Blizzard's native editbox (lockdown / bypass / ([`../Src/Hooks/ShowHide.lua#L882`](../Src/Hooks/ShowHide.lua#L882))
+  - [NEW] `EditBox:RetargetOpenWhisper() → nil`: Retarget the already-open overlay onto an external (transient) whisper. ([`../Src/Hooks/ShowHide.lua#L836`](../Src/Hooks/ShowHide.lua#L836))
+  - [NEW] `EditBox:IsNativeChatEditBox() → nil`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L824`](../Src/Hooks/ShowHide.lua#L824))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
   - `EditBox:HandoffToBlizzard(silent?, bypassOpen?, isMultiline?)` - Lockdown handoff.
@@ -848,12 +851,12 @@ Build-time render schema module used by window/UI builders.
 
 - Description: Settings schema composition and category metadata.
 - Fields:
-  - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L518)).
+  - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L519)).
 - Methods:
   - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L341`](`../Src/Interface/Schema.lua#L341`))
-  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L484`](`../Src/Interface/Schema.lua#L484`))
-  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L492`](`../Src/Interface/Schema.lua#L492`))
-  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L498`](`../Src/Interface/Schema.lua#L498`))
+  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L485`](`../Src/Interface/Schema.lua#L485`))
+  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L493`](`../Src/Interface/Schema.lua#L493`))
+  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L499`](`../Src/Interface/Schema.lua#L499`))
 
 ## Interface.Config
 

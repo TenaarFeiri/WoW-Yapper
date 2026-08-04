@@ -15,23 +15,28 @@ YapperTable.WHATS_NEW = {
     ["2.4.0"] = {
         {
             title = "Spellcheck now colours misspelled words",
-            body  = "Misspelled words are now shown in a single misspelling colour instead of underline or highlight. "
-                .. "The marking stays with the text as you scroll, resize, or wrap lines, and it works correctly in the multiline composer.",
+            body  = "Misspelled words are now coloured directly instead of being underlined or highlighted. "
+                .. "The marking stays with the text when you scroll, resize the window, or wrap lines in multiline mode.",
         },
         {
-            title = "Colour codes stripped before sending",
-            body  = "Any |cff colour escapes pasted into chat (including the spellcheck marking) are stripped before a message is sent, "
-                .. "so they cannot leak into chat, history, or Blizzard's editbox during combat lockdown.",
-        },
-        {
-            title = "Multiline suggestion anchoring fixed",
-            body  = "The spellcheck suggestion dropdown and hint now anchor to the caret in the multiline editor, "
-                .. "even when the caret is on a wrapped line.",
-        },
-        {
-            title = "Settings cleanup",
-            body  = "The 'Underline style' setting and its two colour pickers are replaced by one 'Misspelling colour' picker. "
+            title = "Simpler spellcheck settings",
+            body  = "The old underline-style setting and its two colour pickers have been replaced by one Misspelling Colour option. "
                 .. "Your previous underline colour is migrated automatically.",
+        },
+        {
+            title = "Multiline mode is easier to discover",
+            body  = "A first-use hint now reminds you to press Shift-Enter to enter multiline mode. "
+                .. "It appears once per session and does not interrupt future opens.",
+        },
+        {
+            title = "Multiline and spellcheck fixes",
+            body  = "The spellcheck suggestion list and hint now appear at the caret, even on wrapped lines. "
+                .. "Multiline background colour changes also apply immediately while proxy mode is enabled.",
+        },
+        {
+            title = "Colour codes are removed before sending",
+            body  = "Colour codes pasted into chat, including spellcheck markings, are removed before sending. "
+                .. "They can no longer leak into chat, history, or Blizzard's editbox during combat handoff.",
         },
     },
     ["2.3.0"] = {

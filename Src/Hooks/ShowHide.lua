@@ -593,6 +593,14 @@ function EditBox:Show(origEditBox)
     -- API callback: notify external addons that editbox is shown.
     FireAPIEvent("EDITBOX_SHOW", self.ChatType, self.Target)
 
+    -- The onboarding hint is session-only and only belongs to the single-line
+    -- overlay. A recovered multiline draft may transition immediately, so the
+    -- state check prevents the hint from appearing in that path.
+    if not (State and State:IsMultiline())
+        and type(self.ShowMultilineHint) == "function" then
+        self:ShowMultilineHint()
+    end
+
     local overlay = self.Overlay
     local overlayEdit = self.OverlayEdit
     local after = C_Timer and C_Timer.After
