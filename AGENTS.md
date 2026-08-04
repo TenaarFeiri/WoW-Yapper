@@ -37,3 +37,12 @@ python3 tools/check_doc_refs.py --fix   # auto-relocate drifted references
   pointed at the overlay edit while Yapper is active; it MUST be cleared
   during lockdown handoff or Blizzard's `OpenChat` focuses a hidden frame
   and Enter presses are silently eaten.
+
+## Design notes
+
+- The single-line multiline onboarding hint is runtime-only and is owned by the
+  overlay lifecycle. It is created lazily as a non-interactive UIParent child so
+  screen-space positioning remains correct across scaled or undocked chat
+  frames; its session flag is not persisted because it should reappear after a
+  reload. The overlay hide hook cancels its timer because multiline entry hides
+  the overlay directly rather than going through `EditBox:Hide()`.
