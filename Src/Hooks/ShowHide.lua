@@ -96,6 +96,14 @@ end
 --- Present the overlay in place of a Blizzard editbox.
 --- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.
 function EditBox:Show(origEditBox)
+    -- Never replace the queue's active delivery editor. Manual queue
+    -- continuations are consumed by the hardware-event open paths before
+    -- Show() is reached.
+    local queue = YapperTable and YapperTable.Queue
+    if queue and queue.IsActive and queue:IsActive() then
+        return
+    end
+
     -- Don't want to open the overlay while UI is hidden, *unless* we're
     -- inside the housing editor; that mode purposely hides UIParent but we
     -- still want the chat overlay available.

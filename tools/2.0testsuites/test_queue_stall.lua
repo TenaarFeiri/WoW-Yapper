@@ -218,6 +218,17 @@ local function QueueIdle()
         and s.pending == 0 and s.inFlight == 0
 end
 
+-- Keep this suite runnable against the live 2.3.0 package, which predates
+-- Queue:IsActive(). The fallback is equivalent to the new helper.
+local function QueueIsActive()
+    if Queue.IsActive then
+        return Queue:IsActive()
+    end
+    return Queue.PendingEntry ~= nil
+        or #Queue.Entries > 0
+        or Queue.NeedsContinue == true
+end
+
 Queue:Init()
 
 -- ===========================================================================
@@ -264,6 +275,90 @@ check("Chunk 2 acked: chunk 3 now in-flight", #sentMessages == 3)
 SimulateAckEvent("CHAT_MSG_SAY", chunks[3])
 check("All chunks delivered, queue inactive", QueueIdle())
 check("No entries remain", #Queue.Entries == 0)
+
+-- ===========================================================================
+-- 1b. Final in-flight chunk still owns the queue/open path
+-- ===========================================================================
+print("\nTest 1b: final pending chunk blocks open and accepts ACK after UI state change")
+
+_G.IsInInstance = function() return true end
+ResetAll()
+
+Queue:Enqueue({ "Final emote chunk." }, "EMOTE", "Common", nil)
+Queue:Flush(false)
+check("Final emote sent", #sentMessages == 1 and sentMessages[1].text == "Final emote chunk.")
+check("Final pending chunk blocks overlay open", Queue:TryContinue() == true)
+check("Queue reports active while final chunk is pending", QueueIsActive() == true)
+
+-- Simulate an addon changing the UI state while the queue still owns the entry.
+YapperAPI:SetState("EDITING")
+SimulateAckEvent("CHAT_MSG_EMOTE", "Final emote chunk.")
+check("Pending EMOTE ACK is accepted after UI state change", Queue.PendingEntry == nil)
+check("Final pending chunk completes without re-send", QueueIdle() and #sentMessages == 1)
+check("Queue reports inactive after final ACK", QueueIsActive() == false)
+
+-- ===========================================================================
+-- 1c. Post-error multi-message duplicate stress
+-- ===========================================================================
+print("\nTest 1c: post-error extended-message duplicate stress")
+
+_G.IsInInstance = function() return true end
+ResetAll()
+
+local stressMessages = {
+    { "stress-1-a", "stress-1-b" },
+    { "stress-2-a", "stress-2-b" },
+    { "stress-3-a", "stress-3-b" },
+    { "stress-4-a", "stress-4-b" },
+    { "stress-5-a", "stress-5-b" },
+}
+
+for batchIndex, chunksForBatch in ipairs(stressMessages) do
+    local before = #sentMessages
+    Queue:Enqueue(chunksForBatch, "EMOTE", "Common", nil)
+    Queue:Flush(false)
+
+    check(("Stress batch %d first chunk sent once"):format(batchIndex),
+        #sentMessages == before + 1
+            and sentMessages[before + 1].text == chunksForBatch[1])
+
+    SimulateAckEvent("CHAT_MSG_EMOTE", chunksForBatch[1])
+
+    if batchIndex == 1 then
+        -- Fault-inject the old failure's state corruption after confirming
+        -- the fixed open gate would consume the attempted chat open.
+        check("Fault injection: final pending chunk blocks open", Queue:TryContinue() == true)
+        YapperAPI:SetState("EDITING")
+    end
+
+    SimulateAckEvent("CHAT_MSG_EMOTE", chunksForBatch[2])
+
+    -- On the reverted queue, the state corruption above makes this ACK get
+    -- ignored. Drive the resulting timeout/requeue/continuation path so the
+    -- test observes the actual duplicate retry instead of stopping early.
+    if QueueIsActive() then
+        FireAllTimers()
+        Queue:OnOpenChat()
+        SimulateAckEvent("CHAT_MSG_EMOTE", chunksForBatch[2])
+    end
+
+    if #sentMessages ~= before + 2 then
+        local observed = {}
+        for i = before + 1, #sentMessages do
+            observed[#observed + 1] = sentMessages[i].text
+        end
+        print(("  [INFO] Stress batch %d observed %d sends: %s"):format(
+            batchIndex, #sentMessages - before, table.concat(observed, ", ")))
+    end
+
+    check(("Stress batch %d completes with exactly two sends"):format(batchIndex),
+        #sentMessages == before + 2
+            and sentMessages[before + 1].text == chunksForBatch[1]
+            and sentMessages[before + 2].text == chunksForBatch[2]
+            and QueueIsActive() == false)
+end
+
+check("Post-error stress produced no duplicate sends", #sentMessages == (#stressMessages * 2))
 
 -- ===========================================================================
 -- 2. Stall timeout → Continue prompt → manual resume

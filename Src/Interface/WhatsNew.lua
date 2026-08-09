@@ -38,6 +38,13 @@ YapperTable.WHATS_NEW = {
             body  = "Colour codes pasted into chat, including spellcheck markings, are removed before sending. "
                 .. "They can no longer leak into chat, history, or Blizzard's editbox during combat handoff.",
         },
+        {
+            title = "Bug fixes",
+            body = "- Fixed issue where post duplication occurred when interrupting Yapper's sending state. "
+                .. "This could most often be triggered by opening Yapper while emotes are in transit. "
+                .. "You should no longer be able to open Yapper while it's multiposting.\n\n"
+                .. "- Fixed multiline mode not updating its background colour immediately when proxy mode was enabled. Changes now apply without requiring a reload.",
+        },
     },
     ["2.3.0"] = {
         {

@@ -16,6 +16,7 @@
 ### Bug Fixes
 
 - Fixed multiline mode not updating its background colour immediately when proxy mode was enabled. Changes now apply without requiring a reload.
+- Fixed issue where post duplication occurred when interrupting Yapper's sending state. This could most often be triggered by opening Yapper while emotes are in transit. You should no longer be able to open Yapper while it's multiposting.
 
 ### Technical Changes
 

@@ -343,6 +343,13 @@ function Queue:GetActivePolicySnapshot()
     }
 end
 
+--- Return true while any queued delivery still owns the send pipeline.
+function Queue:IsActive()
+    return self.PendingEntry ~= nil
+        or #self.Entries > 0
+        or self.NeedsContinue == true
+end
+
 function Queue:ClearPendingAck()
     self.PendingAckEntry = nil
     self.PendingAckText = nil
@@ -535,9 +542,10 @@ function Queue:IsAcceptableAck(expected, received)
 end
 
 function Queue:OnChatEvent(event, ...)
-    if not State:IsSending() and not State:IsStalled() then return end
+    -- PendingEntry is the queue's ownership signal. UI state can change when
+    -- another addon opens or focuses an editbox, but a valid pending entry
+    -- must still be allowed to consume its acknowledgement.
     if not self.PendingEntry then return end
-
 
     -- First match the echoed text and expected event. Some chat events
     -- (notably whispers) may not provide a sender GUID in the usual arg
@@ -616,16 +624,14 @@ function Queue:TryContinue()
     if self.NeedsContinue then
         return true
     end
-    -- Also suppress while a chunk is in-flight awaiting ACK, but only
-    -- when there are more chunks still queued behind it.  Without this
-    -- guard there is a race window between OnOpenChat dispatching the
-    -- next chunk (NeedsContinue=false) and the stall timer firing, during
-    -- which the overlay can sneak open mid-sequence.
-    -- We do NOT suppress when PendingEntry is the last (or only) item:
-    -- that would block the user from re-opening after a normal single send.
-    if State:IsSending() and self.PendingEntry and #self.Entries > 0 then
+
+    -- Any pending entry is an extended-message delivery still awaiting its
+    -- acknowledgement. Single-chunk sends bypass Queue entirely, so there is
+    -- no normal-send case that needs the overlay to open here.
+    if self.PendingEntry then
         return true
     end
+
     return false
 end
 
