@@ -1,3 +1,8 @@
+# 2.4.1
+
+### Bug Fixes
+- Fixed issue where the new colour sanitiser was too aggressive and broke item links.
+
 # 2.4.0
 
 ### New Features

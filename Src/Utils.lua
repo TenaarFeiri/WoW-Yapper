@@ -210,22 +210,112 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Strip display-only WoW escape sequences from text: colour opens/resets,
---- texture escapes, and atlas markers. Hyperlinks (|H...|h...|h) are preserved
---- — only their colour wrapping is removed; the link structure stays intact.
+--- texture escapes, and atlas markers. Hyperlinks (|H...|h...|h) are preserved,
+--- including the quality-colour wrapper required by item and custom links.
 --- Used to canonicalise editbox text (spellcheck recolouring injects colour
 --- escapes into the widget) and to sanitise outgoing chat text.
 --- @param text any
 --- @return string
 function Utils:StripDisplayEscapes(text)
     if type(text) ~= "string" then return "" end
-    if text == "" then return text end
-    if not text:find("|", 1, true) then return text end
-    text = text:gsub("|c%x%x%x%x%x%x%x%x", "")
-    text = text:gsub("|cn[^:]*:", "")
-    text = text:gsub("|r", "")
-    text = text:gsub("|T.-|t", "")
-    text = text:gsub("|A.-|a", "")
-    return text
+    if text == "" or not text:find("|", 1, true) then return text end
+
+    -- Item and custom hyperlinks require their quality-colour wrapper to be
+    -- sent together with the |H...|h...|h payload.  Removing that wrapper
+    -- produces an invalid chat escape, even though the hyperlink body looks
+    -- intact.  Keep complete links (including a directly preceding colour
+    -- open and following reset) while removing display-only escapes elsewhere.
+    local lower = text:lower()
+    local out = {}
+    local pos = 1
+    local length = #text
+
+    local function hyperlinkEnd(startPos)
+        local first = lower:find("|h", startPos + 2, true)
+        if not first then return nil end
+        local second = lower:find("|h", first + 2, true)
+        return second and second + 1 or first + 1
+    end
+
+    local function appendHyperlink(startPos, endPos, withColour)
+        local after = endPos + 1
+        if withColour and lower:sub(after, after + 1) == "|r" then
+            endPos = after + 1
+        end
+        out[#out + 1] = text:sub(startPos, endPos)
+        return endPos + 1
+    end
+
+    while pos <= length do
+        local isPipe = lower:sub(pos, pos) == "|"
+        local char2 = lower:sub(pos + 1, pos + 1)
+        local consumed = false
+
+        -- Preserve the standard |cAARRGGBB|H...|h...|h|r form.  Named
+        -- colours are handled as well for modern/custom link producers.
+        if isPipe and char2 == "c" then
+            local colourEnd
+            if lower:sub(pos + 2, pos + 2) == "n" then
+                local colon = text:find(":", pos + 3, true)
+                colourEnd = colon
+            elseif text:sub(pos + 2, pos + 9):match("^%x%x%x%x%x%x%x%x$") then
+                colourEnd = pos + 9
+            end
+
+            if colourEnd and lower:sub(colourEnd + 1, colourEnd + 2) == "|h" then
+                local linkEnd = hyperlinkEnd(colourEnd + 1)
+                if linkEnd then
+                    pos = appendHyperlink(pos, linkEnd, true)
+                    consumed = true
+                end
+            end
+
+            -- This is a display-only colour open, not a hyperlink wrapper.
+            if not consumed and colourEnd then
+                pos = colourEnd + 1
+                consumed = true
+            end
+        end
+
+        if not consumed and isPipe and char2 == "h" then
+            -- Preserve an already-unwrapped/custom hyperlink body.  The
+            -- following |r, if any, is still display-only and is stripped by
+            -- the normal reset branch below.
+            local linkEnd = hyperlinkEnd(pos)
+            if linkEnd then
+                pos = appendHyperlink(pos, linkEnd, false)
+                consumed = true
+            end
+        end
+
+        if not consumed and isPipe and char2 == "r" then
+            pos = pos + 2
+            consumed = true
+        end
+
+        if not consumed and isPipe and char2 == "t" then
+            local close = lower:find("|t", pos + 2, true)
+            if close then
+                pos = close + 2
+                consumed = true
+            end
+        end
+
+        if not consumed and isPipe and char2 == "a" then
+            local close = lower:find("|a", pos + 2, true)
+            if close then
+                pos = close + 2
+                consumed = true
+            end
+        end
+
+        if not consumed then
+            out[#out + 1] = text:sub(pos, pos)
+            pos = pos + 1
+        end
+    end
+
+    return table.concat(out)
 end
 
 -- ---------------------------------------------------------------------------

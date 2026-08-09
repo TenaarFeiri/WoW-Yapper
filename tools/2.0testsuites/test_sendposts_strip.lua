@@ -92,10 +92,18 @@ local linked = "look |cffff0000|Hitem:1234|h[Shiny]|h|r here"
 ok = Chat:SendPosts({ linked }, "SAY", nil, nil)
 
 check("send succeeds", ok == true)
-check("link structure kept, colour gone",
-    delivered[1] == "look |Hitem:1234|h[Shiny]|h here")
+check("item link keeps its required colour wrapper",
+    delivered[1] == "look |cffff0000|Hitem:1234|h[Shiny]|h|r here")
 check("history matches delivery",
     historyAdds[1] and historyAdds[1].text == delivered[1])
+
+historyAdds = {}
+delivered = {}
+local modernLinked = "look |cnIQ4:|Hitem:1234|h[Coiled Serpent Idol]|h|r here"
+ok = Chat:SendPosts({ modernLinked }, "SAY", nil, nil)
+check("modern named-colour link sends successfully", ok == true)
+check("modern named-colour wrapper survives",
+    delivered[1] == modernLinked)
 
 -- ===========================================================================
 -- Test 3: multi-line posts are each stripped

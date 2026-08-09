@@ -148,6 +148,21 @@ check("hyperlink bytes count (preserved)",
 check("texture escape skipped", Recolour.CanonicalCursorFromText("a|Tx|tb", 6) == 1)
 check("atlas escape skipped", Recolour.CanonicalCursorFromText("a|Ax|ab", 6) == 1)
 check("named colour skipped", Recolour.CanonicalCursorFromText("|cnRED:hi|r", 7) == 0)
+local itemLink = "|cffa335ee|Hitem:1234|h[Shiny Sword]|h|r"
+check("quality-coloured item link remains canonical",
+    YapperTable.Utils:StripDisplayEscapes(itemLink) == itemLink)
+local itemLinkBox = makeBox(itemLink, #itemLink)
+check("Recolour canonical text retains item link wrapper",
+    Recolour.CanonicalText(itemLinkBox) == itemLink)
+check("quality-coloured item link cursor bytes count",
+    Recolour.CanonicalCursorFromText(itemLink, #itemLink) == #itemLink)
+local namedItemLink = "|cnIQ4:|Hitem:1234|h[Coiled Serpent Idol]|h|r"
+local namedRanges = YapperTable.Spellcheck:GetIgnoredRanges(namedItemLink)
+check("named-colour item link is one ignored range",
+    namedRanges[1] and namedRanges[1].startPos == 1
+        and namedRanges[1].endPos == #namedItemLink)
+check("named-colour marker cannot be recoloured",
+    YapperTable.Spellcheck:IsRangeIgnored(2, 6, namedRanges))
 check("nil text gives 0", Recolour.CanonicalCursorFromText(nil, 5) == 0)
 
 -- ===========================================================================

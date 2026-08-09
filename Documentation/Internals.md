@@ -311,17 +311,17 @@ Runs during `Rebuild` (same debounce cadence the old underline refresh used).
   (escape-free) text and canonical byte offsets; escapes exist only at rest
   inside the widget and `Recolour:Apply` is their sole writer.
 - Methods:
-  - `CanonicalText` ([`../Src/Spellcheck/Recolour.lua#L33`](`../Src/Spellcheck/Recolour.lua#L33`))
-  - `CanonicalCursorFromText` ([`../Src/Spellcheck/Recolour.lua#L50`](`../Src/Spellcheck/Recolour.lua#L50`))
-  - `CanonicalCursor` ([`../Src/Spellcheck/Recolour.lua#L113`](`../Src/Spellcheck/Recolour.lua#L113`))
-  - `CanonicalTextAndCursor` ([`../Src/Spellcheck/Recolour.lua#L125`](`../Src/Spellcheck/Recolour.lua#L125`))
-  - `ResolveColour` ([`../Src/Spellcheck/Recolour.lua#L147`](`../Src/Spellcheck/Recolour.lua#L147`)) — seam for future visibility adaptation; currently returns the configured `Spellcheck.MisspellingColour` verbatim.
-  - `ColourPrefix` ([`../Src/Spellcheck/Recolour.lua#L158`](`../Src/Spellcheck/Recolour.lua#L158`))
-  - `BuildDisplayText` ([`../Src/Spellcheck/Recolour.lua#L179`](`../Src/Spellcheck/Recolour.lua#L179`))
-  - `ToDisplayCursor` ([`../Src/Spellcheck/Recolour.lua#L211`](`../Src/Spellcheck/Recolour.lua#L211`))
-  - `Apply` ([`../Src/Spellcheck/Recolour.lua#L313`](`../Src/Spellcheck/Recolour.lua#L313`)) — diff-before-SetText is the recursion loop-breaker and caret-stability guarantee.
-  - `Clear` ([`../Src/Spellcheck/Recolour.lua#L355`](`../Src/Spellcheck/Recolour.lua#L355`))
-  - `Invalidate` ([`../Src/Spellcheck/Recolour.lua#L375`](`../Src/Spellcheck/Recolour.lua#L375`))
+  - `CanonicalText` ([`../Src/Spellcheck/Recolour.lua#L61`](`../Src/Spellcheck/Recolour.lua#L61`))
+  - `CanonicalCursorFromText` ([`../Src/Spellcheck/Recolour.lua#L78`](`../Src/Spellcheck/Recolour.lua#L78`))
+  - `CanonicalCursor` ([`../Src/Spellcheck/Recolour.lua#L152`](`../Src/Spellcheck/Recolour.lua#L152`))
+  - `CanonicalTextAndCursor` ([`../Src/Spellcheck/Recolour.lua#L164`](`../Src/Spellcheck/Recolour.lua#L164`))
+  - `ResolveColour` ([`../Src/Spellcheck/Recolour.lua#L186`](`../Src/Spellcheck/Recolour.lua#L186`)) — seam for future visibility adaptation; currently returns the configured `Spellcheck.MisspellingColour` verbatim.
+  - `ColourPrefix` ([`../Src/Spellcheck/Recolour.lua#L197`](`../Src/Spellcheck/Recolour.lua#L197`))
+  - `BuildDisplayText` ([`../Src/Spellcheck/Recolour.lua#L218`](`../Src/Spellcheck/Recolour.lua#L218`))
+  - `ToDisplayCursor` ([`../Src/Spellcheck/Recolour.lua#L250`](`../Src/Spellcheck/Recolour.lua#L250`))
+  - `Apply` ([`../Src/Spellcheck/Recolour.lua#L352`](`../Src/Spellcheck/Recolour.lua#L352`)) — diff-before-SetText is the recursion loop-breaker and caret-stability guarantee.
+  - `Clear` ([`../Src/Spellcheck/Recolour.lua#L394`](`../Src/Spellcheck/Recolour.lua#L394`))
+  - `Invalidate` ([`../Src/Spellcheck/Recolour.lua#L414`](`../Src/Spellcheck/Recolour.lua#L414`))
 - Invariants:
   - Outgoing text is stripped at `Chat:SendPosts` entry and at Blizzard
     handoff writes; drafts/history are always stored canonical.
@@ -985,15 +985,15 @@ Per-category page builders called by `BuildConfigUI`.
 
 - Methods:
   - [NEW] `Utils:StripDisplayEscapes(text) → string`: Strip display-only WoW escape sequences from text: colour opens/resets, ([`../Src/Utils.lua#L219`](../Src/Utils.lua#L219))
-  - [NEW] `Utils:IsUnambiguousBnetTarget(target) → boolean`: Returns true when target is unambiguously a Battle.net identifier ([`../Src/Utils.lua#L263`](../Src/Utils.lua#L263))
-  - [NEW] `Utils:SetFontIfChanged(widget, face, size, flags) → boolean changed  True if SetFont was actually called`: SetFont only when the target font differs from the current one. ([`../Src/Utils.lua#L243`](../Src/Utils.lua#L243))
+  - [NEW] `Utils:IsUnambiguousBnetTarget(target) → boolean`: Returns true when target is unambiguously a Battle.net identifier ([`../Src/Utils.lua#L353`](../Src/Utils.lua#L353))
+  - [NEW] `Utils:SetFontIfChanged(widget, face, size, flags) → boolean changed  True if SetFont was actually called`: SetFont only when the target font differs from the current one. ([`../Src/Utils.lua#L333`](../Src/Utils.lua#L333))
   - [NEW] `Utils:NormaliseCharName(name) → string|nil`: Strip the realm suffix from a character name and lowercase it. ([`../Src/Utils.lua#L201`](../Src/Utils.lua#L201))
   - [NEW] `Utils:IsChatOrCombatLockdown() → nil`: Return true when either chat-messaging or combat lockdown is active. ([`../Src/Utils.lua#L114`](../Src/Utils.lua#L114))
   - [NEW] `Utils:IsCombatLockdown() → nil`: Return true when protected-frame combat restrictions are active. ([`../Src/Utils.lua#L101`](../Src/Utils.lua#L101))
   - [NEW] `Utils:AssertType(value, expectedType, default) → any  Original value if type matches`: Assert type matches expected, return default if not. ([`../Src/Utils.lua#L158`](../Src/Utils.lua#L158))
   - [NEW] `Utils:EnsureTablePath(root) → table  The deepest table in the path`: Ensure a table path exists, creating intermediate tables as needed. ([`../Src/Utils.lua#L140`](../Src/Utils.lua#L140))
   - [NEW] `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L132`](../Src/Utils.lua#L132))
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L278`](../Src/Utils.lua#L278))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L368`](../Src/Utils.lua#L368))
 
 ## TotalRP3Bridge
 

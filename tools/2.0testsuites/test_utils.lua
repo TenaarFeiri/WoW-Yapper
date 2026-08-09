@@ -236,8 +236,12 @@ check("named colour stripped", Utils:StripDisplayEscapes("|cnRED:hi|r") == "hi")
 check("texture escape stripped", Utils:StripDisplayEscapes("a|TInterface\\x:0|tb") == "ab")
 check("atlas escape stripped", Utils:StripDisplayEscapes("a|Aatlas:0|ab") == "ab")
 check("hyperlink preserved", Utils:StripDisplayEscapes("|Hitem:1234|h[Link]|h") == "|Hitem:1234|h[Link]|h")
-check("coloured hyperlink keeps link, loses colour",
-    Utils:StripDisplayEscapes("|cffff0000|Hitem:1|h[L]|h|r") == "|Hitem:1|h[L]|h")
+check("coloured hyperlink keeps required quality colour",
+    Utils:StripDisplayEscapes("|cffff0000|Hitem:1|h[L]|h|r") == "|cffff0000|Hitem:1|h[L]|h|r")
+check("custom coloured hyperlink keeps wrapper",
+    Utils:StripDisplayEscapes("|cFF00FF00|Hfoo:bar|h[Foo]|h|r") == "|cFF00FF00|Hfoo:bar|h[Foo]|h|r")
+check("modern named-colour item link keeps wrapper",
+    Utils:StripDisplayEscapes("|cnIQ4:|Hitem:1|h[Idol]|h|r") == "|cnIQ4:|Hitem:1|h[Idol]|h|r")
 check("idempotent", (function()
     local once = Utils:StripDisplayEscapes("|cffff0000hello|r world")
     return Utils:StripDisplayEscapes(once) == once

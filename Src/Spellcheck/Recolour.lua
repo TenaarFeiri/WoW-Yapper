@@ -4,8 +4,9 @@
 
     The overlay and multiline EditBoxes carry |cffrrggbb ... |r colour escapes
     around misspelled words at rest (injected by Recolour:Apply). All module
-    logic operates on canonical (escape-free) text and canonical byte offsets;
-    the helpers below are the single translation layer between the two spaces.
+    logic operates on canonical text and canonical byte offsets; semantic
+    hyperlink wrappers are retained while display-only escapes are removed.
+    The helpers below are the single translation layer between the two spaces.
 ]]
 
 local _, YapperTable = ...
@@ -21,6 +22,33 @@ local string_format = string.format
 
 -- Byte constants for '|', 'c', 'r', 'T', 'A'
 local PIPE = 124
+
+-- Return the end byte of a quality-coloured hyperlink, including its reset.
+-- The colour wrapper is semantic for WoW links, so it remains in canonical
+-- text and must count toward canonical cursor offsets.
+local function SemanticLinkEnd(text, startPos)
+    local lower = text:lower()
+    if lower:sub(startPos + 1, startPos + 1) ~= "c" then return nil end
+
+    local colourEnd
+    if lower:sub(startPos + 2, startPos + 2) == "n" then
+        colourEnd = text:find(":", startPos + 3, true)
+    elseif text:sub(startPos + 2, startPos + 9):match("^%x%x%x%x%x%x%x%x$") then
+        colourEnd = startPos + 9
+    end
+    if not colourEnd or lower:sub(colourEnd + 1, colourEnd + 2) ~= "|h" then return nil end
+
+    local first = lower:find("|h", colourEnd + 3, true)
+    if not first then return nil end
+    local second = lower:find("|h", first + 2, true)
+    if not second then return nil end
+
+    local endPos = second + 1
+    if lower:sub(endPos + 1, endPos + 2) == "|r" then
+        endPos = endPos + 2
+    end
+    return endPos
+end
 
 -- ---------------------------------------------------------------------------
 -- Canonical accessors
@@ -40,10 +68,10 @@ function Recolour.CanonicalText(box)
 end
 
 --- Translate a display byte offset (from GetCursorPosition) into a canonical
---- byte offset by walking the text and skipping stripped escape sequences
---- atomically. Hyperlink escapes are preserved in canonical text, so they
---- count on both sides; only |c/|cn/|r/|T|t/|A|a sequences are skipped.
---- A position landing inside an escape sequence clamps to the sequence start.
+--- byte offset by walking the text and skipping display-only escape sequences
+--- atomically. Hyperlink escapes, including semantic quality colours, are
+--- preserved in canonical text and count on both sides. A position landing
+--- inside a display-only escape sequence clamps to the sequence start.
 --- @param text string
 --- @param displayPos number
 --- @return number
@@ -56,48 +84,59 @@ function Recolour.CanonicalCursorFromText(text, displayPos)
     local n = #text
     while i <= displayPos and i <= n do
         if string_byte(text, i) == PIPE then
-            local nxt = string_byte(text, i + 1)
-            if nxt == 99 then -- 'c': |c + 8 hex, or |cnNAME:
-                if string_byte(text, i + 2) == 110 then -- 'n'
-                    local close = string_find(text, ":", i + 3, true)
-                    if close and close <= displayPos then
-                        i = close + 1
+            -- Unlike spellcheck colour runs, a link's quality colour is part
+            -- of the canonical text.  Count it rather than stripping it from
+            -- the cursor coordinate space.
+            local semanticEnd = SemanticLinkEnd(text, i)
+            if semanticEnd then
+                local consumed = math.min(displayPos, semanticEnd) - i + 1
+                canon = canon + consumed
+                if displayPos < semanticEnd then return canon end
+                i = semanticEnd + 1
+            else
+                local nxt = string_byte(text, i + 1)
+                if nxt == 99 then -- 'c': |c + 8 hex, or |cnNAME:
+                    if string_byte(text, i + 2) == 110 then -- 'n'
+                        local close = string_find(text, ":", i + 3, true)
+                        if close and close <= displayPos then
+                            i = close + 1
+                        else
+                            return canon
+                        end
+                    elseif i + 9 <= displayPos then
+                        i = i + 10
                     else
                         return canon
                     end
-                elseif i + 9 <= displayPos then
-                    i = i + 10
+                elseif nxt == 114 then -- 'r': |r
+                    if i + 1 <= displayPos then
+                        i = i + 2
+                    else
+                        return canon
+                    end
+                elseif nxt == 84 then -- 'T': |T...|t
+                    local close = string_find(text, "|t", i + 2, true)
+                    if close and close + 1 <= displayPos then
+                        i = close + 2
+                    elseif close then
+                        return canon
+                    else
+                        i = i + 1 -- malformed; count the pipe as a byte
+                    end
+                elseif nxt == 65 then -- 'A': |A...|a
+                    local close = string_find(text, "|a", i + 2, true)
+                    if close and close + 1 <= displayPos then
+                        i = close + 2
+                    elseif close then
+                        return canon
+                    else
+                        i = i + 1
+                    end
                 else
-                    return canon
-                end
-            elseif nxt == 114 then -- 'r': |r
-                if i + 1 <= displayPos then
-                    i = i + 2
-                else
-                    return canon
-                end
-            elseif nxt == 84 then -- 'T': |T...|t
-                local close = string_find(text, "|t", i + 2, true)
-                if close and close + 1 <= displayPos then
-                    i = close + 2
-                elseif close then
-                    return canon
-                else
-                    i = i + 1 -- malformed; count the pipe as a byte
-                end
-            elseif nxt == 65 then -- 'A': |A...|a
-                local close = string_find(text, "|a", i + 2, true)
-                if close and close + 1 <= displayPos then
-                    i = close + 2
-                elseif close then
-                    return canon
-                else
+                    -- |H hyperlinks and anything else: preserved, counts as bytes.
+                    canon = canon + 1
                     i = i + 1
                 end
-            else
-                -- |H hyperlinks and anything else: preserved, counts as bytes.
-                canon = canon + 1
-                i = i + 1
             end
         else
             canon = canon + 1
