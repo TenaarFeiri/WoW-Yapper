@@ -125,6 +125,19 @@ section "Gating suites (suite dir)"
 for t in "${GATING_FROM_SUITEDIR[@]}"; do run_suite "$t" "$SUITES"; done
 
 # ---------------------------------------------------------------------------
+# Contract tests execute the real chat pipeline against a deterministic WoW
+# runtime/server model. Their runner also syntax-checks every contract fixture.
+# ---------------------------------------------------------------------------
+section "Chat contract tests"
+if "$ROOT/tools/contract-tests/run.sh"; then
+    echo "  [PASS] chat contract tests"
+else
+    FAILED=$((FAILED + 1))
+    FAILED_NAMES+=("contract-tests")
+    echo "  [FAIL] chat contract tests"
+fi
+
+# ---------------------------------------------------------------------------
 section "Summary"
 echo "  Suites passed: $PASSED"
 echo "  Failures:      $FAILED"

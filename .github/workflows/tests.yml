@@ -17,5 +17,5 @@ jobs:
       - name: Install Lua 5.1
         run: sudo apt-get update && sudo apt-get install -y lua5.1
 
-      - name: Run gating tests
+      - name: Run gating and chat contract tests
         run: LUA=lua5.1 LUAC=luac5.1 tools/run_tests.sh
