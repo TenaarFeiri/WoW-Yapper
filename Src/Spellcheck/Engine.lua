@@ -159,6 +159,17 @@ function Spellcheck:GetIgnoredRanges(text)
     local ranges = {}
     local idx = 1
     while true do
+        local s, e = text:find("|cn[^:]*:|H.-|h.-|h", idx)
+        if not s then break end
+        if text:sub(e + 1, e + 2) == "|r" then
+            e = e + 2
+        end
+        ranges[#ranges + 1] = { startPos = s, endPos = e }
+        idx = e + 1
+    end
+
+    idx = 1
+    while true do
         local s, e = text:find("|H.-|h.-|h", idx)
         if not s then break end
         ranges[#ranges + 1] = { startPos = s, endPos = e }

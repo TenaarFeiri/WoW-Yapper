@@ -140,6 +140,11 @@ function EditBox:Show(origEditBox)
                     mlb:SetFocus()
                 end
             end)
+            -- Keep Blizzard's focus override aligned with the visible editor
+            -- when a chat-open event arrives during multiline mode.
+            if type(self.UpdateFocusOverride) == "function" then
+                self:UpdateFocusOverride()
+            end
         end
         return
     end

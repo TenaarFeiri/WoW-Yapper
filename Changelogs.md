@@ -2,6 +2,7 @@
 
 ### Bug Fixes
 - Fixed issue where the new colour sanitiser was too aggressive and broke item links.
+- Fixed issue where links were unable to be added to the multiline editor.
 
 # 2.4.0
 

@@ -47,6 +47,8 @@ loadModule("Src/Utils.lua")
 YapperTable.Utils.Print = function() end
 
 loadModule("Src/Spellcheck/Recolour.lua")
+loadModule("Src/Spellcheck.lua")
+loadModule("Src/Spellcheck/Engine.lua")
 
 local Recolour = YapperTable.Recolour
 
@@ -156,6 +158,7 @@ check("Recolour canonical text retains item link wrapper",
     Recolour.CanonicalText(itemLinkBox) == itemLink)
 check("quality-coloured item link cursor bytes count",
     Recolour.CanonicalCursorFromText(itemLink, #itemLink) == #itemLink)
+
 local namedItemLink = "|cnIQ4:|Hitem:1234|h[Coiled Serpent Idol]|h|r"
 local namedRanges = YapperTable.Spellcheck:GetIgnoredRanges(namedItemLink)
 check("named-colour item link is one ignored range",

@@ -590,6 +590,19 @@ function EditBox:HookAllChatFrames()
     -- inserting text into the hidden YapperOverlayEditBox and failing SetFocus.
     if not self._insertLinkHooked then
         hooksecurefunc("ChatEdit_InsertLink", function(text)
+            -- Keep the editor that Blizzard just routed to focused.  This is
+            -- especially important for multiline, whose frame replaces the
+            -- hidden single-line overlay while the link API is running.
+            local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
+            local routedEditor = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
+                and ChatFrameUtil.GetActiveWindow()
+            if activeEditor and routedEditor == activeEditor then
+                if activeEditor.SetFocus then
+                    activeEditor:SetFocus()
+                end
+                return
+            end
+
             if CHAT_FOCUS_OVERRIDE and CHAT_FOCUS_OVERRIDE == self.OverlayEdit then
                 if not (self.Overlay and self.Overlay:IsShown()) then
                     self:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)

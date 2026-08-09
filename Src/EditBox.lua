@@ -91,26 +91,38 @@ function EditBox:ClearLockdownState()
     ld.eventRunning = false
 end
 
+--- Return Yapper's currently visible chat editor, preferring multiline while
+--- it is open and falling back to the single-line overlay.
+function EditBox:GetActiveEditor()
+    local ml = YapperTable.Multiline
+    if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox then
+        return ml.EditBox
+    end
+    if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit then
+        return self.OverlayEdit
+    end
+    return nil
+end
+
 --- Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE
---- based on whether Yapper is active, not in lockdown, and not bypassed.
+--- based on the currently visible Yapper editor, lockdown, and bypass state.
 function EditBox:UpdateFocusOverride()
     if ChatFrameUtil and ChatFrameUtil.SetChatFocusOverride then
         local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
         local inCombat = InCombatLockdown and InCombatLockdown()
-        -- If we are in combat or lockdown, but the overlay is currently shown and not handed off yet,
-        -- keep the override active so the user can finish typing (during the 1.5s idle timer).
-        local overlayActive = self.Overlay and self.Overlay:IsShown() and not self._lockdown.handedOff
+        local activeEditor = self:GetActiveEditor()
+        local editorActive = activeEditor and not self._lockdown.handedOff
 
-        -- Only install CHAT_FOCUS_OVERRIDE while Yapper is actually visible.
-        -- Keeping it active while hidden makes ChatFrameUtil.OpenChat("") short-circuit
-        -- to the hidden overlay and can break addons that rely on OpenChat +
-        -- ChatEdit_GetActiveWindow().
-        if overlayActive
+        -- Only install CHAT_FOCUS_OVERRIDE while a Yapper editor is actually
+        -- visible. Keeping it active while hidden makes ChatFrameUtil.OpenChat("")
+        -- short-circuit to a hidden editor and can break addons that rely on
+        -- OpenChat + ChatEdit_GetActiveWindow().
+        if editorActive
             and not UserBypassingYapper
             and not BypassEditBox
-            and not ((inLockdown or inCombat) and not overlayActive)
-            and self.OverlayEdit then
-            ChatFrameUtil.SetChatFocusOverride(self.OverlayEdit)
+            and not ((inLockdown or inCombat) and not editorActive)
+        then
+            ChatFrameUtil.SetChatFocusOverride(activeEditor)
         else
             ChatFrameUtil.ClearChatFocusOverride()
         end

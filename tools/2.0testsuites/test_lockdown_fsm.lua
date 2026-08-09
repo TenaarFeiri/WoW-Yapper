@@ -55,6 +55,7 @@ _G.ChatFrameUtil = {
     SetChatFocusOverride = function(box) focusOverride = box end,
     ClearChatFocusOverride = function() focusOverride = nil end,
     GetChatFocusOverride = function() return focusOverride end,
+
     DeactivateChat = function() end,
     OpenChat = function() end,
 }
@@ -300,6 +301,21 @@ ResetWorld()
 EditBox:Show(blizzBox)
 EditBox:UpdateFocusOverride()
 check("no lockdown + overlay open: override set (steady state)", focusOverride == EditBox.OverlayEdit)
+
+-- Multiline takes ownership while its frame is visible, then returns it to
+-- the overlay when the frame closes.
+local multilineFrame = MockFrame("YapperMultilineFrame")
+local multilineEdit = MockEditBoxFrame("YapperMultilineEdit")
+YapperTable.Multiline = { Frame = multilineFrame, EditBox = multilineEdit }
+multilineFrame:Show()
+EditBox:UpdateFocusOverride()
+check("multiline open: active editor is multiline", EditBox:GetActiveEditor() == multilineEdit)
+check("multiline open: focus override -> multiline", focusOverride == multilineEdit)
+multilineFrame:Hide()
+EditBox:UpdateFocusOverride()
+check("multiline closed: active editor returns to overlay", EditBox:GetActiveEditor() == EditBox.OverlayEdit)
+check("multiline closed: focus override -> overlay", focusOverride == EditBox.OverlayEdit)
+YapperTable.Multiline = nil
 
 -- No lockdown, overlay CLOSED: override cleared. Yapper no longer keeps a
 -- stale CHAT_FOCUS_OVERRIDE pointing at the hidden overlay while closed — that

@@ -12,6 +12,13 @@ local _, YapperTable = ...
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
+    ["2.4.1"] = {
+        {
+            title = "Bug Fixes",
+            body = "- Fixed issue where the new colour sanitiser was too aggressive and broke item links.\n\n"
+                .. "- Fixed issue where links were unable to be added to the multiline editor.",
+        },
+    },
     ["2.4.0"] = {
         {
             title = "Spellcheck now colours misspelled words",

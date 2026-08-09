@@ -155,15 +155,12 @@ if ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
     local origGetActiveWindow = ChatFrameUtil.GetActiveWindow
     ChatFrameUtil.GetActiveWindow = function()
         local eb = YapperTable.EditBox
-        if eb and eb.Overlay and eb.Overlay:IsShown() then
+        local activeEditor = eb and eb.GetActiveEditor and eb:GetActiveEditor()
+        if activeEditor then
             local bypass = eb._UserBypassingYapper and eb._UserBypassingYapper()
             local preShow = eb._preShowSuppressed
             if not bypass and not preShow and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                local ml = YapperTable.Multiline
-                if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox then
-                    return ml.EditBox
-                end
-                return eb.OverlayEdit
+                return activeEditor
             end
         end
         return origGetActiveWindow()
@@ -178,13 +175,16 @@ if ChatFrameUtil and ChatFrameUtil.FocusActiveWindow then
     local origFocusActiveWindow = ChatFrameUtil.FocusActiveWindow
     ChatFrameUtil.FocusActiveWindow = function()
         local eb = YapperTable.EditBox
-        -- If Yapper overlay is active, manually focus it and skip the Blizzard path
-        if eb and eb.Overlay and eb.Overlay:IsShown() and eb.OverlayEdit then
+        -- Focus whichever Yapper editor is visible and skip Blizzard's path.
+        -- ActivateChat() clears CHAT_FOCUS_OVERRIDE, so routing through the
+        -- native path would immediately undo the active-editor migration.
+        local activeEditor = eb and eb.GetActiveEditor and eb:GetActiveEditor()
+        if activeEditor then
             local bypass = eb._UserBypassingYapper and eb._UserBypassingYapper()
             local preShow = eb._preShowSuppressed
             if not bypass and not preShow and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                eb.OverlayEdit:SetFocus()
-                return -- Skip Blizzard's FocusActiveWindow to preserve our override
+                activeEditor:SetFocus()
+                return -- Preserve the override for the active Yapper editor.
             end
         end
         return origFocusActiveWindow()

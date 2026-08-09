@@ -749,6 +749,10 @@ function Multiline:Enter(text, chatType, language, target)
 	-- call corrects it once the geometry is actually resolved.
 	self:UpdateLabelGap()
 	self.EditBox:SetFocus()
+	-- Move Blizzard's focus override to the editor that is now visible.
+	if eb and type(eb.UpdateFocusOverride) == "function" then
+		eb:UpdateFocusOverride()
+	end
 
 	-- Bind spellcheck to the multiline EditBox so underlines draw inside
 	-- the multiline frame instead of (the now-hidden) overlay.
@@ -847,6 +851,11 @@ function Multiline:Exit(restoreText, suppressOverlay)
 				eb.OverlayEdit:SetFocus()
 			end
 		end
+		-- Complete the active-editor handoff after the visible frame and focus
+		-- have moved back to the single-line overlay.
+		if type(eb.UpdateFocusOverride) == "function" then
+			eb:UpdateFocusOverride()
+		end
 	end
 end
 
@@ -939,6 +948,10 @@ function Multiline:Submit()
 	-- Close the multiline frame before handing off to the pipeline.
 	YapperAPI:SetState("IDLE")
 	if self.Frame then self.Frame:Hide() end
+	local editBoxOwner = YapperTable.EditBox
+	if editBoxOwner and type(editBoxOwner.UpdateFocusOverride) == "function" then
+		editBoxOwner:UpdateFocusOverride()
+	end
 
 	-- Restore spellcheck and autocomplete to the single-line overlay.
 	if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
