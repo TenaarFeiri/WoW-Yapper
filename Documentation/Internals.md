@@ -740,21 +740,21 @@ Lazy frame creation; active only when user enters multiline mode.
   - `ScrollFrame` ([`../Src/Multiline.lua#L58`](`../Src/Multiline.lua#L58`))
   - `EditBox` ([`../Src/Multiline.lua#L59`](`../Src/Multiline.lua#L59`))
   - `LabelFS` ([`../Src/Multiline.lua#L60`](`../Src/Multiline.lua#L60`))
-  - `Active` ([`../Src/Multiline.lua#L238`](`../Src/Multiline.lua#L238`))
+  - `Active` ([`../Src/Multiline.lua#L239`](`../Src/Multiline.lua#L239`))
   - `ChatType` ([`../Src/Multiline.lua#L61`](`../Src/Multiline.lua#L61`))
   - `Language` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
   - `Target` ([`../Src/Multiline.lua#L63`](`../Src/Multiline.lua#L63`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1046`](../Src/Multiline.lua#L1046))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1031`](../Src/Multiline.lua#L1031))
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L154`](`../Src/Multiline.lua#L154`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L185`](`../Src/Multiline.lua#L185`))
-  - `Enter` ([`../Src/Multiline.lua#L618`](`../Src/Multiline.lua#L618`))
-  - `Exit` ([`../Src/Multiline.lua#L772`](`../Src/Multiline.lua#L772`))
-  - `Submit` ([`../Src/Multiline.lua#L900`](`../Src/Multiline.lua#L900`))
-  - `Cancel` ([`../Src/Multiline.lua#L997`](`../Src/Multiline.lua#L997`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1057`](`../Src/Multiline.lua#L1057`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1066`](`../Src/Multiline.lua#L1066`))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1073`](../Src/Multiline.lua#L1073))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1032`](../Src/Multiline.lua#L1032))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L155`](`../Src/Multiline.lua#L155`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L186`](`../Src/Multiline.lua#L186`))
+  - `Enter` ([`../Src/Multiline.lua#L619`](`../Src/Multiline.lua#L619`))
+  - `Exit` ([`../Src/Multiline.lua#L773`](`../Src/Multiline.lua#L773`))
+  - `Submit` ([`../Src/Multiline.lua#L901`](`../Src/Multiline.lua#L901`))
+  - `Cancel` ([`../Src/Multiline.lua#L998`](`../Src/Multiline.lua#L998`))
+  - `HandleEscape` ([`../Src/Multiline.lua#L1088`](`../Src/Multiline.lua#L1088`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1097`](`../Src/Multiline.lua#L1097`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
