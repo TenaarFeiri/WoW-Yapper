@@ -29,19 +29,23 @@ local select   = select
 local GetTime  = GetTime
 local tonumber = tonumber
 
+local ACK_SECRET_ARG_INDICES = { 1, 2, 5, 12, 13, 18 }
+
 local function NormaliseName(name)
     return Utils:NormaliseCharName(name) or ""
 end
 
 local POLICY_CLASS = {
-    OPEN_WORLD_LOCAL = "OPEN_WORLD_LOCAL",
-    INSTANCE_LOCAL   = "INSTANCE_LOCAL",
-    EMOTE            = "EMOTE",
-    WHISPER          = "WHISPER",
-    BN_WHISPER       = "BN_WHISPER",
-    GLOBAL_CHANNEL   = "GLOBAL_CHANNEL",
-    COMMUNITY_CLUB   = "COMMUNITY_CLUB",
-    GROUP            = "GROUP",
+    OPEN_WORLD_LOCAL    = "OPEN_WORLD_LOCAL",
+    HARDWARE_RESTRICTED = "HARDWARE_RESTRICTED",
+    GUILD               = "GUILD",
+    INSTANCE_LOCAL      = "INSTANCE_LOCAL",
+    EMOTE               = "EMOTE",
+    WHISPER             = "WHISPER",
+    BN_WHISPER          = "BN_WHISPER",
+    GLOBAL_CHANNEL      = "GLOBAL_CHANNEL",
+    COMMUNITY_CLUB      = "COMMUNITY_CLUB",
+    GROUP               = "GROUP",
 }
 
 local GROUP_CHAT_TYPES = {
@@ -52,8 +56,6 @@ local GROUP_CHAT_TYPES = {
     RAID_WARNING = true,
     INSTANCE_CHAT = true,
     INSTANCE_CHAT_LEADER = true,
-    GUILD = true,
-    OFFICER = true,
 }
 
 local SEND_POLICIES = {
@@ -64,6 +66,21 @@ local SEND_POLICIES = {
         ackEvent = {
             SAY = "CHAT_MSG_SAY",
             YELL = "CHAT_MSG_YELL",
+        },
+    },
+    [POLICY_CLASS.HARDWARE_RESTRICTED] = {
+        promptEveryChunk = true,
+        autoUntilThrottle = false,
+        requiresHardwareEvent = true,
+        ackEvent = "CHAT_MSG_GUILD_DISCORD",
+    },
+    [POLICY_CLASS.GUILD] = {
+        promptEveryChunk = false,
+        autoUntilThrottle = true,
+        requiresHardwareEvent = false,
+        ackEvent = {
+            GUILD = "CHAT_MSG_GUILD",
+            OFFICER = "CHAT_MSG_OFFICER",
         },
     },
     [POLICY_CLASS.INSTANCE_LOCAL] = {
@@ -118,8 +135,6 @@ local SEND_POLICIES = {
             RAID_WARNING = "CHAT_MSG_RAID_WARNING",
             INSTANCE_CHAT = "CHAT_MSG_INSTANCE_CHAT",
             INSTANCE_CHAT_LEADER = "CHAT_MSG_INSTANCE_CHAT_LEADER",
-            GUILD = "CHAT_MSG_GUILD",
-            OFFICER = "CHAT_MSG_OFFICER",
         },
     },
 }
@@ -162,6 +177,7 @@ local ALL_CONFIRM_EVENTS = {
     -- Guild chat
     CHAT_MSG_GUILD = true,
     CHAT_MSG_OFFICER = true,
+    CHAT_MSG_GUILD_DISCORD = true,
 }
 
 -- State.
@@ -253,6 +269,14 @@ function Queue:ClassifyEntry(entry)
 
     if chatType == "EMOTE" then
         return POLICY_CLASS.EMOTE
+    end
+
+    if chatType == "GUILD_DISCORD" then
+        return POLICY_CLASS.HARDWARE_RESTRICTED
+    end
+
+    if chatType == "GUILD" or chatType == "OFFICER" then
+        return POLICY_CLASS.GUILD
     end
 
     if chatType == "SAY" or chatType == "YELL" then
@@ -547,11 +571,35 @@ function Queue:OnChatEvent(event, ...)
     -- must still be allowed to consume its acknowledgement.
     if not self.PendingEntry then return end
 
+    local msgText = select(1, ...)
+    if not self:IsAcceptableAck(self.PendingAckEvent, event) then
+        return
+    end
+
+    local function IsSecretValue(value)
+        return value ~= nil and Utils and Utils.IsSecret
+            and Utils:IsSecret(value) == true
+    end
+
+    local function HasSecretAckPayload(...)
+        for _, index in ipairs(ACK_SECRET_ARG_INDICES) do
+            local value = select(index, ...)
+            if value ~= nil and value ~= "" and IsSecretValue(value) then
+                return true
+            end
+        end
+        return false
+    end
+
+    if HasSecretAckPayload(...) then
+        self:HandleAck()
+        return
+    end
+
     -- First match the echoed text and expected event. Some chat events
     -- (notably whispers) may not provide a sender GUID in the usual arg
     -- position, so treat GUID as optional: only reject if present and
     -- it doesn't match the player GUID.
-    local msgText = select(1, ...)
     if self.StrictAckMatching and self.PendingAckText
         and msgText ~= self.PendingAckText then
         Utils:DebugPrint("  REJECTED: StrictAckMatching",
@@ -560,14 +608,10 @@ function Queue:OnChatEvent(event, ...)
         return
     end
 
-    if not self:IsAcceptableAck(self.PendingAckEvent, event) then
-        return
-    end
-
     -- Recipient matching for whispers (arg2 is the target name)
     if event == "CHAT_MSG_WHISPER_INFORM" and self.PendingEntry.target then
         local targetName = select(2, ...)
-        if targetName and targetName ~= "" then
+        if targetName and targetName ~= "" and not IsSecretValue(targetName) then
             if NormaliseName(targetName) ~= NormaliseName(self.PendingEntry.target) then
                 Utils:DebugPrint("  REJECTED: Recipient mismatch",
                         tostring(targetName), "vs", tostring(self.PendingEntry.target))
@@ -578,7 +622,8 @@ function Queue:OnChatEvent(event, ...)
         -- arg13 = presenceID for BN whispers
         local presenceID = select(13, ...)
         local targetID   = tonumber(self.PendingEntry.target)
-        if presenceID and targetID and tonumber(presenceID) ~= targetID then
+        if presenceID and not IsSecretValue(presenceID)
+            and targetID and tonumber(presenceID) ~= targetID then
             Utils:DebugPrint("  REJECTED: BNet Recipient mismatch",
                     tostring(presenceID), "vs", tostring(targetID))
             return
@@ -596,7 +641,8 @@ function Queue:OnChatEvent(event, ...)
         self.PlayerGUID = UnitGUID("player")
     end
 
-    if guid and self.PlayerGUID and guid ~= self.PlayerGUID and not isWhisperInform then
+    if guid and not IsSecretValue(guid) and self.PlayerGUID
+        and guid ~= self.PlayerGUID and not isWhisperInform then
         Utils:DebugPrint("  REJECTED: GUID mismatch",
                 tostring(guid), "vs", tostring(self.PlayerGUID))
         return

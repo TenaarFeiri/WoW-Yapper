@@ -180,6 +180,7 @@ print("Case 8: non-target chat modes clear stale targets")
 local nonTargetModes = {
     "SAY", "EMOTE", "YELL", "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER",
     "RAID_WARNING", "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER",
+    "GUILD_DISCORD",
 }
 for _, mode in ipairs(nonTargetModes) do
     local c8 = merge(baseContext(), {
@@ -195,23 +196,34 @@ for _, mode in ipairs(nonTargetModes) do
 end
 print()
 
--- ---------------------------------------------------------------------------
--- Case 9: CHANNEL without target falls back to SAY
--- ---------------------------------------------------------------------------
-print("Case 9: invalid CHANNEL target")
+print("Case 9: Discord stream frame context")
 local c9 = merge(baseContext(), {
+    blizzType = "GUILD_DISCORD",
+    lastUsed = { chatType = "SAY", target = nil, language = "Common" },
+    frameChatType = "GUILD_DISCORD",
+})
+local r9 = policy:ResolveOpenSelection(c9)
+check("Discord frame keeps Discord type", r9.chatType == "GUILD_DISCORD")
+check("Discord frame clears target", r9.target == nil)
+print()
+
+-- ---------------------------------------------------------------------------
+-- Case 10: CHANNEL without target falls back to SAY
+-- ---------------------------------------------------------------------------
+print("Case 10: invalid CHANNEL target")
+local c10 = merge(baseContext(), {
     pendingTabSwitch = { chatType = "CHANNEL", target = nil, channelName = "General" },
     frameChatType = "CHANNEL",
     frameChatTarget = nil,
 })
-local r9 = policy:ResolveOpenSelection(c9)
-check("invalid channel falls back to SAY", r9.chatType == "SAY" and r9.target == nil)
+local r10 = policy:ResolveOpenSelection(c10)
+check("invalid channel falls back to SAY", r10.chatType == "SAY" and r10.target == nil)
 print()
 
 -- ---------------------------------------------------------------------------
--- Case 10: commit-time sanitizer enforces invariants
+-- Case 11: commit-time sanitizer enforces invariants
 -- ---------------------------------------------------------------------------
-print("Case 10: commit-time sanitizer")
+print("Case 11: commit-time sanitizer")
 local s10a = policy:SanitizeCommittedSelection({
     chatType = "WHISPER",
     target = nil,

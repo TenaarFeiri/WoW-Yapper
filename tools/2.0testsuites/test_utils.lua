@@ -138,6 +138,23 @@ check("|K token is secret", Utils:IsSecret("some|Ktoken") == true)
 check("normal string is not secret", Utils:IsSecret("Hello World") == false)
 check("number is not secret", Utils:IsSecret(42) == false)
 
+local secretTable = {}
+local inaccessibleTable = {}
+local accessibleSecretTable = {}
+local oldIsSecretTable = _G.issecrettable
+local oldCanAccessTable = _G.canaccesstable
+_G.issecrettable = function(value)
+    return value == secretTable or value == accessibleSecretTable
+end
+_G.canaccesstable = function(value)
+    return value ~= inaccessibleTable
+end
+check("secret table is secret", Utils:IsSecret(secretTable) == true)
+check("inaccessible table is secret", Utils:IsSecret(inaccessibleTable) == true)
+check("accessible table with secret contents is secret", Utils:IsSecret(accessibleSecretTable) == true)
+_G.issecrettable = oldIsSecretTable
+_G.canaccesstable = oldCanAccessTable
+
 -- ===========================================================================
 -- Test 6: IsChatLockdown / IsCombatLockdown / IsChatOrCombatLockdown
 -- ===========================================================================

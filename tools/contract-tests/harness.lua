@@ -212,6 +212,7 @@ local function make_server(harness)
         INSTANCE_CHAT_LEADER = "CHAT_MSG_INSTANCE_CHAT_LEADER",
         GUILD = "CHAT_MSG_GUILD",
         OFFICER = "CHAT_MSG_OFFICER",
+        GUILD_DISCORD = "CHAT_MSG_GUILD_DISCORD",
         CHANNEL = "CHAT_MSG_CHANNEL",
         CLUB = "CHAT_MSG_COMMUNITIES_CHANNEL",
     }

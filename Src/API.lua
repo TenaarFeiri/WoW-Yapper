@@ -955,7 +955,7 @@ function YapperAPI:IsChatLockdown()
 end
 
 --- Returns true if value should not be logged or persisted.
---- Uses Blizzard's issecretvalue/canaccessvalue APIs with a |K token fallback.
+--- Uses Blizzard's secret value/table predicates with a |K token fallback.
 function YapperAPI:IsSecret(value)
     local u = YapperTable.Utils
     if u and u.IsSecret then

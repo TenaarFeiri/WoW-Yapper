@@ -163,6 +163,23 @@ end
 -- treated with caution. Prefer the built-in WoW API when available.
 function Utils:IsSecret(value)
     if value == nil or value == false then return true end
+
+    if type(value) == "table" then
+        if type(canaccesstable) == "function" then
+            local ok, accessible = pcall(canaccesstable, value)
+            if ok and accessible == false then
+                return true
+            end
+        end
+
+        if type(issecrettable) == "function" then
+            local ok, secretTable = pcall(issecrettable, value)
+            if ok and secretTable == true then
+                return true
+            end
+        end
+    end
+
     if type(issecretvalue) == "function" then
         local ok, res = pcall(issecretvalue, value)
         if ok and res == true then

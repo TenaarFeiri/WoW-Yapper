@@ -278,6 +278,16 @@ function ChannelPolicy:ResolveOpenSelection(context)
         )
     end
 
+    if (blizzType == "GUILD_DISCORD" or frameChatType == "GUILD_DISCORD")
+        and not lockSavedDraft then
+        return BuildSelectionWithWhisperFallback(
+            "GUILD_DISCORD",
+            blizzLang or (lastUsed and lastUsed.language) or nil,
+            nil,
+            nil
+        )
+    end
+
     local lastUsedType = lastUsed and lastUsed.chatType or nil
     local lastUsedIsTargeted = (lastUsedType == "WHISPER"
         or lastUsedType == "BN_WHISPER"

@@ -346,7 +346,7 @@
 
     YapperAPI:IsSecret(value)       → boolean
       Returns true if a value should not be logged or persisted (Blizzard
-      issecretvalue / canaccessvalue APIs, with a |K token fallback).
+      secret value/table predicates, with a |K token fallback).
 
     YapperAPI:InsertText(text)      → boolean
       Insert text at the cursor in whichever Yapper editbox is active

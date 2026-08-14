@@ -219,6 +219,7 @@ local LABEL_PREFIXES           = {
     INSTANCE_CHAT = "Instance:",
     GUILD         = "Guild:",
     OFFICER       = "Officer:",
+    GUILD_DISCORD = "Discord:",
     WHISPER       = "Whisper",
     CHANNEL       = "Channel",
 }
@@ -252,6 +253,7 @@ local CHATTYPE_TO_OVERRIDE_KEY = {
     RAID_WARNING = "RAID_WARNING",
     CHANNEL = "CHANNEL",
     CLUB = "CLUB",
+    GUILD_DISCORD = "GUILD_DISCORD",
 }
 
 local function IsWhisperSlashPrefill(text)

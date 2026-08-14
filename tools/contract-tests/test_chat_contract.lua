@@ -46,6 +46,7 @@ local routerCases = {
     { "RAID", "RAID", nil },
     { "GUILD", "GUILD", nil },
     { "OFFICER", "OFFICER", nil },
+    { "GUILD_DISCORD", "GUILD_DISCORD", nil },
     { "CHANNEL", "CHANNEL", "3" },
     { "WHISPER", "WHISPER", "Target" },
 }
@@ -238,6 +239,66 @@ h.Queue:OnOpenChat()
 check("second hardware event sends next chunk", h:sent_count() == 2)
 drain(h, 1)
 check("open-world sequence completes", h:queue_state().pending == 0)
+
+for _, case in ipairs({
+    { "GUILD", "CHAT_MSG_GUILD" },
+    { "OFFICER", "CHAT_MSG_OFFICER" },
+}) do
+    local chatType = case[1]
+    h:reset()
+    h:enqueue({ chatType .. " one", chatType .. " two" }, chatType, "Common", nil)
+    h.Queue:Flush(false)
+    check(chatType .. " auto-sends first chunk", h:sent_count() == 1 and not h.Queue.NeedsContinue)
+    drain(h, 1)
+    check(chatType .. " auto-sends after ACK", h:sent_count() == 2 and not h.Queue.NeedsContinue)
+    drain(h, 1)
+    check(chatType .. " auto-advancing sequence completes", h:queue_state().pending == 0)
+end
+
+h:reset()
+h.inInstance = true
+h:enqueue({ "GUILD_DISCORD one", "GUILD_DISCORD two" }, "GUILD_DISCORD", "Common", nil)
+h.Queue:Flush(false)
+check("GUILD_DISCORD waits for hardware", h:sent_count() == 0 and h.Queue.NeedsContinue == true)
+h.Queue:OnOpenChat()
+check("GUILD_DISCORD sends after hardware", h:sent_count() == 1)
+drain(h, 1)
+check("GUILD_DISCORD prompts after first ACK", h.Queue.NeedsContinue == true)
+h.Queue:OnOpenChat()
+check("GUILD_DISCORD sends second chunk after hardware", h:sent_count() == 2)
+drain(h, 1)
+check("GUILD_DISCORD hardware-gated sequence completes", h:queue_state().pending == 0)
+
+local oldIsSecretValue = _G.issecretvalue
+_G.issecretvalue = function(value)
+    return value == "secret ack payload"
+        or value == "secret ack GUID"
+        or value == "secret Discord metadata"
+end
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "secret ack" }, "GUILD", "Common", nil)
+h.Queue:Flush(true)
+h:emit("CHAT_MSG_OFFICER", "secret ack payload", nil, nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
+check("secret wrong-event ACK is rejected", h.Queue.PendingEntry ~= nil)
+h:emit("CHAT_MSG_GUILD", "secret ack payload", nil, nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
+check("secret guild ACK advances queue", h.Queue.PendingEntry == nil and not h.Queue:IsActive())
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "accessible ack" }, "GUILD", "Common", nil)
+h.Queue:Flush(true)
+h:emit("CHAT_MSG_GUILD", "accessible ack", nil, nil, nil, nil, nil, nil, nil, nil, nil, "secret ack GUID")
+check("secret GUID ACK advances queue", h.Queue.PendingEntry == nil and not h.Queue:IsActive())
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "whisper ack" }, "WHISPER", "Common", "Target")
+h.Queue:Flush(true)
+h:emit("CHAT_MSG_WHISPER_INFORM", "whisper ack", "secret ack payload", nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
+check("secret whisper target ACK advances queue", h.Queue.PendingEntry == nil and not h.Queue:IsActive())
+_G.issecretvalue = oldIsSecretValue
 
 -- ===========================================================================
 -- 8. Queue cancellation contract

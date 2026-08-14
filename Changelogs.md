@@ -1,3 +1,8 @@
+# 2.4.2
+
+### New Features
+- Yapper now tentatively supports the new Discord integration.
+
 # 2.4.1
 
 ### Bug Fixes

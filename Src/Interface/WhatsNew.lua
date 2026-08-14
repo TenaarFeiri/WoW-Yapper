@@ -12,6 +12,12 @@ local _, YapperTable = ...
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 YapperTable.WHATS_NEW = {
+    ["2.4.2"] = {
+        {
+            title = "Discord Integration",
+            body = "Yapper now tentatively supports the new Discord integration.",
+        }
+    },
     ["2.4.1"] = {
         {
             title = "Bug Fixes",

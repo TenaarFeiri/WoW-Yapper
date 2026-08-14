@@ -31,6 +31,7 @@ local SPLITTABLE = {
     INSTANCE_CHAT_LEADER = true,
     GUILD                = true,
     OFFICER              = true,
+    GUILD_DISCORD        = true,
     CLUB                 = true,
     CHANNEL              = true,
 }
