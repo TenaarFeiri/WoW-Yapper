@@ -474,15 +474,10 @@ function EditBox:Show(origEditBox)
     overlay:SetFrameLevel(origLevel + 5)
 
     -- Proxy mode handling
-    if cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+    if cfg.UseBlizzardSkinProxy == true then
         -- Proxy mode: keep the original Blizzard editbox visible underneath.
         pcall(function() self:ApplyProxyMode(origEditBox) end)
     else
-        pcall(function()
-            -- Legacy: clone Blizzard's textures onto Yapper's overlay.
-            self:AttachBlizzardSkinProxy(origEditBox, finalH)
-        end)
-
         -- Hide Blizzard's editbox when Yapper is open and not in proxy mode
         if cfg.HideBlizzardEditbox == true then
             if origEditBox and origEditBox.Hide then
@@ -648,11 +643,6 @@ function EditBox:Hide(isHandoff)
         pcall(function() ChatFrameUtil.DeactivateChat(prevOrig) end)
     end
 
-    -- NOTE: DetachBlizzardSkinProxy() is intentionally NOT called here.
-    -- Proxy textures are children of the overlay frame; they hide automatically
-    -- when the overlay hides and reappear when it shows again.  Calling Detach
-    -- on every close would accumulate dead texture objects because WoW has no
-    -- garbage collection for frame children.
     if self.Overlay then
         self.Overlay:Hide()
     end

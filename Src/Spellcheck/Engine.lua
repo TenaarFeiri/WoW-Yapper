@@ -453,7 +453,8 @@ end
 --- Collect n-gram-scored candidates when the n-gram index is enabled.
 local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
     local hits = {}
-    local n = lowerLen < 5 and 2 or 3
+    local ngramN = Spellcheck:GetNgramN()
+    local n = lowerLen < 5 and ngramN or (ngramN + 1)
     local normVowels = (engine and engine.NormaliseVowels) or NormaliseVowels
     local norm = normVowels(lower)
 
@@ -503,7 +504,7 @@ local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
     end)
 
     local out = {}
-    for i = 1, math_min(#tmp, 500) do
+    for i = 1, math_min(#tmp, Spellcheck:GetNgramTopCandidates()) do
         out[#out + 1] = tmp[i].word
     end
     return out

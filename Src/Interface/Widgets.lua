@@ -546,7 +546,13 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
 
     cb:SetScript("OnClick", function(selfFrame)
         local checked = selfFrame:GetChecked() == true
-        Interface:SetLocalPath(path, checked)
+        local isVerbose = JoinPath(path) == "System.VERBOSE"
+        local core = YapperTable.Core
+        if isVerbose and core and type(core.SetVerbose) == "function" then
+            core:SetVerbose(checked)
+        else
+            Interface:SetLocalPath(path, checked)
+        end
     end)
 
     self:AddControl(cb)

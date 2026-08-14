@@ -7,7 +7,7 @@ local EditBox = YapperTable.EditBox
 --- the proxy background survives. No-op outside proxy mode.
 function EditBox:EnsureProxyBackgroundShown()
     local cfg = YapperTable.Config and YapperTable.Config.EditBox
-    local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+    local isProxy = cfg and cfg.UseBlizzardSkinProxy == true
     if not isProxy then return end
     local eb = self.OrigEditBox
     if not eb or not eb.Show then return end

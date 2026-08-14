@@ -38,6 +38,7 @@ GATING_FROM_ROOT=(
     test_sticky_sync
     test_recolour
     test_sendposts_strip
+    test_help_content
 )
 
 # Gating suites executed from the suite directory (they loadfile "../../Src/...").

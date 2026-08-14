@@ -209,15 +209,12 @@ local DEFAULTS = {
         MaxCandidates       = 800,
         ReshuffleAttempts   = 3,
         MaxWrongLetters     = 4,
-        -- N-gram index (bigram) settings
+        -- N-gram index settings. NgramN is the short-word size; longer words
+        -- use the next size (NgramN + 1).
         UseNgramIndex       = true,
-        NgramTopCandidates  = 300,
+        NgramTopCandidates  = 500,
         NgramN              = 2,
-        NgramMaxPosting     = 200,
-        -- Cap on unique bigram keys built during dictionary indexing.
-        -- More keys = better suggestion recall but higher memory cost (~10MB+ extra).
-        -- Set to 0 for uncapped (maximum accuracy, no memory limit).
-        NgramKeyCapSize     = 0,
+        NgramMaxPosting     = 500,
         MinWordLength       = 2,
         MisspellingColour   = { r = 1.0, g = 0.0, b = 1.0, a = 1.0 },
         KeyboardLayout      = "QWERTY",

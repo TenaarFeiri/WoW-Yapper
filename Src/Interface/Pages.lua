@@ -742,6 +742,7 @@ end
 function Interface:CreateTutorialPage(parent, cursor)
     local P = LAYOUT
     local W = 520  -- content width
+    local help = YapperTable.HelpContent or {}
 
     local function heading(text)
         local fs = self:AcquireWidget("TutHead", parent, "GameFontNormalLarge", "FontString")
@@ -770,10 +771,6 @@ function Interface:CreateTutorialPage(parent, cursor)
         cursor:Advance(self:ScaledRow(h + 4))
     end
 
-    local function key(k)
-        return "|cFFFFD700" .. k .. "|r"
-    end
-
     local function sep()
         cursor:Pad(8)
         -- Use a poolable Frame as a 1px-high separator so it gets hidden by
@@ -794,92 +791,48 @@ function Interface:CreateTutorialPage(parent, cursor)
         cursor:Advance(self:ScaledRow(10))
     end
 
-    -- ── Title ──────────────────────────────────────────────────────────────
-    self:CreateLabel(parent, "How to use Yapper", P.WINDOW_PADDING, cursor:Y(), W,
-        "A quick reference for Yapper's chat features.", "GameFontNormal")
+    local function renderParts(parts)
+        local rendered = {}
+        local function appendPart(part)
+            if type(part) == "table" and part.kind == "key" then
+                rendered[#rendered + 1] = "|cFFFFD700" .. tostring(part.text or "") .. "|r"
+            else
+                rendered[#rendered + 1] = tostring(part or "")
+            end
+        end
+
+        if type(parts) == "table" and type(parts.ForEach) == "function" then
+            parts.ForEach(appendPart)
+        else
+            for _, part in ipairs(parts or {}) do
+                appendPart(part)
+            end
+        end
+        return table_concat(rendered)
+    end
+
+    self:CreateLabel(
+        parent,
+        help.Title or "How to use Yapper",
+        P.WINDOW_PADDING,
+        cursor:Y(),
+        W,
+        help.Subtitle or "A quick reference for Yapper's chat features.",
+        "GameFontNormal"
+    )
     cursor:Advance(self:ScaledRow(P.ROW_SECTION))
 
-    -- ── Basic typing ───────────────────────────────────────────────────────
-    heading("Basic Typing")
-    body("Open chat with " .. key("Enter") .. " as normal. Yapper replaces Blizzard's input box "
-      .. "with its own overlay. Type your message and press " .. key("Enter") .. " to send "
-      .. "or " .. key("Escape") .. " to close.")
-
-    sep()
-
-    -- ── Channel switching ──────────────────────────────────────────────────
-    heading("Switching Channels")
-    body(key("Tab") .. "  — cycle forward through available channels (Say → Party → Raid → Guild …).")
-    body(key("Shift+Tab") .. "  — open spell-check suggestions for the word under the cursor "
-      .. "(or cycle channels backwards when no suggestion popup is open).")
-    body("You can also type a slash command directly: " .. key("/p") .. ", " .. key("/r") .. ", "
-      .. key("/g") .. ", " .. key("/w Name") .. ", etc.")
-    body("The last channel you used is remembered and restored on the next open "
-      .. "(configurable in General settings).")
-
-    sep()
-
-    -- ── Autocomplete ───────────────────────────────────────────────────────
-    heading("Autocomplete")
-    body("As you type, Yapper shows a greyed-out ghost word after the cursor.")
-    body(key("Tab") .. "  — accept the suggestion and move on. A space is appended automatically.")
-    body("Just keep typing to ignore the suggestion. If you repeatedly type a different word "
-      .. "Yapper learns your preference and adjusts future suggestions.")
-
-    sep()
-
-    -- ── Spellcheck ─────────────────────────────────────────────────────────
-    heading("Spellcheck")
-    body("Misspelled words are underlined. Press " .. key("Shift+Tab") .. " to open a "
-      .. "suggestion popup for the word under the cursor.")
-    body("Use the " .. key("number keys") .. " or " .. key("arrow keys") .. " to pick a "
-      .. "suggestion and press " .. key("Enter") .. " to apply it.")
-    body("Press " .. key("Escape") .. " to close the popup without changing the word.")
-    body("Words you send repeatedly despite the underline are automatically added to your "
-      .. "personal dictionary after a few uses.")
-
-    sep()
-
-    -- ── Multiline / Storyteller ────────────────────────────────────────────
-    heading("Multiline Editor (Storyteller)")
-    body("When your text grows long enough, Yapper automatically opens the multiline editor. "
-      .. "You can also open it manually with Shift+Enter from the single-line overlay.")
-    body(key("Enter") .. " — send the entire post.")
-    body(key("Shift+Enter") .. " — insert a line break. A blank line creates a paragraph break; "
-      .. "each paragraph is sent as a separate chat message.")
-    body(key("Escape") .. " — cancel and return to the single-line overlay. Your draft is "
-      .. "preserved so you can continue editing.")
-    body(key("Tab") .. " — accept autocomplete   |   " .. key("Shift+Tab") .. " — spellcheck suggestions.")
-    body("If the game crashes mid-edit your draft is automatically restored the next time "
-      .. "you open the chat box.")
-
-    sep()
-
-    -- ── Draft recovery ─────────────────────────────────────────────────────
-    heading("Crash-safe Drafts")
-    body("Yapper saves your in-progress message every few keystrokes. "
-      .. "After a crash or /reload, the draft is automatically restored "
-      .. "when you open the chat box, exactly as you left it — including the channel and, "
-      .. "for multiline posts, hard line-breaks.")
-
-    sep()
-
-    -- ── Undo / redo ────────────────────────────────────────────────────────
-    heading("Undo / Redo")
-    body(key("Ctrl+Z") .. " — undo the last change.")
-    body(key("Ctrl+Y") .. " — redo.")
-    body("Snapshots are taken at word boundaries so a single undo steps back one whole word "
-      .. "at a time rather than one character.")
-
-    sep()
-
-    -- ── Slash commands ─────────────────────────────────────────────────────
-    heading("Slash Commands")
-    body(key("/yapper") .. "  or  " .. key("/yapper toggle") .. "  — open / close settings.")
-    body(key("/yapper help") .. "  or  " .. key("/yapper ?") .. "  — open this page directly.")
-    body(key("/yapper open") .. "  — show settings.")
-    body(key("/yapper close") .. "  — hide settings.")
-    body("Right-click the minimap or toolbar icon to jump straight to this Help page.")
+    if type(help.ForEachItem) == "function" then
+        help.ForEachItem(function(item)
+            if item.kind == "heading" then
+                heading(item.text)
+            elseif item.kind == "body" then
+                body(renderParts(item.parts))
+            elseif item.kind == "separator" then
+                sep()
+            end
+        end)
+    end
 
     cursor:Pad(10)
 end
@@ -953,17 +906,12 @@ function Interface:CreateCreditsPage(parent, cursor)
 end
 
 function Interface:CreateChangelogPage(parent, cursor)
-    local WHATS_NEW = YapperTable.WHATS_NEW or {}
-    local sorted = self:GetSortedVersions()
-
     local cfgSize = self:GetConfigPath({ "FrameSettings", "WhatsNewFontSize" }) or 12
     local textW = 500
 
-    for _, vStr in ipairs(sorted) do
-        local notes = WHATS_NEW[vStr]
-        
+    self:ForEachWhatsNewVersion(false, function(version, notes)
         -- Version Header
-        local vHeader = self:CreateLabel(parent, "Version " .. vStr, LAYOUT.WINDOW_PADDING, cursor:Y(), textW, nil, "GameFontNormalLarge", true)
+        local vHeader = self:CreateLabel(parent, "Version " .. version, LAYOUT.WINDOW_PADDING, cursor:Y(), textW, nil, "GameFontNormalLarge", true)
         vHeader:SetTextColor(1, 0.9, 0, 1)
         local vFont, _, vFlags = vHeader:GetFont()
         vHeader:SetFont(vFont, cfgSize + 4, vFlags)
@@ -983,13 +931,13 @@ function Interface:CreateChangelogPage(parent, cursor)
             bLabel:SetWordWrap(true)
             local bFont, _, bFlags = bLabel:GetFont()
             bLabel:SetFont(bFont, cfgSize, bFlags)
-            
+
             -- Force layout refresh by re-setting text after font/wrap changes
-            bLabel:SetText(cleanBody) 
+            bLabel:SetText(cleanBody)
             cursor:Advance(bLabel:GetStringHeight() + 10)
         end
         cursor:Pad(6)
-    end
+    end)
 end
 
 function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)

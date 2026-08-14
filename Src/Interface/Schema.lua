@@ -89,8 +89,6 @@ local SETTING_TOOLTIPS              = {
     ["Spellcheck.YASBiasCap"] = "Maximum number of typo -> correction pairs stored by YAS. Lower-utility pairs are pruned first.",
     ["Spellcheck.YASAutoThreshold"] = "How many times you must send a word before YAS automatically adds it to your personal dictionary.",
     ["Spellcheck.YASEnabled"] = "Enable adaptive learning to track your vocabulary and correction preferences. When disabled, Yapper stops collecting data and providing personalised suggestion ranking, but this may lead to a worse spellchecker.",
-    ["Spellcheck.NgramKeyCapSize"] =
-    "Maximum number of unique n-gram index keys built when loading the dictionary. Higher values improve suggestion recall for uncommon words but directly increase memory usage by roughly 1-2 MB per 10,000 extra keys. Set to 0 to remove the cap entirely (maximum accuracy, higher memory cost).",
     ["Chat.USE_DELINEATORS"] = "Add marker text between split chunks.",
     ["Chat.DELINEATOR"] = "Single marker token used for both suffix and prefix; spacing is auto-managed.",
     ["Chat.MAX_HISTORY_LINES"] = "How many previous messages are kept in local history.",
@@ -163,7 +161,6 @@ local FRIENDLY_LABELS               = {
     ["Spellcheck.YASBiasCap"] = "Correction bias cap",
     ["Spellcheck.YASAutoThreshold"] = "Auto-learn threshold",
     ["Spellcheck.YASEnabled"] = "Enable adaptive learning",
-    ["Spellcheck.NgramKeyCapSize"] = "N-gram key cap (0 = uncapped)",
     ["System.EnableTypingTrackerBridge"] = "Enable Typing Tracker Bridge",
 
     ["Chat.USE_DELINEATORS"] = "Add split marker",
@@ -280,7 +277,6 @@ local CATEGORIES                    = {
             -- Spellcheck advanced
             "Spellcheck.MinWordLength",
             "Spellcheck.MaxSuggestions",
-            "Spellcheck.NgramKeyCapSize",
             "Spellcheck.SuggestionCacheSize",
         },
         -- Bridges are appended by custom logic.
@@ -452,9 +448,6 @@ function Interface:BuildRenderSchema()
                         kind = "spellcheck_locale"
                     elseif JoinPath(nextPath) == "Spellcheck.KeyboardLayout" then
                         kind = "spellcheck_keyboard_layout"
-                    elseif JoinPath(nextPath) == "Spellcheck.NgramKeyCapSize" then
-                        -- HIDDEN: No longer a user-facing setting but functionality remains
-                        kind = "hidden"
                     end
                     if kind ~= "hidden" then
                         schema[#schema + 1] = {

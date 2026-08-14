@@ -55,7 +55,6 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     -- visual and only run the text/anchor positioning below.
     -- ---------------------------------------------------------------
     local isProxyMode = (cfg.UseBlizzardSkinProxy == true)
-        and (cfg.UseLegacyCloneProxy ~= true)
     if isProxyMode then
         if overlay._yapperSolidFill   then overlay._yapperSolidFill:Hide()   end
         if overlay._yapperRoundedFill then overlay._yapperRoundedFill:Hide() end
@@ -79,7 +78,7 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         end
 
         -- Proxy mode: inherit the original editbox's text insets (top/bottom)
-        -- so the text aligns with the cloned skin textures.
+        -- so the text aligns with the native Blizzard skin.
         local origEB = editBox.OrigEditBox
         if origEB and origEB.GetTextInsets and edit.SetTextInsets then
             local _, _, origTop, origBottom = origEB:GetTextInsets()
@@ -97,26 +96,13 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local shadSz      = cfg.ShadowSize or 4
 
     -- Input background fill + dynamic inset so it never bleeds outside the border.
-    -- When the Blizzard skin proxy is active, we still show the fill as a background
-    -- behind the cloned textures (they may be semi-transparent and rely on a dark
-    -- background, just as they rely on the chat frame's background in the native UI).
-    -- The fill was created before the clones, so it is always below them in draw order.
-    local proxyActive = editBox._skinProxyTextures
-    local backdropProxy = overlay._yapperBackdropProxy
     local fillR = inputBg.r or 0.05
     local fillG = inputBg.g or 0.05
     local fillB = inputBg.b or 0.05
     local fillA = inputBg.a or 1.0
-    -- Proxy mode always uses solid fill (no rounded corners), matching Blizzard's geometry.
-    SetFrameFillColour(overlay, fillR, fillG, fillB, fillA, proxyActive and false or rounded)
-    local activeFill = (not proxyActive and rounded) and overlay._yapperRoundedFill or overlay._yapperSolidFill
-    if backdropProxy then
-        -- Backdrop proxy (e.g. Prat) provides its own bg via the Border frame.
-        -- Hide both Yapper fills so the Yapper rectangle doesn't poke out around
-        -- the addon's rounded backdrop edges.
-        if overlay._yapperSolidFill then overlay._yapperSolidFill:Hide() end
-        if overlay._yapperRoundedFill then overlay._yapperRoundedFill:Hide() end
-    elseif activeFill then
+    SetFrameFillColour(overlay, fillR, fillG, fillB, fillA, rounded)
+    local activeFill = rounded and overlay._yapperRoundedFill or overlay._yapperSolidFill
+    if activeFill then
         activeFill:Show()
         activeFill:ClearAllPoints()
         if pad > 0 then
@@ -125,24 +111,13 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         else
             activeFill:SetAllPoints(overlay)
         end
-        if proxyActive and overlay._yapperRoundedFill then
-            overlay._yapperRoundedFill:Hide()
-        end
     end
 
     -- Label background fill + position (inset matches fill when border active).
-    -- Hidden when skin proxy is active so cloned skin textures show.
-    if proxyActive then
-        -- Hide any existing Yapper fills on the label background.
-        if labelBg._yapperSolidFill then labelBg._yapperSolidFill:Hide() end
-        if labelBg._yapperRoundedFill then labelBg._yapperRoundedFill:Hide() end
-    else
-        -- Force labelBg to use solid fill for better readability and reliable rendering.
-        SetFrameFillColour(labelBg,
-            labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0, false)
-        local labFill = labelBg._yapperSolidFill
-        if labFill then labFill:Show() end
-    end
+    SetFrameFillColour(labelBg,
+        labelCfg.r or 0.06, labelCfg.g or 0.06, labelCfg.b or 0.06, labelCfg.a or 1.0, false)
+    local labFill = labelBg._yapperSolidFill
+    if labFill then labFill:Show() end
     labelBg:ClearAllPoints()
     local LEFT_MARGIN = 6 -- fixed inset from the overlay's left edge
     labelBg:SetPoint("TOPLEFT", overlay, "TOPLEFT", pad + LEFT_MARGIN, -pad)
@@ -159,15 +134,8 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     end
 
     -- Border visibility and colour.
-    -- Hidden when Blizzard skin proxy is active (the cloned skin provides the border).
-    -- Exception: when _yapperBackdropProxy is true, the Border frame is being used to
-    -- display a cloned backdrop from an addon like Prat, so we don't hide it.
     if overlay.Border then
-        if overlay._yapperBackdropProxy then
-            -- Border is managed by the skin proxy (backdrop cloning) - leave it as-is
-        elseif proxyActive then
-            overlay.Border:Hide()
-        elseif borderActive then
+        if borderActive then
             overlay.Border:SetBackdropBorderColor(
                 borderCfg.r or 0.4, borderCfg.g or 0.4, borderCfg.b or 0.4, borderCfg.a or 1)
             overlay.Border:Show()

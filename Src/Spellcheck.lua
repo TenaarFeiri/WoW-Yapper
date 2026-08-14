@@ -645,6 +645,21 @@ function Spellcheck:GetMaxWrongLetters()
     return Clamp(tonumber(cfg.MaxWrongLetters) or 4, 0, 20)
 end
 
+function Spellcheck:GetNgramN()
+    local cfg = self:GetConfig()
+    return Clamp(tonumber(cfg.NgramN) or 2, 2, 4)
+end
+
+function Spellcheck:GetNgramMaxPosting()
+    local cfg = self:GetConfig()
+    return Clamp(tonumber(cfg.NgramMaxPosting) or 500, 1, 5000)
+end
+
+function Spellcheck:GetNgramTopCandidates()
+    local cfg = self:GetConfig()
+    return Clamp(tonumber(cfg.NgramTopCandidates) or 500, 1, 5000)
+end
+
 function Spellcheck:GetMinWordLength()
     local cfg = self:GetConfig()
     return Clamp(tonumber(cfg.MinWordLength) or 2, 1, 10)

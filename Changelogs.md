@@ -3,6 +3,16 @@
 ### New Features
 - Yapper now tentatively supports the new Discord integration.
 
+### Improvements
+- Reworked the built-in Help page into a feature-focused quick reference covering chat controls, channels, spellcheck, autocomplete, multiline editing, history, pickers, and Yapper commands.
+- Improved compatibility with ChatEditBoxExtender (CEBE) across the current Yapper editor lifecycle, including native editbox suppression and typing-indicator ownership.
+
+### Technical Changes
+- Centralized the active N-gram tuning defaults in Core and removed unused N-gram key-cap configuration.
+- Removed the obsolete link-protocol registration API; custom atomic text patterns remain supported.
+- Removed the deprecated texture-cloning skin-proxy path in favor of the native Blizzard editbox proxy.
+- Routed the Verbose setting through Core's profile-aware settings path.
+
 # 2.4.1
 
 ### Bug Fixes

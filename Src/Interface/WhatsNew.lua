@@ -11,20 +11,34 @@ local _, YapperTable = ...
 -- What's New notes — keyed by addon version.
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
+local function note(title, body)
+    return { title = title, body = body }
+end
+
+local function release(...)
+    return { ... }
+end
+
 YapperTable.WHATS_NEW = {
-    ["2.4.2"] = {
-        {
-            title = "Discord Integration",
-            body = "Yapper now tentatively supports the new Discord integration.",
-        }
-    },
-    ["2.4.1"] = {
-        {
-            title = "Bug Fixes",
-            body = "- Fixed issue where the new colour sanitiser was too aggressive and broke item links.\n\n"
-                .. "- Fixed issue where links were unable to be added to the multiline editor.",
-        },
-    },
+    -- New entries can use the helpers above to keep the data compact.
+    ["2.4.2"] = release(
+        note("Discord Integration", "Yapper now tentatively supports the new Discord integration."),
+        note(
+            "A clearer Help page",
+            "The built-in Help page is now a user-focused quick reference for chat controls, channels, spellcheck, autocomplete, multiline editing, history, pickers, and Yapper commands."
+        ),
+        note(
+            "ChatEditBoxExtender compatibility",
+            "Improved some compatibility for ChatEditBoxExtender as recent changes interfered with their compatibility layer for Yapper."
+        )
+    ),
+    ["2.4.1"] = release(
+        note(
+            "Bug Fixes",
+            "- Fixed issue where the new colour sanitiser was too aggressive and broke item links.\n\n"
+                .. "- Fixed issue where links were unable to be added to the multiline editor."
+        )
+    ),
     ["2.4.0"] = {
         {
             title = "Spellcheck now colours misspelled words",

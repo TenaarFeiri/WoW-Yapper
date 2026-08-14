@@ -103,6 +103,7 @@ Src/Interface.lua
 Src/Interface/Schema.lua
 Src/Interface/Config.lua
 Src/Interface/WhatsNew.lua
+Src/Interface/HelpContent.lua
 Src/Interface/Window.lua
 Src/Interface/Widgets.lua
 Src/Interface/Pages.lua

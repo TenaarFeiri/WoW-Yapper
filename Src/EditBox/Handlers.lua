@@ -723,7 +723,7 @@ function EditBox:SetupOverlayScripts()
         -- In proxy mode, set the Blizzard editbox to deactivated opacity (0.35)
         -- when Yapper loses focus, but only if the original alpha was a default value
         local cfg = YapperTable.Config and YapperTable.Config.EditBox
-        if cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+        if cfg and cfg.UseBlizzardSkinProxy == true then
             if self._proxyPrevState and self._proxyPrevState.alphaWasDefault then
                 local origEditBox = self._proxyOrigEditBox or self.OrigEditBox
                 if origEditBox and origEditBox.SetAlpha then
@@ -747,7 +747,7 @@ function EditBox:SetupOverlayScripts()
         -- In proxy mode, ensure the Blizzard editbox stays at activated opacity (1.0)
         -- when Yapper regains focus, but only if the original alpha was a default value
         local cfg = YapperTable.Config and YapperTable.Config.EditBox
-        if cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true then
+        if cfg and cfg.UseBlizzardSkinProxy == true then
             if self._proxyPrevState and self._proxyPrevState.alphaWasDefault then
                 local origEditBox = self._proxyOrigEditBox or self.OrigEditBox
                 if origEditBox and origEditBox.SetAlpha then

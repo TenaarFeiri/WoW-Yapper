@@ -24,8 +24,6 @@ YapperTable.API               = API
 local filters                 = {} -- [hookPoint] = sorted array of {cb, priority, handle}
 local callbacks               = {} -- [event]     = array of {cb, handle}
 local handleSeq               = 0  -- monotonic handle counter
-local registeredLinkProtocols = {} -- [prefix] = true; populated by RegisterLinkProtocol
-
 -- Canonical filter hook points.  Registration is rejected if the name is not
 -- found here or in FILTER_ALIASES.
 local VALID_FILTERS = {
@@ -798,35 +796,6 @@ function YapperAPI:RegisterLocaleAddon(locale, addonName)
         sc:EnsureLocale(locale)
     end
     return true
-end
-
---- Declare a |H link protocol prefix as a known, first-class link type.
---- Plugins that inject custom |H<prefix>:...|h[...]|h links into Yapper
---- call this once on load so the pipeline knows to treat those tokens as
---- atomic hyperlinks (chunker already does this for all |H forms; this
---- API is the public signal surface for tooling and future features).
---- Returns true on success, false if prefix is not a non-empty string.
-function YapperAPI:RegisterLinkProtocol(prefix)
-    if type(prefix) ~= "string" or prefix == "" then return false end
-    registeredLinkProtocols[prefix] = true
-    return true
-end
-
---- Returns a shallow copy of all registered link protocol prefixes as an
---- array of strings.  Ordered alphabetically.
-function YapperAPI:GetRegisteredLinkProtocols()
-    local out = {}
-    for prefix in pairs(registeredLinkProtocols) do
-        out[#out + 1] = prefix
-    end
-    table_sort(out)
-    return out
-end
-
---- Returns true if `prefix` has been registered via RegisterLinkProtocol.
-function YapperAPI:IsLinkProtocolRegistered(prefix)
-    if type(prefix) ~= "string" then return false end
-    return registeredLinkProtocols[prefix] == true
 end
 
 local registeredAtomicPatterns = {}

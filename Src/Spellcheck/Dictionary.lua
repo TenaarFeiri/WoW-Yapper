@@ -21,7 +21,6 @@ local pairs           = pairs
 local ipairs          = ipairs
 local tostring        = tostring
 local tonumber        = tonumber
-local math_huge       = math.huge
 local math_min        = math.min
 local string_byte     = string.byte
 local string_sub      = string.sub
@@ -115,14 +114,11 @@ function Spellcheck:RegisterDictionary(locale, data)
     local outWords = (existing and existing.words) or (not data.extends and words) or {}
     local phonetics = data.phonetics or (existing and existing.phonetics) or {}
 
-    local cfg = YapperTable and YapperTable.Config and YapperTable.Config.Spellcheck or {}
-    local ngramKeyCapSize = (cfg.NgramKeyCapSize ~= nil) and tonumber(cfg.NgramKeyCapSize) or 0
-    if ngramKeyCapSize == 0 then ngramKeyCapSize = math_huge end
-
-    local ngramIndex2 = existing and existing.ngramIndex2 or {}
-    local ngramIndex3 = existing and existing.ngramIndex3 or {}
-
-    local n2, n3 = 2, 3
+    local n2 = Spellcheck:GetNgramN()
+    local n3 = n2 + 1
+    local maxPosting = Spellcheck:GetNgramMaxPosting()
+    local ngramIndex2 = existing and existing["ngramIndex" .. n2] or {}
+    local ngramIndex3 = existing and existing["ngramIndex" .. n3] or {}
 
     -- Handle Inheritance (Base + Delta)
     if data.extends then
@@ -145,8 +141,8 @@ function Spellcheck:RegisterDictionary(locale, data)
             -- without duplicating the massive base index tables in memory.
             -- Note: If a pattern exists in both, the delta shadows the base;
             -- we handle merging these during the suggestion search.
-            setmetatable(ngramIndex2, { __index = base.ngramIndex2 })
-            setmetatable(ngramIndex3, { __index = base.ngramIndex3 })
+            setmetatable(ngramIndex2, { __index = base["ngramIndex" .. n2] })
+            setmetatable(ngramIndex3, { __index = base["ngramIndex" .. n3] })
 
             if not data.languageFamily then
                 data.languageFamily = base.languageFamily
@@ -188,6 +184,9 @@ function Spellcheck:RegisterDictionary(locale, data)
     end
 
     local dict = self.Dictionaries[locale]
+    dict["ngramIndex" .. n2] = ngramIndex2
+    dict["ngramIndex" .. n3] = ngramIndex3
+
     --- Returns true if the word (normalised) exists in this dictionary or its base,
     --- or if the user has manually added it to their personal dictionary.
     function dict:Contains(word)
@@ -247,29 +246,28 @@ function Spellcheck:RegisterDictionary(locale, data)
 
         -- Build n-gram postings inline using vowel-neutral normalisation
         local norm = NormaliseVowels(w)
-        local n2, n3 = 2, 3
 
-        -- Bigram Index (N=2)
+        -- Short-word index (N = NgramN)
         if #norm >= n2 then
-            dict.ngramIndex2 = dict.ngramIndex2 or {}
+            dict["ngramIndex" .. n2] = dict["ngramIndex" .. n2] or {}
             for i = 1, (#norm - n2 + 1) do
                 local g = string_sub(norm, i, i + n2 - 1)
-                dict.ngramIndex2[g] = dict.ngramIndex2[g] or {}
-                local posting = dict.ngramIndex2[g]
-                if #posting < 400 then -- TIERED CAP N2: 400 (was 500)
+                dict["ngramIndex" .. n2][g] = dict["ngramIndex" .. n2][g] or {}
+                local posting = dict["ngramIndex" .. n2][g]
+                if #posting < maxPosting then
                     posting[#posting + 1] = finalId
                 end
             end
         end
 
-        -- Trigram Index (N=3)
+        -- Long-word index (N = NgramN + 1)
         if #norm >= n3 then
-            dict.ngramIndex3 = dict.ngramIndex3 or {}
+            dict["ngramIndex" .. n3] = dict["ngramIndex" .. n3] or {}
             for i = 1, (#norm - n3 + 1) do
                 local g = string_sub(norm, i, i + n3 - 1)
-                dict.ngramIndex3[g] = dict.ngramIndex3[g] or {}
-                local posting = dict.ngramIndex3[g]
-                if #posting < 500 then -- TIERED CAP N3: 500 (was 2500)
+                dict["ngramIndex" .. n3][g] = dict["ngramIndex" .. n3][g] or {}
+                local posting = dict["ngramIndex" .. n3][g]
+                if #posting < maxPosting then
                     posting[#posting + 1] = finalId
                 end
             end

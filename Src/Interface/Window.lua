@@ -212,6 +212,19 @@ function Interface:GetSortedVersions()
     return list
 end
 
+--- Iterate through changelog versions in display order.
+---@param limitToOne boolean? Stop after the newest version.
+---@param callback function Receives version string and note array.
+function Interface:ForEachWhatsNewVersion(limitToOne, callback)
+    if type(callback) ~= "function" then return end
+
+    local WHATS_NEW = YapperTable.WHATS_NEW or {}
+    for index, version in ipairs(self:GetSortedVersions()) do
+        if limitToOne and index > 1 then break end
+        callback(version, WHATS_NEW[version] or {})
+    end
+end
+
 --- Returns the target version of the welcome screen content.
 function Interface:GetWelcomeVersion()
     local defaults = self:GetDefaultsRoot()
@@ -251,6 +264,19 @@ local function WriteSV(key, value)
         _G.YapperLocalConf.System = {}
     end
     _G.YapperLocalConf.System[key] = value
+end
+
+-- Create a fullscreen modal dimmer shared by welcome and What's New popups.
+---@param alpha number
+---@return Frame dimmer
+function Interface:CreateFullscreenDimmer(alpha)
+    local dimmer = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    dimmer:SetFrameStrata("FULLSCREEN_DIALOG")
+    dimmer:SetAllPoints(UIParent)
+    dimmer:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
+    dimmer:SetBackdropColor(0, 0, 0, alpha)
+    dimmer:EnableMouse(true)
+    return dimmer
 end
 
 -- ---------------------------------------------------------------------------
@@ -384,12 +410,7 @@ function Interface:CreateWelcomeChoiceFrame()
     local PAD       = 20
 
     -- Fullscreen darkener.
-    local dimmer    = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    dimmer:SetFrameStrata("FULLSCREEN_DIALOG")
-    dimmer:SetAllPoints(UIParent)
-    dimmer:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
-    dimmer:SetBackdropColor(0, 0, 0, 0.55)
-    dimmer:EnableMouse(true) -- block clicks through
+    local dimmer = self:CreateFullscreenDimmer(0.55)
 
     -- Main container.
     local frame = CreateFrame("Frame", "YapperWelcomeChoice", dimmer, "BackdropTemplate")
@@ -513,7 +534,7 @@ function Interface:CreateWelcomeChoiceFrame()
         frame,
         { "Spellcheck", "Enabled" },
         "Enable spellcheck  |cFF888888(per-locale dictionaries with adaptive learning)|r",
-        "Turns on real-time spellchecking with customisable underlines. "
+        "Turns on real-time spellchecking and colours misspelled words. "
         .. "The dictionary for your selected locale will be loaded on the next reload.",
         toggleY
     )
@@ -581,12 +602,7 @@ function Interface:CreateWhatsNewFrame()
     local PAD     = 20
 
     -- Fullscreen darkener.
-    local dimmer  = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    dimmer:SetFrameStrata("FULLSCREEN_DIALOG")
-    dimmer:SetAllPoints(UIParent)
-    dimmer:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
-    dimmer:SetBackdropColor(0, 0, 0, 0.45)
-    dimmer:EnableMouse(true)
+    local dimmer = self:CreateFullscreenDimmer(0.45)
 
     -- Main container.
     local frame = CreateFrame("Frame", "YapperWhatsNew", dimmer, "BackdropTemplate")
@@ -736,16 +752,10 @@ function Interface:CreateWhatsNewFrame()
 end
 
 function Interface:PopulateWhatsNewContent(content, textW, limitToOne)
-    local sorted = self:GetSortedVersions()
     local cursor = 0
     local cfgSize = YapperTable.Config.FrameSettings.WhatsNewFontSize or 12
 
-    local WHATS_NEW = YapperTable.WHATS_NEW or {}
-
-    for i, vStr in ipairs(sorted) do
-        if limitToOne and i > 1 then break end
-        local notes = WHATS_NEW[vStr]
-
+    self:ForEachWhatsNewVersion(limitToOne, function(version, notes)
         -- Version Header
         local vHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         local vFont, _, vFlags = vHeader:GetFont()
@@ -753,7 +763,7 @@ function Interface:PopulateWhatsNewContent(content, textW, limitToOne)
         vHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 4, cursor)
         vHeader:SetWidth(textW)
         vHeader:SetJustifyH("LEFT")
-        vHeader:SetText("Version " .. vStr)
+        vHeader:SetText("Version " .. version)
         vHeader:SetTextColor(1, 0.9, 0, 1)
         cursor = cursor - (vHeader:GetStringHeight() + 10)
 
@@ -779,7 +789,7 @@ function Interface:PopulateWhatsNewContent(content, textW, limitToOne)
             cursor = cursor - (body:GetStringHeight() + 14)
         end
         cursor = cursor - 20
-    end
+    end)
     content:SetHeight(math.abs(cursor))
 end
 

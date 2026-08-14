@@ -8,7 +8,7 @@ local function newHarness()
 
     local YapperName = "Yapper"
     local YapperTable = {
-        Config = { Spellcheck = { Enabled = true, Locale = "enUS", NgramKeyCapSize = 0 } },
+        Config = { Spellcheck = { Enabled = true, Locale = "enUS" } },
         Utils = { Print = function() end },
         Spellcheck = {
             Dictionaries = {},
@@ -35,6 +35,8 @@ local function newHarness()
             ClearSuggestionCache = function() end,
             ClearUnderlines = function() end,
             GetConfig = function(self) return self._testConfig or { Locale = "enUS" } end,
+            GetNgramN = function() return 2 end,
+            GetNgramMaxPosting = function() return 500 end,
             _RegisterLanguageEngine = function() end,
             UserDictCache = {},
             SuggestionFrame = nil,

@@ -1138,11 +1138,8 @@ function Multiline:ApplyTheme()
 
 	local fillR, fillG, fillB, fillA = 0.05, 0.05, 0.05, 0.95
 	local rounded                    = false
-	-- The current proxy path keeps the Blizzard editbox visible underneath and
-	-- does not populate _skinProxyTextures; that field belongs to the legacy
-	-- cloned-texture path. Match RefreshOverlayVisuals' mode check here.
+	-- Proxy mode keeps the Blizzard editbox visible underneath the overlay.
 	local proxyActive = cfg.UseBlizzardSkinProxy == true
-		and cfg.UseLegacyCloneProxy ~= true
 
 	local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
 	if overlay and overlay._yapperFillColor and not proxyActive then

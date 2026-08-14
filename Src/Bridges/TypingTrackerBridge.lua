@@ -4,10 +4,9 @@
 -- from Yapper's overlay focus/channel events.
 
 local _, YapperTable            = ...
-local Bridge                    = {
-    ["Exists"] = true, -- Just so we don't have an empty bridge table.
-}
+local Bridge                    = {}
 YapperTable.TypingTrackerBridge = Bridge
+Bridge._externalOwner            = nil
 
 -- Localise Lua globals for performance
 local string_format = string.format
@@ -35,7 +34,7 @@ end
 -- ---------------------------------------------------------------------------
 
 local function SignalTyping(chatType)
-    if not IsLoaded() then return end
+    if Bridge._externalOwner then return end
 
     if YapperTable.Config.System.EnableTypingTrackerBridge == false then
         return
@@ -63,7 +62,6 @@ local function SignalTyping(chatType)
 end
 
 local function SignalNotTyping()
-    if not IsLoaded() then return end
 
     local api = GetAPI()
 
@@ -82,8 +80,22 @@ local function SignalNotTyping()
     end
 end
 
+--- Let an integration own the tracker signal while it is active.
+---@param owner string|nil Integration identifier, or nil to resume Yapper ownership.
+function Bridge:SetExternalOwner(owner)
+    if owner == self._externalOwner then return end
+    self._externalOwner = owner
+    if owner then
+        SignalNotTyping()
+    end
+end
+
+function Bridge:IsExternallyOwned()
+    return self._externalOwner ~= nil
+end
+
 local function SignalChannelChanged(newChatType)
-    if not IsLoaded() then return end
+    if Bridge._externalOwner then return end
     if InCombatLockdown() then SignalNotTyping() return end
 
     if YapperTable.Config.System.EnableTypingTrackerBridge == false then
@@ -150,11 +162,6 @@ function Bridge:OnOverlayFocusGained(chatType)
 end
 
 function Bridge:OnOverlayFocusLost()
-    SignalNotTyping()
-end
-
-function Bridge:OnOverlaySent()
-    -- Stop typing immediately upon send
     SignalNotTyping()
 end
 

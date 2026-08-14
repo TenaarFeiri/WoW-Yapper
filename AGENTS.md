@@ -21,8 +21,34 @@ python3 tools/check_doc_refs.py --fix   # auto-relocate drifted references
   one fails silently in-game.
 - Documentation uses `file.lua#L<n>` links next to backticked signatures;
   `check_doc_refs.py` verifies them and can relocate drifted ones. Lines
-  annotated `[MISSING]`/`[NEW]` come from release.sh and await human
+  annotated `[MISSING]`/`[NEW]` come from release.sh and require agent
   confirmation — the checker treats those as warnings, not failures.
+
+## Release documentation protocol
+
+When `tools/release.sh` or `tools/sync.sh` reports documentation entries marked `[MISSING]` or `[NEW]`, do not blindly accept the generated diff or remove the marker automatically.
+
+### `[MISSING]`
+
+For every missing entry:
+
+1. Search the current source for the exact symbol and plausible renamed or replacement implementations.
+2. Trace callers, public API exposure, bridge consumers, and load-order references before deciding it is dead.
+3. If the symbol is confirmed removed, delete the entire stale documentation bullet and its `[MISSING]` marker. Remove related prose only when it is also obsolete.
+4. If the symbol still exists, restore or correct its documentation link and remove the marker.
+5. If it is intentionally undocumented, add or update an explicit entry in the synchronizer's `IGNORED_FUNCTIONS` with a rationale rather than leaving a permanent marker.
+
+### `[NEW]`
+
+For every new entry:
+
+1. Inspect the implementation, its callers, and whether it is public, user-facing, or internal.
+2. Document it in the correct API or Internals section with an accurate description, signature, and source link.
+3. For public or integration-facing methods, document behavior and lifecycle expectations rather than only copying the generated summary.
+4. Remove `[NEW]` only after the documentation has been reviewed and the link checker passes.
+5. If it is intentionally undocumented, add or update an explicit `IGNORED_FUNCTIONS` entry with a rationale instead of suppressing it ad hoc.
+
+After resolving all markers, run `python3 tools/check_doc_refs.py`, inspect the complete documentation diff, and rerun the relevant tests. Never use `--fix` as a substitute for investigating a missing or newly detected symbol.
 
 ## Gotchas
 

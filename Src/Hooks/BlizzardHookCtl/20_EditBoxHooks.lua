@@ -453,7 +453,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 self:_IMPushActive(blizzEditBox)
                 -- Swap proxy target if in proxy mode
                 local cfg = YapperTable.Config and YapperTable.Config.EditBox
-                local isProxy = cfg and cfg.UseBlizzardSkinProxy == true and cfg.UseLegacyCloneProxy ~= true
+                local isProxy = cfg and cfg.UseBlizzardSkinProxy == true
 
                 if isProxy and self.RestoreProxyMode then
                     pcall(function() self:RestoreProxyMode() end)

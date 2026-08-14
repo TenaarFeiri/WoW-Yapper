@@ -2,10 +2,19 @@
     CEBEBridge.lua
     Compatibility bridge for ChatEditBoxExtender (CEBE).
 
-    When CEBE is loaded, this bridge completely suppresses the Blizzard editbox
-    from being shown under any circumstances. It does this by dynamically hooking
-    Yapper's EditBox methods to wrap the native editbox's Show/SetAlpha calls
-    with guards that prevent the Blizzard editbox from appearing.
+    CEBE adopted Yapper's public API shortly before Yapper entered a major
+    refactor window. This bridge keeps that existing integration working without
+    requiring the CEBE implementation to be rewritten: it translates CEBE's
+    native-editbox suppression and typing-indicator ownership onto Yapper's
+    current overlay/show lifecycle.
+
+    When CEBE is loaded, the bridge suppresses the Blizzard editbox from being
+    shown underneath CEBE's editor by wrapping the native editbox's Show and
+    SetAlpha calls, including editboxes adopted through Yapper's current Show
+    and proxy paths.
+
+    Ideally CEBE should update its implementation for Yapper 2.x eventually,
+    but this bridge maintains compatibility in the interim.
 ]]
 
 local _, YapperTable = ...
@@ -44,17 +53,29 @@ end
 -- Dynamic Hooking
 -- ---------------------------------------------------------------------------
 
-local hookedEditBoxes = {}
+local hookedEditBoxes = setmetatable({}, { __mode = "k" })
+
+local function GetHookState(editBox)
+    local state = hookedEditBoxes[editBox]
+    if not state then
+        state = {}
+        hookedEditBoxes[editBox] = state
+    end
+    return state
+end
 
 --- Wrap an editbox's Show method to suppress it when CEBE is active.
 --- @param editBox table The Blizzard editbox to wrap
 local function wrapEditBoxShow(editBox)
-    if not editBox or not editBox.Show or hookedEditBoxes[editBox] then
+    if not editBox or not editBox.Show then
         return
     end
 
+    local state = GetHookState(editBox)
+    if state.show then return end
+
     local originalShow = editBox.Show
-    hookedEditBoxes[editBox] = true
+    state.show = true
 
     editBox.Show = function(self, ...)
         if Bridge:IsLoaded() then
@@ -77,12 +98,15 @@ end
 --- Wrap an editbox's SetAlpha method to suppress it when CEBE is active.
 --- @param editBox table The Blizzard editbox to wrap
 local function wrapEditBoxSetAlpha(editBox)
-    if not editBox or not editBox.SetAlpha or hookedEditBoxes[editBox] then
+    if not editBox or not editBox.SetAlpha then
         return
     end
 
+    local state = GetHookState(editBox)
+    if state.alpha then return end
+
     local originalSetAlpha = editBox.SetAlpha
-    hookedEditBoxes[editBox] = true
+    state.alpha = true
 
     editBox.SetAlpha = function(self, alpha, ...)
         if Bridge:IsLoaded() then
@@ -132,23 +156,27 @@ local function hookApplyProxyMode()
     end
 end
 
---- Hook Yapper's EditBox:AttachBlizzardSkinProxy to wrap editbox methods.
-local function hookAttachBlizzardSkinProxy()
-    if not YapperTable.EditBox or not YapperTable.EditBox.AttachBlizzardSkinProxy then
+--- Hook Yapper's normal Show path so CEBE suppression also covers the
+--- non-proxy mode used by CEBE. The legacy SkinProxy attachment hook used to
+--- provide this integration point before the native proxy refactor.
+local function hookEditBoxShow()
+    local editBox = YapperTable.EditBox
+    if not editBox or type(editBox.Show) ~= "function" or Bridge._showHooked then
         return
     end
 
-    local originalAttach = YapperTable.EditBox.AttachBlizzardSkinProxy
+    local originalShow = editBox.Show
+    if editBox.OrigEditBox then
+        wrapEditBoxMethods(editBox.OrigEditBox)
+    end
 
-    YapperTable.EditBox.AttachBlizzardSkinProxy = function(self, origEditBox, overlayHeight, ...)
-        -- Wrap the editbox's methods before Yapper's skin attachment logic runs
-        if origEditBox then
+    editBox.Show = function(self, origEditBox, ...)
+        if Bridge:IsLoaded() and origEditBox then
             wrapEditBoxMethods(origEditBox)
         end
-
-        -- Call the original Yapper function
-        return originalAttach(self, origEditBox, overlayHeight, ...)
+        return originalShow(self, origEditBox, ...)
     end
+    Bridge._showHooked = true
 end
 
 --- Hide all Blizzard chat editboxes when CEBE is active.
@@ -159,6 +187,21 @@ local function hideAllBlizzardEditBoxes()
             pcall(function() editBox:Hide() end)
         end
     end
+end
+
+--- Reconcile Yapper's live proxy state with CEBE's ownership of the native box.
+local function reconcileYapperProxyState()
+    local editBox = YapperTable.EditBox
+    local cfg = YapperTable.Config and YapperTable.Config.EditBox
+    if not cfg then return end
+
+    if cfg.UseBlizzardSkinProxy == true and editBox then
+        if type(editBox.RestoreProxyMode) == "function" then
+            editBox:RestoreProxyMode()
+        end
+        cfg.UseBlizzardSkinProxy = false
+    end
+    cfg.HideBlizzardEditbox = true
 end
 
 --- Register CONFIG_CHANGED callback to intercept editbox visibility config changes.
@@ -175,11 +218,8 @@ local function registerConfigCallback()
 
         -- Check if this is an editbox visibility setting
         if path == "EditBox.HideBlizzardEditbox" or path == "EditBox.UseBlizzardSkinProxy" then
-            -- Force the config to hide and rehide all editboxes
-            if YapperTable.Config and YapperTable.Config.EditBox then
-                YapperTable.Config.EditBox.HideBlizzardEditbox = true
-                YapperTable.Config.EditBox.UseBlizzardSkinProxy = false
-            end
+            -- Force the config to hide and rehide all editboxes.
+            reconcileYapperProxyState()
             hideAllBlizzardEditBoxes()
             
             if YapperTable.Utils and YapperTable.Utils.DebugPrint then
@@ -223,12 +263,21 @@ function Bridge:Init()
     -- Communicate with CEBE
     communicateWithCEBE()
 
+    -- CEBE owns typing indicators while its Yapper compatibility mode is active.
+    local tracker = YapperTable.TypingTrackerBridge
+    if tracker and type(tracker.SetExternalOwner) == "function" then
+        tracker:SetExternalOwner("ChatEditBoxExtender.YapperCompat")
+    end
+
+    -- Reconcile any saved proxy state before CEBE takes over the native box.
+    reconcileYapperProxyState()
+
     -- Hide all Blizzard editboxes immediately
     hideAllBlizzardEditBoxes()
 
-    -- Hook Yapper's EditBox methods dynamically
+    -- Hook Yapper's normal Show path and exceptional proxy path.
+    hookEditBoxShow()
     hookApplyProxyMode()
-    hookAttachBlizzardSkinProxy()
 
     -- Register config change callback to override editbox visibility settings
     registerConfigCallback()

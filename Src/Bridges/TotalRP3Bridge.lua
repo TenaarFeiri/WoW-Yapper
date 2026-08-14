@@ -114,9 +114,6 @@ function TotalRP3Bridge:Init()
     -- We only need to register the protocols if Yapper API is available.
     if not _G.YapperAPI then return end
 
-    -- Declare the TRP3 link protocol as a known, first-class link type in Yapper.
-    _G.YapperAPI:RegisterLinkProtocol("addon:totalrp3")
-
     -- Register the unformatted TRP3 text format as an atomic token.
     -- This prevents Yapper's chunker from splitting "[TRP3:Identifier]" links.
     _G.YapperAPI:RegisterAtomicPattern("%[TRP3:[^%]]+%]")
