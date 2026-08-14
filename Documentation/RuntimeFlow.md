@@ -93,7 +93,7 @@ The practical implications are:
 - A module must not assume a later TOC entry already exists.
 - Hook files depend on the shared hub and on the editor helpers loaded before
   them.
-- Bridges should use the public API rather than reaching into private core
+- New bridges should use the public API rather than reaching into private core
   tables.
 
 When adding a module, first decide whether it is a load-order dependency, a
@@ -125,7 +125,8 @@ The show hook has to handle more than a normal open:
 - the queue may be waiting for a hardware event instead of a new message;
 - the user may have explicitly bypassed Yapper.
 
-`Hooks/ShowHide.lua` owns the overlay lifecycle and selection resolution.
+`Hooks/ShowHide.lua` owns the overlay lifecycle and orchestrates open
+selection; `Policies/ChannelPolicy.lua` owns the channel-selection rules.
 `BlizzardHookCtl/20_EditBoxHooks.lua` observes native attribute and text changes.
 `BlizzardHookCtl/30_ChatFrameHooks.lua` handles the broader chat-frame/open-chat
 surface. The files cooperate; none of them is the complete open implementation.
@@ -325,9 +326,11 @@ current bridge families include:
 - CEBE integration;
 - Languages integration.
 
-A bridge should be able to be absent without breaking the core editor. If a
-bridge needs a core capability that is not public, extend the API or add a
-narrow callback/filter; do not make the bridge depend on private editor fields.
+A bridge should be able to be absent without breaking the core editor. The
+preferred boundary is the public API plus narrow callbacks and filters. Some
+older compatibility bridges still read or wrap `YapperTable.EditBox` directly;
+when changing those bridges, reduce that private coupling rather than adding
+more of it.
 
 ## State and flag glossary
 
@@ -355,11 +358,11 @@ The editor's `_lockdown` table is a separate, short-lived handoff FSM:
 | `textHooked` | Idle timer reset hook has been installed |
 | `savedDraft` | Handoff saved recoverable text |
 | `savedDuring` | Native Blizzard changes need deferred persistence |
-| `showHandled` | Show-hook lockdown handling already ran |
+| `showHandled` | Reserved/reset-only flag; no active branch currently reads it |
 
 Multiline has an analogous check ticker and idle timer because it owns a
-separate visible editor. Those timers must be cancelled when the frame closes
-or lockdown ends.
+separate visible editor. `OnLockdownEnd()` cancels both; a pending check ticker
+also self-cancels when the multiline frame is no longer shown.
 
 ## Invariants to preserve
 
