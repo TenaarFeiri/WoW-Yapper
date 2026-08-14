@@ -93,6 +93,8 @@ The practical implications are:
 - A module must not assume a later TOC entry already exists.
 - Hook files depend on the shared hub and on the editor helpers loaded before
   them.
+- `YapperAPI` (`Src/API.lua`) is the extension boundary for filters, callbacks,
+  state notifications, and bridge-facing helpers.
 - New bridges should use the public API rather than reaching into private core
   tables.
 
@@ -140,16 +142,88 @@ next `OpenChat()` may appear to succeed while focusing the wrong object.
 Therefore:
 
 ```text
-visible Yapper editor + Yapper owns input
+visible Yapper editor + Yapper owns input + no bypass
   -> SetChatFocusOverride(active editor)
 
 handoff, bypass, normal hide, or no active editor
   -> ClearChatFocusOverride()
 ```
 
+The bypass flags are checked alongside editor visibility, so an explicit
+Blizzard bypass also prevents Yapper from reclaiming focus.
+
 The handoff path deliberately sets `handedOff = true` before updating focus so
 the hidden overlay cannot survive as the override target. See
 [`EditBox:HandoffToBlizzard()`](../Src/Hooks/ShowHide.lua#L731-L815).
+
+### Alternate open paths
+
+The ordinary native `Show()` hook is only one entry point. Several Blizzard
+paths deliberately bypass or complicate it:
+
+- **IM mode:** `ActivateChat()` is intercepted because the editbox is already
+  shown, so a `Show()` hook does not observe the user-initiated open. Yapper
+  defers its own `Show()` call to the next frame.
+- **Tab clicks:** `FCF_Tab_OnClick` either applies a switch through `Show()` or
+  stores `_pendingTabSwitch` for the next open. This preserves per-tab channel
+  memory without overwriting text already being composed.
+- **External whispers:** `SendTell()` and `SendBNetTell()` snapshot Blizzard's
+  whisper context before hiding the native box, then reopen Yapper with the
+  target forced as the final authority.
+- **Chat-menu channel selection:** menu responders temporarily clear the focus
+  override so Blizzard returns a real native editbox, capture the selected
+  channel immediately and one frame later, then restore Yapper focus.
+- **BNet transitions:** the native attribute hook can reclaim a Blizzard box
+  when a BNet whisper changes to a normal chat type, unless lockdown or bypass
+  owns the path.
+- **Link insertion:** `ChatEdit_InsertLink` routes focus to whichever editor
+  Blizzard and Yapper currently agree is active, including multiline.
+- **Undocked windows:** `FCF_MaximizeFrame` refreshes the remembered active IM
+  editbox because restoring a child window does not necessarily fire the
+  native editbox `Show()` hook.
+- **Reply keybinds:** the user-facing re-whisper path is handled by Yapper's
+  keybind override; the old direct `ReplyTell2` hook was removed, so addons
+  that call that function programmatically are a deliberate compatibility
+  boundary.
+
+These paths are why “opening the editbox” cannot be represented by one hook.
+The implementation is concentrated in
+[`BlizzardHookCtl/30_ChatFrameHooks.lua`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L285-L654),
+with BNet transition handling in
+[`BlizzardHookCtl/20_EditBoxHooks.lua`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L75-L157).
+
+### Native attribute synchronization
+
+The overlay owns the editing experience, but Blizzard's native editbox still
+needs coherent attributes for headers, colours, deactivation, and fallback
+behavior. `SyncAttributesToBlizzard()` pushes Yapper's chat type, target,
+language, and non-whisper `stickyType` into the native box. Whispers are
+intentionally not made sticky so a transient whisper cannot bleed into the next
+normal open.
+
+When Yapper closes normally, `ResetSyncedAttributes()` restores the native box
+to its sticky type and clears stale targets. That reset is guarded during
+handoff and lockdown because native attribute writes are unsafe or would fight
+Blizzard's authority at those points.
+
+See [`SyncAttributesToBlizzard()` and `ResetSyncedAttributes()`](../Src/Hooks/Label.lua#L232-L344).
+
+### Proxy mode
+
+In Blizzard-skin proxy mode, the native editbox remains visible as a visual
+shell beneath Yapper. It is not a second text owner:
+
+- proxy maintenance keeps the native text empty so deferred Blizzard writes do
+  not appear underneath the overlay;
+- focus transitions adjust native alpha only when its previous alpha was a
+  default value;
+- multiline hides the proxy shell while expanded and re-shows it when returning
+  to the single-line overlay.
+
+The proxy relationship is therefore visual, while the overlay remains the text
+owner. See [`EnsureProxyBackgroundShown()`](../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua#L3-L35)
+and the proxy focus handling in
+[`EditBox:SetupOverlayScripts()`](../Src/EditBox/Handlers.lua#L723-L757).
 
 ## Send lifecycle
 
@@ -195,6 +269,40 @@ queue recovery.
 The main pipeline is documented in
 [`Chat:SendPosts()`](../Src/Chat.lua#L88-L215).
 
+### Queue continuation and failure
+
+The queue has more than one acknowledgement strategy:
+
+- When a reliable chat event is expected, it waits for an acceptable
+  acknowledgement, including known sibling events and RP-addon conversions.
+- For policies marked `autoUntilThrottle`, it uses `AssumeAck` after the stall
+  timeout when no acknowledgement event exists.
+- Otherwise it shows a continuation prompt and waits for hardware input.
+- A normal stall re-queues the pending entry at the front and enters
+  `STALLED`; the message is not discarded.
+- A hard router/API failure cancels the whole sequence instead of retrying an
+  error forever.
+- `QUEUE_COMPLETE` returns the state to `IDLE` and hides the overlay when the
+  queue had required a continuation open.
+
+The queue therefore owns delivery progress, while the editor owns only the
+composition and the hardware-event entry point. See
+[`Queue:SendNext()` and acknowledgement handling](../Src/Queue.lua#L460-L513),
+[`Queue:OnStallTimeout()`](../Src/Queue.lua#L690-L726), and
+[`Queue:RawSend()`](../Src/Queue.lua#L520-L539).
+
+### Delegated delivery
+
+`PRE_DELIVER` is a second extension boundary below `PRE_SEND`. An external
+addon can claim a message rather than letting Router send it. When that occurs,
+Yapper creates a claim handle and fires `POST_CLAIMED`; the claiming addon must
+resolve the claim through the API. A successful native send instead fires
+`POST_SEND`.
+
+This is why a `PRE_DELIVER` veto is not necessarily a failed send. It can be a
+handoff to another delivery owner. See
+[`Chat:DirectSend()`](../Src/Chat.lua#L237-L320).
+
 ## Lockdown is a family of concepts
 
 Yapper uses several related but distinct meanings of “lockdown”:
@@ -232,8 +340,13 @@ PLAYER_REGEN_DISABLED / CHALLENGE_MODE_START / encounter signal
 
 The single-line handler performs this check and polling in
 [`EditBox:SetupOverlayScripts()`](../Src/EditBox/Handlers.lua#L760-L857).
-Multiline has its own visible editor and therefore has a matching check in
-[`Multiline:OnLockdownStart()`](../Src/Multiline.lua#L1029-L1069).
+Multiline has its own visible editor and therefore has a matching predicate and
+polling path in [`Multiline:OnLockdownStart()`](../Src/Multiline.lua#L1029-L1069).
+However, multiline's event frame currently registers only
+`PLAYER_REGEN_DISABLED` and `PLAYER_REGEN_ENABLED`; it does not independently
+register `CHALLENGE_MODE_START` or `CHALLENGE_MODE_COMPLETED`. Do not assume
+that the single-line and multiline event surfaces have full parity when
+changing Mythic+ lockdown behavior.
 
 This distinction is important for environmental damage, training dummies, and
 other situations that enter combat without entering a restricted encounter.
@@ -257,7 +370,8 @@ The ordering is deliberate. Clearing the focus override before marking the
 handoff can leave the hidden overlay installed as Blizzard's focus destination.
 Saving after clearing the text can lose the user's draft. Reopening Blizzard's
 editbox automatically during the handoff can reactivate protected UI at the
-wrong time.
+wrong time. When multiline has already saved the full composition,
+`isMultiline=true` tells the shared handoff not to save that draft a second time.
 
 ### Lockdown recovery
 
@@ -270,7 +384,7 @@ PLAYER_REGEN_ENABLED / challenge completion
   -> return the logical state to IDLE
   -> wait until chat messaging lockdown is actually false
   -> clear handedOff
-  -> persist deferred channel changes
+  -> if `savedDuring`, persist deferred native channel changes and clear the flag
   -> allow the next Yapper open to recover the draft/channel
 ```
 
@@ -299,6 +413,45 @@ owner.
 
 The important invariant is that multiline owns **editing**, but `EditBox` owns
 the overall editor/focus contract and `Chat` owns delivery.
+
+### Multiline extension and draft relationships
+
+Multiline expansion has its own `PRE_MULTILINE_SHOW` filter. External addons
+can veto or rewrite the text, channel, language, or target before the expanded
+frame exists. Once entered, multiline copies the overlay's font/theme context
+and binds spellcheck and autocomplete to the new editor.
+
+When hard newlines are collapsed back into the single-line overlay, multiline
+keeps the full text in `_mlDraft` and stores a collapsed fingerprint. Re-entry
+restores the full text only if the overlay still contains that fingerprint. If
+the user edited or cleared the overlay, that is treated as an intentional
+change rather than silently restoring old text.
+
+Lockdown uses a separate 1.5-second idle timer. Typing resets the timer; when it
+fires, multiline saves the full draft, exits without re-opening the overlay, and
+calls the shared handoff with `isMultiline=true`.
+
+See [`Multiline:Enter()`](../Src/Multiline.lua#L615-L674),
+[`Multiline:Exit()`](../Src/Multiline.lua#L770-L861), and
+[`Multiline:ResetLockdownIdleTimer()`](../Src/Multiline.lua#L1005-L1026).
+
+## Draft and channel persistence boundaries
+
+Draft persistence intentionally separates text recovery from channel recovery:
+
+- Normal drafts retain their channel and target so reopening can resume in the
+  right context.
+- A transient external whisper target is not persisted with the draft. This
+  prevents a unit-frame right-click whisper from becoming the next normal chat
+  destination.
+- Multiline drafts retain the multiline marker and channel context, while the
+  overlay fingerprint controls whether hard newlines can be restored.
+- Native channel changes made during lockdown are held through `savedDuring` and
+  persisted only after the restriction actually ends.
+
+These rules prevent a successful text recovery from accidentally restoring the
+wrong whisper or channel. The external-whisper draft gate is in
+[`History:SaveDraft()`](../Src/History.lua#L205-L236).
 
 ## Hooks and bridges
 
@@ -363,6 +516,21 @@ The editor's `_lockdown` table is a separate, short-lived handoff FSM:
 Multiline has an analogous check ticker and idle timer because it owns a
 separate visible editor. `OnLockdownEnd()` cancels both; a pending check ticker
 also self-cancels when the multiline frame is no longer shown.
+
+### State diagnostics and flags
+
+State transitions are also a diagnostic channel. In DEBUG mode, `State:Transition`
+records blame information from the call stack; every transition is retained in
+a local circular buffer capped at 200 entries. Returning to `IDLE` schedules a
+mirror of that buffer into the persistent state-log area of `YapperDB`.
+
+The separate state-flag API supports both session-only flags and flags persisted
+under `Config.System.StateFlags`. This is distinct from the editor's
+`_lockdown` table: state flags describe broader application preferences or
+one-shot behavior, while `_lockdown` tracks the handoff FSM.
+
+See [`State:Transition()` and state logging](../Src/State.lua#L88-L164) and
+[`State:GetFlag()` / `State:SetFlag()`](../Src/State.lua#L50-L86).
 
 ## Invariants to preserve
 
