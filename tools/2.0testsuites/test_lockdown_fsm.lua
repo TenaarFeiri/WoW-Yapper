@@ -229,8 +229,11 @@ _G.YapperAPI = {
 }
 
 loadModule("Src/Hooks/ShowHide.lua")
+loadModule("Src/Multiline.lua")
 
 local EditBox = YapperTable.EditBox
+local Multiline = YapperTable.Multiline
+local State = YapperTable.State
 
 -- Attach mock overlay widgets; CreateOverlay is defined in Overlay.lua,
 -- which pulls in far more UI surface than this FSM test needs.
@@ -405,6 +408,33 @@ EditBox:ClearLockdownState()
 check("timers cancelled", pendingTimers[1]._cancelled and pendingTimers[2]._cancelled)
 check("idleTimer/ticker fields nil", EditBox._lockdown.idleTimer == nil and EditBox._lockdown.ticker == nil)
 check("eventRunning reset", EditBox._lockdown.eventRunning == false)
+
+print("\nTest 7: Multiline chat-lockdown gating")
+
+ResetWorld()
+local multilineFrame = MockFrame("LockdownMultilineFrame")
+local multilineEdit = MockEditBoxFrame("LockdownMultilineEdit")
+multilineFrame:Show()
+multilineEdit:SetText("draft during passive damage")
+Multiline.Frame = multilineFrame
+Multiline.EditBox = multilineEdit
+State._current = State.STATES.MULTILINE
+chatLockdown = false
+Multiline:OnLockdownStart()
+check("passive combat: no immediate multiline handoff", Multiline._lockdownIdleTimer == nil)
+check("passive combat: deferred lockdown check scheduled", Multiline._lockdownCheckTicker ~= nil)
+
+local lockdownCheck = Multiline._lockdownCheckTicker
+chatLockdown = true
+lockdownCheck.callback(lockdownCheck)
+check("chat lockdown: multiline idle handoff scheduled", Multiline._lockdownIdleTimer ~= nil)
+
+Multiline:OnLockdownEnd()
+check("lockdown end: multiline timers cleared",
+    Multiline._lockdownCheckTicker == nil and Multiline._lockdownIdleTimer == nil)
+Multiline.Frame = nil
+Multiline.EditBox = nil
+State._current = State.STATES.IDLE
 
 -- ===========================================================================
 print("\n" .. string.rep("-", 50))

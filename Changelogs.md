@@ -3,6 +3,9 @@
 ### New Features
 - Yapper now tentatively supports the new Discord integration.
 
+### Bug Fixes
+- Fixed lockdown issue when using multiline where non-lockdown combat could trick the system into thinking we are, indeed, locked down.
+
 ### Improvements
 - Reworked the built-in Help page into a feature-focused quick reference covering chat controls, channels, spellcheck, autocomplete, multiline editing, history, pickers, and Yapper commands.
 - Improved compatibility with ChatEditBoxExtender (CEBE) across the current Yapper editor lifecycle, including native editbox suppression and typing-indicator ownership.

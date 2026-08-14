@@ -63,6 +63,7 @@ Multiline.Language                   = nil -- language index
 Multiline.Target                     = nil -- whisper / channel target
 Multiline._autoScrollSuppressedUntil = 0
 Multiline._lockdownIdleTimer         = nil -- combat lockdown idle timer (1.5s wait after last keystroke)
+Multiline._lockdownCheckTicker       = nil
 
 -- ---------------------------------------------------------------------------
 -- Label helpers
@@ -1032,6 +1033,32 @@ function Multiline:OnLockdownStart()
 	if not (self.Frame and self.Frame:IsShown()) then return end
 	if not State:IsMultiline() then return end
 
+	if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+		if self._lockdownCheckTicker then
+			self._lockdownCheckTicker:Cancel()
+		end
+		local ticks = 0
+		self._lockdownCheckTicker = C_Timer.NewTicker(0.1, function(ticker)
+			ticks = ticks + 1
+			if not (self.Frame and self.Frame:IsShown()) or not State:IsMultiline() then
+				ticker:Cancel()
+				self._lockdownCheckTicker = nil
+				return
+			end
+			if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+				ticker:Cancel()
+				self._lockdownCheckTicker = nil
+				self:OnLockdownStart()
+				return
+			end
+			if ticks >= 20 then
+				ticker:Cancel()
+				self._lockdownCheckTicker = nil
+			end
+		end)
+		return
+	end
+
 	local text = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
 	if text == "" then
 		self:Exit(false, true)
@@ -1044,6 +1071,10 @@ end
 --- Called when combat ends (PLAYER_REGEN_ENABLED).
 --- Cancels the lockdown idle timer.
 function Multiline:OnLockdownEnd()
+	if self._lockdownCheckTicker then
+		self._lockdownCheckTicker:Cancel()
+		self._lockdownCheckTicker = nil
+	end
 	if self._lockdownIdleTimer then
 		self._lockdownIdleTimer:Cancel()
 		self._lockdownIdleTimer = nil

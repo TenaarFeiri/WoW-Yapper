@@ -30,7 +30,11 @@ YapperTable.WHATS_NEW = {
         note(
             "ChatEditBoxExtender compatibility",
             "Improved some compatibility for ChatEditBoxExtender as recent changes interfered with their compatibility layer for Yapper."
-        )
+        ),
+        note(
+            "Bug Fixes",
+            "- Fixed lockdown issue when using multiline where non-lockdown combat could trick the system into thinking we are, indeed, locked down."
+        ),
     ),
     ["2.4.1"] = release(
         note(
