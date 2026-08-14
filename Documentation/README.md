@@ -1,6 +1,7 @@
 # Documentation index
 
 - [Architecture](Architecture.md) — runtime map, boot sequence, hot paths, SavedVariables, LOD dictionaries, errors.
+- [RuntimeFlow](RuntimeFlow.md) — editor ownership, focus, send, lockdown, handoff, bridge relationships, and invariants.
 - [API](API.md) — public `_G.YapperAPI` reference.
 - [Internals](Internals.md) — internal `_G.Yapper` / `YapperTable` surface (unstable).
 - [Globals](Globals.md) — `_G.*`, slash commands, bindings quick reference.
