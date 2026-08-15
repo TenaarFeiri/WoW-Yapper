@@ -289,13 +289,13 @@ function EditBox:SyncAttributesToBlizzard()
         blizzEditBox:SetAttribute("language", nil)
     end
 
-    self._syncingAttributes = nil
-
     -- Call UpdateHeader to refresh the visual state (header text, colors, etc.)
     -- This is what Blizzard does after setting attributes to make the changes visible.
     if blizzEditBox.UpdateHeader then
         pcall(function() blizzEditBox:UpdateHeader() end)
     end
+
+    self._syncingAttributes = nil
 end
 
 --- Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral

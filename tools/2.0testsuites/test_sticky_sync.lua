@@ -57,9 +57,20 @@ local function MockBlizzEditBox(name)
     function f:ClearFocus() self._focused = false end
     function f:SetText(t) self._text = t or "" end
     function f:GetText() return self._text end
-    function f:SetAttribute(key, value) attrs[key] = value end
+    function f:SetAttribute(key, value)
+        attrs[key] = value
+        if self._onSetAttribute then
+            self._onSetAttribute(self, key, value)
+        end
+    end
     function f:GetAttribute(key) return attrs[key] end
-    function f:UpdateHeader() end
+    function f:UpdateHeader()
+        self._inUpdateHeader = true
+        if self._updateHeaderWrites then
+            self:SetAttribute("channelTarget", attrs["channelTarget"])
+        end
+        self._inUpdateHeader = nil
+    end
     -- Simulate Blizzard's ResetChatTypeToSticky: SetChatType(GetStickyType())
     function f:SimulateDeactivate()
         local sticky = attrs["stickyType"] or "SAY"
@@ -200,6 +211,23 @@ do
     EditBox.Language = nil
     EditBox:SyncAttributesToBlizzard()
     check("SAY: stickyType = SAY", blizz._attrs["stickyType"] == "SAY")
+end
+
+do
+    local blizz = MockBlizzEditBox("ChatFrame1EditBox")
+    local reentered = false
+    blizz._updateHeaderWrites = true
+    blizz._onSetAttribute = function(eb, key)
+        if eb._inUpdateHeader and key == "channelTarget" and not EditBox._syncingAttributes then
+            reentered = true
+        end
+    end
+    EditBox.OrigEditBox = blizz
+    EditBox.ChatType = "CHANNEL"
+    EditBox.Target = 4
+    EditBox.Language = nil
+    EditBox:SyncAttributesToBlizzard()
+    check("global channel: UpdateHeader attribute write stays guarded", not reentered)
 end
 
 -- ===========================================================================
