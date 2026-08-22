@@ -42,6 +42,7 @@ local string_upper    = string.upper
 local string_match    = string.match
 local string_char     = string.char
 local string_format   = string.format
+local rawget          = rawget
 
 local Utils = YapperTable.Utils
 
@@ -452,52 +453,52 @@ end
 
 --- Collect n-gram-scored candidates when the n-gram index is enabled.
 local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
-    local hits = {}
+    local deltaHits = {}
+    local baseHits = {}
     local ngramN = Spellcheck:GetNgramN()
     local n = lowerLen < 5 and ngramN or (ngramN + 1)
     local normVowels = (engine and engine.NormaliseVowels) or NormaliseVowels
     local norm = normVowels(lower)
 
-    local function addHits(idx, wordsTable)
+    local function addHits(idx, hits)
         if not idx then return end
         for i = 1, (#norm - n + 1) do
             local g = string_sub(norm, i, i + n - 1)
-            local posting = idx[g]
+            local posting = rawget(idx, g)
             if posting then
                 for _, id in ipairs(posting) do
-                    -- Use raw IDs directly; our generator ensures base and delta IDs never collide.
                     hits[id] = (hits[id] or 0) + 1
                 end
             end
         end
     end
 
-    -- If this is a delta dict, its ngramIndex is already metatable-linked to the base.
-    -- We only need to iterate the active dictionary's index once to see everything.
-    local activeIndex = dict["ngramIndex" .. n]
-    addHits(activeIndex, dict.words)
-
-    -- Special case: if the base is not yet inherited via metatable (old dicts),
-    -- manually add it.
-    if base and (not activeIndex or getmetatable(activeIndex) == nil) then
-        addHits(base["ngramIndex" .. n], base.words)
+    local indexKey = "ngramIndex" .. n
+    addHits(rawget(dict, indexKey), deltaHits)
+    if base then
+        addHits(rawget(base, indexKey), baseHits)
     end
 
     local tmp = {}
-    for key, cnt in pairs(hits) do
-        local dObj = (key > 0) and dict or base
-        local id = math_abs(key)
-        local w = dObj.words[id]
-        if w then
-            local wLen = #w
-            local lenDiff = math_abs(wLen - lowerLen)
-            local score = (2 * cnt) / (lowerLen + wLen) - (lenDiff * 0.1)
-            if string_byte(w, 1) == string_byte(lower, 1) then
-                score = score + 0.5
+    local function appendCandidates(hits, source)
+        if not source or not source.words then return end
+        for id, cnt in pairs(hits) do
+            local w = source.words[id]
+            if w then
+                local wLen = #w
+                local lenDiff = math_abs(wLen - lowerLen)
+                local score = (2 * cnt) / (lowerLen + wLen) - (lenDiff * 0.1)
+                if string_byte(w, 1) == string_byte(lower, 1) then
+                    score = score + 0.5
+                end
+                tmp[#tmp + 1] = { word = w, score = score }
             end
-            tmp[#tmp + 1] = { word = w, score = score }
         end
     end
+
+    appendCandidates(deltaHits, dict)
+    appendCandidates(baseHits, base)
+
     table_sort(tmp, function(a, b)
         if a.score == b.score then return a.word < b.word end
         return a.score > b.score

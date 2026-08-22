@@ -219,19 +219,19 @@ Used lazily by `GetDictionary`, locale switches, and LOD registration.
 
 - Description: Dictionary registration/loading, locale availability, async indexing.
 - Methods:
-  - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L35`](../Src/Spellcheck/Dictionary.lua#L35))
-  - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L70`](../Src/Spellcheck/Dictionary.lua#L70)) — **Security Note**: Validates the associated language family engine for `BlockedHashes` before indexing. Blocks registration if the family engine is missing or insecure.
-  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L368`](../Src/Spellcheck/Dictionary.lua#L368))
-  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L411`](../Src/Spellcheck/Dictionary.lua#L411))
-  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L420`](../Src/Spellcheck/Dictionary.lua#L420))
-  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L425`](../Src/Spellcheck/Dictionary.lua#L425))
-  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L456`](../Src/Spellcheck/Dictionary.lua#L456))
-  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L468`](../Src/Spellcheck/Dictionary.lua#L468))
-  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L482`](../Src/Spellcheck/Dictionary.lua#L482))
-  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L497`](../Src/Spellcheck/Dictionary.lua#L497))
-  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L503`](../Src/Spellcheck/Dictionary.lua#L503))
-  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L570`](../Src/Spellcheck/Dictionary.lua#L570))
-  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L192`](../Src/Spellcheck/Dictionary.lua#L192)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
+  - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L36`](../Src/Spellcheck/Dictionary.lua#L36))
+  - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L71`](../Src/Spellcheck/Dictionary.lua#L71)) — **Security Note**: Validates the associated language family engine for `BlockedHashes` before indexing. Blocks registration if the family engine is missing or insecure.
+  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L375`](../Src/Spellcheck/Dictionary.lua#L375))
+  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L418`](../Src/Spellcheck/Dictionary.lua#L418))
+  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L427`](../Src/Spellcheck/Dictionary.lua#L427))
+  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L432`](../Src/Spellcheck/Dictionary.lua#L432))
+  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L463`](../Src/Spellcheck/Dictionary.lua#L463))
+  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L475`](../Src/Spellcheck/Dictionary.lua#L475))
+  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L489`](../Src/Spellcheck/Dictionary.lua#L489))
+  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L504`](../Src/Spellcheck/Dictionary.lua#L504))
+  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L510`](../Src/Spellcheck/Dictionary.lua#L510))
+  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L577`](../Src/Spellcheck/Dictionary.lua#L577))
+  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L193`](../Src/Spellcheck/Dictionary.lua#L193)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
 - Side effects:
   - Schedules `C_Timer.After(0, ...)` chunk processing and refresh tickers.
 
