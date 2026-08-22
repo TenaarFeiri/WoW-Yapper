@@ -9,7 +9,7 @@ local function newHarness()
     local YapperName = "Yapper"
     local YapperTable = {
         Config = { Spellcheck = { Enabled = true, Locale = "enUS" } },
-        Utils = { Print = function() end },
+        Utils = { Print = function() end, DebugPrint = function() end },
         Spellcheck = {
             Dictionaries = {},
             DictionaryBuilders = {},
@@ -25,11 +25,17 @@ local function newHarness()
             _pendingBuilders = {},
             _pendingLocaleLoads = {},
             _DICT_CHUNK_SIZE = 1000,
+            _ed_prev = {},
+            _ed_cur = {},
+            _ed_prev_prev = {},
+            _ed_aBytes = {},
+            _ed_bBytes = {},
             Clamp = function(v, min, max) return math.min(max, math.max(min, v)) end,
             NormaliseWord = function(s) return (s or ""):lower():gsub("[%p%c%s]", "") end,
             NormaliseVowels = function(s) return (s or ""):lower():gsub("[aeiouy]", "*") end,
             IsWordStartByte = function(b) return (b >= 97 and b <= 122) or (b >= 65 and b <= 90) or b > 127 end,
             Notify = function() end,
+            IsDebugEnabled = function() return false end,
             IsEnabled = function() return true end,
             ScheduleRefresh = function() end,
             ClearSuggestionCache = function() end,
@@ -37,6 +43,7 @@ local function newHarness()
             GetConfig = function(self) return self._testConfig or { Locale = "enUS" } end,
             GetNgramN = function() return 2 end,
             GetNgramMaxPosting = function() return 500 end,
+            GetEngine = function() return { BlockedHashes = {} } end,
             _RegisterLanguageEngine = function() end,
             UserDictCache = {},
             SuggestionFrame = nil,
@@ -108,6 +115,75 @@ do
     check("Fix 2: purge non-kept enGB", SC.Dictionaries["enGB"] == nil)
     check("Fix 2: keep enBase async loader", SC._asyncLoaders["enBase"] ~= nil and not SC._asyncLoaders["enBase"].cancelled)
     check("Fix 2: cancel/purge unrelated async loaders", SC._asyncLoaders["frFR"] == nil)
+end
+
+do
+    local SC = newHarness()
+    SC:RegisterDictionary("enBase", { words = { "cat" }, languageFamily = "en", engine = {} })
+    local basePosting = SC.Dictionaries.enBase.ngramIndex2["*t"]
+
+    SC:RegisterDictionary("enUS", { words = { "dat" }, languageFamily = "en", extends = "enBase", isDelta = true })
+    local deltaPosting = SC.Dictionaries.enUS.ngramIndex2["*t"]
+
+    check("N-gram delta posting is local", deltaPosting ~= basePosting and #deltaPosting == 1)
+    check("N-gram base posting is not mutated", #basePosting == 1)
+end
+
+do
+    local SC = newHarness()
+    SC._SCORE_WEIGHTS = {
+        prefix = 1, lenDiff = 1, longerPenalty = 1, firstCharBias = 1,
+        letterBag = 1, bigram = 1, vowelBonus = 1, kbProximity = 1,
+    }
+    SC._RAID_ICONS = {}
+    SC.GetDictionary = function(self) return self.Dictionaries.enUS end
+    SC.GetLocale = function() return "enUS" end
+    SC.GetMaxSuggestions = function() return 4 end
+    SC.GetMaxCandidates = function() return 100 end
+    SC.GetMaxWrongLetters = function() return 4 end
+    SC.GetMinWordLength = function() return 2 end
+    SC.GetReshuffleAttempts = function() return 0 end
+    SC.GetNgramTopCandidates = function() return 500 end
+    SC.GetSuggestionCacheSize = function() return 500 end
+    SC.GetIgnoredRanges = function() return {} end
+    SC.GetUserDict = function() return { AddedWords = {} } end
+    SC.GetUserSets = function() return {}, {} end
+    SC.GetBlockData = function() return nil, nil, nil, nil end
+    SC.GetMeta = function(_, _, word)
+        local bag = {}
+        for i = 1, #word do
+            local byte = string.byte(word, i)
+            bag[byte] = (bag[byte] or 0) + 1
+        end
+        return { bag = bag, bigrams = {} }
+    end
+    SC.GetActiveEngine = function()
+        return {
+            GetPhoneticHash = function() return "" end,
+            NormaliseVowels = function(word) return word:gsub("[aeiouy]", "*") end,
+        }
+    end
+
+    local runtime = {
+        Config = { Spellcheck = { UseNgramIndex = true } },
+        Spellcheck = SC,
+        Utils = { Print = function() end },
+    }
+    local engineFile = assert(loadfile("Src/Spellcheck/Engine.lua"))
+    engineFile("Yapper", runtime)
+
+    SC:RegisterDictionary("enBase", { words = { "cat" }, languageFamily = "en", engine = {} })
+    SC:RegisterDictionary("enUS", { words = { "dat" }, languageFamily = "en", extends = "enBase", isDelta = true })
+
+    local suggestions = SC:GetSuggestions("bat")
+    local foundBase = false
+    for _, suggestion in ipairs(suggestions) do
+        if suggestion.kind == "word" and suggestion.value == "cat" then
+            foundBase = true
+            break
+        end
+    end
+    check("N-gram suggestions retain base candidates", foundBase)
 end
 
 do

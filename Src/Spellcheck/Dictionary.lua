@@ -28,6 +28,7 @@ local string_lower    = string.lower
 local string_format   = string.format
 local table_insert    = table.insert
 local table_sort      = table.sort
+local rawget          = rawget
 
 -- Chunk size for async loading (from hub).
 local DICT_CHUNK_SIZE = Spellcheck._DICT_CHUNK_SIZE
@@ -249,11 +250,14 @@ function Spellcheck:RegisterDictionary(locale, data)
 
         -- Short-word index (N = NgramN)
         if #norm >= n2 then
-            dict["ngramIndex" .. n2] = dict["ngramIndex" .. n2] or {}
+            local ngramIndex = dict["ngramIndex" .. n2]
             for i = 1, (#norm - n2 + 1) do
                 local g = string_sub(norm, i, i + n2 - 1)
-                dict["ngramIndex" .. n2][g] = dict["ngramIndex" .. n2][g] or {}
-                local posting = dict["ngramIndex" .. n2][g]
+                local posting = rawget(ngramIndex, g)
+                if not posting then
+                    posting = {}
+                    ngramIndex[g] = posting
+                end
                 if #posting < maxPosting then
                     posting[#posting + 1] = finalId
                 end
@@ -262,11 +266,14 @@ function Spellcheck:RegisterDictionary(locale, data)
 
         -- Long-word index (N = NgramN + 1)
         if #norm >= n3 then
-            dict["ngramIndex" .. n3] = dict["ngramIndex" .. n3] or {}
+            local ngramIndex = dict["ngramIndex" .. n3]
             for i = 1, (#norm - n3 + 1) do
                 local g = string_sub(norm, i, i + n3 - 1)
-                dict["ngramIndex" .. n3][g] = dict["ngramIndex" .. n3][g] or {}
-                local posting = dict["ngramIndex" .. n3][g]
+                local posting = rawget(ngramIndex, g)
+                if not posting then
+                    posting = {}
+                    ngramIndex[g] = posting
+                end
                 if #posting < maxPosting then
                     posting[#posting + 1] = finalId
                 end
