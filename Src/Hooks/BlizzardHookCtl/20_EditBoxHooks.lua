@@ -39,7 +39,18 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
         if key == "chatType" or key == "tellTarget"
             or key == "channelTarget" or key == "language" then
-            c[key] = value
+            -- Secret quarantine: never absorb a secret target into the cache.
+            -- Downstream consumers (Show(), the live-update below, LastUsed)
+            -- compare and normalise these values from tainted code, which is
+            -- an immediate Lua error on secrets. A secret target is treated
+            -- as "no target".
+            if (key == "tellTarget" or key == "channelTarget")
+                and value ~= nil
+                and YapperTable.Utils and YapperTable.Utils:IsSecret(value) then
+                c[key] = nil
+            else
+                c[key] = value
+            end
         end
 
         -- If chat is locked down and Blizzard's untainted editbox is
@@ -50,11 +61,21 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
             if ct and ct ~= "BN_WHISPER" then
+                -- The cache is already secret-quarantined; the raw GetAttribute
+                -- fallbacks are not, so sanitize them before the value can reach
+                -- LastUsed (and later comparisons/persistence).
                 local target = nil
                 if ct == "WHISPER" then
-                    target = c.tellTarget or (eb.GetAttribute and eb:GetAttribute("tellTarget"))
+                    target = c.tellTarget
+                        or (eb.GetAttribute and YapperTable.Utils:SanitizeTarget(eb:GetAttribute("tellTarget")))
                 elseif ct == "CHANNEL" then
-                    target = c.channelTarget or (eb.GetAttribute and eb:GetAttribute("channelTarget"))
+                    target = c.channelTarget
+                        or (eb.GetAttribute and YapperTable.Utils:SanitizeTarget(eb:GetAttribute("channelTarget")))
+                end
+                -- A targeted type whose target was secret-quarantined must not
+                -- overwrite the existing sticky; skip this mirror entirely.
+                if (ct == "WHISPER" or ct == "CHANNEL") and not target then
+                    return
                 end
                 local lang = c.language or eb.languageID or (eb.GetAttribute and eb:GetAttribute("language"))
 
@@ -476,7 +497,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 local chatFrame = blizzEditBox:GetParent() or blizzEditBox.chatFrame
                 if chatFrame then
                     local cfType = chatFrame.chatType
-                    local cfTarget = chatFrame.chatTarget
+                    -- SanitizeTarget: secret chatTarget must not enter self.Target.
+                    local cfTarget = YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget)
                     if cfType then
                         self.ChatType = cfType
                     end

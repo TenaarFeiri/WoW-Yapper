@@ -65,6 +65,8 @@ end
 local YapperTable = {}
 YapperTable.Utils = {
     IsChatLockdown = function() return false end,
+    IsChatOrCombatLockdown = function() return false end,
+    SanitizeTarget = function(_, value) return value end,
     DebugPrint = function() end,
     VerbosePrint = function() end,
 }
@@ -134,6 +136,23 @@ YapperTable.EditBox._focusTrap = nil
 YapperTable.EditBox._focusTrapText = "stale"
 clickBinding("OPENCHATSLASH")
 check("slash open ignores stale focus-trap text", overlayEdit:GetText() == "")
+
+print("\nTest 4: REPLY uses the safe target resolver")
+YapperTable.EditBox.GetLastTellTargetInfo = function() return "WHISPER", "Alice" end
+clickBinding("REPLY")
+check("reply opens overlay", overlay:IsShown())
+check("reply selects incoming whisper type", YapperTable.EditBox.ChatType == "WHISPER")
+check("reply selects incoming whisper target", YapperTable.EditBox.Target == "Alice")
+
+print("\nTest 5: secret/unavailable REPLY is a clean no-op")
+YapperTable.EditBox.GetLastTellTargetInfo = function() return nil, nil end
+clickBinding("REPLY")
+check("unavailable reply does not open overlay", not overlay:IsShown())
+
+print("\nTest 6: REPLYTELL2 uses the outgoing target resolver")
+YapperTable.EditBox.GetLastToldTargetInfo = function() return "WHISPER", "Bob" end
+clickBinding("REPLYTELL2")
+check("re-whisper selects outgoing whisper target", YapperTable.EditBox.Target == "Bob")
 
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then

@@ -334,10 +334,20 @@ local function GetLastTellTargetInfo()
         -- BOTH kinds and returns (target, chatType).  Keep the type: guessing
         -- it back from the name misclassifies BNet friends (account names
         -- rarely contain '#') as character whispers.
+        -- pcall: under forced addon restrictions Blizzard can store a SECRET
+        -- sender in chatEditLastTell; GetLastTellTarget's own `value ~= ""`
+        -- comparison then errors while our (tainted) execution is on the
+        -- stack. Contain that so /r degrades to "no reply target" instead
+        -- of a Lua error.
+        local ok = true
         if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
-            lastTell, lastType = ChatFrameUtil.GetLastTellTarget()
+            ok, lastTell, lastType = pcall(ChatFrameUtil.GetLastTellTarget)
         elseif ChatEdit_GetLastTellTarget then
-            lastTell, lastType = ChatEdit_GetLastTellTarget()
+            ok, lastTell, lastType = pcall(ChatEdit_GetLastTellTarget)
+        end
+        if not ok then
+            Utils:VerbosePrint("Reply target unavailable: Blizzard's last-tell list holds a secret value.")
+            return nil, nil
         end
         if Utils:IsSecret(lastTell) then
             return nil, nil
@@ -376,10 +386,15 @@ end
 local function GetLastToldTargetInfo()
     local lastTold = nil
     local lastType = nil
+    local ok = true
+    -- pcall + IsSecret: same secret-value containment as GetLastTellTargetInfo.
     if ChatFrameUtil and ChatFrameUtil.GetLastToldTarget then
-        lastTold, lastType = ChatFrameUtil.GetLastToldTarget()
+        ok, lastTold, lastType = pcall(ChatFrameUtil.GetLastToldTarget)
     elseif ChatEdit_GetLastToldTarget then
-        lastTold, lastType = ChatEdit_GetLastToldTarget()
+        ok, lastTold, lastType = pcall(ChatEdit_GetLastToldTarget)
+    end
+    if not ok or Utils:IsSecret(lastTold) then
+        return nil, nil
     end
     if not lastTold or lastTold == "" then
         return nil, nil
@@ -421,36 +436,68 @@ function EditBox:OpenBlizzardChat()
     -- Defer the actual opening to the next frame so our Show-hook
     -- observes `UserBypassingYapper` and lets Blizzard's editbox win.
     C_Timer.After(0, function()
-        -- Sync attributes before opening Blizzard's editbox
+        -- In lockdown Blizzard's native editbox is authoritative. Do not read
+        -- or write secret-sensitive attributes from this tainted callback.
+        if Utils:IsChatOrCombatLockdown() then
+            if ChatFrame_OpenChat then
+                pcall(ChatFrame_OpenChat, "", eb)
+            elseif eb and eb.Show then
+                pcall(function() eb:Show() end)
+            end
+            if eb and eb.SetFocus then eb:SetFocus() end
+            return
+        end
+
+        -- Sync attributes before opening Blizzard's editbox.
+        -- For whisper/BN whisper, do NOT write chatType/tellTarget to the
+        -- native editbox. Blizzard owns tellTarget for whispers and normalises
+        -- it (e.g. "Charname" -> "Charname-RealmName"), which can become a
+        -- secret value under Midnight lockdown. Writing it from Yapper's tainted
+        -- code taints the attribute and causes UpdateHeader to error.
         local chosenCT = self.ChatType or "SAY"
         local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
 
-        if eb:GetAttribute("chatType") ~= overrideCT then
-            eb:SetAttribute("chatType", overrideCT)
+        -- Secret quarantine: self.Target (or the native attribute we compare
+        -- against) can be a secret value under forced addon restrictions.
+        -- Comparing a secret from tainted code is an immediate Lua error, so
+        -- sanitize first and treat an unusable whisper target as "no target".
+        local safeTarget = Utils:SanitizeTarget(self.Target)
+        if (overrideCT == "WHISPER" or overrideCT == "BN_WHISPER") and not safeTarget then
+            overrideCT = "SAY"
         end
 
+        -- Skip all native attribute writes for whispers to avoid tainting
+        -- Blizzard's tellTarget. Yapper's internal ChatType/Target remain the
+        -- source of truth for sending; the user can still /w or /r in Blizzard.
         if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
-            if self.Target and self.Target ~= "" then
-                if eb:GetAttribute("tellTarget") ~= self.Target then
-                    eb:SetAttribute("tellTarget", self.Target)
-                end
-            end
-            eb:SetAttribute("channelTarget", nil)
-        elseif overrideCT == "CHANNEL" then
-            if self.Target then
-                if eb:GetAttribute("channelTarget") ~= self.Target then
-                    eb:SetAttribute("channelTarget", self.Target)
-                end
-            end
-            eb:SetAttribute("tellTarget", nil)
+            -- fall through to OpenChat/Show/SetFocus below
         else
-            eb:SetAttribute("tellTarget", nil)
-            eb:SetAttribute("channelTarget", nil)
-        end
-        if self.Language then
-            eb:SetAttribute("language", self.Language)
-        else
-            eb:SetAttribute("language", nil)
+            local function AttrDiffers(key, wanted)
+                local differs = true
+                pcall(function() differs = (eb:GetAttribute(key) ~= wanted) end)
+                return differs
+            end
+
+            if AttrDiffers("chatType", overrideCT) then
+                eb:SetAttribute("chatType", overrideCT)
+            end
+
+            if overrideCT == "CHANNEL" then
+                if safeTarget then
+                    if AttrDiffers("channelTarget", safeTarget) then
+                        eb:SetAttribute("channelTarget", safeTarget)
+                    end
+                end
+                eb:SetAttribute("tellTarget", nil)
+            else
+                eb:SetAttribute("tellTarget", nil)
+                eb:SetAttribute("channelTarget", nil)
+            end
+            if self.Language then
+                eb:SetAttribute("language", self.Language)
+            else
+                eb:SetAttribute("language", nil)
+            end
         end
 
         -- Prefer using Blizzard's ChatFrame_OpenChat so Blizzard/ChatFrameUtil

@@ -7,6 +7,7 @@
 
 local _, YapperTable = ...
 local EditBox        = YapperTable.EditBox
+local Utils           = YapperTable.Utils
 
 -- Re-localise shared helpers from hub.
 local SetFrameFillColour = EditBox.SetFrameFillColour
@@ -23,6 +24,10 @@ local math_floor = math.floor
 local strmatch   = string.match
 local strlower   = string.lower
 local table_insert = table.insert
+
+local function IsUsableNumber(value)
+    return type(value) == "number" and not Utils:IsSecret(value)
+end
 
 local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     local overlay = editBox.Overlay
@@ -78,11 +83,16 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         end
 
         -- Proxy mode: inherit the original editbox's text insets (top/bottom)
-        -- so the text aligns with the native Blizzard skin.
+        -- so the text aligns with the native Blizzard skin. Native inset
+        -- values can be secret under chat/combat lockdown; sanitize them so
+        -- SetTextInsets never receives a secret number.
         local origEB = editBox.OrigEditBox
         if origEB and origEB.GetTextInsets and edit.SetTextInsets then
-            local _, _, origTop, origBottom = origEB:GetTextInsets()
-            edit:SetTextInsets(1, 6, origTop or 0, origBottom or 0)
+            local okInsets, _, _, origTop, origBottom = pcall(origEB.GetTextInsets, origEB)
+            local utils = YapperTable.Utils
+            local top = (okInsets and utils and utils:SafeNumber(origTop, 0)) or 0
+            local bottom = (okInsets and utils and utils:SafeNumber(origBottom, 0)) or 0
+            edit:SetTextInsets(1, 6, top, bottom)
         end
         return
     end
@@ -219,6 +229,7 @@ end
 
 -- Build the label string and colour for a given chat mode.
 local function BuildLabelText(chatType, target, channelName)
+    target = Utils:SanitizeTarget(target)
     local label
     local api = YapperTable and YapperTable.API
     if api and type(api.RunFilter) == "function" then
@@ -614,14 +625,27 @@ end
 local function UpdateLabelBackgroundForText(self, text)
     if not self or not self.LabelBg or not self.ChannelLabel then return end
     local cfg = YapperTable.Config.EditBox or {}
-    local ebWidth = (self.OrigEditBox and self.OrigEditBox.GetWidth and self.OrigEditBox:GetWidth())
-        or (self.Overlay and self.Overlay.GetWidth and self.Overlay:GetWidth())
-        or 350
+    local repositionCache = self._repositionCache
+    local chatParent = Utils and Utils:GetChatParent()
+    local ebWidth
+    if repositionCache and repositionCache.editBox == self.OrigEditBox
+        and repositionCache.parent == chatParent
+        and IsUsableNumber(repositionCache.origWidth) then
+        ebWidth = repositionCache.origWidth
+    end
+    if not IsUsableNumber(ebWidth) and self.Overlay and self.Overlay.GetWidth then
+        local overlayWidth = self.Overlay:GetWidth()
+        if IsUsableNumber(overlayWidth) then
+            ebWidth = overlayWidth
+        end
+    end
+    ebWidth = ebWidth or 350
     local maxAllowed = math.floor(ebWidth * 0.28)
     local basePad = (cfg.LabelPadding and tonumber(cfg.LabelPadding)) or 20
     -- Temporarily set text to measure raw width using current font settings.
     self.ChannelLabel:SetText(text)
-    local rawWidth = (self.ChannelLabel:GetStringWidth() or 0)
+    local measuredWidth = self.ChannelLabel:GetStringWidth()
+    local rawWidth = IsUsableNumber(measuredWidth) and measuredWidth or 0
     -- pad label dynamically.
     local headroom = maxAllowed - rawWidth
     -- allow the padding to shrink very small so the edit text is close

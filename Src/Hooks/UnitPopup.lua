@@ -23,6 +23,7 @@
 
 local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
+local Utils   = YapperTable.Utils
 
 -- Re-localise Lua globals.
 local type     = type
@@ -75,12 +76,13 @@ end
 local function ResolveFullPlayerName(contextData)
     if UnitPopupSharedUtil and type(UnitPopupSharedUtil.GetFullPlayerName) == "function" then
         local fullName = UnitPopupSharedUtil.GetFullPlayerName(contextData)
+        fullName = Utils and Utils:SanitizeTarget(fullName) or fullName
         if type(fullName) == "string" and fullName ~= "" then
             return fullName
         end
     end
     -- Fallback: assemble from the context fields OpenMenu populated.
-    local name = contextData.name
+    local name = Utils and Utils:SanitizeTarget(contextData.name) or contextData.name
     if type(name) ~= "string" or name == "" then
         return nil
     end

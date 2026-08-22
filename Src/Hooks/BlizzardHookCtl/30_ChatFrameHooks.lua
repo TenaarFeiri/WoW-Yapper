@@ -319,9 +319,13 @@ function EditBox:HookAllChatFrames()
 
                     local tgt, chanName
                     if ct == "WHISPER" or ct == "BN_WHISPER" then
-                        tgt = active.GetAttribute and active:GetAttribute("tellTarget")
+                        tgt = active.GetAttribute
+                            and YapperTable.Utils:SanitizeTarget(active:GetAttribute("tellTarget"))
+                        if not tgt then return nil end
                     elseif ct == "CHANNEL" then
-                        tgt = active.GetAttribute and active:GetAttribute("channelTarget")
+                        tgt = active.GetAttribute
+                            and YapperTable.Utils:SanitizeTarget(active:GetAttribute("channelTarget"))
+                        if not tgt then return nil end
                         chanName = tgt and ResolveChannelName(tonumber(tgt)) or nil
                     end
 
@@ -467,6 +471,9 @@ function EditBox:HookAllChatFrames()
     -- as Yapper.
     if ChatFrameUtil and ChatFrameUtil.SendTell and not self._sendTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendTell", function(target, chatFrame)
+            -- Sanitize before ANY comparison/format: a secret target must be
+            -- treated as unusable input (Blizzard's own path still runs).
+            target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
             TriggerTrace("ChatFrameUtil.SendTell", string.format("target=%s frame=%s",
                 tostring(target), tostring(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
             -- Fail fast on unusable input or lockdown: leave Blizzard's box as-is.
@@ -531,6 +538,8 @@ function EditBox:HookAllChatFrames()
     -- Mirrors SendTell handling while preserving BN_WHISPER routing.
     if ChatFrameUtil and ChatFrameUtil.SendBNetTell and not self._sendBNetTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendBNetTell", function(target)
+            -- Same secret quarantine as the SendTell hook above.
+            target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
             TriggerTrace("ChatFrameUtil.SendBNetTell", string.format("target=%s", tostring(target)))
             if type(target) ~= "string" or target == "" then return end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
@@ -695,7 +704,9 @@ function EditBox:HookAllChatFrames()
             if editBox._suppressTabSwitchMemory then return end
 
             local cfType = chatFrame.chatType
-            local cfTarget = chatFrame.chatTarget
+            -- SanitizeTarget: whisper-tab chatTarget can be secret under
+            -- forced addon restrictions; treat as targetless below.
+            local cfTarget = YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget)
             YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..tostring(cfType).." chatTarget="..tostring(cfTarget))
 
             if chatFrame.isTemporary and cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")

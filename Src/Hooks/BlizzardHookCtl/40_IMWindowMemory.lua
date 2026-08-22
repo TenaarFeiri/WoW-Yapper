@@ -23,7 +23,9 @@ end
 function EditBox:_IMApplyWindowMemory(chatFrame)
     if not chatFrame then return end
     local cfType   = chatFrame.chatType
-    local cfTarget = chatFrame.chatTarget
+    -- SanitizeTarget: secret chatTarget is treated as targetless so it never
+    -- reaches the `~= ""` comparison or the pending-switch payload.
+    local cfTarget = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget) or nil
     -- Whisper frames: use Blizzard's live chatTarget.
     if cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
         and cfTarget and cfTarget ~= "" then

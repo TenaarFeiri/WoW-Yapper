@@ -494,12 +494,15 @@ function EditBox:SetupOverlayScripts()
         -- Track outgoing whispers as reply targets too (move to front).
         -- Also sync Blizzard's SetLastToldTarget so the Re-Whisper keybind works
         -- correctly after sends made through Yapper.
-        if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and self.Target and self.Target ~= "" then
-            self:AddReplyTarget(self.Target, self.ChatType)
+        -- SanitizeTarget: a secret target must never reach the `~= ""`
+        -- comparison or Blizzard's remembered-target list from tainted code.
+        local sentTarget = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(self.Target) or nil
+        if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and sentTarget and sentTarget ~= "" then
+            self:AddReplyTarget(sentTarget, self.ChatType)
             if ChatFrameUtil and ChatFrameUtil.SetLastToldTarget then
-                ChatFrameUtil.SetLastToldTarget(self.Target, self.ChatType)
+                ChatFrameUtil.SetLastToldTarget(sentTarget, self.ChatType)
             elseif ChatEdit_SetLastToldTarget then
-                ChatEdit_SetLastToldTarget(self.Target, self.ChatType)
+                ChatEdit_SetLastToldTarget(sentTarget, self.ChatType)
             end
         end
 
@@ -786,7 +789,10 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    frame:HookScript("OnEvent", function(_, event, ...)
+    local observedLockdown = false
+    local lockdownPollElapsed = 0
+
+    local function HandleEvent(_, event, ...)
         local isLockdownStartEvent = (event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START")
         local isLockdownEndEvent = (event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED")
 
@@ -796,7 +802,16 @@ function EditBox:SetupOverlayScripts()
             isLockdownEndEvent = not isInProgress
         end
 
+        if isLockdownStartEvent or isLockdownEndEvent then
+            observedLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown() or false
+        end
+
         if isLockdownStartEvent then
+            -- Remove Yapper's global active-window/focus wrappers before native
+            -- lockdown paths can inspect secret chat state.
+            if type(self.SetChatCompatibilityEnabled) == "function" then
+                self:SetChatCompatibilityEnabled(false)
+            end
             self:UpdateFocusOverride()
             -- Helper: begin the deferred handoff.
             local function beginDeferredHandoff()
@@ -858,6 +873,13 @@ function EditBox:SetupOverlayScripts()
         elseif isLockdownEndEvent then
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
+            local chatStillLocked = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+            if type(self.SetChatCompatibilityEnabled) == "function" and not chatStillLocked then
+                self:SetChatCompatibilityEnabled(true)
+            end
+            if not chatStillLocked and type(self.ResyncFromBlizzardAfterLockdown) == "function" then
+                pcall(function() self:ResyncFromBlizzardAfterLockdown() end)
+            end
             YapperAPI:SetState("IDLE")
             self:UpdateFocusOverride()
             -- If we saved a draft during lockdown, poll until lockdown
@@ -867,6 +889,12 @@ function EditBox:SetupOverlayScripts()
                 C_Timer.NewTicker(1, function(ticker)
                     checks = checks + 1
                     if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                        if type(self.SetChatCompatibilityEnabled) == "function" then
+                            self:SetChatCompatibilityEnabled(true)
+                        end
+                        if type(self.ResyncFromBlizzardAfterLockdown) == "function" then
+                            pcall(function() self:ResyncFromBlizzardAfterLockdown() end)
+                        end
                         self._lockdown.handedOff = false
                         -- If Blizzard sends during lockdown changed the channel,
                         -- persist that sticky choice now.
@@ -990,6 +1018,18 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
             end
         end
+    end
+
+    frame:HookScript("OnEvent", HandleEvent)
+    frame:HookScript("OnUpdate", function(_, elapsed)
+        lockdownPollElapsed = lockdownPollElapsed + (elapsed or 0)
+        if lockdownPollElapsed < 0.25 then return end
+        lockdownPollElapsed = 0
+
+        local currentLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown() or false
+        if currentLockdown == observedLockdown then return end
+        observedLockdown = currentLockdown
+        HandleEvent(frame, currentLockdown and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED")
     end)
 end
 

@@ -88,7 +88,7 @@ function History:InitDB()
             if type(default) == "table" then
                 _G.YapperLocalHistory[key] = DeepCopy(default)
             else
-                _G.YapperLocalHistory[key] = default
+                rawset(_G.YapperLocalHistory, key, default)
             end
         end
     end
@@ -211,20 +211,26 @@ function History:SaveDraft(editBox, isMultiline)
 
     if isMultiline then
         local ml        = YapperTable.Multiline
-        draft.chatType  = ml and ml.ChatType
-        draft.target    = ml and ml.Target
+        local draftType = ml and ml.ChatType
+        local draftTarget = ml and YapperTable.Utils:SanitizeTarget(ml.Target)
+        if (draftType == "WHISPER" or draftType == "BN_WHISPER") and not draftTarget then
+            draftType = nil
+        end
+        draft.chatType  = draftType
+        draft.target    = draftTarget
         draft.multiline = true
     else
         local eb = YapperTable.EditBox
         local ct = eb and eb.ChatType
-        local tgt = eb and eb.Target
+        local tgt = eb and YapperTable.Utils:SanitizeTarget(eb.Target)
         -- Don't bind a draft to a transient external whisper (unit-frame
         -- right-click). Persisting the whisper chatType/target would re-open on
         -- that whisper once on the next show, bleeding the target. Keep the typed
         -- text but let the channel resolve normally.
-        if eb and eb._externalWhisperTarget
+        local externalTarget = eb and YapperTable.Utils:SanitizeTarget(eb._externalWhisperTarget)
+        if externalTarget
             and (ct == "WHISPER" or ct == "BN_WHISPER")
-            and NormaliseWhisperTarget(tgt) == NormaliseWhisperTarget(eb._externalWhisperTarget) then
+            and NormaliseWhisperTarget(tgt) == NormaliseWhisperTarget(externalTarget) then
             ct = nil
             tgt = nil
         end
