@@ -1,3 +1,8 @@
+# 2.4.3
+
+### Bug Fixes
+- Speculative fix for issue where sometimes the editbox values can be secret.
+
 # 2.4.2
 
 ### New Features
