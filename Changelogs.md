@@ -1,3 +1,8 @@
+# 2.4.3
+
+### Bug Fix
+- Resolved potential n-gram collisions in dictionaries.
+
 # 2.4.2
 
 ### New Features
