@@ -1,6 +1,7 @@
 # 2.4.3
 
-### Bug Fix
+### Bug Fixes
+- Speculative fix for issue where sometimes the editbox values can be secret.
 - Resolved potential n-gram collisions in dictionaries.
 
 # 2.4.2

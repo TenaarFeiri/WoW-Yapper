@@ -48,6 +48,12 @@ local combatLockdown = false
 local chatLockdown = false
 _G.InCombatLockdown = function() return combatLockdown end
 _G.C_ChatInfo = { InChatMessagingLockdown = function() return chatLockdown end }
+_G.issecretvalue = function(value)
+    return type(value) == "number" and value == 777
+end
+_G.canaccessvalue = function(value)
+    return value ~= 777
+end
 
 -- Focus override spy: records the current override target.
 local focusOverride = nil
@@ -96,7 +102,10 @@ local function MockFontString()
 end
 
 local function MockFrame(name)
-    local f = { _name = name, _shown = false, _points = {}, _parent = nil, _scale = 1 }
+    local f = {
+        _name = name, _shown = false, _points = {}, _parent = nil, _scale = 1,
+        _left = 10, _bottom = 30, _top = 60, _width = 390, _height = 30,
+    }
     function f:Show() self._shown = true end
     function f:Hide() self._shown = false end
     function f:IsShown() return self._shown end
@@ -116,12 +125,12 @@ local function MockFrame(name)
     function f:SetScale(s) self._scale = s end
     function f:GetScale() return self._scale end
     function f:GetEffectiveScale() return self._scale end
-    function f:GetLeft() return 10 end
-    function f:GetRight() return 400 end
-    function f:GetTop() return 60 end
-    function f:GetBottom() return 30 end
-    function f:GetWidth() return 390 end
-    function f:GetHeight() return 30 end
+    function f:GetLeft() return self._left end
+    function f:GetRight() return self._left + self._width end
+    function f:GetTop() return self._top end
+    function f:GetBottom() return self._bottom end
+    function f:GetWidth() return self._width end
+    function f:GetHeight() return self._height end
     function f:SetWidth() end
     function f:SetHeight() end
     function f:SetFrameLevel() end
@@ -304,6 +313,46 @@ ResetWorld()
 EditBox:Show(blizzBox)
 EditBox:UpdateFocusOverride()
 check("no lockdown + overlay open: override set (steady state)", focusOverride == EditBox.OverlayEdit)
+
+print("\nTest 2b: Reposition geometry cache")
+
+ResetWorld()
+EditBox._repositionCache = nil
+EditBox._repositionSecretLogKey = nil
+blizzBox._scale = 1
+blizzBox._left = 10
+blizzBox._bottom = 30
+blizzBox._top = 60
+local initialOpenOK = pcall(function() EditBox:Show(blizzBox) end)
+check("initial valid geometry open succeeds", initialOpenOK)
+check("initial valid geometry is cached",
+    EditBox._repositionCache and EditBox._repositionCache.editBox == blizzBox
+        and EditBox._repositionCache.origLeft == 10)
+EditBox:Hide()
+
+blizzBox._scale = 777
+blizzBox._left = 777
+blizzBox._bottom = 777
+blizzBox._top = 777
+local cachedOpenOK = pcall(function() EditBox:Show(blizzBox) end)
+check("secret geometry open succeeds with cached snapshot", cachedOpenOK)
+check("secret geometry does not replace cached left", EditBox._repositionCache.origLeft == 10)
+EditBox:Hide()
+
+EditBox._repositionCache = nil
+EditBox._repositionSecretLogKey = nil
+local firstSecretOpenOK = pcall(function() EditBox:Show(blizzBox) end)
+local firstSecretPoint, firstSecretRelative = EditBox.Overlay:GetPoint(1)
+check("first secret geometry open succeeds without cache", firstSecretOpenOK)
+check("first secret geometry uses direct anchor",
+    firstSecretPoint == "TOPLEFT" and firstSecretRelative == blizzBox)
+EditBox:Hide()
+
+blizzBox._scale = 1
+blizzBox._left = 10
+blizzBox._bottom = 30
+blizzBox._top = 60
+EditBox:Show(blizzBox)
 
 -- Multiline takes ownership while its frame is visible, then returns it to
 -- the overlay when the frame closes.
