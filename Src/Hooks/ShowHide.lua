@@ -22,6 +22,37 @@ local tostring   = tostring
 local tonumber   = tonumber
 local math_max   = math.max
 local math_min   = math.min
+local table_concat = table.concat
+local issecretvalue = _G["issecretvalue"]
+local canaccessvalue = _G["canaccessvalue"]
+
+local IsSecretValue = function(value)
+    return Utils:IsSecret(value)
+end
+
+local function IsUsableGeometryValue(value)
+    return type(value) == "number" and not IsSecretValue(value)
+end
+
+local function IsInaccessibleSecret(value)
+    if value == nil or type(issecretvalue) ~= "function" then
+        return false
+    end
+
+    local ok, secret = pcall(issecretvalue, value)
+    if not ok or secret ~= true then
+        return false
+    end
+
+    if type(canaccessvalue) == "function" then
+        local accessOK, accessible = pcall(canaccessvalue, value)
+        if accessOK and accessible == true then
+            return false
+        end
+    end
+
+    return true
+end
 
 local function FireAPIEvent(event, ...)
     local api = YapperTable and YapperTable.API
@@ -33,6 +64,25 @@ end
 -- ---------------------------------------------------------------------------
 -- Positioning
 -- ---------------------------------------------------------------------------
+local function DirectAnchorOverlay(overlay, origEditBox, chatParent)
+    overlay:SetParent(chatParent)
+    overlay:ClearAllPoints()
+    overlay:SetPoint("TOPLEFT", origEditBox, "TOPLEFT", 0, 0)
+    overlay:SetPoint("BOTTOMRIGHT", origEditBox, "BOTTOMRIGHT", 0, 0)
+end
+
+local function LogSecretGeometry(editBox, chatParent, fields)
+    if #fields == 0 then return end
+
+    local editName = type(editBox.GetName) == "function" and editBox:GetName() or "<unknown>"
+    local parentName = type(chatParent.GetName) == "function" and chatParent:GetName() or "<unknown>"
+    local key = tostring(editName) .. "|" .. tostring(parentName) .. "|" .. table_concat(fields, ",")
+    if EditBox._repositionSecretLogKey == key then return end
+
+    EditBox._repositionSecretLogKey = key
+    Utils:VerbosePrint("RepositionOverlay: secret geometry on " .. tostring(editName)
+        .. " (" .. table_concat(fields, ",") .. "); using cached layout when available.")
+end
 
 --- Reparent and reposition the overlay using absolute coordinates in the
 --- current chat parent. This is used on initial show and again when the
@@ -44,48 +94,102 @@ end
 local function RepositionOverlay(overlay, origEditBox, useTop)
     if not overlay or not origEditBox then return end
     local chatParent = YapperTable.Utils:GetChatParent()
+    local values = {
+        parentScale = chatParent:GetEffectiveScale(),
+        origScale = origEditBox:GetEffectiveScale(),
+        parentLeft = chatParent:GetLeft(),
+        parentBottom = chatParent:GetBottom(),
+        origLeft = origEditBox:GetLeft(),
+        origTop = origEditBox:GetTop(),
+        origBottom = origEditBox:GetBottom(),
+    }
+    local fields = {
+        "parentScale", "origScale", "parentLeft", "parentBottom",
+        "origLeft", "origTop", "origBottom",
+    }
+    local invalidFields = {}
+    local secretFields = {}
 
-    -- Compute the full target geometry before mutating anything; none of the
-    -- reads below depend on the overlay's own parent/scale/points.
-    local parentScale = chatParent:GetEffectiveScale()
-    if parentScale == 0 then parentScale = UIParent:GetEffectiveScale() end
-    local origScale = origEditBox:GetEffectiveScale()
-    if origScale == 0 then origScale = 1 end
-    local scale = origScale / parentScale
-
-    local chatParentLeft   = chatParent:GetLeft() or 0
-    local chatParentBottom = chatParent:GetBottom() or 0
-    local origLeft = origEditBox:GetLeft() or 0
-    local origY
-    if useTop then
-        origY = origEditBox:GetTop() or 0
-    else
-        origY = origEditBox:GetBottom() or 0
+    local function MarkInvalid(field)
+        invalidFields[#invalidFields + 1] = field
+        if IsInaccessibleSecret(values[field]) then
+            secretFields[#secretFields + 1] = field
+        end
     end
 
-    local offsetX = origLeft - (chatParentLeft * parentScale / origScale)
-    local offsetY = origY - (chatParentBottom * parentScale / origScale)
+    for _, field in ipairs(fields) do
+        if not IsUsableGeometryValue(values[field]) then
+            MarkInvalid(field)
+        end
+    end
 
+    if #invalidFields == 0 then
+        if values.parentScale == 0 then
+            local fallbackScale = UIParent:GetEffectiveScale()
+            if IsUsableGeometryValue(fallbackScale) and fallbackScale ~= 0 then
+                values.parentScale = fallbackScale
+            else
+                values.parentScale = fallbackScale
+                MarkInvalid("parentScale")
+            end
+        end
+        if values.origScale == 0 then
+            values.origScale = 1
+        end
+    end
+
+    local snapshot
+    if #invalidFields == 0 then
+        snapshot = {
+            editBox = origEditBox,
+            parent = chatParent,
+            parentScale = values.parentScale,
+            origScale = values.origScale,
+            parentLeft = values.parentLeft,
+            parentBottom = values.parentBottom,
+            origLeft = values.origLeft,
+            origTop = values.origTop,
+            origBottom = values.origBottom,
+        }
+        snapshot.scale = snapshot.origScale / snapshot.parentScale
+        EditBox._repositionCache = snapshot
+        EditBox._repositionSecretLogKey = nil
+    else
+        LogSecretGeometry(origEditBox, chatParent, secretFields)
+        local cached = EditBox._repositionCache
+        if cached and cached.editBox == origEditBox and cached.parent == chatParent then
+            snapshot = cached
+        else
+            pcall(DirectAnchorOverlay, overlay, origEditBox, chatParent)
+            return
+        end
+    end
+
+    local origY = useTop and snapshot.origTop or snapshot.origBottom
+    local offsetX = snapshot.origLeft
+        - (snapshot.parentLeft * snapshot.parentScale / snapshot.origScale)
+    local offsetY = origY
+        - (snapshot.parentBottom * snapshot.parentScale / snapshot.origScale)
     local anchorPoint = useTop and "TOPLEFT" or "BOTTOMLEFT"
 
-    -- Skip the layout mutations when the overlay is already exactly where we
-    -- would put it (the common case: reopening over the same chat frame).
-    -- Compared against the widget's real state rather than a remembered one,
-    -- so external reparenting/moves can never leave a stale skip.
     if overlay:GetParent() == chatParent and overlay:GetNumPoints() == 1 then
         local curPoint, curRelTo, curRelPoint, curX, curY = overlay:GetPoint(1)
+        local currentScale = overlay:GetScale()
         if curPoint == anchorPoint and curRelTo == chatParent
             and curRelPoint == "BOTTOMLEFT"
-            and math.abs((curX or 0) - offsetX) < 0.01
-            and math.abs((curY or 0) - offsetY) < 0.01
-            and math.abs(overlay:GetScale() - scale) < 0.001 then
+            and IsUsableGeometryValue(curX)
+            and IsUsableGeometryValue(curY)
+            and IsUsableGeometryValue(currentScale)
+            and math.abs(curX - offsetX) < 0.01
+            and math.abs(curY - offsetY) < 0.01
+            and math.abs(currentScale - snapshot.scale) < 0.001 then
             return
         end
     end
 
     overlay:SetParent(chatParent)
     overlay:ClearAllPoints()
-    overlay:SetScale(scale)
+    overlay:SetScale(snapshot.scale)
     overlay:SetPoint(anchorPoint, chatParent, "BOTTOMLEFT", offsetX, offsetY)
 end
 
@@ -609,16 +713,16 @@ function EditBox:Show(origEditBox)
         self:ShowMultilineHint()
     end
 
-    local overlay = self.Overlay
-    local overlayEdit = self.OverlayEdit
+    local shownOverlay = self.Overlay
+    local shownOverlayEdit = self.OverlayEdit
     local after = C_Timer and C_Timer.After
     if after then
         after(0, function()
-            if overlay and overlay:IsShown()
-                and overlayEdit and type(overlayEdit.HasFocus) == "function"
-                and not overlayEdit:HasFocus() then
-                if type(overlayEdit.SetFocus) == "function" then
-                    overlayEdit:SetFocus()
+            if shownOverlay and shownOverlay:IsShown()
+                and shownOverlayEdit and type(shownOverlayEdit.HasFocus) == "function"
+                and not shownOverlayEdit:HasFocus() then
+                if type(shownOverlayEdit.SetFocus) == "function" then
+                    shownOverlayEdit:SetFocus()
                 end
             end
         end)
