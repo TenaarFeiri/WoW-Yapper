@@ -151,6 +151,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
     self.ChatType = "WHISPER"
     self.Target = fullName
+    self._secureReplySource = nil
     self.ChannelName = nil
     -- Transient external whisper: must not become the global LastUsed sticky.
     self._externalWhisperTarget = fullName

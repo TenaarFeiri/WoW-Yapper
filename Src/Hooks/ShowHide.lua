@@ -464,6 +464,7 @@ function EditBox:Show(origEditBox)
         self.ChatType = resolvedSelection.chatType
         self.Language = resolvedSelection.language
         self.Target = resolvedSelection.target
+        self._secureReplySource = nil
         self.ChannelName = resolvedSelection.channelName
     elseif pendingTabSwitch and pendingTabSwitch.chatType then
         -- Fallback mirrors the existing priority path.
@@ -471,6 +472,7 @@ function EditBox:Show(origEditBox)
         self.Language = pendingTabSwitch.language
             or blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target = pendingTabSwitch.target
+        self._secureReplySource = nil
         self.ChannelName = pendingTabSwitch.channelName
     else
         self.ChatType = (self.LastUsed and self.LastUsed.chatType)
@@ -482,11 +484,13 @@ function EditBox:Show(origEditBox)
         self.Target = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
             or nil
+        self._secureReplySource = nil
     end
 
     -- Safety net: non-target chat types must not carry stale whisper/channel targets.
     if self.ChatType ~= "WHISPER" and self.ChatType ~= "BN_WHISPER" and self.ChatType ~= "CHANNEL" then
         self.Target = nil
+        self._secureReplySource = nil
         self.ChannelName = nil
     end
 
@@ -495,18 +499,21 @@ function EditBox:Show(origEditBox)
     if resolvedCT ~= self.ChatType then
         self.ChatType = resolvedCT
         self.Target   = nil
+        self._secureReplySource = nil
     end
 
     -- Safeguard: Never open in a whisper state without a target.
     if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and (not self.Target or self.Target == "") then
         self.ChatType = "SAY"
         self.Target   = nil
+        self._secureReplySource = nil
     end
 
     -- Validate channel availability (e.g. you left the party/raid/instance).
     if not self:IsChatTypeAvailable(self.ChatType) then
         self.ChatType = "SAY"
         self.Target   = nil
+        self._secureReplySource = nil
     end
 
     -- Validate channel (might have been removed since last session).
@@ -520,6 +527,7 @@ function EditBox:Show(origEditBox)
                 -- Channel gone — fall back to SAY.
                 self.ChatType    = "SAY"
                 self.Target      = nil
+                self._secureReplySource = nil
                 self.ChannelName = nil
             end
         end
@@ -632,6 +640,7 @@ function EditBox:Show(origEditBox)
             draftMultiline = isML or false
             if draftType then self.ChatType = draftType end
             if draftTarget then self.Target = draftTarget end
+            self._secureReplySource = nil
             YapperTable.History:MarkDirty(false)
             -- Lockdown drafts are one-shot recovery payloads.
             if lockSavedDraft and type(self._lockdown) == "table" then
@@ -651,6 +660,7 @@ function EditBox:Show(origEditBox)
             if preTarget and not blizzHasTarget then
                 self.ChatType = "WHISPER"
                 self.Target = preTarget
+                self._secureReplySource = nil
                 externalText = preRemainder
             else
                 externalText = blizzText
@@ -1017,6 +1027,7 @@ function EditBox:RetargetOpenWhisper(target, blizzBox)
 
     self.ChatType = "WHISPER"
     self.Target = target
+    self._secureReplySource = nil
     self.ChannelName = nil
     -- Transient external whisper: must not become the global LastUsed sticky.
     self._externalWhisperTarget = target

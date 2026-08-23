@@ -443,9 +443,9 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L81`](../Src/EditBox.lua#L81))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L134`](../Src/EditBox.lua#L134))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L424`](../Src/EditBox.lua#L424))
-  - `SetOnSend` ([`../Src/EditBox.lua#L624`](../Src/EditBox.lua#L624))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L649`](../Src/EditBox.lua#L649))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L460`](../Src/EditBox.lua#L460))
+  - `SetOnSend` ([`../Src/EditBox.lua#L660`](../Src/EditBox.lua#L660))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L685`](../Src/EditBox.lua#L685))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -479,7 +479,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
   - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L33`](../Src/EditBox/Handlers.lua#L33)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1036`](../Src/EditBox/Handlers.lua#L1036)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1059`](../Src/EditBox/Handlers.lua#L1059)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 

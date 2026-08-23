@@ -158,6 +158,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     -- Force the correct chat type (cache may hold stale BNet attrs).
                     self.ChatType = newChatType
                     self.Target   = nil
+                    self._secureReplySource = nil
                     if newChatType == "WHISPER" and savedEB.GetAttribute then
                         self.Target = savedEB:GetAttribute("tellTarget")
                     elseif newChatType == "CHANNEL" and savedEB.GetAttribute then
@@ -190,6 +191,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 self._explicitChannel = nil
                 self.ChatType    = ec.chatType
                 self.Target      = ec.target
+                self._secureReplySource = nil
                 self.ChannelName = ec.channelName
                 self:RefreshLabel()
                 self:EnsureProxyBackgroundShown()
@@ -217,10 +219,15 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     end
                     self.ChatType = ct
                     self.Target   = tt
+                    -- tt is the native editbox's current target, not necessarily
+                    -- the last-incoming-whisper reply target, so do not force a
+                    -- GetLastTellTarget re-resolution; use it as a fallback only.
+                    self._secureReplySource = nil
                     self:RefreshLabel()
                 elseif ct == "CHANNEL" and ch and ch ~= "" then
                     self.ChatType    = "CHANNEL"
                     self.Target      = ch
+                    self._secureReplySource = nil
                     self.ChannelName = ResolveChannelName(tonumber(ch))
                     self:RefreshLabel()
                 end
@@ -309,6 +316,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             self._ignoreSetText = nil
                             self.ChatType = "WHISPER"
                             self.Target   = preTarget
+                            self._secureReplySource = nil
                             self._ignoreSetText = true
                         end
                         if not keepExistingText and nextText ~= curText then
@@ -350,10 +358,12 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             self.ChatType = chanType
                             if chanType == "CHANNEL" then
                                 self.Target = chanTarget
+                                self._secureReplySource = nil
                                 local num = tonumber(chanTarget)
                                 self.ChannelName = num and ResolveChannelName(num) or nil
                             else
                                 self.Target = nil
+                                self._secureReplySource = nil
                                 self.ChannelName = nil
                             end
                             self._ignoreSetText = true
@@ -504,6 +514,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     end
                     if cfTarget and cfTarget ~= "" then
                         self.Target = cfTarget
+                        self._secureReplySource = nil
                         if self.ChatType == "CHANNEL" then
                             self.ChannelName = ResolveChannelName(tonumber(cfTarget))
                         end
@@ -514,6 +525,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                         -- tab (e.g. General/SAY) must clear stale targets,
                         -- otherwise PersistLastUsed can cling to old whispers.
                         self.Target = nil
+                        self._secureReplySource = nil
                         self.ChannelName = nil
                     end
                 end

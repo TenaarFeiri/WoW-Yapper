@@ -779,6 +779,7 @@ function EditBox:CreateOverlay()
 
                     self.ChatType = chatType
                     self.Target = target
+                    self._secureReplySource = nil
                     self.Language = language
                     if chatType == "CHANNEL" and target then
                         local num = tonumber(target)

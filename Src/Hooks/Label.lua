@@ -39,6 +39,7 @@ function EditBox:RefreshLabel()
     local target = Utils:SanitizeTarget(self.Target)
     if not target and self.Target then
         self.Target = nil
+        self._secureReplySource = nil
     end
 
     -- Detect BN targets: Blizzard may present a plain WHISPER chatType
@@ -413,6 +414,7 @@ function EditBox:ResyncFromBlizzardAfterLockdown()
     self.ChatType = chatType
     self.Target = (chatType == "WHISPER" or chatType == "BN_WHISPER") and tellTarget
         or (chatType == "CHANNEL" and channelTarget or nil)
+    self._secureReplySource = nil
     self.ChannelName = chatType == "CHANNEL"
         and ResolveChannelName(tonumber(channelTarget)) or nil
     self.Language = language
@@ -442,6 +444,7 @@ function EditBox:CycleChatType(direction)
         if nextName then
             self.ChatType = nextKind or "WHISPER"
             self.Target   = nextName
+            self._secureReplySource = nil
             self:RefreshLabel()
             if YapperTable.API then
                 YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)

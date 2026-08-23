@@ -212,6 +212,9 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         if not isReply or not replyTarget then return end
         EditBox.ChatType = replyType or "WHISPER"
         EditBox.Target = replyTarget
+        -- Mark that this target came from a secure reply source so
+        -- ResolveWhisperTarget can re-source it from Blizzard at send time.
+        EditBox._secureReplySource = isRewhisper and "told" or "tell"
         EditBox.ChannelName = nil
         EditBox.Language = nil
         if EditBox.RefreshLabel then

@@ -418,6 +418,42 @@ local function GetLastToldTargetInfo()
 
     return lastType, lastTold
 end
+
+--- Try to source a whisper target directly from Blizzard's secure last-tell
+--- state, bypassing any Yapper-stored copy (ReplyQueue, EditBox.Target) that
+--- may have become tainted. This is the /r and /r2 send path: the target is
+--- whatever Blizzard's own GetLastTellTarget/GetLastToldTarget returns, which
+--- stays secure as long as we never poison those stores with tainted data.
+---
+--- @param chatType "WHISPER"|"BN_WHISPER"
+--- @param source "tell"|"told"|nil   Which Blizzard store to prefer.
+--- @param fallback any               Fallback target if Blizzard has none.
+--- @return any target
+--- @return boolean isSecure          True if target came from Blizzard.
+function EditBox:ResolveWhisperTarget(chatType, source, fallback)
+    if chatType ~= "WHISPER" and chatType ~= "BN_WHISPER" then
+        return fallback, false
+    end
+    if not source then
+        return fallback, false
+    end
+    if not ChatFrameUtil then
+        return fallback, false
+    end
+
+    local ok, secureTarget, secureType
+    if source == "tell" and ChatFrameUtil.GetLastTellTarget then
+        ok, secureTarget, secureType = pcall(ChatFrameUtil.GetLastTellTarget)
+    elseif source == "told" and ChatFrameUtil.GetLastToldTarget then
+        ok, secureTarget, secureType = pcall(ChatFrameUtil.GetLastToldTarget)
+    end
+
+    if ok and secureTarget and secureType == chatType then
+        return secureTarget, true
+    end
+    return fallback, false
+end
+
 ------------------------------------------------
 --- Bypass Yapper and go straight to Blizzard's editbox.
 ------------------------------------------------
