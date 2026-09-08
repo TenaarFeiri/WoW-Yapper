@@ -5,6 +5,7 @@
 - Resolved potential n-gram collisions in dictionaries.
 - Fixed a whole lot more secret problems propagating downstream from whispering while in challenge mode (M+).
 - Fixed many legal chat commands failing to work after the above changes.
+- Fixed issue where right-clicking a target while in an instance would produce a secret error.
 
 # 2.4.2
 
