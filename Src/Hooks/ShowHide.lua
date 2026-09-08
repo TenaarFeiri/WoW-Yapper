@@ -999,16 +999,17 @@ end
 
 --- Retarget the already-open overlay onto an external (transient) whisper.
 --- Preconditions: the overlay must already be shown and `target` must be a
---- non-empty string.  Returns true on success, false if a precondition fails
---- so callers fail fast instead of silently doing nothing.
-function EditBox:RetargetOpenWhisper(target, blizzBox)
+--- non-empty string or numeric Battle.net account ID. Returns true on success,
+--- false if a precondition fails so callers fail fast instead of silently doing
+--- nothing.
+function EditBox:RetargetOpenWhisper(target, blizzBox, chatType)
     if not (self.Overlay and self.Overlay:IsShown()) then
         return false
     end
-    -- SanitizeTarget first: a secret string passes the type check but errors
-    -- on the `== ""` comparison below when read from tainted code.
+    -- SanitizeTarget first: a secret value passes a basic type check but can
+    -- error when compared or passed into later routing logic.
     target = Utils:SanitizeTarget(target)
-    if type(target) ~= "string" or target == "" then
+    if (type(target) ~= "string" and type(target) ~= "number") or target == "" then
         return false
     end
 
@@ -1025,7 +1026,7 @@ function EditBox:RetargetOpenWhisper(target, blizzBox)
         end
     end
 
-    self.ChatType = "WHISPER"
+    self.ChatType = chatType or "WHISPER"
     self.Target = target
     self._secureReplySource = nil
     self.ChannelName = nil

@@ -33,9 +33,10 @@ local tostring = tostring
 -- Root-menu tags (format "MENU_UNIT_<which>") whose menus can host a Whisper
 -- button.  Registering a tag whose menu has no Whisper button is a harmless
 -- no-op (the traversal simply finds nothing), so this list favours coverage
--- over precision.  BNet menus (BN_FRIEND*) are registered too but skipped at
--- runtime; their native OnClick calls ChatFrameUtil.SendBNetTell, which
--- Yapper's existing hooksecurefunc already routes.
+-- over precision.  BNet menus (BN_FRIEND*) are included and now handled by
+-- the same responder swap as regular whispers (see OpenWhisperFromUnitMenu).
+-- Non-menu BNet whispers (hyperlink handlers, social UI) still fall through
+-- to the SendBNetTell hooksecurefunc in 30_ChatFrameHooks.lua.
 local WHISPER_MENU_TAGS = {
     "MENU_UNIT_PLAYER",
     "MENU_UNIT_PARTY",
@@ -57,21 +58,6 @@ local WHISPER_MENU_TAGS = {
     "MENU_UNIT_BN_FRIEND",
     "MENU_UNIT_BN_FRIEND_OFFLINE",
 }
-
---- True when the menu context targets a Battle.net account rather than a
---- character.  BNet whispers keep Blizzard's native path (SendBNetTell),
---- which Yapper's existing hooksecurefunc in 30_ChatFrameHooks.lua routes.
---
---- We discriminate solely on `bnetIDAccount`: in-game unit targets are never
---- Battle.net accounts, and BNet contexts (the BN_FRIEND* menus) always
---- populate that field.  Querying `playerLocation:IsBattleNetGUID()` instead
---- would call `C_AccountInfo.IsGUIDBattleNetAccountType(guid)` with the
---- context's secret guid, which is rejected outside untainted execution —
---- and our Menu.ModifyMenu callback is addon-tainted, so that path errors
---- out (e.g. when right-clicking a target inside a delve).
-local function IsBNetContext(contextData)
-    return contextData.bnetIDAccount ~= nil
-end
 
 --- Resolve "Name-Realm" the same way Blizzard's native whisper button does.
 local function ResolveFullPlayerName(contextData)
@@ -97,29 +83,62 @@ end
 --- Click-time handler for the overridden Whisper element.  Ported from the
 --- old UnitPopupWhisperButtonMixin.OnClick override body; shares
 --- RetargetOpenWhisper with the SendTell hook so the two entry points cannot
---- drift apart.
+--- drift apart.  Handles both regular (WHISPER) and Battle.net (BN_WHISPER)
+--- contexts: BNet contexts use the safe `contextData.bnetIDAccount` as the
+--- target and route through `SendBNetTell` in lockdown, bypassing
+--- `SendBNetTell`'s `OpenChat("")` → `CHAT_FOCUS_OVERRIDE` interaction that
+--- caused the target to be set then immediately reverted when the overlay was
+--- already shown.
 function EditBox:OpenWhisperFromUnitMenu(contextData)
-    -- Mirror the native guard: no whispering non-player units.
-    local unit = contextData.unit
-    if unit and not UnitIsHumanPlayer(unit) then
-        return
+    local isBNet = contextData.bnetIDAccount ~= nil
+
+    -- Mirror the native guard: no whispering non-player units.  BNet friend
+    -- contexts (from the friends list) do not carry a `unit` field, so skip
+    -- the guard for them.
+    if not isBNet then
+        local unit = contextData.unit
+        if unit and not UnitIsHumanPlayer(unit) then
+            return
+        end
     end
 
-    local fullName = ResolveFullPlayerName(contextData)
-    if not fullName then
+    local fullName, chatType
+    if isBNet then
+        -- Friends-list BNet names can be protected/tokenized values. The
+        -- context already provides the safe account ID that Blizzard uses to
+        -- identify the friend, so prefer it over contextData.name.
+        fullName = Utils and Utils:SanitizeTarget(contextData.bnetIDAccount)
+            or contextData.bnetIDAccount
+        if not fullName then
+            fullName = Utils and Utils:SanitizeTarget(contextData.name)
+                or contextData.name
+        end
+        chatType = "BN_WHISPER"
+    else
+        fullName = ResolveFullPlayerName(contextData)
+        chatType = "WHISPER"
+    end
+    if (type(fullName) ~= "string" and type(fullName) ~= "number")
+        or fullName == "" then
         return
     end
 
     -- Lockdown (or overlay unavailable): replicate the native button by
-    -- calling ChatFrameUtil.SendTell ourselves.  It is not protected, so
-    -- calling it from this (tainted) click path is safe.  Yapper's SendTell
-    -- hooksecurefunc early-returns during lockdown, so Blizzard's editbox
-    -- takes over cleanly with no reentrancy.
+    -- calling Blizzard's own tell function.  It is not protected, so calling
+    -- it from this (tainted) click path is safe.  Yapper's hooksecurefunc
+    -- early-returns during lockdown, so Blizzard's editbox takes over cleanly
+    -- with no reentrancy.
     local utils = YapperTable.Utils
     local locked = utils and utils.IsChatLockdown and utils:IsChatLockdown()
     if locked or type(self.Show) ~= "function" then
-        if ChatFrameUtil and ChatFrameUtil.SendTell then
-            ChatFrameUtil.SendTell(fullName, contextData.chatFrame)
+        if isBNet then
+            if ChatFrameUtil and ChatFrameUtil.SendBNetTell then
+                ChatFrameUtil.SendBNetTell(fullName)
+            end
+        else
+            if ChatFrameUtil and ChatFrameUtil.SendTell then
+                ChatFrameUtil.SendTell(fullName, contextData.chatFrame)
+            end
         end
         return
     end
@@ -138,7 +157,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
 
     -- If already open, retarget in place via the shared routing helper.
     if self.Overlay and self.Overlay:IsShown() then
-        self:RetargetOpenWhisper(fullName, blizzBox)
+        self:RetargetOpenWhisper(fullName, blizzBox, chatType)
         return
     end
 
@@ -150,7 +169,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     end
 
     self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
-    self.ChatType = "WHISPER"
+    self.ChatType = chatType
     self.Target = fullName
     self._secureReplySource = nil
     self.ChannelName = nil
@@ -167,13 +186,15 @@ end
 --- Menu.ModifyMenu callback: find the Whisper element in the freshly built
 --- menu description and swap its responder for Yapper's routing.  Runs every
 --- time a registered unit menu opens (descriptions are regenerated per open).
+--- Handles both regular and BNet contexts: the responder calls
+--- OpenWhisperFromUnitMenu which discriminates on `bnetIDAccount` and routes
+--- to WHISPER or BN_WHISPER accordingly.  BNet contexts are no longer skipped
+--- because the previous approach (leaving the native responder and relying on
+--- the SendBNetTell hooksecurefunc) suffered from a race: SendBNetTell calls
+--- OpenChat("") which short-circuits via CHAT_FOCUS_OVERRIDE when the overlay
+--- is already shown, causing the target to appear briefly then revert.
 local function OnUnitMenuOpened(_, rootDescription, contextData)
     if type(contextData) ~= "table" then
-        return
-    end
-
-    -- BNet targets stay fully native (see IsBNetContext).
-    if IsBNetContext(contextData) then
         return
     end
 
