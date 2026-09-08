@@ -223,9 +223,20 @@ _G.BNGetFriendInfo = nil
 _G.BNGetNumFriends = function() return 2 end
 
 -- ===========================================================================
--- Test 9: BNet cache (TTL)
+-- Test 9: BNet account ID target
 -- ===========================================================================
-print("\nTest 9: BNet cache")
+print("\nTest 9: BNet account ID target")
+
+ResetSends()
+ok = Router:Send("Direct account message", "BN_WHISPER", nil, 1001)
+check("numeric account ID send ok", ok == true)
+check("numeric account ID uses C_BattleNet.SendWhisper", sentMessages[1].api == "C_BattleNet.SendWhisper")
+check("numeric account ID passed directly", sentMessages[1].bnetAccountID == 1001)
+
+-- ===========================================================================
+-- Test 10: BNet cache (TTL)
+-- ===========================================================================
+print("\nTest 10: BNet cache")
 
 Router:FlushBnetCache()
 local currentTime = 100
