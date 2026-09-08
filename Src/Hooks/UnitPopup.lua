@@ -133,7 +133,9 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     if locked or type(self.Show) ~= "function" then
         if isBNet then
             if ChatFrameUtil and ChatFrameUtil.SendBNetTell then
-                ChatFrameUtil.SendBNetTell(fullName)
+                -- Preserve Blizzard's native tokenized name in lockdown;
+                -- SendBNetTell is the untainted-compatible resolver path.
+                ChatFrameUtil.SendBNetTell(contextData.name or fullName)
             end
         else
             if ChatFrameUtil and ChatFrameUtil.SendTell then
