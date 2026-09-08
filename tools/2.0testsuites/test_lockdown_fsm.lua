@@ -57,12 +57,13 @@ end
 
 -- Focus override spy: records the current override target.
 local focusOverride = nil
+local deactivateCalls = 0
 _G.ChatFrameUtil = {
     SetChatFocusOverride = function(box) focusOverride = box end,
     ClearChatFocusOverride = function() focusOverride = nil end,
     GetChatFocusOverride = function() return focusOverride end,
 
-    DeactivateChat = function() end,
+    DeactivateChat = function() deactivateCalls = deactivateCalls + 1 end,
     OpenChat = function() end,
 }
 
@@ -334,9 +335,13 @@ blizzBox._scale = 777
 blizzBox._left = 777
 blizzBox._bottom = 777
 blizzBox._top = 777
+blizzBox._width = 777
+blizzBox._height = 777
 local cachedOpenOK = pcall(function() EditBox:Show(blizzBox) end)
 check("secret geometry open succeeds with cached snapshot", cachedOpenOK)
 check("secret geometry does not replace cached left", EditBox._repositionCache.origLeft == 10)
+check("secret geometry does not replace cached size",
+    EditBox._repositionCache.origWidth == 390 and EditBox._repositionCache.origHeight == 30)
 EditBox:Hide()
 
 EditBox._repositionCache = nil
@@ -353,6 +358,46 @@ blizzBox._left = 10
 blizzBox._bottom = 30
 blizzBox._top = 60
 EditBox:Show(blizzBox)
+
+print("\nTest 2c: Secret whisper-target quarantine")
+
+-- SanitizeTarget: the 777 marker is "secret" via the issecretvalue stub.
+check("SanitizeTarget passes ordinary target",
+    YapperTable.Utils:SanitizeTarget("Arthas") == "Arthas")
+check("SanitizeTarget rejects secret value",
+    YapperTable.Utils:SanitizeTarget(777) == nil)
+check("SanitizeTarget rejects nil", YapperTable.Utils:SanitizeTarget(nil) == nil)
+check("SanitizeTarget rejects empty string", YapperTable.Utils:SanitizeTarget("") == nil)
+
+-- GetLastTellTargetInfo must contain a Blizzard GetLastTellTarget that errors
+-- on its internal secret comparison (the /r + REPLY regression).
+EditBox.ReplyQueue = {}
+_G.ChatFrameUtil.GetLastTellTarget = function()
+    error("attempt to compare local 'value' (a secret string value)")
+end
+local tellOK, tellType, tellTarget = pcall(EditBox.GetLastTellTargetInfo)
+check("GetLastTellTargetInfo survives secret comparison error", tellOK)
+check("GetLastTellTargetInfo returns no target on secret error",
+    tellType == nil and tellTarget == nil)
+
+-- And a plain-value Blizzard response still resolves normally.
+_G.ChatFrameUtil.GetLastTellTarget = function()
+    return "Jaina", "WHISPER"
+end
+local okType, okTarget = EditBox.GetLastTellTargetInfo()
+check("GetLastTellTargetInfo resolves ordinary Blizzard target",
+    okType == "WHISPER" and okTarget == "Jaina")
+
+-- GetLastToldTargetInfo gets the same containment.
+_G.ChatFrameUtil.GetLastToldTarget = function()
+    error("attempt to compare local 'value' (a secret string value)")
+end
+local toldOK, toldType, toldTarget = pcall(EditBox.GetLastToldTargetInfo)
+check("GetLastToldTargetInfo survives secret comparison error", toldOK)
+check("GetLastToldTargetInfo returns no target on secret error",
+    toldType == nil and toldTarget == nil)
+_G.ChatFrameUtil.GetLastTellTarget = nil
+_G.ChatFrameUtil.GetLastToldTarget = nil
 
 -- Multiline takes ownership while its frame is visible, then returns it to
 -- the overlay when the frame closes.
@@ -391,9 +436,11 @@ EditBox.OverlayEdit:SetText("half-typed message during a boss pull")
 combatLockdown = true
 chatLockdown = true
 
+local deactivationsBeforeHandoff = deactivateCalls
 EditBox:HandoffToBlizzard()
 
 check("handoff: handedOff = true", EditBox._lockdown.handedOff == true)
+check("handoff: skips tainted native deactivation", deactivateCalls == deactivationsBeforeHandoff)
 check("handoff: focus override cleared (OpenChat fallback must not target the hidden overlay)",
     focusOverride == nil)
 check("handoff: overlay hidden", not EditBox.Overlay:IsShown())

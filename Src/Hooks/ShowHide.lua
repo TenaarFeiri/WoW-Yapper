@@ -102,10 +102,12 @@ local function RepositionOverlay(overlay, origEditBox, useTop)
         origLeft = origEditBox:GetLeft(),
         origTop = origEditBox:GetTop(),
         origBottom = origEditBox:GetBottom(),
+        origWidth = origEditBox:GetWidth(),
+        origHeight = origEditBox:GetHeight(),
     }
     local fields = {
         "parentScale", "origScale", "parentLeft", "parentBottom",
-        "origLeft", "origTop", "origBottom",
+        "origLeft", "origTop", "origBottom", "origWidth", "origHeight",
     }
     local invalidFields = {}
     local secretFields = {}
@@ -150,6 +152,8 @@ local function RepositionOverlay(overlay, origEditBox, useTop)
             origLeft = values.origLeft,
             origTop = values.origTop,
             origBottom = values.origBottom,
+            origWidth = values.origWidth,
+            origHeight = values.origHeight,
         }
         snapshot.scale = snapshot.origScale / snapshot.parentScale
         EditBox._repositionCache = snapshot
@@ -253,6 +257,9 @@ function EditBox:Show(origEditBox)
         return
     end
     self:CreateOverlay()
+    if type(self.SetChatCompatibilityEnabled) == "function" then
+        self:SetChatCompatibilityEnabled(true)
+    end
 
     -- Reopening the overlay ends any lockdown handoff. Without this reset a
     -- stale handedOff=true (e.g. lockdown outlasting the REGEN_ENABLED
@@ -304,8 +311,14 @@ function EditBox:Show(origEditBox)
 
     local cache     = self._attrCache[origEditBox] or {}
     local blizzType = cache.chatType
-    local blizzTell = cache.tellTarget
-    local blizzChan = cache.channelTarget
+    local blizzTell = Utils:SanitizeTarget(cache.tellTarget)
+    local blizzChan = Utils:SanitizeTarget(cache.channelTarget)
+    local lastUsed = self.LastUsed
+        and {
+            chatType = self.LastUsed.chatType,
+            target = Utils:SanitizeTarget(self.LastUsed.target),
+            language = self.LastUsed.language,
+        }
     local blizzLang = cache.language or (origEditBox and origEditBox.languageID)
     if not blizzLang and origEditBox and type(origEditBox.GetLanguageID) == "function" then
         blizzLang = origEditBox:GetLanguageID()
@@ -367,7 +380,9 @@ function EditBox:Show(origEditBox)
                 liveType = nil
             end
             frameChatType = liveType
-            frameChatTarget = liveFrame.chatTarget
+            -- SanitizeTarget: chatTarget can be a secret value under forced
+            -- addon restrictions; downstream code compares/normalises it.
+            frameChatTarget = Utils:SanitizeTarget(liveFrame.chatTarget)
             if frameChatType == "CHANNEL" and frameChatTarget then
                 frameChannelName = ResolveChannelName(tonumber(frameChatTarget))
             end
@@ -382,7 +397,7 @@ function EditBox:Show(origEditBox)
             or (origEditBox.GetParent and origEditBox:GetParent())
         if liveFrame then
             local liveType = liveFrame.chatType
-            local liveTarget = liveFrame.chatTarget
+            local liveTarget = Utils:SanitizeTarget(liveFrame.chatTarget)
             if (liveType == "WHISPER" or liveType == "BN_WHISPER")
                 and liveFrame.isTemporary
                 and liveTarget and liveTarget ~= "" then
@@ -421,7 +436,7 @@ function EditBox:Show(origEditBox)
             blizzTell = blizzTell,
             blizzChan = blizzChan,
             blizzLang = blizzLang,
-            lastUsed = self.LastUsed,
+            lastUsed = lastUsed,
             frameChatType = frameChatType,
             frameChatTarget = frameChatTarget,
             frameChannelName = frameChannelName,
@@ -429,7 +444,7 @@ function EditBox:Show(origEditBox)
             now = GetTime and GetTime() or nil,
             existingSelection = {
                 chatType = self.ChatType,
-                target = self.Target,
+                target = Utils:SanitizeTarget(self.Target),
                 language = self.Language,
                 channelName = self.ChannelName,
             },
@@ -449,6 +464,7 @@ function EditBox:Show(origEditBox)
         self.ChatType = resolvedSelection.chatType
         self.Language = resolvedSelection.language
         self.Target = resolvedSelection.target
+        self._secureReplySource = nil
         self.ChannelName = resolvedSelection.channelName
     elseif pendingTabSwitch and pendingTabSwitch.chatType then
         -- Fallback mirrors the existing priority path.
@@ -456,6 +472,7 @@ function EditBox:Show(origEditBox)
         self.Language = pendingTabSwitch.language
             or blizzLang or (self.LastUsed and self.LastUsed.language) or nil
         self.Target = pendingTabSwitch.target
+        self._secureReplySource = nil
         self.ChannelName = pendingTabSwitch.channelName
     else
         self.ChatType = (self.LastUsed and self.LastUsed.chatType)
@@ -467,11 +484,13 @@ function EditBox:Show(origEditBox)
         self.Target = (self.LastUsed and self.LastUsed.target)
             or blizzTell or blizzChan
             or nil
+        self._secureReplySource = nil
     end
 
     -- Safety net: non-target chat types must not carry stale whisper/channel targets.
     if self.ChatType ~= "WHISPER" and self.ChatType ~= "BN_WHISPER" and self.ChatType ~= "CHANNEL" then
         self.Target = nil
+        self._secureReplySource = nil
         self.ChannelName = nil
     end
 
@@ -480,18 +499,21 @@ function EditBox:Show(origEditBox)
     if resolvedCT ~= self.ChatType then
         self.ChatType = resolvedCT
         self.Target   = nil
+        self._secureReplySource = nil
     end
 
     -- Safeguard: Never open in a whisper state without a target.
     if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and (not self.Target or self.Target == "") then
         self.ChatType = "SAY"
         self.Target   = nil
+        self._secureReplySource = nil
     end
 
     -- Validate channel availability (e.g. you left the party/raid/instance).
     if not self:IsChatTypeAvailable(self.ChatType) then
         self.ChatType = "SAY"
         self.Target   = nil
+        self._secureReplySource = nil
     end
 
     -- Validate channel (might have been removed since last session).
@@ -505,6 +527,7 @@ function EditBox:Show(origEditBox)
                 -- Channel gone — fall back to SAY.
                 self.ChatType    = "SAY"
                 self.Target      = nil
+                self._secureReplySource = nil
                 self.ChannelName = nil
             end
         end
@@ -519,8 +542,6 @@ function EditBox:Show(origEditBox)
     local overlay = self.Overlay
     local cfg = YapperTable.Config.EditBox or {}
     local wasShown = overlay:IsShown()
-    local origWidth  = origEditBox:GetWidth() or 32
-    local origHeight = origEditBox:GetHeight() or 32
 
     -- Track whether the overlay is currently anchored from its top edge
     -- (tall-font mode) so fullscreen-aware parent changes can re-anchor
@@ -533,6 +554,11 @@ function EditBox:Show(origEditBox)
     end
 
     RepositionOverlay(overlay, origEditBox)
+    local repositionCache = self._repositionCache
+    local origWidth = repositionCache and repositionCache.editBox == origEditBox
+        and repositionCache.origWidth or 32
+    local origHeight = repositionCache and repositionCache.editBox == origEditBox
+        and repositionCache.origHeight or 32
     overlay:SetWidth(origWidth)
     overlay:SetHeight(origHeight)
     overlay:Show()  -- ensure visible (CEBE may have hidden it on close)
@@ -559,10 +585,12 @@ function EditBox:Show(origEditBox)
     -- Vertical scaling
     -- The overlay must be tall enough for the chosen font.
     local _, activeSize = self.OverlayEdit:GetFont()
-    activeSize          = activeSize or 14
+    if not IsUsableGeometryValue(activeSize) then
+        activeSize = 14
+    end
     local fontPad       = cfg.FontPad or 8
     local fontNeeded    = activeSize + fontPad
-    local blizzH        = origEditBox:GetHeight() or 32
+    local blizzH        = origHeight
     local minH          = (cfg.MinHeight and cfg.MinHeight > 0) and cfg.MinHeight or blizzH
     local finalH        = math_max(minH, fontNeeded)
     if finalH > blizzH then
@@ -574,7 +602,8 @@ function EditBox:Show(origEditBox)
     end
 
     -- Stay on top of the original.
-    local origLevel = origEditBox:GetFrameLevel() or 0
+    local rawOrigLevel = origEditBox:GetFrameLevel()
+    local origLevel = IsUsableGeometryValue(rawOrigLevel) and rawOrigLevel or 0
     overlay:SetFrameLevel(origLevel + 5)
 
     -- Proxy mode handling
@@ -611,6 +640,7 @@ function EditBox:Show(origEditBox)
             draftMultiline = isML or false
             if draftType then self.ChatType = draftType end
             if draftTarget then self.Target = draftTarget end
+            self._secureReplySource = nil
             YapperTable.History:MarkDirty(false)
             -- Lockdown drafts are one-shot recovery payloads.
             if lockSavedDraft and type(self._lockdown) == "table" then
@@ -630,6 +660,7 @@ function EditBox:Show(origEditBox)
             if preTarget and not blizzHasTarget then
                 self.ChatType = "WHISPER"
                 self.Target = preTarget
+                self._secureReplySource = nil
                 externalText = preRemainder
             else
                 externalText = blizzText
@@ -734,6 +765,12 @@ function EditBox:Hide(isHandoff)
     local prevOrig = self.OrigEditBox
     self._overlayUnfocused = false
 
+    -- Restore Blizzard's native compatibility functions before any native
+    -- hide/deactivation lifecycle runs with the overlay no longer active.
+    if type(self.SetChatCompatibilityEnabled) == "function" then
+        self:SetChatCompatibilityEnabled(false)
+    end
+
     -- Proxy mode: restore the original Blizzard editbox to its
     -- pre-Yapper state (mouse, header visibility, shown/hidden).
     -- Safe to call when proxy mode wasn't active.
@@ -741,9 +778,38 @@ function EditBox:Hide(isHandoff)
         pcall(function() self:RestoreProxyMode() end)
     end
 
+    -- Undo the chat attributes SyncAttributesToBlizzard pushed onto the Blizzard
+    -- proxy editbox. This MUST run before DeactivateChat (below) and before any
+    -- focus/visibility change that could trigger Blizzard's own event-driven
+    -- Deactivate/ClearChat/UpdateHeader chain. SyncAttributesToBlizzard writes
+    -- tellTarget from Yapper's tainted code; if the tainted attribute persists,
+    -- Blizzard's UpdateHeader later does arithmetic on the (secret) tellTarget
+    -- under tainted execution and errors (issue #57).
+    -- Skip during handoff (we're intentionally restoring the Blizzard box).
+    -- Only gate on combat lockdown (SetAttribute is protected during combat);
+    -- chat messaging lockdown does NOT block SetAttribute, and clearing the
+    -- tainted tellTarget during chat lockdown is exactly what we need.
+    if not isHandoff
+        and self.ResetSyncedAttributes
+        and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsCombatLockdown()) then
+        pcall(function() self:ResetSyncedAttributes() end)
+    end
+
     -- Deactivate the Blizzard editbox so it clears text and stops accepting input.
     -- In IM mode this fades it out; in Classic mode this also hides it.
-    if prevOrig and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
+    -- During handoff/lockdown, or when the native whisper target is secret,
+    -- DeactivateChat can enter Blizzard's UpdateHeader from tainted code and
+    -- perform arithmetic on secret header geometry. Leave native ownership to
+    -- Blizzard in those cases.
+    local canDeactivate = not isHandoff
+        and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsChatOrCombatLockdown())
+    if canDeactivate and prevOrig and prevOrig.GetAttribute then
+        local ok, nativeTarget = pcall(function() return prevOrig:GetAttribute("tellTarget") end)
+        if not ok or (nativeTarget and Utils:IsSecret(nativeTarget)) then
+            canDeactivate = false
+        end
+    end
+    if canDeactivate and prevOrig and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
         pcall(function() ChatFrameUtil.DeactivateChat(prevOrig) end)
     end
 
@@ -778,17 +844,6 @@ function EditBox:Hide(isHandoff)
     -- PersistLastUsed (above) already consumed it, but the draft-save block
     -- below also needs it so an external whisper's channel binding isn't
     -- persisted into a draft. It is cleared after that block instead.
-
-    -- Undo the chat attributes SyncAttributesToBlizzard pushed onto the Blizzard
-    -- proxy editbox. Classic-style Deactivate() skips ResetChatTypeToSticky, so a
-    -- whisper context would otherwise stay stuck on the live proxy frame and bleed
-    -- into the next open. Skip during handoff (we're intentionally restoring the
-    -- Blizzard box) and during lockdown (SetAttribute is unsafe in combat).
-    if not isHandoff
-        and self.ResetSyncedAttributes
-        and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsChatOrCombatLockdown()) then
-        pcall(function() self:ResetSyncedAttributes() end)
-    end
 
     -- Auto-save draft on clean close (no text, or user pressed Escape).
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
@@ -852,6 +907,12 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
         text = YapperTable.Utils:StripDisplayEscapes(text)
     end
     local trimmed = text:match("^%s*(.-)%s*$") or ""
+
+    -- Best-effort safe-state sync before the overlay is handed back. This
+    -- skips secret targets and never calls UpdateHeader during lockdown.
+    if self.SyncAttributesToBlizzard then
+        pcall(function() self:SyncAttributesToBlizzard(true) end)
+    end
 
     -- Mark the handoff BEFORE UpdateFocusOverride: overlayActive must
     -- evaluate false there so CHAT_FOCUS_OVERRIDE is cleared. A stale
@@ -944,6 +1005,9 @@ function EditBox:RetargetOpenWhisper(target, blizzBox)
     if not (self.Overlay and self.Overlay:IsShown()) then
         return false
     end
+    -- SanitizeTarget first: a secret string passes the type check but errors
+    -- on the `== ""` comparison below when read from tainted code.
+    target = Utils:SanitizeTarget(target)
     if type(target) ~= "string" or target == "" then
         return false
     end
@@ -963,6 +1027,7 @@ function EditBox:RetargetOpenWhisper(target, blizzBox)
 
     self.ChatType = "WHISPER"
     self.Target = target
+    self._secureReplySource = nil
     self.ChannelName = nil
     -- Transient external whisper: must not become the global LastUsed sticky.
     self._externalWhisperTarget = target
@@ -1021,9 +1086,11 @@ function EditBox:RecordFallbackSend(editBox)
     end
 
     -- Keep the message text but drop unstorable secret channel context.
-    if target ~= nil and utils and utils:IsSecret(target) then
-        chatType = nil
-        target = nil
+    if utils then
+        target = utils:SanitizeTarget(target)
+        if not target and (chatType == "WHISPER" or chatType == "BN_WHISPER" or chatType == "CHANNEL") then
+            chatType = nil
+        end
     end
 
     History:AddChatHistory(text, chatType, target)

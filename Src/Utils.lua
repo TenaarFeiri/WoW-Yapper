@@ -162,7 +162,8 @@ end
 -- Return true if the supplied value is secret (obfuscated) and should be
 -- treated with caution. Prefer the built-in WoW API when available.
 function Utils:IsSecret(value)
-    if value == nil or value == false then return true end
+    if value == nil then return true end
+    if type(value) == "boolean" and value == false then return true end
 
     if type(value) == "table" then
         if type(canaccesstable) == "function" then
@@ -205,6 +206,42 @@ function Utils:IsSecret(value)
         if okEmpty and isEmpty then return true end
     end
     return false
+end
+
+--- Return a chat target only when it is usable from tainted code.
+--- Secret values (and empty/blank strings, via IsSecret's heuristics) are
+--- returned as nil so callers can treat them as "no target" instead of
+--- performing comparisons or string operations that error on secrets.
+function Utils:SanitizeTarget(value)
+    if value == nil then return nil end
+    local valueType = type(value)
+    if valueType ~= "string" and valueType ~= "number" then
+        return nil
+    end
+    if self:IsSecret(value) then return nil end
+    return value
+end
+
+--- Return a number only when it is usable from tainted code.
+--- Secret numbers (which pass through `or 0` and then fail inside Blizzard
+--- arithmetic) are returned as nil so callers can fall back to a safe
+--- default. Non-numbers and nil also return nil.
+--- @param value any
+--- @return number|nil
+function Utils:SanitizeNumber(value)
+    if value == nil then return nil end
+    if type(value) ~= "number" then return nil end
+    if self:IsSecret(value) then return nil end
+    return value
+end
+
+--- Return a sanitized number, or `fallback` when the value is nil/secret/
+--- non-numeric. Convenience wrapper around SanitizeNumber.
+--- @param value any
+--- @param fallback number
+--- @return number
+function Utils:SafeNumber(value, fallback)
+    return self:SanitizeNumber(value) or fallback
 end
 
 -- ---------------------------------------------------------------------------
@@ -351,7 +388,28 @@ function Utils:SetFontIfChanged(widget, face, size, flags)
     if not (widget and widget.GetFont and widget.SetFont) then return false end
     if not (face and size) then return false end
     flags = flags or ""
-    local curFace, curSize, curFlags = widget:GetFont()
+
+    if self:IsSecret(face) or self:IsSecret(size)
+        or (flags ~= "" and self:IsSecret(flags)) then
+        return false
+    end
+
+    local ok, curFace, curSize, curFlags = pcall(widget.GetFont, widget)
+    if not ok then return false end
+
+    if curFace and self:IsSecret(curFace) then
+        widget:SetFont(face, size, flags)
+        return true
+    end
+    if curSize and self:IsSecret(curSize) then
+        widget:SetFont(face, size, flags)
+        return true
+    end
+    if curFlags and curFlags ~= "" and self:IsSecret(curFlags) then
+        widget:SetFont(face, size, flags)
+        return true
+    end
+
     if curFace == face and curSize == size and (curFlags or "") == flags then
         return false
     end

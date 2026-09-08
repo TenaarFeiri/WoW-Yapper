@@ -195,6 +195,9 @@ local function OnPlayerEnteringWorld()
     -- Hook all Blizzard chat editboxes with our taint-free overlay.
     if YapperTable.EditBox then
         YapperTable.EditBox:HookAllChatFrames()
+        if type(YapperTable.EditBox.SetChatCompatibilityEnabled) == "function" then
+            YapperTable.EditBox:SetChatCompatibilityEnabled(false)
+        end
     end
 
     -- Route unit-popup menu whispers into Yapper via the taint-contained

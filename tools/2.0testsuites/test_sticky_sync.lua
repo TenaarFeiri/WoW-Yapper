@@ -112,6 +112,7 @@ YapperTable.Utils = {
     IsChatOrCombatLockdown = function() return chatLockdown end,
     IsUnambiguousBnetTarget = function() return false end,
     IsSecret = function() return false end,
+    SanitizeTarget = function(_, value) return value end,
     VerbosePrint = function() end,
     DebugPrint = function() end,
     Print = function() end,
@@ -162,7 +163,9 @@ do
     check("PARTY_LEADER: stickyType -> PARTY", blizz._attrs["stickyType"] == "PARTY")
 end
 
--- 1c: WHISPER does NOT write stickyType (demoted out)
+-- 1c: WHISPER does NOT write stickyType (demoted out) and does NOT write
+-- chatType/tellTarget at all, because Blizzard owns tellTarget for whispers
+-- and normalising it can produce a secret value under Midnight lockdown.
 do
     local blizz = MockBlizzEditBox("ChatFrame1EditBox")
     blizz._attrs["stickyType"] = "PARTY"  -- pre-existing sticky
@@ -171,12 +174,12 @@ do
     EditBox.Target = "Alice"
     EditBox.Language = nil
     EditBox:SyncAttributesToBlizzard()
-    check("WHISPER: chatType written", blizz._attrs["chatType"] == "WHISPER")
-    check("WHISPER: tellTarget written", blizz._attrs["tellTarget"] == "Alice")
+    check("WHISPER: chatType NOT written", blizz._attrs["chatType"] == nil)
+    check("WHISPER: tellTarget NOT written", blizz._attrs["tellTarget"] == nil)
     check("WHISPER: stickyType NOT overwritten", blizz._attrs["stickyType"] == "PARTY")
 end
 
--- 1d: BN_WHISPER does NOT write stickyType
+-- 1d: BN_WHISPER does NOT write stickyType, chatType, or tellTarget
 do
     local blizz = MockBlizzEditBox("ChatFrame1EditBox")
     blizz._attrs["stickyType"] = "SAY"
@@ -185,6 +188,8 @@ do
     EditBox.Target = "Bob"
     EditBox.Language = nil
     EditBox:SyncAttributesToBlizzard()
+    check("BN_WHISPER: chatType NOT written", blizz._attrs["chatType"] == nil)
+    check("BN_WHISPER: tellTarget NOT written", blizz._attrs["tellTarget"] == nil)
     check("BN_WHISPER: stickyType NOT overwritten", blizz._attrs["stickyType"] == "SAY")
 end
 
@@ -242,6 +247,8 @@ YapperTable2.Config = { System = { DEBUG = false }, EditBox = {} }
 
 YapperTable2.Utils = {
     IsChatLockdown = function() return chatLockdown end,
+    IsChatOrCombatLockdown = function() return chatLockdown end,
+    SanitizeTarget = function(_, value) return value end,
     DebugPrint = function() end,
     VerbosePrint = function() end,
 }

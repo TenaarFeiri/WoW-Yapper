@@ -248,6 +248,7 @@ function EditBox:SetupOverlayScripts()
 
             self.ChatType = ct
             self.Target   = nil
+            self._secureReplySource = nil
             updatingText  = true
             box:SetText(rest2 or "")
             updatingText = false
@@ -307,6 +308,7 @@ function EditBox:SetupOverlayScripts()
                     if target then
                         self.ChatType = "WHISPER"
                         self.Target   = target
+                        self._secureReplySource = nil
                         self.Language = nil
                         -- Fix: Use self.OrigEditBox (eb was undefined here).
                         -- This suppresses the Blizzard UI 'ghost' when switching to whisper modes.
@@ -327,6 +329,7 @@ function EditBox:SetupOverlayScripts()
                     if lastTell and lastTell ~= "" then
                         self.ChatType = lastType
                         self.Target   = lastTell
+                        self._secureReplySource = "tell"
                         self.Language = nil
                         updatingText  = true
                         box:SetText(enterRest or "")
@@ -342,6 +345,7 @@ function EditBox:SetupOverlayScripts()
                     if lastTold and lastTold ~= "" then
                         self.ChatType = lastType
                         self.Target   = lastTold
+                        self._secureReplySource = "told"
                         self.Language = nil
                         updatingText  = true
                         box:SetText(enterRest or "")
@@ -362,6 +366,7 @@ function EditBox:SetupOverlayScripts()
                                 self.ChatType    = "CHANNEL"
                                 self.Target      = tostring(chNum)
                                 self.ChannelName = resolved
+                                self._secureReplySource = nil
                                 self.Language    = nil
                                 updatingText     = true
                                 box:SetText("")
@@ -373,6 +378,7 @@ function EditBox:SetupOverlayScripts()
                             self.ChatType    = "CHANNEL"
                             self.Target      = ch
                             self.ChannelName = nil
+                            self._secureReplySource = nil
                             self.Language    = nil
                             updatingText     = true
                             box:SetText("")
@@ -407,6 +413,7 @@ function EditBox:SetupOverlayScripts()
 
                     self.ChatType = ct
                     self.Target   = nil
+                    self._secureReplySource = nil
                     self.Language = nil
                     updatingText  = true
                     box:SetText(enterRest or "")
@@ -471,16 +478,28 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
+        local chatType = self.ChatType or "SAY"
         local lang = YapperTable.Core:GetCharacterLanguage(self.Language or (self.LastUsed and self.LastUsed.language))
 
-        YapperTable.Utils:DebugPrint("OnEnterPressed: SENDING text=" .. tostring(trimmed):sub(1,40) .. ", chatType=" .. tostring(self.ChatType))
+        -- For whisper/BN whisper, try to source the target directly from
+        -- Blizzard's secure last-tell state instead of relying on EditBox.Target,
+        -- which may have been tainted by passing through Yapper's ReplyQueue or
+        -- by being typed into the overlay. This is the only way /r and /r2 can
+        -- send without Yapper taint propagating into Blizzard's tellTarget.
+        local target = self.Target
+        local isSecure = false
+        if chatType == "WHISPER" or chatType == "BN_WHISPER" then
+            target, isSecure = self:ResolveWhisperTarget(chatType, self._secureReplySource, self.Target)
+        end
+
+        YapperTable.Utils:DebugPrint("OnEnterPressed: SENDING text=" .. tostring(trimmed):sub(1,40) .. ", chatType=" .. tostring(chatType) .. ", secure=" .. tostring(isSecure))
 
         local didSend = true
         if self.OnSend then
-            didSend = (self.OnSend(trimmed, self.ChatType or "SAY", lang, self.Target) ~= false)
+            didSend = (self.OnSend(trimmed, chatType, lang, target) ~= false)
         else
             if C_ChatInfo and C_ChatInfo.SendChatMessage then
-                C_ChatInfo.SendChatMessage(trimmed, self.ChatType or "SAY", lang, self.Target)
+                C_ChatInfo.SendChatMessage(trimmed, chatType, lang, target)
             end
         end
 
@@ -491,16 +510,23 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- Track outgoing whispers as reply targets too (move to front).
-        -- Also sync Blizzard's SetLastToldTarget so the Re-Whisper keybind works
-        -- correctly after sends made through Yapper.
-        if (self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER") and self.Target and self.Target ~= "" then
-            self:AddReplyTarget(self.Target, self.ChatType)
-            if ChatFrameUtil and ChatFrameUtil.SetLastToldTarget then
-                ChatFrameUtil.SetLastToldTarget(self.Target, self.ChatType)
-            elseif ChatEdit_SetLastToldTarget then
-                ChatEdit_SetLastToldTarget(self.Target, self.ChatType)
+        -- Track outgoing whispers as reply targets only when we sourced a
+        -- secure target from Blizzard. If we used a tainted typed/fallback
+        -- target, do not poison the ReplyQueue or Blizzard's SetLastToldTarget,
+        -- or the next /r will pick up that taint and UpdateHeader will error.
+        if (chatType == "WHISPER" or chatType == "BN_WHISPER") and isSecure then
+            local sentTarget = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
+            if sentTarget and sentTarget ~= "" then
+                self:AddReplyTarget(sentTarget, chatType)
+                if ChatFrameUtil and ChatFrameUtil.SetLastToldTarget then
+                    pcall(ChatFrameUtil.SetLastToldTarget, sentTarget, chatType)
+                elseif ChatEdit_SetLastToldTarget then
+                    pcall(ChatEdit_SetLastToldTarget, sentTarget, chatType)
+                end
             end
+            -- Replace the Yapper-stored target with the secure one so
+            -- LastUsed/PersistLastUsed do not retain a tainted copy.
+            self.Target = target
         end
 
         if self.OrigEditBox then
@@ -786,7 +812,10 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    frame:HookScript("OnEvent", function(_, event, ...)
+    local observedLockdown = false
+    local lockdownPollElapsed = 0
+
+    local function HandleEvent(_, event, ...)
         local isLockdownStartEvent = (event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START")
         local isLockdownEndEvent = (event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED")
 
@@ -796,7 +825,16 @@ function EditBox:SetupOverlayScripts()
             isLockdownEndEvent = not isInProgress
         end
 
+        if isLockdownStartEvent or isLockdownEndEvent then
+            observedLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown() or false
+        end
+
         if isLockdownStartEvent then
+            -- Remove Yapper's global active-window/focus wrappers before native
+            -- lockdown paths can inspect secret chat state.
+            if type(self.SetChatCompatibilityEnabled) == "function" then
+                self:SetChatCompatibilityEnabled(false)
+            end
             self:UpdateFocusOverride()
             -- Helper: begin the deferred handoff.
             local function beginDeferredHandoff()
@@ -858,6 +896,13 @@ function EditBox:SetupOverlayScripts()
         elseif isLockdownEndEvent then
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
+            local chatStillLocked = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
+            if type(self.SetChatCompatibilityEnabled) == "function" and not chatStillLocked then
+                self:SetChatCompatibilityEnabled(true)
+            end
+            if not chatStillLocked and type(self.ResyncFromBlizzardAfterLockdown) == "function" then
+                pcall(function() self:ResyncFromBlizzardAfterLockdown() end)
+            end
             YapperAPI:SetState("IDLE")
             self:UpdateFocusOverride()
             -- If we saved a draft during lockdown, poll until lockdown
@@ -867,6 +912,12 @@ function EditBox:SetupOverlayScripts()
                 C_Timer.NewTicker(1, function(ticker)
                     checks = checks + 1
                     if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                        if type(self.SetChatCompatibilityEnabled) == "function" then
+                            self:SetChatCompatibilityEnabled(true)
+                        end
+                        if type(self.ResyncFromBlizzardAfterLockdown) == "function" then
+                            pcall(function() self:ResyncFromBlizzardAfterLockdown() end)
+                        end
                         self._lockdown.handedOff = false
                         -- If Blizzard sends during lockdown changed the channel,
                         -- persist that sticky choice now.
@@ -990,6 +1041,18 @@ function EditBox:SetupOverlayScripts()
                 self:RefreshLabel()
             end
         end
+    end
+
+    frame:HookScript("OnEvent", HandleEvent)
+    frame:HookScript("OnUpdate", function(_, elapsed)
+        lockdownPollElapsed = lockdownPollElapsed + (elapsed or 0)
+        if lockdownPollElapsed < 0.25 then return end
+        lockdownPollElapsed = 0
+
+        local currentLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown() or false
+        if currentLockdown == observedLockdown then return end
+        observedLockdown = currentLockdown
+        HandleEvent(frame, currentLockdown and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED")
     end)
 end
 

@@ -18,6 +18,7 @@ Keybinds._pendingRegistration = false
 Keybinds._overrideBindings = {
     "OPENCHAT",
     "OPENCHATSLASH",
+    "REPLY",
     "REPLYTELL2"
 }
 
@@ -47,10 +48,13 @@ end
 --- Sync Yapper's channel/target to Blizzard's editbox for lockdown handling.
 local function SyncAttributesToBlizzard()
     local yapperChatType = EditBox.ChatType
-    local yapperTarget = EditBox.Target
+    local yapperTarget = Utils:SanitizeTarget(EditBox.Target)
     local yapperLanguage = EditBox.Language
-    
+
     if not yapperChatType then
+        return
+    end
+    if Utils:IsChatOrCombatLockdown() then
         return
     end
     
@@ -67,15 +71,18 @@ local function SyncAttributesToBlizzard()
     elseif yapperChatType == "RAID_LEADER" then
         overrideCT = "RAID"
     end
-    
-    blizzEditBox:SetAttribute("chatType", overrideCT)
-    
+
+    -- For whisper/BN whisper, do not write tellTarget to the native editbox.
+    -- Blizzard owns tellTarget for whispers and normalising it can produce a
+    -- secret value under Midnight lockdown; writing it from tainted code taints
+    -- the attribute and causes UpdateHeader to error.
     if yapperChatType == "WHISPER" or yapperChatType == "BN_WHISPER" then
-        if yapperTarget then
-            blizzEditBox:SetAttribute("tellTarget", yapperTarget)
-        end
-        blizzEditBox:SetAttribute("channelTarget", nil)
-    elseif yapperChatType == "CHANNEL" then
+        return
+    end
+
+    blizzEditBox:SetAttribute("chatType", overrideCT)
+
+    if yapperChatType == "CHANNEL" then
         if yapperTarget then
             blizzEditBox:SetAttribute("channelTarget", yapperTarget)
         end
@@ -84,12 +91,28 @@ local function SyncAttributesToBlizzard()
         blizzEditBox:SetAttribute("tellTarget", nil)
         blizzEditBox:SetAttribute("channelTarget", nil)
     end
-    
+
     if yapperLanguage then
         blizzEditBox:SetAttribute("language", yapperLanguage)
     else
         blizzEditBox:SetAttribute("language", nil)
     end
+end
+
+--- Resolve a reply target through Yapper's secret-safe readers. Returns nil,
+--- nil when no usable target exists — including when Blizzard's remembered-target
+--- list holds a secret value.
+local function ResolveSafeReplyTarget(rewhisper)
+    local getInfo = EditBox and (rewhisper
+        and EditBox.GetLastToldTargetInfo or EditBox.GetLastTellTargetInfo)
+    if type(getInfo) ~= "function" then
+        return nil, nil
+    end
+    local ok, lastType, lastTarget = pcall(getInfo)
+    if not ok then
+        return nil, nil
+    end
+    return lastType, lastTarget
 end
 
 --- Common handler for all keybind buttons.
@@ -109,14 +132,24 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
 
+    local isRewhisper = (bindingName == "REPLYTELL2")
+    local isReply = (bindingName == "REPLY" or isRewhisper)
+
     -- Check for chat messaging lockdown before opening Yapper
     local inLockdown = Utils:IsChatLockdown()
+    if isReply and inLockdown then
+        -- Do not call Blizzard's ReplyTell from this tainted click path. Its
+        -- remembered-target comparison is not safe when the target is secret.
+        LogVerbose((isRewhisper and "REPLYTELL2" or "REPLY")
+            .. " keybind: reply unavailable during lockdown; ignoring.")
+        return
+    end
     if inLockdown then
         -- Save Yapper's LastUsed state for restoration after lockdown
         if not Keybinds._preLockdownLastUsed and EditBox.LastUsed then
             Keybinds._preLockdownLastUsed = {
                 chatType = EditBox.LastUsed.chatType,
-                target = EditBox.LastUsed.target,
+                target = Utils:SanitizeTarget(EditBox.LastUsed.target),
                 language = EditBox.LastUsed.language
             }
         end
@@ -162,11 +195,56 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         Keybinds._preLockdownLastUsed = nil
     end
 
+    -- REPLY: resolve the last incoming whisper through Yapper's secret-safe
+    -- reader before any open. Without a usable target the key is a no-op —
+    -- matching Blizzard's native behaviour with an empty remembered list, and
+    -- deliberately giving up secret targets rather than erroring.
+    local replyType, replyTarget
+    if isReply then
+        replyType, replyTarget = ResolveSafeReplyTarget(isRewhisper)
+        if not replyTarget or replyTarget == "" then
+            LogVerbose("REPLY keybind: no usable reply target (empty or secret); ignoring.")
+            return
+        end
+    end
+
+    local function ApplyReplyTarget()
+        if not isReply or not replyTarget then return end
+        EditBox.ChatType = replyType or "WHISPER"
+        EditBox.Target = replyTarget
+        -- Mark that this target came from a secure reply source so
+        -- ResolveWhisperTarget can re-source it from Blizzard at send time.
+        EditBox._secureReplySource = isRewhisper and "told" or "tell"
+        EditBox.ChannelName = nil
+        EditBox.Language = nil
+        if EditBox.RefreshLabel then
+            EditBox:RefreshLabel()
+        end
+    end
+
+    local function SuppressReplyKeyCharacter()
+        if not isReply or not EditBox.OverlayEdit then return end
+        local replyEdit = EditBox.OverlayEdit
+        if replyEdit.ClearFocus then
+            replyEdit:ClearFocus()
+        end
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, function()
+                if EditBox.Overlay and EditBox.Overlay:IsShown()
+                    and replyEdit and replyEdit.SetFocus then
+                    replyEdit:SetFocus()
+                end
+            end)
+        end
+    end
+
     -- Don't show if already shown to prevent state thrashing
     if EditBox.Overlay and EditBox.Overlay:IsShown() then
+        ApplyReplyTarget()
         if EditBox.OverlayEdit then
             EditBox.OverlayEdit:SetFocus()
         end
+        SuppressReplyKeyCharacter()
         return
     end
     
@@ -175,7 +253,8 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     -- call in HookBlizzardEditBox so addons see a consistent activation path.
     if YapperTable.API then
         local filterCT = (EditBox.LastUsed and EditBox.LastUsed.chatType) or "SAY"
-        local filterTarget = (EditBox.LastUsed and EditBox.LastUsed.target) or nil
+        local filterTarget = EditBox.LastUsed
+            and Utils:SanitizeTarget(EditBox.LastUsed.target) or nil
         local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
             chatType = filterCT,
             target   = filterTarget,
@@ -206,7 +285,13 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Yapper Error:|r " .. tostring(err))
         return
     end
-    
+
+    -- Force the reply whisper context AFTER Show() as the final authority
+    -- (same pattern as the SendTell hook), since Show()'s open-selection can
+    -- resolve to LastUsed/frame context instead of the reply target.
+    ApplyReplyTarget()
+    SuppressReplyKeyCharacter()
+
     -- NOTE: We intentionally do NOT apply prefillText here. Show() has already
     -- focused the overlay synchronously inside the key-DOWN event, so the
     -- physical char event (e.g. "/" for OPENCHATSLASH) fires on the focused
@@ -263,8 +348,14 @@ function Keybinds:CreateSecureButtons()
     
     -- OPENCHATSLASH - chat open with "/" pre-filled, sync attributes for lockdown
     self._secureButtons["OPENCHATSLASH"] = CreateSecureButtonForBinding("OPENCHATSLASH", "/", true)
-    
-    -- REPLYTELL2 - reply to last tell, no attribute sync (uses Blizzard's reply logic)
+
+    -- REPLY - reply to last incoming whisper via Yapper's secret-safe reader.
+    -- Overridden because the native binding runs Blizzard's ReplyTell inside
+    -- execution tainted by Yapper's ChatFrameUtil wrappers; a secret entry in
+    -- Blizzard's remembered-target list then errors and eats the keypress.
+    self._secureButtons["REPLY"] = CreateSecureButtonForBinding("REPLY", nil, false)
+
+    -- REPLYTELL2 - re-whisper the last outgoing target via Yapper's safe reader.
     self._secureButtons["REPLYTELL2"] = CreateSecureButtonForBinding("REPLYTELL2", nil, false)
 end
 

@@ -3,6 +3,8 @@
 ### Bug Fixes
 - Speculative fix for issue where sometimes the editbox values can be secret.
 - Resolved potential n-gram collisions in dictionaries.
+- Fixed a whole lot more secret problems propagating downstream from whispering while in challenge mode (M+).
+- Fixed many legal chat commands failing to work after the above changes.
 
 # 2.4.2
 

@@ -84,16 +84,14 @@ function YapperTable.InstallCompatMethods(box)
     -- Functional ParseText (feature parity, not pipeline hijacking).
     -- Blizzard's ChatFrameEditBoxMixin.SendText — which addons like Paste and
     -- PasteNG invoke via ChatEdit_SendText on the "active window" — calls
-    -- self:ParseText(1) BEFORE it dispatches, and on a native chat box that is
-    -- exactly where a "/command" line gets executed (see ChatFrameEditBox.lua
-    -- SendText -> ParseText). While Yapper is open, GetActiveWindow hands these
-    -- addons our overlay, so a no-op ParseText silently dropped every command
-    -- line — it fell through to C_ChatInfo.SendChatMessage and went out as
-    -- literal SAY text. Fix: execute slash lines through Yapper's existing
-    -- native-box forwarder and consume the text so the surrounding SendText
-    -- sees an empty box and does not re-send. Plain text is deliberately left
-    -- untouched — SendText dispatches it verbatim via SendChatMessage using
-    -- GetChatType()/languageID. Dumb paste: we never touch the addon's pipeline.
+    -- self:ParseText(1) BEFORE it dispatches. While Yapper is open,
+    -- GetActiveWindow hands these addons our overlay, so a no-op ParseText
+    -- would silently drop slash commands or send them as chat text. Execute
+    -- slash lines through Blizzard's command registry and consume the text so
+    -- the surrounding SendText sees an empty box and does not re-send. Plain
+    -- text is deliberately left untouched — SendText dispatches it verbatim
+    -- via SendChatMessage using GetChatType()/languageID. Dumb paste: we never
+    -- touch the addon's pipeline.
     function box:ParseText(send)
         -- Only act on the send path; parse-only calls (send ~= 1) are no-ops.
         if send ~= 1 then return end
@@ -103,8 +101,8 @@ function YapperTable.InstallCompatMethods(box)
         local trimmed = text:match("^%s*(.-)%s*$") or ""
         -- Plain text: let Blizzard's SendText dispatch it verbatim.
         if trimmed:sub(1, 1) ~= "/" then return end
-        -- Slash line: run it through the native-box forwarder (same untainted
-        -- path OnEnterPressed uses) and clear the box so SendText sends nothing.
+        -- Slash line: run it through Blizzard's command registry and clear the
+        -- box so SendText sends nothing.
         if EditBox.ForwardSlashCommand then
             EditBox:ForwardSlashCommand(trimmed)
         end
@@ -146,14 +144,15 @@ if Multiline and Multiline.EditBox then
     YapperTable.InstallCompatMethods(Multiline.EditBox)
 end
 
--- Hook GetActiveWindow: When Yapper is active, visible, and not bypassed,
--- we route GetActiveWindow to Yapper's active editor (overlay or multiline).
--- Under real combat lockdown, we immediately fall back to the native implementation.
--- This ensures 100% compatibility with Shift-Clicking links and TRP3 link insertion,
--- while keeping the native secure chat state completely untainted.
-if ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
-    local origGetActiveWindow = ChatFrameUtil.GetActiveWindow
-    ChatFrameUtil.GetActiveWindow = function()
+local ENABLE_WINDOW_REPLACEMENTS = false
+
+local origGetActiveWindow = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
+local origFocusActiveWindow = ChatFrameUtil and ChatFrameUtil.FocusActiveWindow
+local compatGetActiveWindow
+local compatFocusActiveWindow
+
+if ENABLE_WINDOW_REPLACEMENTS and origGetActiveWindow then
+    compatGetActiveWindow = function()
         local eb = YapperTable.EditBox
         local activeEditor = eb and eb.GetActiveEditor and eb:GetActiveEditor()
         if activeEditor then
@@ -165,15 +164,12 @@ if ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
         end
         return origGetActiveWindow()
     end
-    _G.ChatEdit_GetActiveWindow = ChatFrameUtil.GetActiveWindow
+    ChatFrameUtil.GetActiveWindow = compatGetActiveWindow
+    _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
 end
 
--- Hook FocusActiveWindow: TRP3 calls this before inserting links, which calls
--- ActivateChat -> ClearChatFocusOverride, breaking Yapper's focus override.
--- We prevent clearing when Yapper is active to maintain compatibility.
-if ChatFrameUtil and ChatFrameUtil.FocusActiveWindow then
-    local origFocusActiveWindow = ChatFrameUtil.FocusActiveWindow
-    ChatFrameUtil.FocusActiveWindow = function()
+if ENABLE_WINDOW_REPLACEMENTS and origFocusActiveWindow then
+    compatFocusActiveWindow = function()
         local eb = YapperTable.EditBox
         -- Focus whichever Yapper editor is visible and skip Blizzard's path.
         -- ActivateChat() clears CHAT_FOCUS_OVERRIDE, so routing through the
@@ -188,6 +184,34 @@ if ChatFrameUtil and ChatFrameUtil.FocusActiveWindow then
             end
         end
         return origFocusActiveWindow()
+    end
+    ChatFrameUtil.FocusActiveWindow = compatFocusActiveWindow
+end
+
+-- Blizzard's native reply/deactivation paths must not run through tainted
+-- compatibility wrappers while secret values are active during lockdown.
+-- While ENABLE_WINDOW_REPLACEMENTS is false, this is a no-op: no replacement
+-- was ever installed, so there is nothing to swap in or out. The function is
+-- kept so existing callers (ShowHide/Handlers) do not need to be guarded.
+function EditBox:SetChatCompatibilityEnabled(enabled)
+    if not ENABLE_WINDOW_REPLACEMENTS then return end
+    if not ChatFrameUtil then return end
+    if enabled then
+        if compatGetActiveWindow then
+            ChatFrameUtil.GetActiveWindow = compatGetActiveWindow
+            _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
+        end
+        if compatFocusActiveWindow then
+            ChatFrameUtil.FocusActiveWindow = compatFocusActiveWindow
+        end
+    else
+        if origGetActiveWindow then
+            ChatFrameUtil.GetActiveWindow = origGetActiveWindow
+            _G.ChatEdit_GetActiveWindow = origGetActiveWindow
+        end
+        if origFocusActiveWindow then
+            ChatFrameUtil.FocusActiveWindow = origFocusActiveWindow
+        end
     end
 end
 

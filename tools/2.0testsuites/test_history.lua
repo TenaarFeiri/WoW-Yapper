@@ -55,6 +55,8 @@ local YapperTable = {
     },
     Utils = {
         VerbosePrint = function() end,
+        SanitizeTarget = function(_, value) return value end,
+        NormaliseCharName = function(_, value) return value end,
     },
 }
 

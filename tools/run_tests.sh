@@ -34,6 +34,7 @@ GATING_FROM_ROOT=(
     test_icon_gallery_api
     test_queue_stall
     test_keybinds
+    test_slash_forwarding
     test_lockdown_fsm
     test_sticky_sync
     test_recolour

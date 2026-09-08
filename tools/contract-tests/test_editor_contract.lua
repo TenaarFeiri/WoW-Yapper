@@ -92,6 +92,7 @@ local function load(path)
 end
 
 -- Load the real editor selector, then the real compatibility routing.
+local nativeGetActiveWindow = ChatFrameUtil.GetActiveWindow
 load("Src/EditBox.lua")
 local EditBox = YapperTable.EditBox
 EditBox.Overlay = frame("YapperOverlay")
@@ -103,31 +104,39 @@ YapperTable.Multiline = {
 }
 load("Src/EditBoxCompat.lua")
 
+print("\nContract 0: native compatibility during lockdown")
+-- Window-function replacements are currently DISABLED (see EditBoxCompat.lua
+-- ENABLE_WINDOW_REPLACEMENTS). SetChatCompatibilityEnabled is a no-op, so
+-- GetActiveWindow must remain the native implementation regardless of calls.
+EditBox:SetChatCompatibilityEnabled(false)
+check("compatibility disable is a no-op (native retained)", ChatFrameUtil.GetActiveWindow == nativeGetActiveWindow)
+EditBox:SetChatCompatibilityEnabled(true)
+check("compatibility enable is a no-op (native retained)", ChatFrameUtil.GetActiveWindow == nativeGetActiveWindow)
+
 local link = "|cnIQ4:|Hitem:1234|h[Coiled Serpent Idol]|h|r"
 
-print("\nContract 1: overlay active editor")
+print("\nContract 1: overlay active editor (focus override only)")
 EditBox.Overlay:Show()
 EditBox.OverlayEdit:SetFocus()
 EditBox:UpdateFocusOverride()
 check("overlay is active editor", EditBox:GetActiveEditor() == EditBox.OverlayEdit)
-check("GetActiveWindow returns overlay", ChatFrameUtil.GetActiveWindow() == EditBox.OverlayEdit)
+-- GetActiveWindow is NOT replaced while ENABLE_WINDOW_REPLACEMENTS is false;
+-- it returns the native active window. Link insertion into Yapper while open
+-- is expected to be handled by a future non-tainting hook, not by a global
+-- function replacement.
+check("GetActiveWindow stays native (replacements disabled)", ChatFrameUtil.GetActiveWindow() == nativeActive)
 check("focus override points to overlay", focusOverride == EditBox.OverlayEdit)
-check("InsertLink reaches overlay", ChatFrameUtil.InsertLink(link) and EditBox.OverlayEdit:GetText() == link)
+check("OpenChat targets overlay via focus override", ChatFrameUtil.OpenChat("draft") == EditBox.OverlayEdit
+    and EditBox.OverlayEdit:GetText() == "draft")
 
-print("\nContract 2: multiline takes ownership")
+print("\nContract 2: multiline takes ownership (focus override only)")
 YapperTable.Multiline.Frame:Show()
 YapperTable.Multiline.EditBox:SetFocus()
 EditBox:UpdateFocusOverride()
 check("multiline is active editor", EditBox:GetActiveEditor() == YapperTable.Multiline.EditBox)
-check("GetActiveWindow returns multiline", ChatFrameUtil.GetActiveWindow() == YapperTable.Multiline.EditBox)
+check("GetActiveWindow stays native (replacements disabled)", ChatFrameUtil.GetActiveWindow() == nativeActive)
 check("focus override points to multiline", focusOverride == YapperTable.Multiline.EditBox)
-check("FocusActiveWindow focuses multiline", (function()
-    YapperTable.Multiline.EditBox:ClearFocus()
-    ChatFrameUtil.FocusActiveWindow()
-    return YapperTable.Multiline.EditBox:HasFocus()
-end)())
-check("InsertLink reaches multiline", ChatFrameUtil.InsertLink(link) and YapperTable.Multiline.EditBox:GetText() == link)
-check("OpenChat targets multiline", ChatFrameUtil.OpenChat("draft") == YapperTable.Multiline.EditBox
+check("OpenChat targets multiline via focus override", ChatFrameUtil.OpenChat("draft") == YapperTable.Multiline.EditBox
     and YapperTable.Multiline.EditBox:GetText() == "draft")
 
 print("\nContract 3: migration back and closed fallback")
@@ -135,12 +144,12 @@ YapperTable.Multiline.Frame:Hide()
 EditBox.Overlay:Show()
 EditBox:UpdateFocusOverride()
 check("overlay regains active editor", EditBox:GetActiveEditor() == EditBox.OverlayEdit)
-check("GetActiveWindow returns overlay after exit", ChatFrameUtil.GetActiveWindow() == EditBox.OverlayEdit)
+check("GetActiveWindow stays native (replacements disabled)", ChatFrameUtil.GetActiveWindow() == nativeActive)
 check("focus override returns to overlay", focusOverride == EditBox.OverlayEdit)
 
 EditBox.Overlay:Hide()
 EditBox:UpdateFocusOverride()
-check("closed Yapper falls back to native active window", ChatFrameUtil.GetActiveWindow() == nativeActive)
+check("closed Yapper stays native active window", ChatFrameUtil.GetActiveWindow() == nativeActive)
 check("closed Yapper clears focus override", focusOverride == nil)
 
 print("\n" .. string.rep("-", 60))

@@ -36,6 +36,11 @@ local IsUnambiguousBnetTarget = function(target) return Utils:IsUnambiguousBnetT
 
 function EditBox:RefreshLabel()
     local cfg = YapperTable.Config.EditBox or {}
+    local target = Utils:SanitizeTarget(self.Target)
+    if not target and self.Target then
+        self.Target = nil
+        self._secureReplySource = nil
+    end
 
     -- Detect BN targets: Blizzard may present a plain WHISPER chatType
     -- even when the target is a BNet friend (presence/account ID). When
@@ -43,17 +48,17 @@ function EditBox:RefreshLabel()
     -- so the overlay uses the Battle.net defaults/config by default.
     local effectiveType = self.ChatType
     local currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
-    if currentKey == "WHISPER" and self.Target and YapperTable.Router
-        and IsUnambiguousBnetTarget(self.Target)
+    if currentKey == "WHISPER" and target and YapperTable.Router
+        and IsUnambiguousBnetTarget(target)
         and type(YapperTable.Router.ResolveBnetTarget) == "function" then
-        local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(self.Target)
+        local presenceID, bnetAccountID = YapperTable.Router:ResolveBnetTarget(target)
         if presenceID or bnetAccountID then
             effectiveType = "BN_WHISPER"
             currentKey = "BN_WHISPER"
         end
     end
 
-    local label, r, g, b = BuildLabelText(effectiveType, self.Target, self.ChannelName)
+    local label, r, g, b = BuildLabelText(effectiveType, target, self.ChannelName)
     local resolvedR, resolvedG, resolvedB = r, g, b
 
     -- Prefer user-defined channel text colours for the effective type
@@ -76,9 +81,9 @@ function EditBox:RefreshLabel()
     if currentKey == nil then
         currentKey = CHATTYPE_TO_OVERRIDE_KEY[self.ChatType]
     end
-    if (currentKey == "CHANNEL" or self.ChatType == "CHANNEL") and self.Target and YapperTable.Router
+    if (currentKey == "CHANNEL" or self.ChatType == "CHANNEL") and target and YapperTable.Router
         and YapperTable.Router.DetectCommunityChannel then
-        local isClub = YapperTable.Router:DetectCommunityChannel(self.Target)
+        local isClub = YapperTable.Router:DetectCommunityChannel(target)
         if isClub == true then
             currentKey = "CLUB"
         end
@@ -93,15 +98,15 @@ function EditBox:RefreshLabel()
 
         if mode == "blizzard" then
             -- Blizzard mode: use ChatTypeInfo (absolute precedence)
-            if currentKey == "CHANNEL" and self.Target then
-                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(self.Target)]
+            if currentKey == "CHANNEL" and target then
+                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(target)]
                 if info and type(info.r) == "number" then
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
                 end
-            elseif currentKey == "CLUB" and self.Target then
+            elseif currentKey == "CLUB" and target then
                 -- Community channels use CHANNEL# ChatTypeInfo
-                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(self.Target)]
+                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(target)]
                 if info and type(info.r) == "number" then
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
@@ -193,7 +198,7 @@ function EditBox:RefreshLabel()
         local overrideFlag = (cfg.ChannelColorOverrides and cfg.ChannelColorOverrides[currentKey]) or false
         local msg = string.format(
             "RefreshLabel: eff=%s ct=%s tgt=%s -> resolved=(%.2f,%.2f,%.2f) master=%s override=%s whisper=(%s) bn=(%s)",
-            tostring(effectiveType), tostring(self.ChatType), tostring(self.Target or ""),
+            tostring(effectiveType), tostring(self.ChatType), tostring(target or ""),
             tonumber(resolvedR) or 0, tonumber(resolvedG) or 0, tonumber(resolvedB) or 0,
             tostring(masterKeyStr), tostring(overrideFlag),
             (whisperCol and string.format("%.2f,%.2f,%.2f", whisperCol.r, whisperCol.g, whisperCol.b) or "nil"),
@@ -232,9 +237,17 @@ end
 --- Push Yapper's current chatType, target, channel and language into Blizzard's
 --- native editbox. This keeps the Blizzard frame in sync (outline colour, etc.)
 --- whenever Yapper changes channel, not just during lockdown handoffs.
-function EditBox:SyncAttributesToBlizzard()
+function EditBox:SyncAttributesToBlizzard(allowLockdown)
     local yapperChatType = self.ChatType
     if not yapperChatType then return end
+
+    -- Native attribute writes can taint Blizzard's header path during chat or
+    -- combat lockdown. The native editbox remains authoritative there unless
+    -- the handoff explicitly requests a best-effort safe-state sync.
+    local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatOrCombatLockdown()
+    if inLockdown and not allowLockdown then
+        return
+    end
 
     local blizzEditBox = self.OrigEditBox
         or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
@@ -252,6 +265,19 @@ function EditBox:SyncAttributesToBlizzard()
         overrideCT = "RAID"
     end
 
+    -- For whisper/BN whisper, do NOT write chatType/tellTarget/channelTarget
+    -- or language to Blizzard's editbox. Blizzard owns the tellTarget for
+    -- whispers and normalises it (e.g. "Charname" -> "Charname-RealmName"),
+    -- which can become a secret value under Midnight lockdown. Writing it
+    -- from Yapper's tainted code taints the native attribute; when Blizzard's
+    -- own ClearChat/Deactivate/UpdateHeader chain later reads that tainted
+    -- attribute and performs arithmetic on the secret value, it errors.
+    -- Yapper stores chatType/target in its own state; the send path uses that.
+    if yapperChatType == "WHISPER" or yapperChatType == "BN_WHISPER" then
+        self._syncingAttributes = nil
+        return
+    end
+
     blizzEditBox:SetAttribute("chatType", overrideCT)
 
     -- Keep Blizzard's stickyType in sync with the user's actual channel so
@@ -264,16 +290,9 @@ function EditBox:SyncAttributesToBlizzard()
     -- next non-whisper open. Safe: this runs only while the overlay is open
     -- (i.e. outside lockdown), inside the _syncingAttributes guard, and
     -- stickyType is not a key the SetAttribute hook mirrors into LastUsed.
-    if yapperChatType ~= "WHISPER" and yapperChatType ~= "BN_WHISPER" then
-        blizzEditBox:SetAttribute("stickyType", overrideCT)
-    end
+    blizzEditBox:SetAttribute("stickyType", overrideCT)
 
-    if yapperChatType == "WHISPER" or yapperChatType == "BN_WHISPER" then
-        if self.Target then
-            blizzEditBox:SetAttribute("tellTarget", self.Target)
-        end
-        blizzEditBox:SetAttribute("channelTarget", nil)
-    elseif yapperChatType == "CHANNEL" then
+    if yapperChatType == "CHANNEL" then
         if self.Target then
             blizzEditBox:SetAttribute("channelTarget", self.Target)
         end
@@ -291,7 +310,7 @@ function EditBox:SyncAttributesToBlizzard()
 
     -- Call UpdateHeader to refresh the visual state (header text, colors, etc.)
     -- This is what Blizzard does after setting attributes to make the changes visible.
-    if blizzEditBox.UpdateHeader then
+    if blizzEditBox.UpdateHeader and not inLockdown then
         pcall(function() blizzEditBox:UpdateHeader() end)
     end
 
@@ -320,13 +339,26 @@ function EditBox:ResetSyncedAttributes()
     if blizzEditBox == self.OverlayEdit then return end
 
     local sticky = blizzEditBox:GetAttribute("stickyType") or "SAY"
+    if Utils:IsSecret(sticky) then return end
 
     -- Guard against our own SetAttribute hook looping / mirroring to LastUsed.
     self._syncingAttributes = true
-    blizzEditBox:SetAttribute("chatType", sticky)
+    -- Do not write chatType=WHISPER from Yapper's tainted code to the native
+    -- editbox. Setting WHISPER taints the chatType attribute; when Blizzard's
+    -- own ClearChat/Deactivate/UpdateHeader later reads it and performs
+    -- arithmetic on a secret tellTarget, it errors. For non-whisper stickies
+    -- we still reset chatType so the proxy frame returns to the sticky channel.
     if sticky ~= "WHISPER" and sticky ~= "BN_WHISPER" then
-        blizzEditBox:SetAttribute("tellTarget", nil)
+        blizzEditBox:SetAttribute("chatType", sticky)
     end
+    -- ALWAYS clear tellTarget, even for WHISPER/BN_WHISPER sticky types.
+    -- The native tellTarget may have come from Blizzard's own normalization
+    -- (e.g. "Charname" -> "Charname-RealmName") and can be secret under
+    -- Midnight lockdown; leaving it in place means Blizzard's own
+    -- event-driven Deactivate/ClearChat/UpdateHeader chain later reads it and
+    -- errors. Dedicated whisper windows restore tellTarget from
+    -- chatFrame.chatTarget on their next activate, so clearing here is safe.
+    blizzEditBox:SetAttribute("tellTarget", nil)
     if sticky ~= "CHANNEL" then
         blizzEditBox:SetAttribute("channelTarget", nil)
     end
@@ -338,12 +370,58 @@ function EditBox:ResetSyncedAttributes()
         self._attrCache[blizzEditBox] = {}
     end
 
+    -- Refresh the header to reflect the cleared attributes. The pcall guards
+    -- against any residual secret-value arithmetic in Blizzard's UpdateHeader;
+    -- Blizzard will also refresh the header on the next activate.
     if blizzEditBox.UpdateHeader then
         pcall(function() blizzEditBox:UpdateHeader() end)
     end
 end
 
 --- Returns the subset of _TAB_CYCLE entries currently available to the player.
+--- Pull safe native channel state back into Yapper after lockdown recovery.
+function EditBox:ResyncFromBlizzardAfterLockdown()
+    local blizzEditBox = self.OrigEditBox
+        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or _G.ChatFrame1EditBox
+    if not (blizzEditBox and blizzEditBox.GetAttribute and Utils) then
+        return false
+    end
+
+    local ok, chatType, tellTarget, channelTarget, language = pcall(function()
+        return blizzEditBox:GetAttribute("chatType"),
+            blizzEditBox:GetAttribute("tellTarget"),
+            blizzEditBox:GetAttribute("channelTarget"),
+            blizzEditBox:GetAttribute("language")
+    end)
+    if not ok or type(chatType) ~= "string" or Utils:IsSecret(chatType) then
+        return false
+    end
+
+    tellTarget = Utils:SanitizeTarget(tellTarget)
+    channelTarget = Utils:SanitizeTarget(channelTarget)
+    if language and Utils:IsSecret(language) then
+        language = nil
+    end
+
+    if (chatType == "WHISPER" or chatType == "BN_WHISPER") and not tellTarget then
+        return false
+    end
+    if chatType == "CHANNEL" and not channelTarget then
+        return false
+    end
+
+    self.ChatType = chatType
+    self.Target = (chatType == "WHISPER" or chatType == "BN_WHISPER") and tellTarget
+        or (chatType == "CHANNEL" and channelTarget or nil)
+    self._secureReplySource = nil
+    self.ChannelName = chatType == "CHANNEL"
+        and ResolveChannelName(tonumber(channelTarget)) or nil
+    self.Language = language
+    self:PersistLastUsed()
+    return true
+end
+
 function EditBox:GetAvailableChatTypes()
     local result = {}
     for _, chatType in ipairs(self._TAB_CYCLE) do
@@ -366,6 +444,7 @@ function EditBox:CycleChatType(direction)
         if nextName then
             self.ChatType = nextKind or "WHISPER"
             self.Target   = nextName
+            self._secureReplySource = nil
             self:RefreshLabel()
             if YapperTable.API then
                 YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
@@ -442,9 +521,14 @@ end
 --- Save selection for stickiness across show/hide.
 function EditBox:PersistLastUsed()
     local ct = self.ChatType
-    local target = self.Target
+    local target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(self.Target) or nil
     local language = self.Language
     local channelName = self.ChannelName
+
+    if (ct == "WHISPER" or ct == "BN_WHISPER") and not target then
+        ct = "SAY"
+        channelName = nil
+    end
 
     -- NOTE: External (right-click menu / unit-frame) whispers no longer need a
     -- dedicated skip here. ChannelPolicy:BuildPersistedLastUsed now demotes ALL

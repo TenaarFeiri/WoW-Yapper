@@ -13,7 +13,7 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 - Fields:
   - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L287`](../Yapper.lua#L287)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L282`](../Yapper.lua#L282)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L285`](../Yapper.lua#L285)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -407,7 +407,7 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
   - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L608`](../Src/EditBox.lua#L608))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L109`](../Src/EditBox.lua#L109))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
-  - `box.UpdateHeader`: no-op stub installed by `InstallCompatMethods` to prevent nil-method crashes from `ChatFrameUtil`. ([`../Src/EditBoxCompat.lua#L154`](../Src/EditBoxCompat.lua#L154))
+  - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateNewcomerEditBoxHint`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
@@ -443,9 +443,9 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L81`](../Src/EditBox.lua#L81))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L134`](../Src/EditBox.lua#L134))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L409`](../Src/EditBox.lua#L409))
-  - `SetOnSend` ([`../Src/EditBox.lua#L577`](../Src/EditBox.lua#L577))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L602`](../Src/EditBox.lua#L602))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L460`](../Src/EditBox.lua#L460))
+  - `SetOnSend` ([`../Src/EditBox.lua#L660`](../Src/EditBox.lua#L660))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L685`](../Src/EditBox.lua#L685))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -470,7 +470,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
   - [NEW] `EditBox:ShowMultilineHint() → nil`: Show the onboarding hint once during the current session and let it fade ([`../Src/EditBox/Overlay.lua#L513`](../Src/EditBox/Overlay.lua#L513))
   - [NEW] `EditBox:CreateMultilineHint() → nil`: Create the non-interactive hint frame lazily, using UIParent as its parent ([`../Src/EditBox/Overlay.lua#L480`](../Src/EditBox/Overlay.lua#L480))
   - [NEW] `EditBox:HideMultilineHint() → nil`: Cancel and hide the session-only multiline onboarding hint. ([`../Src/EditBox/Overlay.lua#L462`](../Src/EditBox/Overlay.lua#L462))
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L640`](../Src/EditBox/Overlay.lua#L640)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L664`](../Src/EditBox/Overlay.lua#L664)).
 
 ## EditBox.Handlers
 
@@ -478,7 +478,8 @@ Bound by `SetupOverlayScripts` when overlay is created.
 
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
-  - `SetupOverlayScripts`, `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L996`](../Src/EditBox/Handlers.lua#L996), [`../Src/EditBox/Handlers.lua#L996`](../Src/EditBox/Handlers.lua#L996)).
+  - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L33`](../Src/EditBox/Handlers.lua#L33)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1059`](../Src/EditBox/Handlers.lua#L1059)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 

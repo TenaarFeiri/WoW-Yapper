@@ -23,6 +23,7 @@
 
 local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
+local Utils   = YapperTable.Utils
 
 -- Re-localise Lua globals.
 local type     = type
@@ -60,27 +61,29 @@ local WHISPER_MENU_TAGS = {
 --- True when the menu context targets a Battle.net account rather than a
 --- character.  BNet whispers keep Blizzard's native path (SendBNetTell),
 --- which Yapper's existing hooksecurefunc in 30_ChatFrameHooks.lua routes.
+--
+--- We discriminate solely on `bnetIDAccount`: in-game unit targets are never
+--- Battle.net accounts, and BNet contexts (the BN_FRIEND* menus) always
+--- populate that field.  Querying `playerLocation:IsBattleNetGUID()` instead
+--- would call `C_AccountInfo.IsGUIDBattleNetAccountType(guid)` with the
+--- context's secret guid, which is rejected outside untainted execution —
+--- and our Menu.ModifyMenu callback is addon-tainted, so that path errors
+--- out (e.g. when right-clicking a target inside a delve).
 local function IsBNetContext(contextData)
-    if contextData.bnetIDAccount then
-        return true
-    end
-    local playerLocation = contextData.playerLocation
-    if playerLocation and type(playerLocation.IsBattleNetGUID) == "function" then
-        return playerLocation:IsBattleNetGUID()
-    end
-    return false
+    return contextData.bnetIDAccount ~= nil
 end
 
 --- Resolve "Name-Realm" the same way Blizzard's native whisper button does.
 local function ResolveFullPlayerName(contextData)
     if UnitPopupSharedUtil and type(UnitPopupSharedUtil.GetFullPlayerName) == "function" then
         local fullName = UnitPopupSharedUtil.GetFullPlayerName(contextData)
+        fullName = Utils and Utils:SanitizeTarget(fullName) or fullName
         if type(fullName) == "string" and fullName ~= "" then
             return fullName
         end
     end
     -- Fallback: assemble from the context fields OpenMenu populated.
-    local name = contextData.name
+    local name = Utils and Utils:SanitizeTarget(contextData.name) or contextData.name
     if type(name) ~= "string" or name == "" then
         return nil
     end
@@ -149,6 +152,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
     self.ChatType = "WHISPER"
     self.Target = fullName
+    self._secureReplySource = nil
     self.ChannelName = nil
     -- Transient external whisper: must not become the global LastUsed sticky.
     self._externalWhisperTarget = fullName

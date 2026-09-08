@@ -22,6 +22,14 @@ local function IsTargetedType(ct)
     return IsWhisperType(ct) or ct == "CHANNEL"
 end
 
+local function SanitizeTarget(value)
+    local utils = YapperTable and YapperTable.Utils
+    if utils and type(utils.SanitizeTarget) == "function" then
+        return utils:SanitizeTarget(value)
+    end
+    return value
+end
+
 local function NormaliseWhisperTarget(v, whisperKind)
     if v == nil then return nil end
     local s = tostring(v)
@@ -35,6 +43,7 @@ local function NormaliseWhisperTarget(v, whisperKind)
 end
 
 local function BuildSelection(chatType, language, target, channelName)
+    target = SanitizeTarget(target)
     if not chatType or chatType == "" then
         chatType = "SAY"
     end
@@ -88,6 +97,7 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
     end
 
     local ct = current.chatType
+    local currentTarget = SanitizeTarget(current.target)
     if not ct or ct == "" then
         return nil
     end
@@ -115,7 +125,7 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
         if prevType and not IsWhisperType(prevType) then
             return {
                 chatType = prevType,
-                target = (prevType == "CHANNEL") and previous.target or nil,
+                target = (prevType == "CHANNEL") and SanitizeTarget(previous.target) or nil,
                 language = BuildStickyFallbackLanguage(current.language, previous),
             }
         end
@@ -130,7 +140,7 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
         or (stickyGroup and type(groupChatTypes) == "table" and groupChatTypes[ct])
 
     if keepSticky then
-        local persistedTarget = IsTargetedType(ct) and current.target or nil
+        local persistedTarget = IsTargetedType(ct) and currentTarget or nil
         return {
             chatType = ct,
             target = persistedTarget,
@@ -189,7 +199,7 @@ function ChannelPolicy:ResolveOpenSelection(context)
             return currentTarget
         end
 
-        local affinityTarget = incomingWhisperAffinity.target
+        local affinityTarget = SanitizeTarget(incomingWhisperAffinity.target)
         local affinityType = incomingWhisperAffinity.chatType
         local affinityAt = incomingWhisperAffinity.t
         if not affinityTarget or affinityTarget == "" then
@@ -206,7 +216,7 @@ function ChannelPolicy:ResolveOpenSelection(context)
 
         local frameKind = (frameChatType == "BN_WHISPER") and "BN_WHISPER" or "WHISPER"
         local normAffinity = NormaliseWhisperTarget(affinityTarget, frameKind)
-        local normFrame = NormaliseWhisperTarget(frameChatTarget, frameKind)
+        local normFrame = NormaliseWhisperTarget(SanitizeTarget(frameChatTarget), frameKind)
         if not normAffinity then
             return currentTarget
         end
@@ -228,6 +238,7 @@ function ChannelPolicy:ResolveOpenSelection(context)
     end
 
     local function BuildSelectionWithWhisperFallback(chatType, language, target, channelName)
+        target = SanitizeTarget(target)
         if IsWhisperType(chatType) then
             target = ResolveIncomingWhisperAffinityTarget(chatType, target)
         end

@@ -155,6 +155,52 @@ check("accessible table with secret contents is secret", Utils:IsSecret(accessib
 _G.issecrettable = oldIsSecretTable
 _G.canaccesstable = oldCanAccessTable
 
+local oldIsSecretValue = _G.issecretvalue
+local oldCanAccessValue = _G.canaccessvalue
+_G.issecretvalue = function(value) return value == 777 end
+_G.canaccessvalue = function(value) return value ~= 777 end
+local fontWidget = { _font = { "normal", 12, "" }, setCalls = 0 }
+function fontWidget:GetFont() return self._font[1], self._font[2], self._font[3] end
+function fontWidget:SetFont(face, size, flags)
+    self._font = { face, size, flags }
+    self.setCalls = self.setCalls + 1
+end
+check("SetFontIfChanged handles ordinary values",
+    Utils:SetFontIfChanged(fontWidget, "normal", 12, "") == false)
+check("SetFontIfChanged rejects secret desired face safely",
+    Utils:SetFontIfChanged(fontWidget, 777, 12, "") == false and fontWidget.setCalls == 0)
+fontWidget._font = { 777, 12, "" }
+check("SetFontIfChanged handles secret current face safely",
+    Utils:SetFontIfChanged(fontWidget, "normal", 12, "") == true
+        and fontWidget.setCalls == 1 and fontWidget._font[1] == "normal")
+_G.issecretvalue = oldIsSecretValue
+_G.canaccessvalue = oldCanAccessValue
+
+-- SanitizeTarget / SanitizeNumber / SafeNumber
+check("SanitizeTarget nil -> nil", Utils:SanitizeTarget(nil) == nil)
+check("SanitizeTarget normal string", Utils:SanitizeTarget("Arthas") == "Arthas")
+check("SanitizeTarget |K token -> nil", Utils:SanitizeTarget("some|Ktoken") == nil)
+check("SanitizeTarget empty -> nil", Utils:SanitizeTarget("") == nil)
+check("SanitizeTarget number passthrough", Utils:SanitizeTarget(42) == 42)
+check("SanitizeTarget boolean -> nil", Utils:SanitizeTarget(true) == nil)
+
+check("SanitizeNumber nil -> nil", Utils:SanitizeNumber(nil) == nil)
+check("SanitizeNumber normal", Utils:SanitizeNumber(12) == 12)
+check("SanitizeNumber string -> nil", Utils:SanitizeNumber("12") == nil)
+check("SanitizeNumber boolean -> nil", Utils:SanitizeNumber(true) == nil)
+
+oldIsSecretValue = _G.issecretvalue
+oldCanAccessValue = _G.canaccessvalue
+_G.issecretvalue = function(value) return value == 777 end
+_G.canaccessvalue = function(value) return value ~= 777 end
+check("SanitizeNumber secret -> nil", Utils:SanitizeNumber(777) == nil)
+check("SafeNumber normal", Utils:SafeNumber(12, 0) == 12)
+check("SafeNumber nil -> fallback", Utils:SafeNumber(nil, 0) == 0)
+check("SafeNumber secret -> fallback", Utils:SafeNumber(777, 0) == 0)
+check("SafeNumber string -> fallback", Utils:SafeNumber("12", 0) == 0)
+_G.issecretvalue = oldIsSecretValue
+_G.canaccessvalue = oldCanAccessValue
+
 -- ===========================================================================
 -- Test 6: IsChatLockdown / IsCombatLockdown / IsChatOrCombatLockdown
 -- ===========================================================================
