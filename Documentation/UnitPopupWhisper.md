@@ -104,10 +104,15 @@ Both menu and non-menu character whispers converge on the same helper
 (`EditBox:RetargetOpenWhisper` in `Hooks/ShowHide.lua`) when the overlay is
 already open, so the two entry points cannot drift apart.
 
-BNet contexts are detected at menu-open time (`contextData.bnetIDAccount` or
-`playerLocation:IsBattleNetGUID()`) and skipped entirely — Blizzard's native
-button runs, calls `ChatFrameUtil.SendBNetTell`, and Yapper's existing hook
-routes it. During lockdown, the responder replicates the native button by
+BNet contexts are detected at menu-open time via `contextData.bnetIDAccount`
+and skipped entirely — Blizzard's native button runs, calls
+`ChatFrameUtil.SendBNetTell`, and Yapper's existing hook routes it. In-game
+unit targets are never Battle.net accounts, so `bnetIDAccount` alone is the
+reliable discriminator; querying `playerLocation:IsBattleNetGUID()` was
+dropped because it calls `C_AccountInfo.IsGUIDBattleNetAccountType(guid)`
+with the context's secret guid, which is rejected under addon taint (our
+`Menu.ModifyMenu` callback is tainted, so the call errored out on contexts
+such as right-clicking a target inside a delve). During lockdown, the responder replicates the native button by
 calling `ChatFrameUtil.SendTell` itself (not protected, safe from tainted
 code); the SendTell hook early-returns under lockdown, so Blizzard's editbox
 takes over with no reentrancy.
