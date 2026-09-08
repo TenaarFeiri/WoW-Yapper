@@ -61,15 +61,16 @@ local WHISPER_MENU_TAGS = {
 --- True when the menu context targets a Battle.net account rather than a
 --- character.  BNet whispers keep Blizzard's native path (SendBNetTell),
 --- which Yapper's existing hooksecurefunc in 30_ChatFrameHooks.lua routes.
+--
+--- We discriminate solely on `bnetIDAccount`: in-game unit targets are never
+--- Battle.net accounts, and BNet contexts (the BN_FRIEND* menus) always
+--- populate that field.  Querying `playerLocation:IsBattleNetGUID()` instead
+--- would call `C_AccountInfo.IsGUIDBattleNetAccountType(guid)` with the
+--- context's secret guid, which is rejected outside untainted execution —
+--- and our Menu.ModifyMenu callback is addon-tainted, so that path errors
+--- out (e.g. when right-clicking a target inside a delve).
 local function IsBNetContext(contextData)
-    if contextData.bnetIDAccount then
-        return true
-    end
-    local playerLocation = contextData.playerLocation
-    if playerLocation and type(playerLocation.IsBattleNetGUID) == "function" then
-        return playerLocation:IsBattleNetGUID()
-    end
-    return false
+    return contextData.bnetIDAccount ~= nil
 end
 
 --- Resolve "Name-Realm" the same way Blizzard's native whisper button does.
