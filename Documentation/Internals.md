@@ -498,8 +498,8 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
-  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1054`](../Src/Hooks/ShowHide.lua#L1054))
-  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1004`](../Src/Hooks/ShowHide.lua#L1004))
+  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1055`](../Src/Hooks/ShowHide.lua#L1055))
+  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1005`](../Src/Hooks/ShowHide.lua#L1005))
   - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L992`](../Src/Hooks/ShowHide.lua#L992))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
@@ -1014,7 +1014,7 @@ Per-category page builders called by `BuildConfigUI`.
 ## Hooks.UnitPopup
 
 - Methods:
-  - `EditBox:InstallUnitPopupWhisperOverride() → boolean`: Install the Menu.ModifyMenu registrations for character and Battle.net unit-popup Whisper actions. Idempotent; returns false when the Menu API is unavailable. ([`../Src/Hooks/UnitPopup.lua#L219`](../Src/Hooks/UnitPopup.lua#L219))
+  - `EditBox:InstallUnitPopupWhisperOverride() → boolean`: Install the Menu.ModifyMenu registrations for character and Battle.net unit-popup Whisper actions. Idempotent; returns false when the Menu API is unavailable. ([`../Src/Hooks/UnitPopup.lua#L221`](../Src/Hooks/UnitPopup.lua#L221))
 
 ## Bridges\WhisperMessengerBridge
 
@@ -1053,3 +1053,10 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 
 - Methods:
   - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Toggle Blizzard GetActiveWindow/FocusActiveWindow compatibility wrappers on or off. While ENABLE_WINDOW_REPLACEMENTS is false this is a no-op; kept so callers (ShowHide/Handlers) need no guarding. ([`../Src/EditBoxCompat.lua#L196`](../Src/EditBoxCompat.lua#L196))
+
+## WhisperMessengerBridge
+
+- Methods:
+  - `WhisperMessengerBridge:HookSecureButtonCreation() → nil`: Hook Keybinds.CreateSecureButtons so the bridge re-wraps whenever the secure buttons are recreated. ([`../Src/Bridges/WhisperMessengerBridge.lua#L141`](../Src/Bridges/WhisperMessengerBridge.lua#L141))
+  - `WhisperMessengerBridge:WrapReplyKeybind() → nil`: Wrap the REPLYTELL2 secure button's PostClick so the reply/re-whisper keybind is delegated when WhisperMessenger owns its window. ([`../Src/Bridges/WhisperMessengerBridge.lua#L88`](../Src/Bridges/WhisperMessengerBridge.lua#L88))
+  - `WhisperMessengerBridge:IsWindowVisible() → boolean`: Check whether the WhisperMessenger window is currently visible. ([`../Src/Bridges/WhisperMessengerBridge.lua#L50`](../Src/Bridges/WhisperMessengerBridge.lua#L50))
