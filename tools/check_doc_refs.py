@@ -34,12 +34,6 @@ DOC_DIR = ROOT / "Documentation"
 # [text](path#Lstart) or [text](path#Lstart-Lend); path must be a .lua file.
 LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)#]+\.lua)#L(\d+)(?:-L?(\d+))?\)")
 
-# Signature immediately preceding the link: `Recv:Name(...) ...` ([
-SIG_BEFORE_LINK_RE = re.compile(r"`([A-Za-z_][\w.:]*)\s*\([^`]*`\s*\(\[$")
-# Fallback: any backticked identifier-ish token earlier on the line,
-# e.g. `_G.YapperDB` ... initialised in [link]
-TOKEN_RE = re.compile(r"`(?:_G\.)?([A-Za-z_][\w.:]*)`")
-
 
 def find_definitions(lines, name, receiver=None):
     """Return 1-based line numbers where `name` looks defined."""
@@ -60,19 +54,31 @@ def find_definitions(lines, name, receiver=None):
 
 
 def extract_identifier(line, link_start):
-    """Best-effort identifier for the link starting at column link_start."""
+    """Extract the documented symbol without confusing prose code for it."""
     before = line[:link_start]
-    m = SIG_BEFORE_LINK_RE.search(before + "[")
-    if m:
-        full = m.group(1)          # e.g. Error:PrintError or Spellcheck.Foo
+
+    # Prefer a documented signature anywhere before the link. Requiring the
+    # return arrow avoids treating prose calls such as `C_Timer.After(...)` as
+    # the symbol associated with a later link.
+    for match in reversed(list(re.finditer(r"`([^`]+)`", before))):
+        content = match.group(1)
+        if "→" not in content:
+            continue
+        symbol = re.match(r"\s*([A-Za-z_][\w.:]*)\s*(?:\(|→)", content)
+        if symbol:
+            full = symbol.group(1)
+            parts = re.split(r"[:.]", full)
+            return parts[-1], (parts[-2] if len(parts) > 1 else None), True
+
+    # Preserve support for older entries where a standalone symbol is directly
+    # adjacent to the link. This is useful for field links, but not confident
+    # enough to trigger automatic fixes for missing definitions.
+    adjacent = re.search(r"`([A-Za-z_][\w.:]*)`\s*$", before)
+    if adjacent:
+        full = adjacent.group(1)
         parts = re.split(r"[:.]", full)
-        name = parts[-1]
-        receiver = parts[-2] if len(parts) > 1 else None
-        return name, receiver, True     # confident: signature-adjacent
-    tokens = [t for t in TOKEN_RE.findall(before) if ".lua" not in t and "#L" not in t]
-    if tokens:
-        parts = re.split(r"[:.]", tokens[-1])
         return parts[-1], (parts[-2] if len(parts) > 1 else None), False
+
     return None, None, False
 
 
