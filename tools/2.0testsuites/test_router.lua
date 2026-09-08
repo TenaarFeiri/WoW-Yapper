@@ -263,9 +263,9 @@ _G.C_BattleNet.GetFriendAccountInfo = origGetFriendInfo
 _G.GetTime = function() return 100 end
 
 -- ===========================================================================
--- Test 10: FlushBnetCache
+-- Test 11: FlushBnetCache
 -- ===========================================================================
-print("\nTest 10: FlushBnetCache")
+print("\nTest 11: FlushBnetCache")
 
 Router:FlushBnetCache()
 -- After flush, a previously cached entry should re-resolve.
@@ -273,9 +273,9 @@ local _, bIDFlush = Router:ResolveBnetTarget("FriendOne")
 check("cache flushed and re-resolved", bIDFlush == 1001)
 
 -- ===========================================================================
--- Test 11: Community channel detection
+-- Test 12: Community channel detection
 -- ===========================================================================
-print("\nTest 11: Community channel detection")
+print("\nTest 12: Community channel detection")
 
 local isClub, clubId, streamId = Router:DetectCommunityChannel("Community:42:7")
 check("community detected", isClub == true)
@@ -289,9 +289,9 @@ local isClub3 = Router:DetectCommunityChannel(nil)
 check("nil target returns false", isClub3 == false)
 
 -- ===========================================================================
--- Test 12: CHANNEL send to community
+-- Test 13: CHANNEL send to community
 -- ===========================================================================
-print("\nTest 12: CHANNEL send to community")
+print("\nTest 13: CHANNEL send to community")
 
 ResetSends()
 ok = Router:Send("Community message", "CHANNEL", nil, "Community:42:7")
@@ -299,9 +299,9 @@ check("community CHANNEL returns true", ok == true)
 check("uses ClubSendMessage", sentMessages[1].api == "ClubSendMessage")
 
 -- ===========================================================================
--- Test 13: CLUB send
+-- Test 14: CLUB send
 -- ===========================================================================
-print("\nTest 13: CLUB send")
+print("\nTest 14: CLUB send")
 
 ResetSends()
 -- For CLUB, language=clubId, target=streamId.
@@ -310,18 +310,18 @@ check("CLUB returns true", ok == true)
 check("uses ClubSendMessage for CLUB", sentMessages[1].api == "ClubSendMessage")
 
 -- ===========================================================================
--- Test 14: Default chatType
+-- Test 15: Default chatType
 -- ===========================================================================
-print("\nTest 14: Default chatType")
+print("\nTest 15: Default chatType")
 
 ResetSends()
 ok = Router:Send("Default type", nil, nil, nil)
 check("nil chatType defaults to SAY", sentMessages[1].chatType == "SAY")
 
 -- ===========================================================================
--- Test 15: ResolveBnetDisplay
+-- Test 16: ResolveBnetDisplay
 -- ===========================================================================
-print("\nTest 15: ResolveBnetDisplay")
+print("\nTest 16: ResolveBnetDisplay")
 
 Router:FlushBnetCache()
 local display = Router:ResolveBnetDisplay("FriendOne")
