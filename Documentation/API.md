@@ -234,9 +234,9 @@ When a handler faults, Yapper first attempts to route `API_ERROR` only to handle
 ## Public API
 
 - Methods:
-  - [NEW] `YapperAPI:OpenSettingsCategory(id) → boolean success`: Open Yapper's settings window to a specific category. ([`../Src/API.lua#L1339`](../Src/API.lua#L1339))
-  - [NEW] `YapperAPI:GetRegisteredSettingsCategories() → table`: Get a list of registered settings categories (excludes internal ones). ([`../Src/API.lua#L1326`](../Src/API.lua#L1326))
-  - [NEW] `YapperAPI:UnregisterSettingsCategory(id) → nil`: Unregister a previously registered settings category. ([`../Src/API.lua#L1308`](../Src/API.lua#L1308))
-  - [NEW] `YapperAPI:RegisterSettingsCategory(id, label, options) → boolean success`: Register a settings category in Yapper's settings window. ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
+  - `YapperAPI:OpenSettingsCategory(id) → boolean`: Open Yapper's settings window to a specific category; returns false for invalid IDs or unavailable interface state. ([`../Src/API.lua#L1339`](../Src/API.lua#L1339))
+  - `YapperAPI:GetRegisteredSettingsCategories() → table[]`: Get non-internal registered settings categories as `{id, label}` tables. ([`../Src/API.lua#L1326`](../Src/API.lua#L1326))
+  - `YapperAPI:UnregisterSettingsCategory(id) → nil`: Unregister a previously registered settings category by ID. ([`../Src/API.lua#L1308`](../Src/API.lua#L1308))
+  - `YapperAPI:RegisterSettingsCategory(id, label, options) → boolean`: Register a settings category with an optional render callback or schema; returns false for invalid, duplicate, or capped registrations. ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
   - `YapperAPI:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/API.lua#L939`](../Src/API.lua#L939))
   - `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1187`](../Src/API.lua#L1187))
