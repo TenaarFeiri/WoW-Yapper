@@ -534,8 +534,13 @@ function EditBox:HookAllChatFrames()
         self._sendTellHooked = true
     end
 
-    -- Intercept BNet whispers started from hyperlink handlers and social UI.
-    -- Mirrors SendTell handling while preserving BN_WHISPER routing.
+    -- Intercept BNet whispers started from non-menu sources (hyperlink
+    -- handlers, social UI).  Menu BNet whispers (BN_FRIEND* right-click) are
+    -- now handled by the Menu.ModifyMenu responder in Hooks/UnitPopup.lua,
+    -- which bypasses SendBNetTell entirely to avoid the OpenChat("") →
+    -- CHAT_FOCUS_OVERRIDE race.  This hook still catches the remaining
+    -- non-menu paths and mirrors SendTell handling while preserving
+    -- BN_WHISPER routing.
     if ChatFrameUtil and ChatFrameUtil.SendBNetTell and not self._sendBNetTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendBNetTell", function(target)
             -- Same secret quarantine as the SendTell hook above.

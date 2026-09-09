@@ -96,26 +96,43 @@ How Yapper uses it (all in `Src/Hooks/UnitPopup.lua`):
 | Entry point | Handled by |
 | --- | --- |
 | Right-click menu → Whisper (character) | `Menu.ModifyMenu` responder → `OpenWhisperFromUnitMenu` |
-| Right-click menu → Whisper (Battle.net) | Left native; `SendBNetTell` hooksecurefunc in `30_ChatFrameHooks.lua` |
+| Right-click menu → Whisper (Battle.net) | `Menu.ModifyMenu` responder → `OpenWhisperFromUnitMenu` (BN_WHISPER) |
 | Chat name left-click, LFG, Professions, Communities, ItemRef | `SendTell` hooksecurefunc in `30_ChatFrameHooks.lua` |
+| Non-menu Battle.net whispers (hyperlinks, social UI) | `SendBNetTell` hooksecurefunc in `30_ChatFrameHooks.lua` |
 | Any of the above during chat lockdown | Native Blizzard editbox (all Yapper paths early-return) |
 
 Both menu and non-menu character whispers converge on the same helper
 (`EditBox:RetargetOpenWhisper` in `Hooks/ShowHide.lua`) when the overlay is
-already open, so the two entry points cannot drift apart.
+already open, so the two entry points cannot drift apart.  BNet menu whispers
+pass `"BN_WHISPER"` as the chat type so `RetargetOpenWhisper` sets the correct
+channel.
 
-BNet contexts are detected at menu-open time via `contextData.bnetIDAccount`
-and skipped entirely — Blizzard's native button runs, calls
-`ChatFrameUtil.SendBNetTell`, and Yapper's existing hook routes it. In-game
-unit targets are never Battle.net accounts, so `bnetIDAccount` alone is the
-reliable discriminator; querying `playerLocation:IsBattleNetGUID()` was
-dropped because it calls `C_AccountInfo.IsGUIDBattleNetAccountType(guid)`
-with the context's secret guid, which is rejected under addon taint (our
-`Menu.ModifyMenu` callback is tainted, so the call errored out on contexts
-such as right-clicking a target inside a delve). During lockdown, the responder replicates the native button by
-calling `ChatFrameUtil.SendTell` itself (not protected, safe from tainted
-code); the SendTell hook early-returns under lockdown, so Blizzard's editbox
-takes over with no reentrancy.
+BNet contexts are detected at click time via `contextData.bnetIDAccount` and
+routed to `BN_WHISPER` by the same `Menu.ModifyMenu` responder that handles
+character whispers. The numeric account ID is retained as Yapper's target:
+friend-list `contextData.name` may be a protected/tokenized name, while the
+account ID is safe to carry through the overlay and Router. Numeric BNet
+account targets are sent with `C_BattleNet.SendWhisper`; the label resolves
+the account ID back to a display name. In-game unit targets are never Battle.net
+accounts, so `bnetIDAccount` alone is the reliable discriminator; querying
+`playerLocation:IsBattleNetGUID()` was dropped because it calls
+`C_AccountInfo.IsGUIDBattleNetAccountType(guid)` with the context's secret
+guid, which is rejected under addon taint (our `Menu.ModifyMenu` callback is
+tainted, so the call errored out on contexts such as right-clicking a target
+inside a delve).
+
+BNet menu whispers are handled directly by the responder (bypassing
+`ChatFrameUtil.SendBNetTell`) because `SendBNetTell` calls `OpenChat("")`
+which short-circuits via `CHAT_FOCUS_OVERRIDE` when the overlay is already
+shown — the resulting `SetFocus()`/`SetText("")` on the overlay caused the
+target to appear briefly then revert to the previous channel. Non-menu BNet
+whispers (hyperlinks, social UI) still go through `SendBNetTell` and are
+caught by the hooksecurefunc, since they don't interact with `CHAT_FOCUS_OVERRIDE`
+in the same way. During lockdown, the responder replicates the native button
+by calling `ChatFrameUtil.SendBNetTell` (BNet) or `ChatFrameUtil.SendTell`
+(character) itself (not protected, safe from tainted code); the hooks
+early-return under lockdown, so Blizzard's editbox takes over with no
+reentrancy.
 
 ### Why this kills the race conditions
 

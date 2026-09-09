@@ -102,7 +102,7 @@ IGNORED_FUNCTIONS = {
     "Interface:RegisterInternalCategories",
 }
 
-def find_line_in_file(file_path, search_term):
+def legacy_find_line_in_file(file_path, search_term):
     """Searches for a term in a file and returns the 1-indexed line number."""
     if not os.path.exists(file_path):
         return None
@@ -137,6 +137,104 @@ def find_line_in_file(file_path, search_term):
                 if pattern.search(line):
                     return i
     return None
+
+# Some bridge modules intentionally use a short local receiver (`Bridge`) while
+# their documented/public identity is the module name. Keep the aliasing
+# automatic for Bridges/<ModuleName>.lua as new integrations are added.
+def documentation_table_names(rel_lua_path, source_table):
+    names = {source_table}
+    if "." in source_table:
+        names.add(source_table.split(".")[-1])
+    rel_path = rel_lua_path.replace(os.sep, "/")
+    if rel_path.startswith("Bridges/") and source_table == "Bridge":
+        names.add(os.path.splitext(os.path.basename(rel_path))[0])
+    return names
+
+
+def documentation_table_name(rel_lua_path, source_table):
+    rel_path = rel_lua_path.replace(os.sep, "/")
+    if rel_path.startswith("Bridges/") and source_table == "Bridge":
+        return os.path.splitext(os.path.basename(rel_path))[0]
+    return source_table
+
+
+def _source_lines(file_path):
+    if not os.path.exists(file_path):
+        return []
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        return f.readlines()
+
+
+def find_definition_lines(file_path, search_term, receiver=None):
+    """Return exact 1-based definition lines for a documented identifier.
+
+    Do not fall back to arbitrary word occurrences: a link must resolve to a
+    function or assignment definition, not prose or an unrelated expression.
+    """
+    lines = _source_lines(file_path)
+    if not lines:
+        return []
+
+    term = re.escape(search_term)
+    patterns = []
+    if receiver:
+        recv = re.escape(receiver)
+        patterns.extend([
+            re.compile(rf"^\s*function\s+{recv}[:.]{term}\s*\("),
+            re.compile(rf"^\s*{recv}[.:]{term}\s*=\s*"),
+        ])
+    patterns.extend([
+        re.compile(rf"^\s*function\s+[A-Za-z0-9_.]+[:.]{term}\s*\("),
+        re.compile(rf"^\s*(?:local\s+)?function\s+{term}\s*\("),
+        re.compile(rf"^\s*[A-Za-z0-9_.:]+[.:]{term}\s*=\s*"),
+        re.compile(rf"^\s*local\s+{term}\s*=\s*"),
+        re.compile(rf"^\s*{term}\s*=\s*"),
+    ])
+
+    hits = []
+    for line_no, raw_line in enumerate(lines, 1):
+        code = raw_line.split("--", 1)[0]
+        if any(pattern.search(code) for pattern in patterns):
+            hits.append(line_no)
+    return sorted(set(hits))
+
+
+def find_unique_definition_line(file_path, search_term, receiver=None):
+    hits = find_definition_lines(file_path, search_term, receiver)
+    return hits[0] if len(hits) == 1 else None
+
+
+def extract_link_identifier(line_text, link_offset):
+    """Extract a signature symbol without mistaking prose code for one.
+
+    Prefer a method/function signature anywhere before the link. For entries
+    without parentheses, only accept a standalone symbol immediately adjacent
+    to the link. This prevents descriptions such as `or 0` or `{id, label}`
+    from becoming relocation keys.
+    """
+    prefix = line_text[:link_offset]
+    candidates = list(re.finditer(r'`([^`]+)`', prefix))
+    for candidate in reversed(candidates):
+        content = candidate.group(1)
+        if "→" not in content:
+            continue
+        symbol = re.match(r'\s*([A-Za-z_][\w.:]*)\s*(?:\(|→)', content)
+        if symbol:
+            full = symbol.group(1)
+            parts = re.split(r'[:.]', full)
+            return parts[-1], (parts[-2] if len(parts) > 1 else None), True
+
+    # Plain symbols are useful for relocating field links, but are not
+    # confident enough to auto-create a [MISSING] annotation if no assignment
+    # definition exists at the referenced line.
+    adjacent = re.search(r'`([A-Za-z_][\w.:]*)`\s*$', prefix)
+    if adjacent:
+        full = adjacent.group(1)
+        parts = re.split(r'[:.]', full)
+        return parts[-1], (parts[-2] if len(parts) > 1 else None), False
+
+    return None, None, False
+
 
 def extract_comment_info(lua_path, line_no):
     """Extracts summary and signature from comments above the given line."""
@@ -255,35 +353,21 @@ if __name__ == "__main__":
             if line_end == -1: line_end = len(content)
             line_text = content[line_start:line_end]
             
-            # Heuristic: Find something that looks like a method or field name
-            # 1. Look for content in backticks immediately preceding the link
-            prefix = line_text[:match.start() - line_start]
-            backtick_matches = re.findall(r'`([^`]+)`', prefix)
-            search_term = None
-            if backtick_matches:
-                # Iterate backwards through backticks to find a symbol, skipping path-like strings
-                for candidate in reversed(backtick_matches):
-                    if "#L" in candidate or candidate.endswith(".lua"):
-                        continue
-                    
-                    # Try to find Name:Method or Name.Field
-                    m = re.search(r'([a-zA-Z0-9_.]+?)[:.]([a-zA-Z0-9_]+)', candidate)
-                    if m:
-                        search_term = m.group(2)
-                        break
-                    else:
-                        # Just a name
-                        m = re.search(r'\b([a-zA-Z0-9_]+)\b', candidate)
-                        if m:
-                            search_term = m.group(1)
-                            break
-
+            search_term, receiver, confident = extract_link_identifier(
+                line_text, match.start() - line_start)
             if not search_term or search_term.lower() == "lua":
                 continue
 
             lua_path = os.path.normpath(os.path.join(DOCS_DIR, url_path.split('#')[0]))
-            new_line_no = find_line_in_file(lua_path, search_term)
-            
+            definition_lines = find_definition_lines(lua_path, search_term, receiver)
+            new_line_no = definition_lines[0] if len(definition_lines) == 1 else None
+
+            if len(definition_lines) > 1:
+                if confident:
+                    print(f"[{filename}] Skipped ambiguous {search_term}: "
+                          f"{', '.join('L' + str(line) for line in definition_lines)}")
+                continue
+
             if new_line_no:
                 # Symbol found. Check if we need to remove [MISSING] flag
                 curr_line_start = new_content.rfind('\n', 0, match.start()) + 1
@@ -309,6 +393,11 @@ if __name__ == "__main__":
                     total_changes += 1
                     print(f"[{filename}] Updated {search_term} -> L{new_line_no} (was L{old_line_no})")
             else:
+                # Only confident signatures may create [MISSING] annotations.
+                # Plain field/prose references are bounds-checked but left
+                # untouched when no exact definition is available.
+                if not confident:
+                    continue
                 # Symbol missing! Flag it in the text if not already flagged
                 curr_line_start = new_content.rfind('\n', 0, match.start()) + 1
                 curr_line_end = new_content.find('\n', match.end())
@@ -327,6 +416,13 @@ if __name__ == "__main__":
                 f.write(new_content)
 
     print(f"Total documentation links updated: {total_changes}")
+
+    # Re-read after link synchronization so orphan detection evaluates the
+    # documentation that will actually be written, not the pre-sync snapshot.
+    all_docs = ""
+    for filename in md_files:
+        with open(os.path.join(DOCS_DIR, filename), "r", encoding="utf-8") as f:
+            all_docs += f.read()
 
     # 2. Orphan detection and optional injection
     print("\n--- Scanning for potentially undocumented functions ---")
@@ -350,31 +446,33 @@ if __name__ == "__main__":
                 if full_func_name in IGNORED_FUNCTIONS:
                     continue
                 
-                # Check if documented: `Table:Func`, `Table.Func`, or just `Func` in backticks
-                patterns = [
-                    re.compile(r'`' + re.escape(f"{table}:{func}") + r'(\(|`)'),
-                    re.compile(r'`' + re.escape(f"{table}.{func}") + r'(\(|`)'),
-                    re.compile(r'`' + re.escape(func) + r'(\(|`)'),
-                    # Special case for normalized table names in docs (e.g. Core: instead of YapperTable.Core:)
-                    re.compile(r'`' + re.escape(f"{table.split('.')[-1]}:{func}") + r'(\(|`)'),
-                ]
-                
-                is_documented = False
-                for p in patterns:
-                    if p.search(all_docs):
-                        is_documented = True
-                        break
-                
+                # Check if documented under the source receiver, its module
+                # alias, or the method name itself.
+                documented_tables = documentation_table_names(rel_lua_path, table)
+                patterns = []
+                for documented_table in documented_tables:
+                    patterns.extend([
+                        re.compile(r'`' + re.escape(f"{documented_table}:{func}") + r'(\(|`)'),
+                        re.compile(r'`' + re.escape(f"{documented_table}.{func}") + r'(\(|`)'),
+                    ])
+                patterns.append(re.compile(r'`' + re.escape(func) + r'(\(|`)'))
+
+                is_documented = any(pattern.search(all_docs) for pattern in patterns)
+
                 if not is_documented:
                     print(f"[?] Potential orphan in {rel_lua_path}: {table}:{func}")
                     if args.inject:
-                        # Find the exact line number for injection
-                        line_no = find_line_in_file(lua_path, func)
-                        if not line_no: continue
-                        
+                        # The regex already found the exact definition line;
+                        # do not perform a loose word search for it again.
+                        line_no = find_unique_definition_line(lua_path, func, table)
+                        if not line_no:
+                            print(f"[{rel_lua_path}] Skipped ambiguous definition for {table}:{func}")
+                            continue
+
                         summary, signature = extract_comment_info(lua_path, line_no)
-                        
+
                         target = get_doc_target(rel_lua_path)
                         if target:
                             target_md, target_section = target
-                            inject_to_doc(target_md, target_section, table.split('.')[-1], func, rel_lua_path, line_no, summary, signature)
+                            doc_table = documentation_table_name(rel_lua_path, table)
+                            inject_to_doc(target_md, target_section, doc_table, func, rel_lua_path, line_no, summary, signature)

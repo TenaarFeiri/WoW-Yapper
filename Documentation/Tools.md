@@ -46,8 +46,11 @@ Generates the DJB2 hash table used by the engine to identify and filter blocked 
 Maintains the integrity of documentation by synchronizing line numbers in markdown files with the actual source code.
 - **Usage**: `python3 sync_all_docs.py [--inject]`
 - **Features**:
-  - Updates `#LNNN` links in all `.md` files.
-  - `--inject`: Automatically finds undocumented public methods and adds them to `Internals.md` or `API.md` with summaries extracted from Lua comments.
+  - Updates `#LNNN` links in all `.md` files when the documented signature resolves to exactly one source definition.
+  - Ignores inline prose code such as `or 0` or `{id, label}` when identifying a link's symbol.
+  - Leaves ambiguous definitions unchanged and reports their candidate lines.
+  - Understands module-local receiver aliases such as `Bridge` in `Bridges/TypingTrackerBridge.lua`.
+  - `--inject`: Automatically finds undocumented public methods and adds them to `Internals.md` or `API.md` with summaries extracted from Lua comments. Injection uses the module's documented identity for bridge aliases and skips ambiguous definitions.
 
 ### `check_doc_refs.py`
 Read-only CI gate against documentation line-reference drift. Verifies every `#LNNN` link in `Documentation/*.md` points at an existing line and, where the link sits next to a backticked signature, that the line actually defines that identifier.

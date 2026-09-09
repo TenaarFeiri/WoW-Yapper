@@ -218,11 +218,36 @@ function Router:Send(msg, chatType, language, target)
 
     -- Battle.net whisper
     if chatType == "BN_WHISPER" or chatType == "BNET" then
-        local presenceID = tonumber(target)
-        local bnetAccountID = nil
-        if not presenceID then
-            presenceID, bnetAccountID = self:ResolveBnetTarget(target)
+        -- Numeric targets are BNet account IDs supplied directly by friend-list
+        -- menu context or CHAT_MSG_BN_WHISPER. They must not be treated as
+        -- presence IDs: C_BattleNet.SendWhisper and the legacy BNSendWhisper
+        -- both consume the account ID.
+        local numericTarget = type(target) == "number" and target or nil
+        if numericTarget then
+            if C_BattleNet and C_BattleNet.SendWhisper then
+                local ok, err = pcall(C_BattleNet.SendWhisper, numericTarget, msg)
+                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+                return ok
+            end
+            if self.BNSendWhisper then
+                local ok, err = pcall(self.BNSendWhisper, numericTarget, msg)
+                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+                return ok
+            end
+            return false
         end
+
+        -- Preserve the legacy string representation for callers that store a
+        -- presence ID as text. Numeric strings historically bypassed friend
+        -- lookup and went directly to BNSendWhisper.
+        local legacyPresenceID = type(target) == "string" and tonumber(target) or nil
+        if legacyPresenceID and self.BNSendWhisper then
+            local ok, err = pcall(self.BNSendWhisper, legacyPresenceID, msg)
+            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+            return ok
+        end
+
+        local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
         if C_BattleNet and C_BattleNet.SendWhisper and bnetAccountID then
             local ok, err = pcall(C_BattleNet.SendWhisper, bnetAccountID, msg)
             if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
