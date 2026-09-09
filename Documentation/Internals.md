@@ -1052,7 +1052,7 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 ## EditBoxCompat
 
 - Methods:
-  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Toggle Blizzard GetActiveWindow/FocusActiveWindow compatibility wrappers on or off. While ENABLE_WINDOW_REPLACEMENTS is false this is a no-op; kept so callers (ShowHide/Handlers) need no guarding. ([`../Src/EditBoxCompat.lua#L196`](../Src/EditBoxCompat.lua#L196))
+  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Toggle Blizzard GetActiveWindow/FocusActiveWindow compatibility wrappers on or off during lockdown handoff and recovery. The wrappers route active-window queries to Yapper while safe and fall back to native behavior during lockdown/bypass. ([`../Src/EditBoxCompat.lua#L199`](../Src/EditBoxCompat.lua#L199))
 
 ## WhisperMessengerBridge
 

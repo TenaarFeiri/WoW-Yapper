@@ -105,51 +105,51 @@ YapperTable.Multiline = {
 load("Src/EditBoxCompat.lua")
 
 print("\nContract 0: native compatibility during lockdown")
--- Window-function replacements are currently DISABLED (see EditBoxCompat.lua
--- ENABLE_WINDOW_REPLACEMENTS). SetChatCompatibilityEnabled is a no-op, so
--- GetActiveWindow must remain the native implementation regardless of calls.
 EditBox:SetChatCompatibilityEnabled(false)
-check("compatibility disable is a no-op (native retained)", ChatFrameUtil.GetActiveWindow == nativeGetActiveWindow)
+check("compatibility disable restores native window", ChatFrameUtil.GetActiveWindow == nativeGetActiveWindow)
 EditBox:SetChatCompatibilityEnabled(true)
-check("compatibility enable is a no-op (native retained)", ChatFrameUtil.GetActiveWindow == nativeGetActiveWindow)
+check("compatibility enable installs wrapper", ChatFrameUtil.GetActiveWindow ~= nativeGetActiveWindow)
 
 local link = "|cnIQ4:|Hitem:1234|h[Coiled Serpent Idol]|h|r"
 
-print("\nContract 1: overlay active editor (focus override only)")
+print("\nContract 1: overlay active editor")
 EditBox.Overlay:Show()
 EditBox.OverlayEdit:SetFocus()
 EditBox:UpdateFocusOverride()
 check("overlay is active editor", EditBox:GetActiveEditor() == EditBox.OverlayEdit)
--- GetActiveWindow is NOT replaced while ENABLE_WINDOW_REPLACEMENTS is false;
--- it returns the native active window. Link insertion into Yapper while open
--- is expected to be handled by a future non-tainting hook, not by a global
--- function replacement.
-check("GetActiveWindow stays native (replacements disabled)", ChatFrameUtil.GetActiveWindow() == nativeActive)
+check("GetActiveWindow returns overlay", ChatFrameUtil.GetActiveWindow() == EditBox.OverlayEdit)
 check("focus override points to overlay", focusOverride == EditBox.OverlayEdit)
 check("OpenChat targets overlay via focus override", ChatFrameUtil.OpenChat("draft") == EditBox.OverlayEdit
     and EditBox.OverlayEdit:GetText() == "draft")
+check("InsertLink reaches overlay", ChatFrameUtil.InsertLink(link)
+    and EditBox.OverlayEdit:GetText() == "draft" .. link)
 
-print("\nContract 2: multiline takes ownership (focus override only)")
+print("\nContract 2: multiline takes ownership")
 YapperTable.Multiline.Frame:Show()
 YapperTable.Multiline.EditBox:SetFocus()
 EditBox:UpdateFocusOverride()
 check("multiline is active editor", EditBox:GetActiveEditor() == YapperTable.Multiline.EditBox)
-check("GetActiveWindow stays native (replacements disabled)", ChatFrameUtil.GetActiveWindow() == nativeActive)
+check("GetActiveWindow returns multiline", ChatFrameUtil.GetActiveWindow() == YapperTable.Multiline.EditBox)
 check("focus override points to multiline", focusOverride == YapperTable.Multiline.EditBox)
 check("OpenChat targets multiline via focus override", ChatFrameUtil.OpenChat("draft") == YapperTable.Multiline.EditBox
     and YapperTable.Multiline.EditBox:GetText() == "draft")
+YapperTable.Multiline.EditBox:ClearFocus()
+ChatFrameUtil.FocusActiveWindow()
+check("FocusActiveWindow focuses multiline", YapperTable.Multiline.EditBox:HasFocus())
+check("InsertLink reaches multiline", ChatFrameUtil.InsertLink(link)
+    and YapperTable.Multiline.EditBox:GetText() == "draft" .. link)
 
 print("\nContract 3: migration back and closed fallback")
 YapperTable.Multiline.Frame:Hide()
 EditBox.Overlay:Show()
 EditBox:UpdateFocusOverride()
 check("overlay regains active editor", EditBox:GetActiveEditor() == EditBox.OverlayEdit)
-check("GetActiveWindow stays native (replacements disabled)", ChatFrameUtil.GetActiveWindow() == nativeActive)
+check("GetActiveWindow returns overlay after exit", ChatFrameUtil.GetActiveWindow() == EditBox.OverlayEdit)
 check("focus override returns to overlay", focusOverride == EditBox.OverlayEdit)
 
 EditBox.Overlay:Hide()
 EditBox:UpdateFocusOverride()
-check("closed Yapper stays native active window", ChatFrameUtil.GetActiveWindow() == nativeActive)
+check("closed Yapper falls back to native active window", ChatFrameUtil.GetActiveWindow() == nativeActive)
 check("closed Yapper clears focus override", focusOverride == nil)
 
 print("\n" .. string.rep("-", 60))

@@ -144,7 +144,11 @@ if Multiline and Multiline.EditBox then
     YapperTable.InstallCompatMethods(Multiline.EditBox)
 end
 
-local ENABLE_WINDOW_REPLACEMENTS = false
+-- Keep Blizzard's active-window compatibility replacements enabled while
+-- Yapper owns an editor. The wrappers fall back to native behavior during
+-- lockdown or bypass, preserving third-party integrations such as paste and
+-- link insertion without exposing Yapper's overlay to Blizzard's lockdown path.
+local ENABLE_WINDOW_REPLACEMENTS = true
 
 local origGetActiveWindow = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
 local origFocusActiveWindow = ChatFrameUtil and ChatFrameUtil.FocusActiveWindow
@@ -190,9 +194,8 @@ end
 
 -- Blizzard's native reply/deactivation paths must not run through tainted
 -- compatibility wrappers while secret values are active during lockdown.
--- While ENABLE_WINDOW_REPLACEMENTS is false, this is a no-op: no replacement
--- was ever installed, so there is nothing to swap in or out. The function is
--- kept so existing callers (ShowHide/Handlers) do not need to be guarded.
+-- Lifecycle callers disable the replacements before native lockdown handoff
+-- and re-enable them after recovery.
 function EditBox:SetChatCompatibilityEnabled(enabled)
     if not ENABLE_WINDOW_REPLACEMENTS then return end
     if not ChatFrameUtil then return end
