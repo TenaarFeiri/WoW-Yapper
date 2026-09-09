@@ -6,6 +6,7 @@
 - Fixed a whole lot more secret problems propagating downstream from whispering while in challenge mode (M+).
 - Fixed many legal chat commands failing to work after the above changes.
 - Fixed issue where right-clicking a target while in an instance would produce a secret error.
+- Fixed regression in beta version where emotes didn't fire correctly and necessary compatibility shims were removed.
 
 # 2.4.2
 
