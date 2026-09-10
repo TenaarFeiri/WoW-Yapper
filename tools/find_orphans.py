@@ -3,6 +3,18 @@ import re
 import sys
 from collections import defaultdict
 
+# Maintenance, generated, and test trees are not production Lua sources.
+SKIP_DIR_NAMES = {
+    ".release",
+    "backup",
+    "scratch",
+    "tools",
+    "test",
+    "tests",
+    "testdata",
+    "fixtures",
+}
+
 # Regex for common Lua definitions
 RE_DEFS = {
     'local_func': re.compile(r"local\s+function\s+([a-zA-Z0-9_]+)"),
@@ -26,11 +38,26 @@ def clean_line(line):
     line = line.split('--')[0]
     return line
 
+def strip_multiline_comments(content):
+    # Preserve newlines so reported source lines remain accurate.
+    return re.sub(
+        r'--\[\[.*?\]\]',
+        lambda match: "\n" * match.group(0).count("\n"),
+        content,
+        flags=re.DOTALL,
+    )
+
+def should_skip_dir(name):
+    lowered = name.lower()
+    return lowered in SKIP_DIR_NAMES or lowered.startswith("test-")
+
 def analyze_project(search_dir):
     all_defs = defaultdict(list)
     word_counts = defaultdict(int)
     
-    for root, _, files in os.walk(search_dir):
+    for root, dirs, files in os.walk(search_dir):
+        dirs[:] = [directory for directory in dirs if not should_skip_dir(directory)]
+
         for file in files:
             if not file.endswith('.lua'): continue
             path = os.path.join(root, file)
@@ -39,7 +66,7 @@ def analyze_project(search_dir):
                 content = f.read()
                 
                 # Multi-line comment removal
-                content_no_multi = re.sub(r'--\[\[.*?\]\]', '', content, flags=re.DOTALL)
+                content_no_multi = strip_multiline_comments(content)
                 
                 lines = content_no_multi.splitlines()
                 for i, line in enumerate(lines, 1):
@@ -56,8 +83,11 @@ def analyze_project(search_dir):
                         match = regex.search(cleaned)
                         if match:
                             name = match.group(1)
-                            if name not in IGNORE_WORDS and len(name) > 3:
-                                all_defs[name].append((path, i))
+                            location = (path, i)
+                            if (name not in IGNORE_WORDS
+                                and len(name) > 3
+                                and location not in all_defs[name]):
+                                all_defs[name].append(location)
 
     return all_defs, word_counts
 
@@ -65,8 +95,8 @@ def main():
     root_dir = './'
     if not os.path.exists(root_dir): print("Path error"); return
 
-    # Definitions are still primarily in Src/
-    # but we scan the whole project for references (excluding docs)
+    # Definitions are still primarily in Src/; generated, maintenance, and
+    # test trees are pruned by analyze_project.
     all_defs, word_counts = analyze_project(root_dir)
     
     # Audit logic: definition sites vs total occurrences
