@@ -83,9 +83,6 @@ YapperTable.EditBox = {
     Show = function(self)
         self.Overlay:Show()
     end,
-    ApplyProgrammaticPrefill = function(self, text, box)
-        box:SetText(text or "")
-    end,
     UpdateFocusOverride = function(self)
         self._focusOverrideUpdated = true
     end,

@@ -1085,11 +1085,6 @@ end
 -- Theme / appearance
 -- ---------------------------------------------------------------------------
 
-function Multiline:HandleEscape()
-	if State:IsMultiline() then return true end
-	return false
-end
-
 --- Apply the current theme's colours and font to the multi-line frame.
 --- Mirrors the same font-resolution logic as the single-line overlay:
 ---   cfg.FontFace / cfg.FontSize override; otherwise inherit from OrigEditBox.

@@ -234,15 +234,6 @@ function Interface:GetWelcomeVersion()
     return 1
 end
 
-local function GetSchemaVersion()
-    if not Interface.GetDefaultsRoot then return 0 end
-    local defaults = Interface:GetDefaultsRoot()
-    if type(defaults) == "table" and type(defaults.System) == "table" then
-        return tonumber(defaults.System.VERSION) or 0
-    end
-    return 0
-end
-
 local function GetAddonVersion()
     if YapperTable.Core and YapperTable.Core.GetVersion then
         return YapperTable.Core:GetVersion() or ""
@@ -300,15 +291,6 @@ end
 local function NormaliseVersion(version)
     if type(version) ~= "string" then return version end
     return version:gsub("[^0-9%.]", "")
-end
-
-function Interface:ShouldShowWhatsNew()
-    local last = NormaliseVersion(ReadSV("_lastSeenVersion") or "0.0.0")
-    local current = NormaliseVersion(GetAddonVersion())
-    if last == current then return false end
-
-    local WHATS_NEW = YapperTable.WHATS_NEW or {}
-    return (WHATS_NEW[current] ~= nil)
 end
 
 function Interface:CheckForChangelogUpdate()
@@ -643,7 +625,6 @@ function Interface:CreateWhatsNewFrame()
     dimmer:Show()
 
     -- ── Feature opt-in toggles ────────────────────────────────────────
-    local bottomAnchor = -PAD - 100
     local togglesAdded = false
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })

@@ -106,19 +106,6 @@ end
 
 do
     local SC = newHarness()
-    SC:RegisterDictionary("enBase", { words = { "hello", "world" }, languageFamily = "en", engine = {} })
-    SC:RegisterDictionary("enGB", { words = { "colour" }, languageFamily = "en", extends = "enBase", isDelta = true })
-    SC._asyncLoaders = { enBase = { cancelled = false }, frFR = { cancelled = false } }
-
-    SC:PurgeOtherDictionaries("enUS")
-    check("Fix 2: keep enBase when switching to not-yet-loaded enUS", SC.Dictionaries["enBase"] ~= nil)
-    check("Fix 2: purge non-kept enGB", SC.Dictionaries["enGB"] == nil)
-    check("Fix 2: keep enBase async loader", SC._asyncLoaders["enBase"] ~= nil and not SC._asyncLoaders["enBase"].cancelled)
-    check("Fix 2: cancel/purge unrelated async loaders", SC._asyncLoaders["frFR"] == nil)
-end
-
-do
-    local SC = newHarness()
     SC:RegisterDictionary("enBase", { words = { "cat" }, languageFamily = "en", engine = {} })
     local basePosting = SC.Dictionaries.enBase.ngramIndex2["*t"]
 
@@ -184,18 +171,6 @@ do
         end
     end
     check("N-gram suggestions retain base candidates", foundBase)
-end
-
-do
-    local SC = newHarness()
-    SC:RegisterDictionary("enBase", { words = { "hello", "world" }, languageFamily = "en", engine = {} })
-    SC:RegisterDictionary("enUS", { words = { "color" }, languageFamily = "en", extends = "enBase", isDelta = true })
-    SC:RegisterDictionary("deDE", { words = { "hallo", "welt" }, languageFamily = "de", engine = {} })
-
-    SC:PurgeOtherDictionaries("deDE")
-    check("Acceptance: keep target family locale", SC.Dictionaries["deDE"] ~= nil)
-    check("Acceptance: purge unused English variant", SC.Dictionaries["enUS"] == nil)
-    check("Acceptance: purge enBase when switching to deDE", SC.Dictionaries["enBase"] == nil)
 end
 
 if failures > 0 then

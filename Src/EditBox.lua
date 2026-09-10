@@ -661,25 +661,6 @@ function EditBox:SetOnSend(fn)
     self.OnSend = fn
 end
 
---- Apply text prefill to the overlay editbox and mirror any UX side-effects
---- that are normally driven by user input handlers.
----@param text string
----@param box EditBox|nil Optional target box; defaults to OverlayEdit.
-function EditBox:ApplyProgrammaticPrefill(text, box)
-    local targetBox = box or self.OverlayEdit
-    if not targetBox or type(targetBox.SetText) ~= "function" then
-        return
-    end
-
-    targetBox:SetText(text or "")
-
-    -- Programmatic SetText does not mark input as user-typed, so
-    -- Handlers.lua OnTextChanged slash UX won't run. Mirror the slash hint.
-    if text == "/" and YapperTable.Emotes and type(YapperTable.Emotes.ShowHint) == "function" then
-        YapperTable.Emotes:ShowHint(targetBox)
-    end
-end
-
 --- If fn(blizzEditBox) returns true, the overlay is suppressed.
 --- Used by Queue to consume hardware events for send continuation.
 function EditBox:SetPreShowCheck(fn)

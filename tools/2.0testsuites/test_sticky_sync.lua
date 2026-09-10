@@ -302,7 +302,6 @@ YapperTable2.EditBox = {
     OverlayEdit = overlayEdit2,
     LastUsed = { chatType = "SAY", target = nil, language = nil },
     Show = function(self) self.Overlay:Show() end,
-    ApplyProgrammaticPrefill = function(self, text, box) box:SetText(text or "") end,
     UpdateFocusOverride = function(self) end,
 }
 

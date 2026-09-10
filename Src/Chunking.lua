@@ -623,16 +623,3 @@ function Chunking:Split(text, limit, opts)
 
     return chunks
 end
-
--- ---------------------------------------------------------------------------
--- Delineator API
--- ---------------------------------------------------------------------------
-
---- Returns the delineation markers currently in use.
-function Chunking:GetDelineators()
-    local marker = NormaliseMarker(YapperAPI and YapperAPI:GetDelineator())
-    if marker == "" then
-        return "", ""
-    end
-    return " " .. marker, marker .. " "
-end

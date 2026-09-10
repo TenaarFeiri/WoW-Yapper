@@ -279,18 +279,9 @@ end
 check("force-split chunks within limit", allUnder)
 
 -- ===========================================================================
--- Test 14: GetDelineators API
+-- Test 14: Continuation prefix on continuation chunks
 -- ===========================================================================
-print("\nTest 14: GetDelineators API")
-
-local suffix, prefix = Chunking:GetDelineators()
-check("suffix is ' >>'", suffix == " >>")
-check("prefix is '>> '", prefix == ">> ")
-
--- ===========================================================================
--- Test 15: Continuation prefix on continuation chunks
--- ===========================================================================
-print("\nTest 15: Continuation prefix")
+print("\nTest 14: Continuation prefix")
 
 local contText = "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu."
 local continuationEnabled = true
