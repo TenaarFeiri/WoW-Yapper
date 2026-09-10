@@ -1,124 +1,271 @@
 # Developer Tools
 
-This document describes the Python and Shell tools used to maintain the Yapper codebase, generate dictionaries, and manage documentation.
+Maintenance and verification tools for the Yapper repository. Unless noted
+otherwise, commands are run from the repository root. On Windows, `py -3` can
+be used in place of `python3`.
 
-## Dictionary Management
+## Verification
 
-### `sanitize_dictionaries.py`
-Strips offensive words and slurs from all regional Lua dictionaries based on a provided word list.
-- **Usage**: `python3 sanitize_dictionaries.py`
-- **Logic**:
-  - Scans all `Dictionaries/Yapper_Dict_*` directories.
-  - Loads bad words from `tools/scratch/all_bad_words.txt`.
-  - Backs up original dictionaries to `backup/`.
-  - Filters words and writes sanitized `.lua` files (with phonetics cleared, requiring a re-run of `generate_phonetic_dict.py`).
+### `tools/run_tests.sh`
 
-### `generate_phonetic_dict.py`
-Regenerates the phonetic lookup tables for all English-family dictionaries.
-- **Usage**: `python3 generate_phonetic_dict.py`
-- **Logic**:
-  - Scans `Dictionaries/Yapper_Dict_en*`.
-  - Calculates a "Universal Base" of words shared across all locales (stored in `enBase`).
-  - Generates delta dictionaries for regional variants (`enGB`, `enAU`, `enUS`) containing only the locale-specific words.
-  - Applies language-specific phonetic hashing (via `phonetics_en.py`).
+Runs the repository gate:
 
-### `import_wooorm.py`
-Imports and converts [wooorm/dictionaries](https://github.com/wooorm/dictionaries) (Hunspell format) into Yapper's optimized Lua format.
-- **Usage**: `python3 import_wooorm.py --locale enGB --family en --dic path/to.dic --aff path/to.aff --base Dict_enBase.lua`
-- **Requirements**: Requires the `unmunch` command (from `hunspell-tools`).
-
----
-
-## Blocklist Management
-
-### `generate_blocklist.py`
-Generates the DJB2 hash table used by the engine to identify and filter blocked words without storing the plain text of the words in the addon.
-- **Usage**: `python3 generate_blocklist.py path/to/words.txt`
-- **Normalization**: The tool automatically normalizes words (lowercase, stripping punctuation) before hashing to ensure consistent detection.
-- **Integration**: The output table MUST be copied into the language engine's `BlockedHashes` field (e.g., in `Dictionaries/Yapper_Dict_en/Engine.lua`).
-- **Security Mandatory**: As of Yapper v2.1.12, providing a `BlockedHashes` table is a **mandatory security requirement** for all language engines. Engines or dictionaries without a valid blocklist will be blocked from loading.
-
----
-
-## Documentation & Auditing
-
-### `sync_all_docs.py`
-Maintains the integrity of documentation by synchronizing line numbers in markdown files with the actual source code.
-- **Usage**: `python3 sync_all_docs.py [--inject]`
-- **Features**:
-  - Updates `#LNNN` links in all `.md` files when the documented signature resolves to exactly one source definition.
-  - Ignores inline prose code such as `or 0` or `{id, label}` when identifying a link's symbol.
-  - Leaves ambiguous definitions unchanged and reports their candidate lines.
-  - Understands module-local receiver aliases such as `Bridge` in `Bridges/TypingTrackerBridge.lua`.
-  - `--inject`: Automatically finds undocumented public methods and adds them to `Internals.md` or `API.md` with summaries extracted from Lua comments. Injection uses the module's documented identity for bridge aliases and skips ambiguous definitions.
-
-### `check_doc_refs.py`
-Read-only CI gate against documentation line-reference drift. Verifies every `#LNNN` link in `Documentation/*.md` points at an existing line and, where the link sits next to a backticked signature, that the line actually defines that identifier.
-- **Usage**: `python3 tools/check_doc_refs.py [--fix]`
-- **Features**:
-  - Runs as part of `tools/run_tests.sh` (and therefore CI); exits non-zero on confident drift.
-  - `--fix`: relocates references whose identifier resolves to exactly one definition; ambiguous ones are reported for manual attention.
-  - Lines annotated `[MISSING]`/`[NEW]` (release.sh output awaiting human confirmation) are downgraded to warnings.
-- **Relationship to `sync_all_docs.py`**: that tool is the bulk *writer* used at release time; this one is the continuous *checker* that catches drift between releases without rewriting anything unasked.
-
-### `find_orphans.py`
-Performs a structural audit of the Lua codebase to find unused functions, variables, and potential linguistic inconsistencies.
-- **Usage**: `python3 find_orphans.py`
-- **Verification**: Includes a "Linguistic Sync" check to ensure consistent British English naming (e.g., `NormaliseWord` vs `NormalizeWord`).
-
-### `dead_code_scanner.py`
-Static analysis tool for detecting dead code (unused variables, uncalled functions, undefined references) in the Lua codebase.
-- **Usage**: `python3 dead_code_scanner.py [--path PATH] [--no-cache]`
-- **Features**:
-  - Cross-file analysis with TOC-aware load order resolution.
-  - Integrates with `wow-ui-source` (if available) for 15,000+ WoW API whitelist.
-  - Tracks table member usage (e.g., `self:Show()`, `YapperTable.Config`).
-  - Generates console output and `dead_code_report.md`.
-- **Cache**: WoW API list is cached to `.wow_api_cache.json` for faster subsequent runs.
-
-## Repository Structure
-
-To ensure that `release.sh` and other maintenance tools function correctly, the development repository must follow this specific layout:
-
-```text
-. (Root)
-├── Dictionaries/          (Source for LOD dictionaries)
-│   ├── Yapper_Dict_en/
-│   ├── Yapper_Dict_enGB/
-│   └── ...
-├── Documentation/         (Markdown documentation files)
-├── Src/                   (Core Lua source code)
-├── tools/                 (Python/Shell maintenance tools)
-│   └── scratch/           (Working files for slurs and blocklists)
-├── Bindings.xml
-├── Changelogs.md
-├── Yapper.lua             (Main entry point)
-├── Yapper.toc             (Main TOC file - contains version info)
-└── ...
+```sh
+tools/run_tests.sh
 ```
 
----
+The runner performs these phases:
 
-## Release Workflow
+1. Syntax-checks every shipped Lua file in the repository root, `Src/`, and
+   `Dictionaries/` with `luac -p`.
+2. Checks documentation line references with `tools/check_doc_refs.py` when
+   `python3` is available.
+3. Runs the gating suites listed in `GATING_FROM_ROOT` and
+   `GATING_FROM_SUITEDIR`.
+4. Runs `tools/contract-tests/run.sh`.
 
-### `release.sh`
-The primary build script for packaging Yapper for distribution.
-- **Usage**: `./tools/release.sh`
-- **Workflow**:
-  1. Runs `sync_all_docs.py` to ensure documentation is accurate.
-  2. Increments version numbers where applicable.
-  3. Packages `Yapper` and all `Yapper_Dict_*` folders into a `.release/Yapper-vX.Y.Z.zip` bundle.
+Use `--syntax` to run only the Lua syntax phase:
 
-### Expected Installation Layout
-Yapper is a modular addon. To ensure the Load-on-Demand (LOD) dictionary system functions correctly, the following directory structure is expected in the WoW `Interface/AddOns/` folder:
+```sh
+tools/run_tests.sh --syntax
+```
+
+The `LUA` and `LUAC` environment variables select the interpreters. CI runs
+with Lua 5.1:
+
+```sh
+LUA=lua5.1 LUAC=luac5.1 tools/run_tests.sh
+```
+
+The gating-suite manifest and classifications are documented in
+`tools/2.0testsuites/README.md`. Diagnostic and quarantined suites are not run
+by the default gate.
+
+### Chat contract tests
+
+```sh
+tools/contract-tests/run.sh
+```
+
+Runs the deterministic fake WoW runtime/server tests independently. The runner
+syntax-checks the contract fixtures before executing them. `tools/run_tests.sh`
+also runs this suite.
+
+## Documentation
+
+### `tools/sync.sh`
+
+Release-oriented wrapper for the documentation synchronizer:
+
+```sh
+tools/sync.sh
+```
+
+It runs `sync_all_docs.py --inject`.
+
+### `tools/sync_all_docs.py`
+
+Synchronizes source line references in `Documentation/*.md` and optionally
+injects newly discovered public methods:
+
+```sh
+python3 tools/sync_all_docs.py
+python3 tools/sync_all_docs.py --inject
+```
+
+Without `--inject`, existing links are updated and ambiguous links are
+reported. With `--inject`, undocumented methods are added with a `[NEW]`
+marker for review. The synchronizer does not replace that review step.
+
+### `tools/check_doc_refs.py`
+
+Read-only documentation reference checker:
+
+```sh
+python3 tools/check_doc_refs.py
+```
+
+It verifies `#L<n>` links in `Documentation/*.md` and exits non-zero for
+confident drift. `--fix` relocates references when exactly one matching source
+definition exists; ambiguous references remain for manual review:
+
+```sh
+python3 tools/check_doc_refs.py --fix
+```
+
+### `tools/sync_api_docs.py`
+
+API-only synchronizer for `YapperAPI:*` links in `Documentation/API.md`:
+
+```sh
+python3 tools/sync_api_docs.py
+```
+
+The general `sync_all_docs.py` workflow is the release-time synchronizer.
+
+### Synchronizer regression tests
+
+```sh
+python3 tools/test_sync_all_docs.py
+```
+
+Tests symbol resolution and ambiguity handling in the documentation
+synchronizer and reference checker.
+
+## Dictionary management
+
+### `tools/generate_phonetic_dict.py`
+
+Regenerates the English dictionary base and locale deltas:
+
+```sh
+python3 tools/generate_phonetic_dict.py
+```
+
+The script scans English dictionaries under `Dictionaries/Yapper_Dict_en*`,
+excluding `Engine.lua`. It computes the shared `enBase` word set, writes
+`Dictionaries/Yapper_Dict_en/Dict_enBase.lua`, and rewrites each locale file as
+a delta extending `enBase`. Phonetic hashes are generated with
+`tools/phonetics_en.py`.
+
+Generated dictionaries must pass the syntax phase of `tools/run_tests.sh`.
+
+### `tools/sanitize_dictionaries.py`
+
+Removes words matching the sanitization list from every
+`Dictionaries/Yapper_Dict_*` dictionary, creates or updates each dictionary's
+`backup/` directory, and rewrites the dictionary with phonetics cleared.
+
+The script uses paths relative to `tools/`, so run it from that directory:
+
+```sh
+cd tools
+python3 sanitize_dictionaries.py
+```
+
+The input list is `tools/scratch/filtered-word-lists/bad-word-list-full`.
+Run `generate_phonetic_dict.py` afterward to regenerate phonetic tables.
+
+### `tools/import_wooorm.py`
+
+Converts a wooorm/Hunspell `.dic` and `.aff` pair into a Yapper dictionary:
+
+```sh
+python3 tools/import_wooorm.py \
+  --locale enGB \
+  --family en \
+  --dic path/to/dictionary.dic \
+  --aff path/to/dictionary.aff \
+  --base Dictionaries/Yapper_Dict_en/Dict_enBase.lua
+```
+
+`--base` is optional. When supplied, only words not present in the base are
+written and the output is marked as a delta. The output path is selected by the
+script as `Dictionaries/Yapper_Dict_<locale>/Dict_<locale>.lua`.
+
+The conversion requires the `unmunch` command from `hunspell-tools` and a
+matching `tools/phonetics_<family>.py` module.
+
+## Blocklist management
+
+### `tools/generate_blocklist.py`
+
+Reads a newline-delimited text file or CSV, normalizes each value, and prints a
+DJB2 hash table to standard output:
+
+```sh
+python3 tools/generate_blocklist.py path/to/words.txt > blocked_hashes.lua
+```
+
+Copy the generated `BLOCKED_HASHES` table into the target language engine's
+`BlockedHashes` field. The current English engine is
+`Dictionaries/Yapper_Dict_en/Engine.lua`.
+
+## Static audits
+
+### `tools/find_orphans.py`
+
+Performs a regex-based structural audit across the repository and reports
+function/variable definitions with no additional references. It also reports a
+small British-English naming consistency check:
+
+```sh
+python3 tools/find_orphans.py
+```
+
+### `tools/dead_code_scanner.py`
+
+Performs a TOC-aware static analysis of Lua symbols, table members, undefined
+references, and likely dead code:
+
+```sh
+python3 tools/dead_code_scanner.py
+```
+
+Options:
+
+- `--path PATH` / `-p`: directory to scan; default `Src`
+- `--toc PATH` / `-t`: TOC load-order file; default `Yapper.toc`
+- `--verbose` / `-v`: include low-confidence findings
+- `--output PATH` / `-o`: report path; default `dead_code_report.md`
+- `--no-cache`: rebuild the WoW API cache
+
+When a `wow-ui-source` checkout is available, the scanner uses it to build the
+WoW API whitelist. The cache is stored in `.wow_api_cache.json`.
+
+## Release packaging
+
+### `tools/release.sh`
+
+Bash release builder:
+
+```sh
+./tools/release.sh
+```
+
+It reads the version from `Yapper.toc`, runs `tools/sync.sh`, recreates
+`.release/`, stages the core addon under `.release/stage/Yapper/`, copies the
+English dictionary addons (`Yapper_Dict_en`, `Yapper_Dict_enAU`,
+`Yapper_Dict_enGB`, and `Yapper_Dict_enUS`), and writes:
+
+```text
+.release/Yapper-<version>.zip
+```
+
+The script does not increment the version. `Yapper_Dict_deDE` is not included
+by the current release configuration.
+
+### `tools/release.ps1`
+
+PowerShell release builder for Windows:
+
+```powershell
+.\tools\release.ps1
+```
+
+It performs the same staging and packaging flow, resolves a non-Windows-Store
+Python executable for documentation synchronization, and writes the same
+`.release/Yapper-<version>.zip` naming scheme. The PowerShell implementation
+also includes `Changelogs.md` in the core addon package; the Bash allowlist does
+not currently include it.
+
+## Package layout
+
+The release contains sibling addons so Blizzard can load dictionaries on
+demand:
 
 ```text
 AddOns/
-├── Yapper/               (Core engine, UI, and logic)
-├── Yapper_Dict_en/       (Universal English Base + Phonetic Engine)
-├── Yapper_Dict_enGB/      (British English Delta)
-├── Yapper_Dict_enUS/      (American English Delta)
-└── Yapper_Dict_...       (Other regional/language deltas)
+├── Yapper/
+│   ├── Src/
+│   ├── Yapper.lua
+│   ├── Yapper.toc
+│   └── ...
+├── Yapper_Dict_en/
+├── Yapper_Dict_enAU/
+├── Yapper_Dict_enGB/
+└── Yapper_Dict_enUS/
 ```
 
-**Note**: The dictionaries are separate top-level folders to allow WoW to load them individually only when the specific locale is active.
+The core addon registers dictionaries through `YapperAPI`; dictionary addons are
+separate top-level folders rather than subdirectories of `Yapper`.
