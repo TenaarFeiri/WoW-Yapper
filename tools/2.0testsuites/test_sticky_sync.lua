@@ -213,9 +213,10 @@ do
     EditBox.OrigEditBox = blizz
     EditBox.ChatType = "SAY"
     EditBox.Target = nil
-    EditBox.Language = nil
+    EditBox.Language = 42
     EditBox:SyncAttributesToBlizzard()
     check("SAY: stickyType = SAY", blizz._attrs["stickyType"] == "SAY")
+    check("SAY: selected language is synced", blizz._attrs["language"] == 42)
 end
 
 do
