@@ -49,7 +49,7 @@ def strip_multiline_comments(content):
 
 def should_skip_dir(name):
     lowered = name.lower()
-    return lowered in SKIP_DIR_NAMES or lowered.startswith("test-")
+    return lowered in SKIP_DIR_NAMES or lowered.startswith(("test-", "test_"))
 
 def analyze_project(search_dir):
     all_defs = defaultdict(list)
