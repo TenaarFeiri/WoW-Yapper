@@ -1,166 +1,117 @@
-# Unit-popup whispers, taint, and why we use Menu.ModifyMenu
+# Unit-popup whisper routing
 
-This page documents how Yapper intercepts the **Whisper** button in the
-right-click ("unit popup") menus, why the old approach broke other menu
-buttons, and why the current approach is safe. Written for someone new to
-WoW addon development — no prior taint knowledge assumed.
+Yapper replaces the **Whisper** action in Blizzard unit-popup menus with a
+route into the Yapper editbox overlay.
 
-Implementation: [`Src/Hooks/UnitPopup.lua`](../Src/Hooks/UnitPopup.lua),
-installed from `Yapper.lua` on `PLAYER_ENTERING_WORLD`.
+Implementation:
 
-## Background: what "taint" is
+- `Src/Hooks/UnitPopup.lua`
+- Installed by `Yapper.lua` during `PLAYER_ENTERING_WORLD`
 
-WoW divides all running Lua into two trust levels:
+## Menu registration
 
-- **Secure** — Blizzard's own code. Only secure code may call *protected*
-  functions (targeting, focus, inviting, `CopyToClipboard`, ...).
-- **Tainted** — anything an addon wrote or touched. If secure code so much as
-  *reads* a value an addon wrote, the running execution becomes tainted from
-  that point on.
+`EditBox:InstallUnitPopupWhisperOverride()` registers a
+`Menu.ModifyMenu` callback for the unit-menu tags listed in
+`WHISPER_MENU_TAGS`.
 
-Taint is sticky and it spreads **forward**: once an execution path goes
-tainted, everything it produces (closures, frames, table entries) is tainted
-too. When a tainted path later calls a protected function, the client blocks
-it and blames whichever addon originally wrote the value ("*Yapper has been
-blocked from an action only available to the Blizzard UI*").
+The callback runs after Blizzard has generated the menu. For each menu open it:
 
-The key trap: taint does not require you to break anything. Writing one field
-into a Blizzard table is enough, even if the field is "just data".
+1. Validates `contextData`.
+2. Traverses the generated menu with `MenuUtil.TraverseMenu`.
+3. Finds the element whose localized text equals `WHISPER`.
+4. Replaces that element's responder with Yapper's whisper handler.
+5. Returns `MenuResponse.CloseAll` after the handler runs.
 
-## What we tried first (and why it failed)
+Menu descriptions are regenerated for each open, so the responder is installed
+per menu instance. Yapper does not write to `UnitPopup*Mixin` tables,
+`UnitPopupMenus`, or other data read by Blizzard's secure menu generator.
 
-Yapper needs menu whispers ("right-click player → Whisper") to open *Yapper's*
-editbox instead of Blizzard's. The first attempt replaced the click handler on
-Blizzard's shared button definition:
+## Whisper handler
 
-```lua
--- OLD, REMOVED. Do not do this.
-UnitPopupWhisperButtonMixin.OnClick = function(self, contextData) ... end
-```
+`EditBox:OpenWhisperFromUnitMenu(contextData)` handles both character and
+Battle.net contexts.
 
-That *felt* legitimate — we weren't editing Blizzard's files, just swapping a
-function in a table that mixins are "meant" to compose from. Here is why it
-poisoned the whole menu anyway:
+### Character context
 
-1. Since patch 10.2.6, unit popups are built by the new **Menu** system.
-   When a menu opens, Blizzard's **secure** generator walks the entry list and,
-   for each button, reads its `OnClick` to build the menu element
-   (`UnitPopupButtonBaseMixin:CreateMenuDescription` does
-   `GenerateClosure(self.OnClick, self, contextData)` — see
-   `Blizzard_UnitPopupShared/UnitPopupSharedButtonMixins.lua`).
-2. Our replacement `OnClick` was an **addon-written value**. The moment the
-   secure generator read it, the *entire remainder of the menu build* became
-   tainted — every element created after the Whisper entry.
-3. **Copy Character Name** is built after Whisper in most menus, and its
-   handler calls `CopyToClipboard()`, a protected function. Tainted element →
-   protected call → blocked, attributed to Yapper. Same risk for Set Focus,
-   Invite, Report, etc., depending on menu order.
+- Rejects non-player units.
+- Resolves the full `Name-Realm` target with
+  `UnitPopupSharedUtil.GetFullPlayerName`, with a field-based fallback.
+- Uses chat type `WHISPER`.
 
-Lesson: under the new Menu system there is **no taint-free way to write into
-the `UnitPopup*Mixin` tables**. The old folklore about `UnitPopupButtons` /
-`UnitPopupMenus` being addon-editable comes from the pre-10.2.6
-UIDropDownMenu era and no longer applies.
+### Battle.net context
 
-## What we do now: Menu.ModifyMenu + SetResponder
+A context is treated as Battle.net when `contextData.bnetIDAccount` is present.
 
-Blizzard built an official addon customization surface into the new Menu
-system, and its design goal is documented in the client source
-(`Blizzard_Menu/11_0_0_MenuImplementationGuide.lua`):
+- Uses the account ID as the Yapper target.
+- Uses chat type `BN_WHISPER`.
+- Uses `contextData.name` when delegating to Blizzard's native BNet tell path.
 
-> "The menu system was designed with consideration to better support addon
-> customization without taint consequences."
+The account ID is used as the overlay target because friend-list names may be
+protected or tokenized. Target values are sanitized before they enter Yapper
+state.
 
-How Yapper uses it (all in `Src/Hooks/UnitPopup.lua`):
+## Overlay and lockdown behavior
 
-1. Every unit popup tags its menu `"MENU_UNIT_<TYPE>"` (e.g.
-   `MENU_UNIT_PLAYER`). `Menu.ModifyMenu(tag, callback)` registers a callback
-   that runs **after** Blizzard's secure generator has finished building the
-   menu, behind a `securecallfunction` boundary — so nothing we do in the
-   callback can retroactively taint the build pass.
-2. In the callback we walk the finished menu with `MenuUtil.TraverseMenu` and
-   find the Whisper element by its label (`MenuUtil.GetElementText(desc) ==
-   WHISPER` — comparing against the same localized global Blizzard used, so
-   this is locale-safe).
-3. We swap that one element's click handler:
-   `desc:SetResponder(function() ... end)`. Menu elements are **per-element
-   proxy objects**; a replaced responder taints only *that element's click*,
-   not its neighbours. Copy Character Name, Set Focus, etc. keep their
-   pristine secure handlers.
-4. Opening a whisper is **not** a protected action, so our tainted whisper
-   click is harmless. The responder routes into
-   `EditBox:OpenWhisperFromUnitMenu(contextData)` and returns
-   `MenuResponse.CloseAll` to close the menu.
+When chat lockdown is active, or the overlay cannot be shown, the handler
+preserves Blizzard behavior:
 
-### Division of labour with the other whisper hooks
+- Character context: `ChatFrameUtil.SendTell`
+- Battle.net context: `ChatFrameUtil.SendBNetTell`
 
-| Entry point | Handled by |
-| --- | --- |
-| Right-click menu → Whisper (character) | `Menu.ModifyMenu` responder → `OpenWhisperFromUnitMenu` |
-| Right-click menu → Whisper (Battle.net) | `Menu.ModifyMenu` responder → `OpenWhisperFromUnitMenu` (BN_WHISPER) |
-| Chat name left-click, LFG, Professions, Communities, ItemRef | `SendTell` hooksecurefunc in `30_ChatFrameHooks.lua` |
-| Non-menu Battle.net whispers (hyperlinks, social UI) | `SendBNetTell` hooksecurefunc in `30_ChatFrameHooks.lua` |
-| Any of the above during chat lockdown | Native Blizzard editbox (all Yapper paths early-return) |
+Yapper's `SendTell` and `SendBNetTell` hooks return early during lockdown, so
+Blizzard's editbox remains authoritative.
 
-Both menu and non-menu character whispers converge on the same helper
-(`EditBox:RetargetOpenWhisper` in `Hooks/ShowHide.lua`) when the overlay is
-already open, so the two entry points cannot drift apart.  BNet menu whispers
-pass `"BN_WHISPER"` as the chat type so `RetargetOpenWhisper` sets the correct
-channel.
+Outside lockdown:
 
-BNet contexts are detected at click time via `contextData.bnetIDAccount` and
-routed to `BN_WHISPER` by the same `Menu.ModifyMenu` responder that handles
-character whispers. The numeric account ID is retained as Yapper's target:
-friend-list `contextData.name` may be a protected/tokenized name, while the
-account ID is safe to carry through the overlay and Router. Numeric BNet
-account targets are sent with `C_BattleNet.SendWhisper`; the label resolves
-the account ID back to a display name. In-game unit targets are never Battle.net
-accounts, so `bnetIDAccount` alone is the reliable discriminator; querying
-`playerLocation:IsBattleNetGUID()` was dropped because it calls
-`C_AccountInfo.IsGUIDBattleNetAccountType(guid)` with the context's secret
-guid, which is rejected under addon taint (our `Menu.ModifyMenu` callback is
-tainted, so the call errored out on contexts such as right-clicking a target
-inside a delve).
+- If the Yapper overlay is already open, `RetargetOpenWhisper` changes the
+  target in place. Battle.net menu whispers pass `BN_WHISPER` so the channel is
+  updated correctly.
+- If the overlay is closed, the native editbox is hidden, its current text is
+  copied to the overlay, and the target and chat type are set on the overlay.
+- The opened target is stored as `_externalWhisperTarget` and is not promoted to
+  the persistent sticky target.
 
-BNet menu whispers are handled directly by the responder (bypassing
-`ChatFrameUtil.SendBNetTell`) because `SendBNetTell` calls `OpenChat("")`
-which short-circuits via `CHAT_FOCUS_OVERRIDE` when the overlay is already
-shown — the resulting `SetFocus()`/`SetText("")` on the overlay caused the
-target to appear briefly then revert to the previous channel. Non-menu BNet
-whispers (hyperlinks, social UI) still go through `SendBNetTell` and are
-caught by the hooksecurefunc, since they don't interact with `CHAT_FOCUS_OVERRIDE`
-in the same way. During lockdown, the responder replicates the native button
-by calling `ChatFrameUtil.SendBNetTell` (BNet) or `ChatFrameUtil.SendTell`
-(character) itself (not protected, safe from tainted code); the hooks
-early-return under lockdown, so Blizzard's editbox takes over with no
-reentrancy.
+## Whisper hook ownership
 
-### Why this kills the race conditions
+| Entry point | Handler | Chat type |
+| --- | --- | --- |
+| Unit popup: character Whisper | `Menu.ModifyMenu` responder | `WHISPER` |
+| Unit popup: Battle.net Whisper | `Menu.ModifyMenu` responder | `BN_WHISPER` |
+| Chat name, LFG, Professions, Communities, ItemRef | `hooksecurefunc(ChatFrameUtil, "SendTell")` | `WHISPER` |
+| Non-menu Battle.net sources, including hyperlinks and social UI | `hooksecurefunc(ChatFrameUtil, "SendBNetTell")` | `BN_WHISPER` |
+| Any source during chat lockdown | Blizzard's native editbox | Native Blizzard state |
 
-The old SendTell-only interception had to fight Blizzard's own editbox
-lifecycle: `SendTell` → `OpenChat` → editbox `Show()` (fires Yapper's show
-hook mid-flight) → `ParseText` → *then* our post-hook. The menu responder
-never touches Blizzard's editbox at all — no `OpenChat`, no `ParseText`, no
-show-hook interplay, no attribute-cache snapshotting. There is simply no
-window for a race.
+Menu Battle.net whispers are handled directly by the menu responder. Non-menu
+Battle.net whispers continue through the `SendBNetTell` hook.
 
-## Rules of thumb (checklist for future menu work)
+Character menu and non-menu paths converge on `RetargetOpenWhisper` when the
+overlay is already visible.
 
-- **Never write** to `UnitPopup*Mixin` tables, `UnitPopupMenus`, or anything
-  Blizzard's secure generator reads. Reading them is fine; writing is poison.
-- To add or change unit menu items, always go through `Menu.ModifyMenu`.
-- Inserting *new* elements is explicitly blessed by Blizzard. Replacing an
-  existing element's responder (what we do) is contained by the proxy design
-  but less explicitly documented — if it ever regresses, the fallback is
-  `desc:HookResponder(fn)` (runs after the native handler) combined with the
-  SendTell hook.
-- Only replace responders for actions that are **not protected**. A tainted
-  responder that calls a protected function will be blocked.
-- Debugging aids:
-  - `/console taintLog 1`, reproduce, then check `Logs/taint.log`.
-  - `/run Menu.PrintOpenMenuTags()` while a menu is open to find its tag.
-  - `/eventtrace` shows `Menu.OpenMenuTag` events when tagged menus open.
-- Regression test after any change here: open a player menu and click
-  **Copy Character Name** and **Set Focus** — both must work with no
-  "blocked action" popup — then verify Whisper opens the Yapper overlay,
-  retargets an already-open overlay, and falls back to Blizzard's box during
-  combat lockdown.
+## Taint constraints
+
+- Use `Menu.ModifyMenu` for unit-menu customization.
+- Do not modify `UnitPopup*Mixin`, `UnitPopupMenus`, or secure generator input.
+- Replace only the Whisper element's responder. Other menu elements retain
+  Blizzard's responders.
+- Keep protected actions such as **Copy Character Name** and **Set Focus** on
+  Blizzard's handlers.
+- The replacement responder must route only through the unprotected chat APIs
+  and Yapper overlay methods used by `OpenWhisperFromUnitMenu`.
+
+## Verification
+
+After changing this integration:
+
+1. Open a player unit menu.
+2. Verify **Whisper** opens or retargets the Yapper overlay.
+3. Verify **Copy Character Name** and **Set Focus** still work without a blocked
+   action error.
+4. Test character and Battle.net targets.
+5. Test the same actions during chat lockdown and verify that Blizzard's editbox
+   is used.
+
+Useful diagnostics:
+
+- `/console taintLog 1`, then inspect `Logs/taint.log`.
+- `/run Menu.PrintOpenMenuTags()` while a menu is open.
+- `/eventtrace` for `Menu.OpenMenuTag` events.
