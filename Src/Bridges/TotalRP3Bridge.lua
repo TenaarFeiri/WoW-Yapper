@@ -9,6 +9,7 @@ local _, YapperTable = ...
 local TotalRP3Bridge = {}
 YapperTable.TotalRP3Bridge = TotalRP3Bridge
 TotalRP3Bridge._initialised = false
+TotalRP3Bridge._languageHooked = false
 
 local function IsTRP3Loaded()
     if C_AddOns and C_AddOns.IsAddOnLoaded then
@@ -93,11 +94,14 @@ end
 
 --- Call once during startup (self-initialising).
 function TotalRP3Bridge:Init()
-    -- Prevent multiple initialisations
-    if self._initialised then return end
-    self._initialised = true
+    -- Initialise the API-facing bridge once, but allow a later retry of the
+    -- TRP3 language hook if TRP3 finishes constructing its Languages table
+    -- after Yapper's first login callback.
+    if not self._initialised then
+        if not (_G.YapperAPI and type(_G.YapperAPI.RegisterFilter) == "function") then
+            return false
+        end
 
-    if _G.YapperAPI and type(_G.YapperAPI.RegisterFilter) == "function" then
         self._labelFilterHandle = _G.YapperAPI:RegisterFilter("PRE_EDITBOX_LABEL", function(payload)
             if type(payload) ~= "table" then return payload end
             if payload.chatType ~= "EMOTE" then return payload end
@@ -109,17 +113,16 @@ function TotalRP3Bridge:Init()
             end
             return payload
         end, 10)
+
+        -- Register the unformatted TRP3 text format as an atomic token.
+        -- This prevents Yapper's chunker from splitting "[TRP3:Identifier]" links.
+        _G.YapperAPI:RegisterAtomicPattern("%[TRP3:[^%]]+%]")
+        self._initialised = true
     end
 
-    -- We only need to register the protocols if Yapper API is available.
-    if not _G.YapperAPI then return end
-
-    -- Register the unformatted TRP3 text format as an atomic token.
-    -- This prevents Yapper's chunker from splitting "[TRP3:Identifier]" links.
-    _G.YapperAPI:RegisterAtomicPattern("%[TRP3:[^%]]+%]")
-
-    -- Hook into TRP3's language system to catch their language changes
-    if _G.AddOn_TotalRP3 and _G.AddOn_TotalRP3.Languages then
+    -- Hook into TRP3's language system to catch their language changes.
+    if not self._languageHooked
+        and _G.AddOn_TotalRP3 and _G.AddOn_TotalRP3.Languages then
         local TRP3Languages = _G.AddOn_TotalRP3.Languages
         if TRP3Languages.setLanguage then
             hooksecurefunc(TRP3Languages, "setLanguage", function(language)
@@ -152,11 +155,24 @@ function TotalRP3Bridge:Init()
                         if YapperTable.EditBox.LastUsed then
                             YapperTable.EditBox.LastUsed.language = languageID
                         end
+                        if type(YapperTable.EditBox.PersistLastUsed) == "function" then
+                            YapperTable.EditBox:PersistLastUsed()
+                        end
+                        local utils = YapperTable.Utils
+                        local locked = utils and utils.IsChatOrCombatLockdown
+                            and utils:IsChatOrCombatLockdown()
+                        if not locked
+                            and YapperTable.EditBox.Overlay
+                            and YapperTable.EditBox.Overlay:IsShown()
+                            and type(YapperTable.EditBox.RefreshLabel) == "function" then
+                            YapperTable.EditBox:RefreshLabel()
+                        end
                     end
 
                     YapperTable.Utils:VerbosePrint("TRP3 language change: " .. tostring(languageName) .. " (ID: " .. tostring(languageID) .. ")")
                 end
             end)
+            self._languageHooked = true
         end
     end
 end

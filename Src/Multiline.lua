@@ -972,6 +972,10 @@ function Multiline:Submit()
 	end
 
 	-- Use the shared send pipeline for the whole composition.
+	if eb and type(eb.SyncLanguageFromNative) == "function" then
+		eb:SyncLanguageFromNative()
+		self.Language = eb.Language or self.Language
+	end
 	local chatType = self.ChatType
 	local language = YapperTable.Core:GetCharacterLanguage(self.Language or (eb and eb.LastUsed and eb.LastUsed.language))
 	local target   = self.Target

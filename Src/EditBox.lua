@@ -661,6 +661,64 @@ function EditBox:SetOnSend(fn)
     self.OnSend = fn
 end
 
+--- Reconcile a language selected through Blizzard or another addon.
+--- Blizzard's SetGameLanguage and TRP3's Languages.setLanguage both write the
+--- native editbox's languageID directly, so this is intentionally a read-side
+--- fallback in addition to the method hooks. It keeps Yapper's send state in
+--- sync without treating raid membership as a language restriction.
+function EditBox:SyncLanguageFromNative(blizzEditBox)
+    local candidates = {}
+    if blizzEditBox then
+        candidates[#candidates + 1] = blizzEditBox
+    else
+        -- Character language is global. Prefer the default native editbox,
+        -- which is the owner used by Blizzard's language menu and by TRP3,
+        -- before an alternate/proxy chat-frame editbox.
+        candidates[#candidates + 1] = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox
+        candidates[#candidates + 1] = self.OrigEditBox
+        candidates[#candidates + 1] = _G.ChatFrame1EditBox
+    end
+
+    local languageID
+    for _, candidate in ipairs(candidates) do
+        if candidate then
+            local ok, value = pcall(function()
+                local current = candidate.languageID
+                if current == nil and type(candidate.GetLanguageID) == "function" then
+                    current = candidate:GetLanguageID()
+                end
+                return current
+            end)
+            if ok and value ~= nil then
+                languageID = value
+                break
+            end
+        end
+    end
+    if type(languageID) == "string" then
+        local numericID = tonumber(languageID)
+        if numericID then
+            languageID = numericID
+        elseif YapperTable.Core then
+            languageID = YapperTable.Core:GetCharacterLanguage(languageID)
+        end
+    end
+    if Utils and type(Utils.SanitizeNumber) == "function" then
+        languageID = Utils:SanitizeNumber(languageID)
+    end
+    if languageID == nil then return false end
+
+    local changed = self.Language ~= languageID
+    self.Language = languageID
+    if self.LastUsed then
+        self.LastUsed.language = languageID
+    end
+    if changed and type(self.PersistLastUsed) == "function" then
+        self:PersistLastUsed()
+    end
+    return changed
+end
+
 --- If fn(blizzEditBox) returns true, the overlay is suppressed.
 --- Used by Queue to consume hardware events for send continuation.
 function EditBox:SetPreShowCheck(fn)
