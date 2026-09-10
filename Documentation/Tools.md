@@ -185,9 +185,10 @@ Copy the generated `BLOCKED_HASHES` table into the target language engine's
 
 ### `tools/find_orphans.py`
 
-Performs a regex-based structural audit across the repository and reports
-function/variable definitions with no additional references. It also reports a
-small British-English naming consistency check:
+Performs a regex-based structural audit of production Lua sources and reports
+function/variable definitions with no additional references. It skips `tools/`,
+`scratch/`, `.release/`, dictionary `backup/` directories, and test/fixture
+directories. It also reports a small British-English naming consistency check:
 
 ```sh
 python3 tools/find_orphans.py
