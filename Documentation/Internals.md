@@ -262,15 +262,14 @@ Bound when overlay exists; reacts to text/cursor updates.
 
 - Description: UI state machine for recolour refresh, hint, and suggestions.
 - Methods:
-  - `Spellcheck:GetScrollOffset() → number`: Derive the horizontal scroll offset of a single-line EditBox. ([`../Src/Spellcheck/UI.lua#L1281`](../Src/Spellcheck/UI.lua#L1281))
-  - `Spellcheck:MeasureText(text) → number`: Measure text width using a FontString matching the editbox's current font and spacing. ([`../Src/Spellcheck/UI.lua#L1255`](../Src/Spellcheck/UI.lua#L1255))
-  - `Spellcheck:ApplyOverlayFont(fontString, maxSize) → number`: Apply the editbox's font to a FontString, optionally clamped to maxSize. Returns the effective size. ([`../Src/Spellcheck/UI.lua#L1241`](../Src/Spellcheck/UI.lua#L1241))
-  - `Spellcheck:GetCaretXOffset() → number`: Compute the X offset of the caret for tooltip positioning, clamped to the visible text area. ([`../Src/Spellcheck/UI.lua#L1214`](../Src/Spellcheck/UI.lua#L1214))
-  - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L616`](../Src/Spellcheck/UI.lua#L616))
+  - `Spellcheck:GetScrollOffset() → number`: Derive the horizontal scroll offset of a single-line EditBox. ([`../Src/Spellcheck/UI.lua#L1228`](../Src/Spellcheck/UI.lua#L1228))
+  - `Spellcheck:MeasureText(text) → number`: Measure text width using a FontString matching the editbox's current font and spacing. ([`../Src/Spellcheck/UI.lua#L1202`](../Src/Spellcheck/UI.lua#L1202))
+  - `Spellcheck:ApplyOverlayFont(fontString, maxSize) → number`: Apply the editbox's font to a FontString, optionally clamped to maxSize. Returns the effective size. ([`../Src/Spellcheck/UI.lua#L1188`](../Src/Spellcheck/UI.lua#L1188))
+  - `Spellcheck:GetCaretXOffset() → number`: Compute the X offset of the caret for tooltip positioning, clamped to the visible text area. ([`../Src/Spellcheck/UI.lua#L1161`](../Src/Spellcheck/UI.lua#L1161))
+  - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L563`](../Src/Spellcheck/UI.lua#L563))
   - `Bind` ([`../Src/Spellcheck/UI.lua#L31`](`../Src/Spellcheck/UI.lua#L31`))
   - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L68`](`../Src/Spellcheck/UI.lua#L68`))
   - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L125`](`../Src/Spellcheck/UI.lua#L125`))
-  - `PurgeOtherDictionaries` ([`../Src/Spellcheck/UI.lua#L159`](`../Src/Spellcheck/UI.lua#L159`))
   - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L213`](`../Src/Spellcheck/UI.lua#L213`))
   - `ApplyState` ([`../Src/Spellcheck/UI.lua#L255`](`../Src/Spellcheck/UI.lua#L255`))
   - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L286`](`../Src/Spellcheck/UI.lua#L286`))
@@ -401,11 +400,10 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 - Methods:
   - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L433`](../Src/EditBox.lua#L433))
   - `EditBox:GetActiveEditor() → table|nil`: Return Yapper's currently visible chat editor, preferring multiline while it is open and falling back to the single-line overlay. ([`../Src/EditBox.lua#L96`](../Src/EditBox.lua#L96))
-  - `EditBox:ApplyProgrammaticPrefill(text, box) → nil`: Apply text prefill to the overlay editbox and mirror any UX side-effects ([`../Src/EditBox.lua#L668`](../Src/EditBox.lua#L668))
   - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L638`](../Src/EditBox.lua#L638))
   - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L616`](../Src/EditBox.lua#L616))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L702`](../Src/EditBox.lua#L702))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L691`](../Src/EditBox.lua#L691))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L683`](../Src/EditBox.lua#L683))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L672`](../Src/EditBox.lua#L672))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L109`](../Src/EditBox.lua#L109))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
@@ -649,7 +647,6 @@ Called from `Chat:SendPosts` for every post, oversized or not, so that `PRE_CHUN
     - Fires the `PRE_CHUNK` filter once per contiguous text unit (after paragraph isolation). Returns `nil` when a filter cancels the send.
     - Honours `payload.continuationPrefix` set by a `PRE_CHUNK` filter, charging it against the byte budget of every chunk after the first.
     - Continuation chunks are assembled as `<delineator><continuationPrefix><text>`, or `<continuationPrefix><delineator><text>` when the filter sets `payload.continuationPrefixFirst`.
-  - `Chunking:GetDelineators() → table` ([`../Src/Chunking.lua#L632`](../Src/Chunking.lua#L632))
 
 ## Queue
 
@@ -755,7 +752,6 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Exit` ([`../Src/Multiline.lua#L773`](`../Src/Multiline.lua#L773`))
   - `Submit` ([`../Src/Multiline.lua#L901`](`../Src/Multiline.lua#L901`))
   - `Cancel` ([`../Src/Multiline.lua#L998`](`../Src/Multiline.lua#L998`))
-  - `HandleEscape` ([`../Src/Multiline.lua#L1088`](`../Src/Multiline.lua#L1088`)) — handles the ESC key; returns true to close, false to ignore (e.g. closing sub-UI first).
   - `ApplyTheme` ([`../Src/Multiline.lua#L1097`](`../Src/Multiline.lua#L1097`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
@@ -904,7 +900,7 @@ Builds and controls top-level frames.
 - Fields:
   - `_activeCategory` *private by convention; do not rely on* ([`../Src/Interface/Window.lua#L175`](../Src/Interface/Window.lua#L175)).
 - Methods:
-  - `Interface:CreateFullscreenDimmer(alpha) → Frame`: Create a fullscreen modal dimmer shared by welcome and What's New popups. ([`../Src/Interface/Window.lua#L272`](../Src/Interface/Window.lua#L272))
+  - `Interface:CreateFullscreenDimmer(alpha) → Frame`: Create a fullscreen modal dimmer shared by welcome and What's New popups. ([`../Src/Interface/Window.lua#L263`](../Src/Interface/Window.lua#L263))
   - `Interface:ForEachWhatsNewVersion(limitToOne, callback) → nil`: Iterate through changelog versions in display order, passing each version and note array to the callback. ([`../Src/Interface/Window.lua#L218`](../Src/Interface/Window.lua#L218))
   - `CompareVersions` — Compares semantic version strings. ([`../Src/Interface/Window.lua#L194`](../Src/Interface/Window.lua#L194))
   - `GetSortedVersions` — Returns WHATS_NEW entries sorted by version. ([`../Src/Interface/Window.lua#L205`](../Src/Interface/Window.lua#L205))
@@ -917,7 +913,6 @@ Builds and controls top-level frames.
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
   - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L286`](`../Src/Interface/Window.lua#L286`))
-  - `ShouldShowWhatsNew` ([`../Src/Interface/Window.lua#L305`](`../Src/Interface/Window.lua#L305`))
   - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L340`](`../Src/Interface/Window.lua#L340`))
   - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L344`](`../Src/Interface/Window.lua#L344`))
   - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L401`](`../Src/Interface/Window.lua#L401`))
