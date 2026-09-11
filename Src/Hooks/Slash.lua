@@ -27,6 +27,21 @@ function EditBox:ForwardSlashCommand(text)
         return
     end
 
+    -- During combat lockdown, commands that invoke protected Blizzard APIs
+    -- (/m opening the macro frame, /cast, /target, ...) trip "Interface
+    -- action blocked" when dispatched through our tainted call. Print an
+    -- explanation instead of forwarding.
+    local utils  = YapperTable.Utils
+    local policy = YapperTable.LockdownPolicy
+    if utils and utils:IsCombatLockdown()
+        and policy and type(policy.IsProtectedSlashCommand) == "function" then
+        local command = text:match("^%s*(/%S+)")
+        if command and policy:IsProtectedSlashCommand(command) then
+            utils:Print("warn", command .. " is a protected command and can't be used during combat lockdown.")
+            return
+        end
+    end
+
     local chosenCT = self:GetResolvedChatType(self.ChatType)
     local eb = self.OrigEditBox
     local overrideCT = CHATTYPE_TO_OVERRIDE_KEY[chosenCT] or chosenCT
