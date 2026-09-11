@@ -825,6 +825,9 @@ function Interface:CreateMainWindow()
         "BasicFrameTemplateWithInset"
     )
     Interface.MainWindowFrame = frame
+    frame:SetFrameStrata("DIALOG")
+    frame:SetFrameLevel(100)
+    frame:SetToplevel(true)
     frame:Hide()
 
     -- Allow ESC to close the settings window.
@@ -876,13 +879,11 @@ function Interface:CreateMainWindow()
     fontRow:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, 0)
 
     local fontLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fontLabel:SetPoint("LEFT", fontRow, "LEFT", 4, 0)
     fontLabel:SetText("Font:")
     fontLabel:SetTextColor(0.7, 0.7, 0.7, 1)
 
     -- Current size readout.
     local sizeLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    sizeLabel:SetPoint("CENTER", fontRow, "CENTER", 0, 0)
     frame.FontScaleLabel = sizeLabel
 
     -- Minus button.
@@ -897,10 +898,15 @@ function Interface:CreateMainWindow()
     minusHl:SetColorTexture(1, 1, 1, 0.08)
     frame.FontMinusBtn = minusBtn
 
+    fontLabel:SetPoint("LEFT", fontRow, "LEFT", 4, 0)
+    fontLabel:SetPoint("RIGHT", minusBtn, "LEFT", -4, 0)
+    fontLabel:SetWordWrap(false)
+    fontLabel:SetMaxLines(1)
+
     -- Plus button.
     local plusBtn = CreateFrame("Button", nil, fontRow)
     plusBtn:SetSize(20, 20)
-    plusBtn:SetPoint("LEFT", sizeLabel, "RIGHT", 4, 0)
+    plusBtn:SetPoint("RIGHT", fontRow, "RIGHT", -4, 0)
     plusBtn:SetNormalFontObject(GameFontNormal)
     plusBtn:SetHighlightFontObject(GameFontHighlight)
     plusBtn:SetText("+")
@@ -908,6 +914,8 @@ function Interface:CreateMainWindow()
     plusHl:SetAllPoints()
     plusHl:SetColorTexture(1, 1, 1, 0.08)
     frame.FontPlusBtn = plusBtn
+
+    sizeLabel:SetPoint("RIGHT", plusBtn, "LEFT", -4, 0)
 
     minusBtn:SetScript("OnClick", function()
         local cur = Interface:GetUIFontOffset()
@@ -954,7 +962,11 @@ function Interface:CreateMainWindow()
         -- Label
         local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", btn, "LEFT", 8, 0)
+        label:SetPoint("RIGHT", btn, "RIGHT", -8, 0)
+        label:SetWordWrap(false)
+        label:SetMaxLines(1)
         label:SetText(cat.label)
+        label._yCategoryLabel = cat.label
         btn.Label = label
 
         -- Highlight texture

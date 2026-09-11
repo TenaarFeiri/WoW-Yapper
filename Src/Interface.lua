@@ -464,6 +464,13 @@ function Interface:BuildConfigUI()
     local frame = self.MainWindowFrame
     if not frame or not frame.ContentFrame then return end
 
+    local _, baseFontSize = GameFontNormal:GetFont()
+    baseFontSize = baseFontSize or 12
+    local uiFontOffset = self:GetUIFontOffset()
+    local windowScale = math_max(1, math_min(1.5,
+        (baseFontSize + math_max(0, uiFontOffset)) / baseFontSize))
+    frame:SetSize(LAYOUT.WINDOW_WIDTH * windowScale, LAYOUT.WINDOW_HEIGHT * windowScale)
+
     self:ClearConfigControls()
 
     -- Reset scroll position when rebuilding (e.g. category switch).
@@ -736,6 +743,16 @@ function Interface:BuildConfigUI()
     -- Apply UI font scaling and refresh the sidebar size readout.
     self:RefreshFontScaleLabel()
     self:ApplyUIFontScale()
+
+    for _, button in pairs(frame.SidebarButtons or {}) do
+        local label = button.Label
+        if label and not button._yCategoryTooltipAttached
+            and label._yCategoryLabel
+            and (label:GetStringWidth() or 0) > (label:GetWidth() or 0) then
+            self:AttachTooltip(button, label._yCategoryLabel)
+            button._yCategoryTooltipAttached = true
+        end
+    end
 end
 
 function Interface:ShowMainWindow()
@@ -759,6 +776,7 @@ function Interface:ShowMainWindow()
     end
     
     Interface.MainWindowFrame:Show()
+    Interface.MainWindowFrame:Raise()
     Interface:BuildConfigUI()
 end
 
@@ -786,6 +804,7 @@ function Interface:OpenToCategory(catId)
     end
     
     Interface.MainWindowFrame:Show()
+    Interface.MainWindowFrame:Raise()
     Interface:BuildConfigUI()
 end
 
