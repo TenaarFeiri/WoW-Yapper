@@ -933,15 +933,18 @@ function Interface:CreateChangelogPage(parent, cursor)
 
             -- Clean body text of trailing newlines/spaces
             local cleanBody = (entry.body or ""):match("^%s*(.-)%s*$")
-            local bLabel = self:CreateLabel(parent, cleanBody, LAYOUT.WINDOW_PADDING + 12, cursor:Y(), textW - 12, nil, "GameFontHighlightSmall", true)
+            local bLabel = self:AcquireWidget("ChangelogBody", parent, "GameFontHighlightSmall", "FontString")
+            bLabel:SetFontObject("GameFontHighlightSmall")
             bLabel:SetTextColor(0.8, 0.8, 0.8, 1)
+            bLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 12, cursor:Y())
+            bLabel:SetWidth(textW - 12)
+            bLabel:SetJustifyH("LEFT")
             bLabel:SetWordWrap(true)
             local bFont, _, bFlags = bLabel:GetFont()
             bLabel:SetFont(bFont, math_max(8, cfgSize + uiOffset), bFlags)
-
-            -- Force layout refresh by re-setting text after font/wrap changes
             bLabel:SetText(cleanBody)
             bLabel._ySkipUIFontScale = true
+            self:AddControl(bLabel)
             cursor:Advance(bLabel:GetStringHeight() + 10)
         end
         cursor:Pad(6)
