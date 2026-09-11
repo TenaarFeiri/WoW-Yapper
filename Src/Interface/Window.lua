@@ -825,6 +825,9 @@ function Interface:CreateMainWindow()
         "BasicFrameTemplateWithInset"
     )
     Interface.MainWindowFrame = frame
+    frame:SetFrameStrata("DIALOG")
+    frame:SetFrameLevel(100)
+    frame:SetToplevel(true)
     frame:Hide()
 
     -- Allow ESC to close the settings window.
@@ -876,13 +879,11 @@ function Interface:CreateMainWindow()
     fontRow:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, 0)
 
     local fontLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fontLabel:SetPoint("LEFT", fontRow, "LEFT", 4, 0)
     fontLabel:SetText("Font:")
     fontLabel:SetTextColor(0.7, 0.7, 0.7, 1)
 
     -- Current size readout.
     local sizeLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    sizeLabel:SetPoint("CENTER", fontRow, "CENTER", 0, 0)
     frame.FontScaleLabel = sizeLabel
 
     -- Minus button.
@@ -897,10 +898,15 @@ function Interface:CreateMainWindow()
     minusHl:SetColorTexture(1, 1, 1, 0.08)
     frame.FontMinusBtn = minusBtn
 
+    fontLabel:SetPoint("LEFT", fontRow, "LEFT", 4, 0)
+    fontLabel:SetPoint("RIGHT", minusBtn, "LEFT", -4, 0)
+    fontLabel:SetWordWrap(false)
+    fontLabel:SetMaxLines(1)
+
     -- Plus button.
     local plusBtn = CreateFrame("Button", nil, fontRow)
     plusBtn:SetSize(20, 20)
-    plusBtn:SetPoint("LEFT", sizeLabel, "RIGHT", 4, 0)
+    plusBtn:SetPoint("RIGHT", fontRow, "RIGHT", -4, 0)
     plusBtn:SetNormalFontObject(GameFontNormal)
     plusBtn:SetHighlightFontObject(GameFontHighlight)
     plusBtn:SetText("+")
@@ -908,6 +914,8 @@ function Interface:CreateMainWindow()
     plusHl:SetAllPoints()
     plusHl:SetColorTexture(1, 1, 1, 0.08)
     frame.FontPlusBtn = plusBtn
+
+    sizeLabel:SetPoint("RIGHT", plusBtn, "LEFT", -4, 0)
 
     minusBtn:SetScript("OnClick", function()
         local cur = Interface:GetUIFontOffset()
@@ -954,7 +962,11 @@ function Interface:CreateMainWindow()
         -- Label
         local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", btn, "LEFT", 8, 0)
+        label:SetPoint("RIGHT", btn, "RIGHT", -8, 0)
+        label:SetWordWrap(false)
+        label:SetMaxLines(1)
         label:SetText(cat.label)
+        label._yCategoryLabel = cat.label
         btn.Label = label
 
         -- Highlight texture
@@ -1044,25 +1056,30 @@ function Interface:ScaledRow(base)
     return base + self:GetUIFontOffset()
 end
 
---- Walk every FontString under the settings window and set its size to
---- the Blizzard base size + the user's offset.
-function Interface:ApplyUIFontScale()
-    local offset = self:GetUIFontOffset()
-    local frame  = self.MainWindowFrame
-    if not frame then return end
+--- Set a settings-panel FontString to the current UI font size.
+function Interface:ApplyUIFontScaleToFontString(fontString)
+    if not fontString then return end
 
-    -- Query the Blizzard base once per pass.
+    local offset = self:GetUIFontOffset()
     local _, blizzBase = GameFontNormal:GetFont()
     blizzBase = blizzBase or 12
     local targetSize = math_max(8, blizzBase + offset)
+    local fontFile, _, fontFlags = fontString:GetFont()
+    if fontFile then
+        fontString:SetFont(fontFile, targetSize, fontFlags or "")
+    end
+end
+
+--- Walk every FontString under the settings window and set its size to
+--- the Blizzard base size + the user's offset.
+function Interface:ApplyUIFontScale()
+    local frame  = self.MainWindowFrame
+    if not frame then return end
 
     local function scaleRegions(parent)
         for _, region in pairs({ parent:GetRegions() }) do
-            if region:IsObjectType("FontString") then
-                local fontFile, _, fontFlags = region:GetFont()
-                if fontFile then
-                    region:SetFont(fontFile, targetSize, fontFlags or "")
-                end
+            if region:IsObjectType("FontString") and not region._ySkipUIFontScale then
+                self:ApplyUIFontScaleToFontString(region)
             end
         end
         for _, child in pairs({ parent:GetChildren() }) do

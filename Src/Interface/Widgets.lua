@@ -98,6 +98,9 @@ function Interface:AcquireWidget(widgetType, parent, template, frameType)
     end
 
     widget._inPool = false
+    widget._ySkipUIFontScale = nil
+    widget._yButtonTooltip = nil
+    widget._yButtonTooltipAttached = nil
 
     -- Ensure visibility above parent (fixes vanishing buttons behind backgrounds)
     if widget.SetFrameLevel then
@@ -304,7 +307,7 @@ end
 function Interface:CreateResetButton(parent, x, y, onClick)
     -- Shared reset control helper for scalar/color rows.
     local btn = self:AcquireWidget("ResetButton", parent, "UIPanelButtonTemplate", "Button")
-    btn:SetSize(58, 22)
+    btn:SetSize(Interface._ScaleButtonWidth(58), 22)
     btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     btn:SetText("Reset")
     btn:SetEnabled(true)
@@ -661,7 +664,7 @@ function Interface:CreateColorPickerControl(parent, label, path, cursor)
     local fullPath = JoinPath(path)
 
     local btn = self:AcquireWidget("ColorPickerButton", parent, "UIPanelButtonTemplate", "Button")
-    btn:SetSize(120, 22)
+    btn:SetSize(Interface._ScaleButtonWidth(120), 22)
     btn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.CONTROL_X, y)
 
     local swatch = btn.swatch
@@ -680,6 +683,7 @@ function Interface:CreateColorPickerControl(parent, label, path, cursor)
         labelFS:SetText("Pick colour")
         btn.labelFS = labelFS
     end
+    btn._yButtonTooltip = self:GetTooltip(fullPath)
 
     -- Keep swatch in sync with live config state.
     local function refreshSwatch()

@@ -464,6 +464,13 @@ function Interface:BuildConfigUI()
     local frame = self.MainWindowFrame
     if not frame or not frame.ContentFrame then return end
 
+    local _, baseFontSize = GameFontNormal:GetFont()
+    baseFontSize = baseFontSize or 12
+    local uiFontOffset = self:GetUIFontOffset()
+    local windowScale = math_max(1, math_min(1.5,
+        (baseFontSize + math_max(0, uiFontOffset)) / baseFontSize))
+    frame:SetSize(LAYOUT.WINDOW_WIDTH * windowScale, LAYOUT.WINDOW_HEIGHT * windowScale)
+
     self:ClearConfigControls()
 
     -- Reset scroll position when rebuilding (e.g. category switch).
@@ -706,7 +713,7 @@ function Interface:BuildConfigUI()
         -- Moved to Interface:InitPopups() called at boot.
 
         local resetBtn = self:AcquireWidget("ActionButton", frame.ContentFrame, "UIPanelButtonTemplate", "Button")
-        resetBtn:SetSize(160, 24)
+        resetBtn:SetSize(self._ScaleButtonWidth(160), 24)
         resetBtn:SetPoint("TOPLEFT", frame.ContentFrame, "TOPLEFT", LAYOUT.WINDOW_PADDING, cursor:Y() - 28)
         resetBtn:SetText("Reset to Defaults")
         resetBtn:SetScript("OnClick", function()
@@ -716,7 +723,7 @@ function Interface:BuildConfigUI()
         cursor:Advance(44)
         
         local factoryBtn = self:AcquireWidget("ActionButton", frame.ContentFrame, "UIPanelButtonTemplate", "Button")
-        factoryBtn:SetSize(160, 24)
+        factoryBtn:SetSize(self._ScaleButtonWidth(160), 24)
         factoryBtn:SetPoint("TOPLEFT", frame.ContentFrame, "TOPLEFT", LAYOUT.WINDOW_PADDING, cursor:Y() - 28)
         factoryBtn:SetText("Factory Reset")
         factoryBtn:SetScript("OnClick", function()
@@ -736,6 +743,42 @@ function Interface:BuildConfigUI()
     -- Apply UI font scaling and refresh the sidebar size readout.
     self:RefreshFontScaleLabel()
     self:ApplyUIFontScale()
+
+    for _, control in ipairs(self.DynamicControls or {}) do
+        if control.IsObjectType and control:IsObjectType("Button") then
+            local label = control.labelFS
+            if not label and control.GetFontString then
+                label = control:GetFontString()
+            end
+            if label then
+                local naturalWidth = label:GetStringWidth() or 0
+                local inset = control.labelFS and 38 or 12
+                local availableWidth = math_max(0, control:GetWidth() - inset)
+                label:SetWidth(availableWidth)
+                label:SetWordWrap(false)
+                label:SetMaxLines(1)
+
+                local text = label:GetText()
+                local isTruncated = label.IsTruncated and label:IsTruncated()
+                if text and (isTruncated or naturalWidth > availableWidth)
+                    and not control._yButtonTooltipAttached then
+                    self:AttachTooltip(control, control._yButtonTooltip or text,
+                        control._yButtonTooltip and text or nil)
+                    control._yButtonTooltipAttached = true
+                end
+            end
+        end
+    end
+
+    for _, button in pairs(frame.SidebarButtons or {}) do
+        local label = button.Label
+        if label and not button._yCategoryTooltipAttached
+            and label._yCategoryLabel
+            and (label:GetStringWidth() or 0) > (label:GetWidth() or 0) then
+            self:AttachTooltip(button, label._yCategoryLabel)
+            button._yCategoryTooltipAttached = true
+        end
+    end
 end
 
 function Interface:ShowMainWindow()
@@ -759,6 +802,8 @@ function Interface:ShowMainWindow()
     end
     
     Interface.MainWindowFrame:Show()
+    Interface.MainWindowFrame:Raise()
+    Interface:BuildConfigUI()
 end
 
 --- Open the settings window on a specific sidebar category.
@@ -776,7 +821,6 @@ function Interface:OpenToCategory(catId)
 
     Interface._activeCategory = catId or "help"
     Interface:UpdateSidebarSelection()
-    Interface:BuildConfigUI()
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
     if YapperTable.State and type(YapperTable.State.ToConfig) == "function" then
@@ -786,6 +830,8 @@ function Interface:OpenToCategory(catId)
     end
     
     Interface.MainWindowFrame:Show()
+    Interface.MainWindowFrame:Raise()
+    Interface:BuildConfigUI()
 end
 
 function Interface:ToggleMainWindow()
@@ -874,7 +920,6 @@ function Interface:Init()
 
     Interface:SanitizeLocalConfig()
     Interface:CreateMainWindow()
-    Interface:BuildConfigUI()
 
     -- Then we're gonna hook into Show() and Hide() to track visibility.
     hooksecurefunc(Interface.MainWindowFrame, "Show", function()
@@ -1029,4 +1074,10 @@ function Interface:CreateLauncher()
 
         self:ApplyMinimapButtonVisibility()
     end
+end
+
+Interface._ScaleButtonWidth = function(base)
+    local offset = math_max(0, Interface:GetUIFontOffset())
+    local growth = math_min(0.35, offset / UI_FONT_MAX_OFFSET * 0.35)
+    return base * (1 + growth)
 end

@@ -21,6 +21,26 @@ end
 
 YapperTable.WHATS_NEW = {
     -- New entries can use the helpers above to keep the data compact.
+    ["2.4.3"] = release(
+        note("Settings window scales with font size",
+            "The settings window now grows proportionally with the configured UI font size, up to 150% of the default dimensions, so everything stays readable at larger fonts."),
+        note("Tooltips complete truncated labels",
+            "When a settings label is truncated to fit its bounds, hovering it now shows the full text as a tooltip."),
+        note("Settings buttons scale with font size",
+            "Action buttons in the settings window now grow to the right (up to 35% wider) as the UI font size increases, so their text never overflows."),
+        note(
+            "Bug Fixes",
+            "- Speculative fix for issue where sometimes the editbox values can be secret.\n\n"
+                .. "- Resolved potential n-gram collisions in dictionaries.\n\n"
+                .. "- Fixed a whole lot more secret problems propagating downstream from whispering while in challenge mode (M+).\n\n"
+                .. "- Fixed many legal chat commands failing to work after the above changes.\n\n"
+                .. "- Fixed issue where right-clicking a target while in an instance would produce a secret error.\n\n"
+                .. "- Fixed regression in beta version where emotes didn't fire correctly and necessary compatibility shims were removed.\n\n"
+                .. "- Patched a hole with language selection that would absolutely have caused a downstream bug.\n\n"
+                .. "- Slash commands that trigger protected actions (like `/m` opening the macro window) now print an explanation during combat lockdown instead of \"Interface action blocked\".\n\n"
+                .. "- Fixed issue where resizing font text in Settings caused text overlap."
+        )
+    ),
     ["2.4.2"] = release(
         note("Discord Integration", "Yapper now tentatively supports the new Discord integration."),
         note(
