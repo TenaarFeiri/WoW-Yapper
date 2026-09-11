@@ -78,19 +78,26 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         refreshRows()
     end
 
-    local resetAllBtn = self:CreateResetButton(parent, 290, y - 2, function()
+    local colorX = 132
+    local colorWidth = Interface._ScaleButtonWidth(72)
+    local resetWidth = Interface._ScaleButtonWidth(50)
+    local resetX = colorX + colorWidth + 4
+    local masterX = resetX + resetWidth
+    local modeX = masterX + 40
+
+    local resetAllBtn = self:CreateResetButton(parent, LAYOUT.WINDOW_PADDING + 350, y - 2, function()
         resetAllChannelColors()
     end)
-    resetAllBtn:SetSize(74, 20)
+    resetAllBtn:SetSize(Interface._ScaleButtonWidth(74), 20)
     resetAllBtn:SetText("Reset all")
     self:AttachTooltip(resetAllBtn, self:GetTooltip("CHANNEL.RESET_ALL"))
 
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHANNEL_HEADER))
     y = cursor:Y()
 
-    self:CreateLabel(parent, "Colour", 136, y, 60)
-    self:CreateLabel(parent, "Master", 252, y, 40, self:GetTooltip("CHANNEL.MASTER"))
-    self:CreateLabel(parent, "Mode", 298, y, 110, self:GetTooltip("CHANNEL.MODE"))
+    self:CreateLabel(parent, "Colour", colorX + 4, y, 60)
+    self:CreateLabel(parent, "Master", masterX - 6, y, 40, self:GetTooltip("CHANNEL.MASTER"))
+    self:CreateLabel(parent, "Mode", modeX, y, 110, self:GetTooltip("CHANNEL.MODE"))
 
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_CHANNEL_LABELS))
     y = cursor:Y()
@@ -137,8 +144,8 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         self:CreateLabel(parent, option.label, LAYOUT.LABEL_X, y - 2, LAYOUT.LABEL_WIDTH)
 
         local colorBtn = self:AcquireWidget("ColorPickerButtonSmall", parent, "UIPanelButtonTemplate", "Button")
-        colorBtn:SetSize(72, 20)
-        colorBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 132, y + 1)
+        colorBtn:SetSize(colorWidth, 20)
+        colorBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", colorX, y + 1)
         colorBtn:SetText("Pick")
 
         local swatch = colorBtn.swatch
@@ -183,7 +190,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
             })
         end)
 
-        local resetBtn = self:CreateResetButton(parent, 208, y + 1, function()
+        local resetBtn = self:CreateResetButton(parent, resetX, y + 1, function()
             local key = option.key
 
             -- Restore the active theme's default value into local config so
@@ -268,13 +275,13 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
             end
         end)
-        resetBtn:SetSize(50, 20)
+        resetBtn:SetSize(resetWidth, 20)
         resetBtn:SetText("Def")
         resetBtn:ClearAllPoints()
-        resetBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 208, y + 1)
+        resetBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", resetX, y + 1)
 
         local masterCb = self:AcquireWidget("CheckBoxSmall", parent, "UICheckButtonTemplate", "CheckButton")
-        masterCb:SetPoint("TOPLEFT", parent, "TOPLEFT", 258, y)
+        masterCb:SetPoint("TOPLEFT", parent, "TOPLEFT", masterX, y)
         masterCb:SetScript("OnClick", function(selfFrame)
             if selfFrame:GetChecked() then
                 self:SetLocalPath({ "EditBox", "ChannelColorMaster" }, option.key)
@@ -285,7 +292,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         end)
 
         local modeDropdown = self:AcquireWidget("Dropdown", parent, "UIDropDownMenuTemplate", "Frame")
-        modeDropdown:SetPoint("TOPLEFT", parent, "TOPLEFT", 298, y - 4)
+        modeDropdown:SetPoint("TOPLEFT", parent, "TOPLEFT", modeX, y - 4)
         UIDropDownMenu_SetWidth(modeDropdown, 110)
         UIDropDownMenu_Initialize(modeDropdown, function()
             local info = UIDropDownMenu_CreateInfo()
@@ -341,9 +348,11 @@ function Interface:CreateGlobalSyncControls(parent, cursor)
 
     if not isGlobal then
         local pushBtn = self:AcquireWidget("PushToGlobalButton", parent, "UIPanelButtonTemplate", "Button")
-        pushBtn:SetSize(200, 24)
+        pushBtn:SetSize(Interface._ScaleButtonWidth(200), 24)
         pushBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING, y)
-        pushBtn:SetText(self:GetTooltip("BUTTON.PUSH_TO_GLOBAL") or "Push to Global")
+        local pushLabel = self:GetTooltip("BUTTON.PUSH_TO_GLOBAL") or "Push to Global"
+        pushBtn:SetText(pushLabel)
+        pushBtn._yButtonTooltip = self:GetTooltip("TOOLTIP.PUSH_TO_GLOBAL")
         pushBtn:SetScript("OnClick", function()
             if YapperTable.Core and YapperTable.Core.PushToGlobal then
                 YapperTable.Core:PushToGlobal()
@@ -351,7 +360,7 @@ function Interface:CreateGlobalSyncControls(parent, cursor)
                 self:BuildConfigUI()
             end
         end)
-        self:AttachTooltip(pushBtn, self:GetTooltip("TOOLTIP.PUSH_TO_GLOBAL"))
+        self:AttachTooltip(pushBtn, pushBtn._yButtonTooltip, pushLabel)
         self:AddControl(pushBtn)
         cursor:Advance(30)
     else
@@ -626,7 +635,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
 
     -- Reset Button
     local resetAllBtn = self:AcquireWidget("YASResetAll", parent, "UIPanelButtonTemplate", "Button")
-    resetAllBtn:SetSize(180, 24)
+    resetAllBtn:SetSize(Interface._ScaleButtonWidth(180), 24)
     resetAllBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 10, cursor:Y() - 2)
     resetAllBtn:SetText(string_format("Reset %s Learning", locale or "All"))
     resetAllBtn:SetScript("OnClick", function()
@@ -655,7 +664,7 @@ function Interface:CreateQueueDiagnostics(parent, cursor)
     self:AddControl(frame)
 
     local refreshBtn = self:AcquireWidget("QueueDiagnosticsRefresh", parent, "UIPanelButtonTemplate", "Button")
-    refreshBtn:SetSize(78, 20)
+    refreshBtn:SetSize(Interface._ScaleButtonWidth(78), 20)
     refreshBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 360, cursor:Y() - 2)
     refreshBtn:SetText("Refresh")
     self:AddControl(refreshBtn)
@@ -1207,9 +1216,29 @@ function Interface:CreateSpellcheckUserDictEditor(parent, cursor)
             edit:SetMaxLetters(0)
             edit:SetFontObject(GameFontHighlightSmall)
             edit:SetWidth(sf:GetWidth() - 20)
+
+            local function RefreshWordCount()
+                if not sf.CharCount then return end
+                local count = 0
+                for line in (edit:GetText() or ""):gmatch("[^\r\n]+") do
+                    if TrimString(line) ~= "" then
+                        count = count + 1
+                    end
+                end
+                sf.CharCount:SetText("Words: " .. count)
+            end
+
             edit:SetScript("OnEscapePressed", function(selfFrame)
                 selfFrame:ClearFocus()
             end)
+            edit:SetScript("OnTextChanged", function(selfFrame, isUserChange)
+                InputScrollFrame_OnTextChanged(selfFrame, isUserChange)
+                RefreshWordCount()
+            end)
+
+            sf.hideCharCount = false
+            if sf.CharCount then sf.CharCount:Show() end
+            RefreshWordCount()
         end
 
         self:AddControl(sf)

@@ -1,5 +1,10 @@
 # 2.4.3
 
+### New Features
+- Yapper's settings window now scales with font size for easier viewing.
+- Tooltips complete truncated labels.
+- Settings buttons now scale (to a reasonable point) with font and window size.
+
 ### Bug Fixes
 - Speculative fix for issue where sometimes the editbox values can be secret.
 - Resolved potential n-gram collisions in dictionaries.
