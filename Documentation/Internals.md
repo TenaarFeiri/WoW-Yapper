@@ -925,8 +925,9 @@ Builds and controls top-level frames.
   - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1029`](`../Src/Interface/Window.lua#L1029`))
   - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1035`](`../Src/Interface/Window.lua#L1035`))
   - `ScaledRow` ([`../Src/Interface/Window.lua#L1043`](`../Src/Interface/Window.lua#L1043`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1049`](`../Src/Interface/Window.lua#L1049`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1077`](`../Src/Interface/Window.lua#L1077`))
+  - `ApplyUIFontScaleToFontString` ([`../Src/Interface/Window.lua#L1048`](`../Src/Interface/Window.lua#L1048`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1063`](`../Src/Interface/Window.lua#L1063`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1082`](`../Src/Interface/Window.lua#L1082`))
 
 ## Interface.Widgets
 

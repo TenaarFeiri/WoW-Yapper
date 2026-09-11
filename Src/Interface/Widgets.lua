@@ -98,6 +98,7 @@ function Interface:AcquireWidget(widgetType, parent, template, frameType)
     end
 
     widget._inPool = false
+    widget._ySkipUIFontScale = nil
 
     -- Ensure visibility above parent (fixes vanishing buttons behind backgrounds)
     if widget.SetFrameLevel then

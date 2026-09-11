@@ -33,6 +33,7 @@ local tostring   = tostring
 local tonumber   = tonumber
 local math_abs   = math.abs
 local math_floor = math.floor
+local math_max   = math.max
 local table_sort    = table.sort
 local table_concat  = table.concat
 local string_format = string.format
@@ -765,10 +766,11 @@ function Interface:CreateTutorialPage(parent, cursor)
         fs:SetWidth(W)
         fs:SetJustifyH("LEFT")
         fs:SetWordWrap(true)
+        self:ApplyUIFontScaleToFontString(fs)
         fs:SetText(text)
         self:AddControl(fs)
-        local h = math.max(fs:GetStringHeight(), 14)
-        cursor:Advance(self:ScaledRow(h + 4))
+        local h = math_max(fs:GetStringHeight(), 14)
+        cursor:Advance(math_max(self:ScaledRow(18), h + 4))
     end
 
     local function sep()
@@ -868,9 +870,11 @@ function Interface:CreateCreditsPage(parent, cursor)
         fs:SetWidth(520)
         fs:SetJustifyH("LEFT")
         fs:SetWordWrap(true)
+        self:ApplyUIFontScaleToFontString(fs)
         fs:SetText(text)
         self:AddControl(fs)
-        cursor:Advance(self:ScaledRow(18))
+        local h = math_max(fs:GetStringHeight(), 14)
+        cursor:Advance(math_max(self:ScaledRow(18), h + 4))
     end
 
     addLine("Source: https://github.com/wooorm/dictionaries")
@@ -907,6 +911,7 @@ end
 
 function Interface:CreateChangelogPage(parent, cursor)
     local cfgSize = self:GetConfigPath({ "FrameSettings", "WhatsNewFontSize" }) or 12
+    local uiOffset = self:GetUIFontOffset()
     local textW = 500
 
     self:ForEachWhatsNewVersion(false, function(version, notes)
@@ -914,14 +919,16 @@ function Interface:CreateChangelogPage(parent, cursor)
         local vHeader = self:CreateLabel(parent, "Version " .. version, LAYOUT.WINDOW_PADDING, cursor:Y(), textW, nil, "GameFontNormalLarge", true)
         vHeader:SetTextColor(1, 0.9, 0, 1)
         local vFont, _, vFlags = vHeader:GetFont()
-        vHeader:SetFont(vFont, cfgSize + 4, vFlags)
+        vHeader:SetFont(vFont, math_max(8, cfgSize + 4 + uiOffset), vFlags)
+        vHeader._ySkipUIFontScale = true
         cursor:Advance(vHeader:GetStringHeight() + 6)
 
         for _, entry in ipairs(notes) do
             local hLabel = self:CreateLabel(parent, entry.title, LAYOUT.WINDOW_PADDING + 12, cursor:Y(), textW - 12, nil, "GameFontNormal", true)
             hLabel:SetTextColor(1, 0.82, 0, 0.95)
             local hFont, _, hFlags = hLabel:GetFont()
-            hLabel:SetFont(hFont, cfgSize + 2, hFlags)
+            hLabel:SetFont(hFont, math_max(8, cfgSize + 2 + uiOffset), hFlags)
+            hLabel._ySkipUIFontScale = true
             cursor:Advance(hLabel:GetStringHeight() + 2)
 
             -- Clean body text of trailing newlines/spaces
@@ -930,10 +937,11 @@ function Interface:CreateChangelogPage(parent, cursor)
             bLabel:SetTextColor(0.8, 0.8, 0.8, 1)
             bLabel:SetWordWrap(true)
             local bFont, _, bFlags = bLabel:GetFont()
-            bLabel:SetFont(bFont, cfgSize, bFlags)
+            bLabel:SetFont(bFont, math_max(8, cfgSize + uiOffset), bFlags)
 
             -- Force layout refresh by re-setting text after font/wrap changes
             bLabel:SetText(cleanBody)
+            bLabel._ySkipUIFontScale = true
             cursor:Advance(bLabel:GetStringHeight() + 10)
         end
         cursor:Pad(6)

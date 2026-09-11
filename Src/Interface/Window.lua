@@ -1044,25 +1044,30 @@ function Interface:ScaledRow(base)
     return base + self:GetUIFontOffset()
 end
 
---- Walk every FontString under the settings window and set its size to
---- the Blizzard base size + the user's offset.
-function Interface:ApplyUIFontScale()
-    local offset = self:GetUIFontOffset()
-    local frame  = self.MainWindowFrame
-    if not frame then return end
+--- Set a settings-panel FontString to the current UI font size.
+function Interface:ApplyUIFontScaleToFontString(fontString)
+    if not fontString then return end
 
-    -- Query the Blizzard base once per pass.
+    local offset = self:GetUIFontOffset()
     local _, blizzBase = GameFontNormal:GetFont()
     blizzBase = blizzBase or 12
     local targetSize = math_max(8, blizzBase + offset)
+    local fontFile, _, fontFlags = fontString:GetFont()
+    if fontFile then
+        fontString:SetFont(fontFile, targetSize, fontFlags or "")
+    end
+end
+
+--- Walk every FontString under the settings window and set its size to
+--- the Blizzard base size + the user's offset.
+function Interface:ApplyUIFontScale()
+    local frame  = self.MainWindowFrame
+    if not frame then return end
 
     local function scaleRegions(parent)
         for _, region in pairs({ parent:GetRegions() }) do
-            if region:IsObjectType("FontString") then
-                local fontFile, _, fontFlags = region:GetFont()
-                if fontFile then
-                    region:SetFont(fontFile, targetSize, fontFlags or "")
-                end
+            if region:IsObjectType("FontString") and not region._ySkipUIFontScale then
+                self:ApplyUIFontScaleToFontString(region)
             end
         end
         for _, child in pairs({ parent:GetChildren() }) do

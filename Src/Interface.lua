@@ -759,6 +759,7 @@ function Interface:ShowMainWindow()
     end
     
     Interface.MainWindowFrame:Show()
+    Interface:BuildConfigUI()
 end
 
 --- Open the settings window on a specific sidebar category.
@@ -776,7 +777,6 @@ function Interface:OpenToCategory(catId)
 
     Interface._activeCategory = catId or "help"
     Interface:UpdateSidebarSelection()
-    Interface:BuildConfigUI()
     Interface:ApplyMainWindowPosition(Interface.MainWindowFrame)
     
     if YapperTable.State and type(YapperTable.State.ToConfig) == "function" then
@@ -786,6 +786,7 @@ function Interface:OpenToCategory(catId)
     end
     
     Interface.MainWindowFrame:Show()
+    Interface:BuildConfigUI()
 end
 
 function Interface:ToggleMainWindow()
@@ -874,7 +875,6 @@ function Interface:Init()
 
     Interface:SanitizeLocalConfig()
     Interface:CreateMainWindow()
-    Interface:BuildConfigUI()
 
     -- Then we're gonna hook into Show() and Hide() to track visibility.
     hooksecurefunc(Interface.MainWindowFrame, "Show", function()
