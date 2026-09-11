@@ -196,7 +196,7 @@ local function OnPlayerEnteringWorld()
     if YapperTable.EditBox then
         YapperTable.EditBox:HookAllChatFrames()
         if type(YapperTable.EditBox.SetChatCompatibilityEnabled) == "function" then
-            YapperTable.EditBox:SetChatCompatibilityEnabled(false)
+            YapperTable.EditBox:SetChatCompatibilityEnabled(true)
         end
     end
 

@@ -270,33 +270,33 @@ Bound when overlay exists; reacts to text/cursor updates.
   - `Bind` ([`../Src/Spellcheck/UI.lua#L31`](`../Src/Spellcheck/UI.lua#L31`))
   - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L68`](`../Src/Spellcheck/UI.lua#L68`))
   - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L125`](`../Src/Spellcheck/UI.lua#L125`))
-  - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L213`](`../Src/Spellcheck/UI.lua#L213`))
-  - `ApplyState` ([`../Src/Spellcheck/UI.lua#L255`](`../Src/Spellcheck/UI.lua#L255`))
-  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L286`](`../Src/Spellcheck/UI.lua#L286`))
-  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L290`](`../Src/Spellcheck/UI.lua#L290`))
-  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L312`](`../Src/Spellcheck/UI.lua#L312`))
-  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L354`](`../Src/Spellcheck/UI.lua#L354`))
-  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L360`](`../Src/Spellcheck/UI.lua#L360`))
-  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L383`](`../Src/Spellcheck/UI.lua#L383`))
-  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L397`](`../Src/Spellcheck/UI.lua#L397`))
-  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L412`](`../Src/Spellcheck/UI.lua#L412`))
-  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L505`](`../Src/Spellcheck/UI.lua#L505`))
-  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L515`](`../Src/Spellcheck/UI.lua#L515`))
-  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L541`](`../Src/Spellcheck/UI.lua#L541`))
-  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L553`](`../Src/Spellcheck/UI.lua#L553`))
-  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L631`](`../Src/Spellcheck/UI.lua#L631`))
-  - `HideHint` ([`../Src/Spellcheck/UI.lua#L662`](`../Src/Spellcheck/UI.lua#L662`))
-  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L667`](`../Src/Spellcheck/UI.lua#L667`))
-  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L690`](`../Src/Spellcheck/UI.lua#L690`))
-  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L694`](`../Src/Spellcheck/UI.lua#L694`))
-  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L701`](`../Src/Spellcheck/UI.lua#L701`))
-  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L762`](`../Src/Spellcheck/UI.lua#L762`))
-  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L784`](`../Src/Spellcheck/UI.lua#L784`))
-  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L816`](`../Src/Spellcheck/UI.lua#L816`))
-  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L845`](`../Src/Spellcheck/UI.lua#L845`))
-  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L977`](`../Src/Spellcheck/UI.lua#L977`))
-  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L1004`](`../Src/Spellcheck/UI.lua#L1004`))
-  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L1028`](`../Src/Spellcheck/UI.lua#L1028`))
+  - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L160`](`../Src/Spellcheck/UI.lua#L160`))
+  - `ApplyState` ([`../Src/Spellcheck/UI.lua#L202`](`../Src/Spellcheck/UI.lua#L202`))
+  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L233`](`../Src/Spellcheck/UI.lua#L233`))
+  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L237`](`../Src/Spellcheck/UI.lua#L237`))
+  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L259`](`../Src/Spellcheck/UI.lua#L259`))
+  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L301`](`../Src/Spellcheck/UI.lua#L301`))
+  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L307`](`../Src/Spellcheck/UI.lua#L307`))
+  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L330`](`../Src/Spellcheck/UI.lua#L330`))
+  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L344`](`../Src/Spellcheck/UI.lua#L344`))
+  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L359`](`../Src/Spellcheck/UI.lua#L359`))
+  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L452`](`../Src/Spellcheck/UI.lua#L452`))
+  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L462`](`../Src/Spellcheck/UI.lua#L462`))
+  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L488`](`../Src/Spellcheck/UI.lua#L488`))
+  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L500`](`../Src/Spellcheck/UI.lua#L500`))
+  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L578`](`../Src/Spellcheck/UI.lua#L578`))
+  - `HideHint` ([`../Src/Spellcheck/UI.lua#L609`](`../Src/Spellcheck/UI.lua#L609`))
+  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L614`](`../Src/Spellcheck/UI.lua#L614`))
+  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L637`](`../Src/Spellcheck/UI.lua#L637`))
+  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L641`](`../Src/Spellcheck/UI.lua#L641`))
+  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L648`](`../Src/Spellcheck/UI.lua#L648`))
+  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L709`](`../Src/Spellcheck/UI.lua#L709`))
+  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L731`](`../Src/Spellcheck/UI.lua#L731`))
+  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L763`](`../Src/Spellcheck/UI.lua#L763`))
+  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L792`](`../Src/Spellcheck/UI.lua#L792`))
+  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L924`](`../Src/Spellcheck/UI.lua#L924`))
+  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L951`](`../Src/Spellcheck/UI.lua#L951`))
+  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L975`](`../Src/Spellcheck/UI.lua#L975`))
 - Fields:
   - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L551`](../Src/Spellcheck/UI.lua#L551)).
 - Callbacks fired:
@@ -402,13 +402,14 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
   - `EditBox:GetActiveEditor() → table|nil`: Return Yapper's currently visible chat editor, preferring multiline while it is open and falling back to the single-line overlay. ([`../Src/EditBox.lua#L96`](../Src/EditBox.lua#L96))
   - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L638`](../Src/EditBox.lua#L638))
   - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L616`](../Src/EditBox.lua#L616))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L683`](../Src/EditBox.lua#L683))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L672`](../Src/EditBox.lua#L672))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L741`](../Src/EditBox.lua#L741))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L730`](../Src/EditBox.lua#L730))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L109`](../Src/EditBox.lua#L109))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateNewcomerEditBoxHint`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
+  - `box:ParseText(send) → nil`: Execute slash lines through Yapper's forwarding path while leaving plain text for Blizzard's SendText dispatch. ([`../Src/EditBoxCompat.lua#L95`](../Src/EditBoxCompat.lua#L95))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
   - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
@@ -444,7 +445,8 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L460`](../Src/EditBox.lua#L460))
   - `SetOnSend` ([`../Src/EditBox.lua#L660`](../Src/EditBox.lua#L660))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L685`](../Src/EditBox.lua#L685))
+  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L669`](../Src/EditBox.lua#L669))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L724`](../Src/EditBox.lua#L724))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -478,7 +480,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
   - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L33`](../Src/EditBox/Handlers.lua#L33)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1059`](../Src/EditBox/Handlers.lua#L1059)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1063`](../Src/EditBox/Handlers.lua#L1063)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -744,15 +746,15 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
   - `Target` ([`../Src/Multiline.lua#L63`](`../Src/Multiline.lua#L63`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1073`](../Src/Multiline.lua#L1073))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1032`](../Src/Multiline.lua#L1032))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1077`](../Src/Multiline.lua#L1077))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1036`](../Src/Multiline.lua#L1036))
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L155`](`../Src/Multiline.lua#L155`))
   - `CreateFrame` ([`../Src/Multiline.lua#L186`](`../Src/Multiline.lua#L186`))
   - `Enter` ([`../Src/Multiline.lua#L619`](`../Src/Multiline.lua#L619`))
   - `Exit` ([`../Src/Multiline.lua#L773`](`../Src/Multiline.lua#L773`))
   - `Submit` ([`../Src/Multiline.lua#L901`](`../Src/Multiline.lua#L901`))
-  - `Cancel` ([`../Src/Multiline.lua#L998`](`../Src/Multiline.lua#L998`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1097`](`../Src/Multiline.lua#L1097`))
+  - `Cancel` ([`../Src/Multiline.lua#L1002`](`../Src/Multiline.lua#L1002`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1096`](`../Src/Multiline.lua#L1096`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -912,18 +914,18 @@ Builds and controls top-level frames.
   - `GetMainWindowPositionStore` ([`../Src/Interface/Window.lua#L31`](`../Src/Interface/Window.lua#L31`))
   - `SaveMainWindowPosition` ([`../Src/Interface/Window.lua#L48`](`../Src/Interface/Window.lua#L48`))
   - `ApplyMainWindowPosition` ([`../Src/Interface/Window.lua#L65`](`../Src/Interface/Window.lua#L65`))
-  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L286`](`../Src/Interface/Window.lua#L286`))
-  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L340`](`../Src/Interface/Window.lua#L340`))
-  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L344`](`../Src/Interface/Window.lua#L344`))
-  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L401`](`../Src/Interface/Window.lua#L401`))
-  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L591`](`../Src/Interface/Window.lua#L591`))
-  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L831`](`../Src/Interface/Window.lua#L831`))
-  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1029`](`../Src/Interface/Window.lua#L1029`))
-  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1048`](`../Src/Interface/Window.lua#L1048`))
-  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1054`](`../Src/Interface/Window.lua#L1054`))
-  - `ScaledRow` ([`../Src/Interface/Window.lua#L1062`](`../Src/Interface/Window.lua#L1062`))
-  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1068`](`../Src/Interface/Window.lua#L1068`))
-  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1096`](`../Src/Interface/Window.lua#L1096`))
+  - `ShouldShowWelcomeChoice` ([`../Src/Interface/Window.lua#L277`](`../Src/Interface/Window.lua#L277`))
+  - `MarkWelcomeShown` ([`../Src/Interface/Window.lua#L322`](`../Src/Interface/Window.lua#L322`))
+  - `MarkVersionSeen` ([`../Src/Interface/Window.lua#L326`](`../Src/Interface/Window.lua#L326`))
+  - `CreateWelcomeChoiceFrame` ([`../Src/Interface/Window.lua#L383`](`../Src/Interface/Window.lua#L383`))
+  - `CreateWhatsNewFrame` ([`../Src/Interface/Window.lua#L573`](`../Src/Interface/Window.lua#L573`))
+  - `CreateMainWindow` ([`../Src/Interface/Window.lua#L812`](`../Src/Interface/Window.lua#L812`))
+  - `UpdateSidebarSelection` ([`../Src/Interface/Window.lua#L1010`](`../Src/Interface/Window.lua#L1010`))
+  - `GetUIFontOffset` ([`../Src/Interface/Window.lua#L1029`](`../Src/Interface/Window.lua#L1029`))
+  - `SetUIFontOffset` ([`../Src/Interface/Window.lua#L1035`](`../Src/Interface/Window.lua#L1035`))
+  - `ScaledRow` ([`../Src/Interface/Window.lua#L1043`](`../Src/Interface/Window.lua#L1043`))
+  - `ApplyUIFontScale` ([`../Src/Interface/Window.lua#L1049`](`../Src/Interface/Window.lua#L1049`))
+  - `RefreshFontScaleLabel` ([`../Src/Interface/Window.lua#L1077`](`../Src/Interface/Window.lua#L1077`))
 
 ## Interface.Widgets
 
@@ -1003,8 +1005,8 @@ Per-category page builders called by `BuildConfigUI`.
 ## TotalRP3Bridge
 
 - Methods:
-  - `TotalRP3Bridge:GetPlayerDisplayName() → string`: Return the best available RP display name for the player when TRP3 is loaded, falling back to UnitName("player"). ([`../Src/Bridges/TotalRP3Bridge.lua#L90`](../Src/Bridges/TotalRP3Bridge.lua#L90))
-  - `TotalRP3Bridge:GetUnitDisplayName(unit) → string`: Return the best available RP display name for a unit, falling back to the unit's Blizzard name or "You". ([`../Src/Bridges/TotalRP3Bridge.lua#L74`](../Src/Bridges/TotalRP3Bridge.lua#L74))
+  - `TotalRP3Bridge:GetPlayerDisplayName() → string`: Return the best available RP display name for the player when TRP3 is loaded, falling back to UnitName("player"). ([`../Src/Bridges/TotalRP3Bridge.lua#L91`](../Src/Bridges/TotalRP3Bridge.lua#L91))
+  - `TotalRP3Bridge:GetUnitDisplayName(unit) → string`: Return the best available RP display name for a unit, falling back to the unit's Blizzard name or "You". ([`../Src/Bridges/TotalRP3Bridge.lua#L75`](../Src/Bridges/TotalRP3Bridge.lua#L75))
 
 ## Hooks.UnitPopup
 

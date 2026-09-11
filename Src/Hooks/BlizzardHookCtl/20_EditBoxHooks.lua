@@ -430,6 +430,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             if self.LastUsed then
                 self.LastUsed.language = self.Language
             end
+            if type(self.PersistLastUsed) == "function" then
+                self:PersistLastUsed()
+            end
+            if self.Overlay and self.Overlay:IsShown()
+                and type(self.RefreshLabel) == "function" then
+                self:RefreshLabel()
+            end
             YapperTable.Utils:VerbosePrint("SetGameLanguage: " .. tostring(self.Language))
         end)
     end

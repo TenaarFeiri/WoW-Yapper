@@ -478,6 +478,10 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
+        if type(self.SyncLanguageFromNative) == "function" then
+            self:SyncLanguageFromNative()
+        end
+
         local chatType = self.ChatType or "SAY"
         local lang = YapperTable.Core:GetCharacterLanguage(self.Language or (self.LastUsed and self.LastUsed.language))
 

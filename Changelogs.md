@@ -7,6 +7,7 @@
 - Fixed many legal chat commands failing to work after the above changes.
 - Fixed issue where right-clicking a target while in an instance would produce a secret error.
 - Fixed regression in beta version where emotes didn't fire correctly and necessary compatibility shims were removed.
+- Patched a hole with language selection that would absolutely have caused a downstream bug.
 
 # 2.4.2
 
