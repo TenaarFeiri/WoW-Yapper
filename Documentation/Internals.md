@@ -616,6 +616,7 @@ Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
   - `LockdownPolicy:IsChatLockdown() → boolean`: Returns true when chat messaging lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L13`](../Src/Policies/LockdownPolicy.lua#L13))
   - `LockdownPolicy:IsCombatLockdown() → boolean`: Returns true when protected-frame combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L19`](../Src/Policies/LockdownPolicy.lua#L19))
   - `LockdownPolicy:IsChatOrCombatLockdown() → boolean`: Returns true when either chat or combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L24`](../Src/Policies/LockdownPolicy.lua#L24))
+  - `LockdownPolicy:IsProtectedSlashCommand(command) → boolean`: Returns true when a slash command token (e.g. "/m") resolves to an action insecure code cannot run during combat lockdown — secure registry commands via `IsSecureCmd` plus curated non-secure commands that call protected APIs. ([`../Src/Policies/LockdownPolicy.lua#L48`](../Src/Policies/LockdownPolicy.lua#L48))
   - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L94`](../Src/Policies/ChannelPolicy.lua#L94))
   - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L180`](../Src/Policies/ChannelPolicy.lua#L180))
 

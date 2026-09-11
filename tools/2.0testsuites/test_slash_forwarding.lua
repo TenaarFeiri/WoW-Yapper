@@ -53,8 +53,11 @@ _G.ChatEdit_SendText = NativeParseAndSend
 _G.strtrim = function(value)
     return (value or ""):match("^%s*(.-)%s*$")
 end
+_G.strupper = string.upper
 
 local handedOff = false
+local inCombat = false
+local printedLine
 local YapperTable = {
     EditBox = {
         OrigEditBox = nativeEditBox,
@@ -66,7 +69,11 @@ local YapperTable = {
     },
     Utils = {
         IsChatLockdown = function() return false end,
+        IsCombatLockdown = function() return inCombat end,
         IsSecret = function() return false end,
+        Print = function(_, preset, ...)
+            printedLine = table.concat({ preset, ... }, " ")
+        end,
     },
     EditBoxHooksCore = {
         CHATTYPE_TO_OVERRIDE_KEY = {
@@ -82,12 +89,23 @@ _G.hash_SlashCmdList = {}
 _G.hash_EmoteTokenList = {
     ["/SILLY"] = "SILLY",
 }
+-- Mirror Blizzard's IsSecureCmd: checks the secure command hash.
+_G.IsSecureCmd = function(command)
+    return hash_SecureCmdList[strupper(command)] ~= nil
+end
+-- Localised alias globals for non-secure commands that call protected APIs.
+_G.SLASH_MACRO1 = "/macro"
+_G.SLASH_MACRO2 = "/m"
 _G.C_ChatInfo = {
     PerformEmote = function(token, message)
         forwardedText = token .. ":" .. message
     end,
 }
 _G.ChatFrameUtil = {}
+
+local policyLoader, policyErr = loadfile("Src/Policies/LockdownPolicy.lua")
+assert(policyLoader, policyErr)
+policyLoader("Yapper", YapperTable)
 
 local loader, err = loadfile("Src/Hooks/Slash.lua")
 assert(loader, err)
@@ -146,6 +164,33 @@ print("\nTest 6: lockdown remains handed off")
 YapperTable.Utils.IsChatLockdown = function() return true end
 YapperTable.EditBox:ForwardSlashCommand("/reload")
 check("lockdown hands control to Blizzard", handedOff == true)
+YapperTable.Utils.IsChatLockdown = function() return false end
+
+print("\nTest 7: protected non-secure command blocked during combat lockdown")
+inCombat = true
+forwardedText, printedLine = nil, nil
+YapperTable.EditBox:ForwardSlashCommand("/m")
+check("/m is not forwarded", forwardedText == nil)
+check("/m prints a user-facing explanation", printedLine ~= nil and printedLine:find("/m") ~= nil)
+
+print("\nTest 8: secure command blocked during combat lockdown")
+forwardedSecure, forwardedText, printedLine = nil, nil, nil
+YapperTable.EditBox:ForwardSlashCommand("/cast Fireball")
+check("/cast is not forwarded", forwardedText == nil and forwardedSecure == nil)
+check("/cast prints a user-facing explanation", printedLine ~= nil and printedLine:find("/cast") ~= nil)
+
+print("\nTest 9: unprotected command still forwards during combat lockdown")
+called, forwardedText = false, nil
+YapperTable.EditBox:ForwardSlashCommand("/reload")
+check("/reload reaches native parser", forwardedText == "/reload")
+check("registered handler is called", called == true)
+inCombat = false
+
+print("\nTest 10: protected command forwards normally out of combat")
+forwardedText, printedLine = nil, nil
+YapperTable.EditBox:ForwardSlashCommand("/m")
+check("/m reaches native parser", forwardedText == "/m")
+check("no warning is printed", printedLine == nil)
 
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then
