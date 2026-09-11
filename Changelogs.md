@@ -9,6 +9,7 @@
 - Fixed regression in beta version where emotes didn't fire correctly and necessary compatibility shims were removed.
 - Patched a hole with language selection that would absolutely have caused a downstream bug.
 - Slash commands that trigger protected actions (like `/m` opening the macro window) now print an explanation during combat lockdown instead of "Interface action blocked".
+- Fixed issue where resizing font text in Settings caused text overlap.
 
 # 2.4.2
 
