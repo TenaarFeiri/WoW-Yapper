@@ -151,6 +151,54 @@ YapperTable.EditBox.GetLastToldTargetInfo = function() return "WHISPER", "Bob" e
 clickBinding("REPLYTELL2")
 check("re-whisper selects outgoing whisper target", YapperTable.EditBox.Target == "Bob")
 
+print("\nTest 7: overrides yield keys claimed by an active binding context")
+-- Simulate the housing decor context claiming R while REPLY is bound to R.
+local overridden = {}
+_G.SetOverrideBindingClick = function(owner, isPriority, key)
+    overridden[key] = true
+end
+_G.ClearOverrideBindings = function()
+    overridden = {}
+end
+_G.Enum = { BindingContext = { None = 0, HousingEditorBasicAndExpertDecorMode = 7 } }
+local contextActive = false
+local decorSelected = false
+_G.C_KeyBindings = {
+    IsBindingContextActive = function(ctx) return contextActive and ctx ~= 0 end,
+    GetBindingByKey = function(key, ctx)
+        if ctx == 7 and key == "R" then return "HOUSING_REMOVEDECOR" end
+        return "NONE"
+    end,
+}
+_G.C_HousingDecor = {
+    IsDecorSelected = function() return decorSelected end,
+}
+_G.GetBindingKey = function(action)
+    if action == "REPLY" then return "R" end
+    return nil
+end
+
+contextActive = true
+decorSelected = true
+Keybinds:RegisterOverrides()
+check("context-claimed key is not overridden while decor selected", overridden["R"] == nil)
+
+decorSelected = false
+Keybinds:RefreshOverrides()
+check("key keeps its chat meaning when no decor is selected", overridden["R"] == true)
+
+decorSelected = true
+Keybinds:RefreshOverrides()
+check("key is yielded again when decor is re-selected", overridden["R"] == nil)
+
+contextActive = false
+Keybinds:RefreshOverrides()
+check("key is overridden once the context is inactive", overridden["R"] == true)
+
+contextActive = true
+Keybinds:RefreshOverrides()
+check("key is yielded again when the context reactivates", overridden["R"] == nil)
+
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then
     os.exit(1)
