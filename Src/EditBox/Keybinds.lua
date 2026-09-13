@@ -363,6 +363,55 @@ end
 -- Override Registration
 -- ---------------------------------------------------------------------------
 
+--- Context bindings that are inert until a decor item is selected.
+--- HOUSING_REMOVEDECOR no-ops without a selection (HousingFramesUtil
+--- .RemoveSelectedDecor guards on C_HousingDecor.IsDecorSelected), so we only
+--- yield its key while a decor is actually selected; otherwise the key keeps
+--- its chat meaning (e.g. R still replies to the last whisper).
+local SELECTION_GATED_CONTEXT_BINDINGS = {
+    HOUSING_REMOVEDECOR = true,
+}
+
+local function IsSelectionGatedBindingInert(binding)
+    if not SELECTION_GATED_CONTEXT_BINDINGS[binding] then
+        return false
+    end
+    if not (C_HousingDecor and C_HousingDecor.IsDecorSelected) then
+        return false
+    end
+    return not C_HousingDecor.IsDecorSelected()
+end
+
+--- Return the name of a binding that claims `key` inside a currently active
+--- non-default binding context, or nil when the key is unclaimed.
+--- Binding contexts (Enum.BindingContext) let the client bind a key that is
+--- already bound in the default context — e.g. the housing editor's decor
+--- modes claim R for HOUSING_REMOVEDECOR while R is also REPLY. Our override
+--- bindings outrank context bindings in the engine's key dispatch, so an
+--- overridden chat key becomes a dead key inside the editor (the click
+--- handler resolves no reply target and silently returns). When a context
+--- claims the key we must yield it.
+local function GetConflictingContextBinding(key)
+    if not (C_KeyBindings and Enum and Enum.BindingContext) then
+        return nil
+    end
+    local isActive = C_KeyBindings.IsBindingContextActive
+    local getByKey = C_KeyBindings.GetBindingByKey
+    if type(isActive) ~= "function" or type(getByKey) ~= "function" then
+        return nil
+    end
+    for _, context in pairs(Enum.BindingContext) do
+        if context ~= Enum.BindingContext.None and isActive(context) then
+            local binding = getByKey(key, context)
+            if binding and binding ~= "" and binding ~= "NONE"
+                and not IsSelectionGatedBindingInert(binding) then
+                return binding
+            end
+        end
+    end
+    return nil
+end
+
 --- Register keybind overrides to route chat opens to Yapper.
 --- Must be called outside of combat/lockdown.
 function Keybinds:RegisterOverrides()
@@ -394,31 +443,27 @@ function Keybinds:RegisterOverrides()
                 LogVerbose("Skipping " .. bindingName .. " - no secure button created")
             else
                 local key1, key2 = GetBindingKey(bindingName)
-                
-                if type(key1) == "string" and key1 ~= "" then
-                    local success, err = pcall(function()
-                        SetOverrideBindingClick(button, false, key1, button:GetName())
-                    end)
-                    if success then
-                        LogVerbose("Registered override for " .. bindingName .. " key1: " .. key1)
+                for index = 1, 2 do
+                    local key = index == 1 and key1 or key2
+                    local slot = "key" .. index
+                    if type(key) ~= "string" or key == "" then
+                        LogVerbose("Skipping " .. bindingName .. " " .. slot .. " - no key")
                     else
-                        LogVerbose("Failed to register override for " .. bindingName .. " key1: " .. tostring(err))
+                        local contextBinding = GetConflictingContextBinding(key)
+                        if contextBinding then
+                            LogVerbose("Yielding " .. bindingName .. " " .. slot .. " (" .. key
+                                .. ") to active binding context: " .. contextBinding)
+                        else
+                            local success, err = pcall(function()
+                                SetOverrideBindingClick(button, false, key, button:GetName())
+                            end)
+                            if success then
+                                LogVerbose("Registered override for " .. bindingName .. " " .. slot .. ": " .. key)
+                            else
+                                LogVerbose("Failed to register override for " .. bindingName .. " " .. slot .. ": " .. tostring(err))
+                            end
+                        end
                     end
-                else
-                    LogVerbose("Skipping " .. bindingName .. " key1 - no key")
-                end
-                
-                if type(key2) == "string" and key2 ~= "" then
-                    local success, err = pcall(function()
-                        SetOverrideBindingClick(button, false, key2, button:GetName())
-                    end)
-                    if success then
-                        LogVerbose("Registered override for " .. bindingName .. " key2: " .. key2)
-                    else
-                        LogVerbose("Failed to register override for " .. bindingName .. " key2: " .. tostring(err))
-                    end
-                else
-                    LogVerbose("Skipping " .. bindingName .. " key2 - no key")
                 end
             end
         else
@@ -524,6 +569,40 @@ function Keybinds:Init()
                 self:RefreshOverrides()
             end
         end)
+
+        -- Re-evaluate yields on events that can change which keys an active
+        -- context claims: mode changes (fallback for context changes that
+        -- bypass the Lua functions hooked below), decor selection changes
+        -- (selection-gated bindings like HOUSING_REMOVEDECOR), and decor
+        -- removal (which clears the selection).
+        for _, event in ipairs({
+            "HOUSE_EDITOR_MODE_CHANGED",
+            "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED",
+            "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED",
+            "HOUSING_DECOR_REMOVED",
+        }) do
+            YapperTable.Events:Register("PARENT_FRAME", event, function()
+                if self._registered then
+                    self:RefreshOverrides()
+                end
+            end)
+        end
+    end
+
+    -- Binding contexts (housing editor modes, etc.) claim keys while active.
+    -- Refresh overrides on every context change so claimed keys are yielded
+    -- to the context action instead of being swallowed by our secure button.
+    -- Deferred one frame so back-to-back (de)activations settle in one pass.
+    if C_KeyBindings and type(C_KeyBindings.ActivateBindingContext) == "function" then
+        local function OnBindingContextChanged()
+            C_Timer.After(0, function()
+                if Keybinds._registered then
+                    Keybinds:RefreshOverrides()
+                end
+            end)
+        end
+        hooksecurefunc(C_KeyBindings, "ActivateBindingContext", OnBindingContextChanged)
+        hooksecurefunc(C_KeyBindings, "DeactivateBindingContext", OnBindingContextChanged)
     end
 
     -- Listen for combat/lockdown end to complete pending registration
