@@ -1,3 +1,8 @@
+# 2.4.4
+
+### Bug Fixes
+- Yapper should no longer override keybindings in housing editor, causing blockage.
+
 # 2.4.3
 
 ### New Features
