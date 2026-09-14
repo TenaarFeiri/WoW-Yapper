@@ -21,8 +21,21 @@ local type = type
 function EditBox:ForwardSlashCommand(text)
     if not self.OrigEditBox then return end
 
+    local utils  = YapperTable.Utils
+    local policy = YapperTable.LockdownPolicy
+    local command = text:match("^%s*(/%S+)")
+
+    if policy and command
+        and type(policy.IsAlwaysForbiddenSlashCommand) == "function"
+        and policy:IsAlwaysForbiddenSlashCommand(command) then
+        if utils then
+            utils:Print("warn", command .. " can't be executed through Yapper; use the Blizzard chat box instead.")
+        end
+        return
+    end
+
     -- If chat is locked down (combat/m+ lockdown), save draft and handoff
-    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
+    if utils and utils:IsChatLockdown() then
         self:HandoffToBlizzard()
         return
     end
@@ -31,11 +44,8 @@ function EditBox:ForwardSlashCommand(text)
     -- (/m opening the macro frame, /cast, /target, ...) trip "Interface
     -- action blocked" when dispatched through our tainted call. Print an
     -- explanation instead of forwarding.
-    local utils  = YapperTable.Utils
-    local policy = YapperTable.LockdownPolicy
     if utils and utils:IsCombatLockdown()
         and policy and type(policy.IsProtectedSlashCommand) == "function" then
-        local command = text:match("^%s*(/%S+)")
         if command and policy:IsProtectedSlashCommand(command) then
             utils:Print("warn", command .. " is a protected command and can't be used during combat lockdown.")
             return

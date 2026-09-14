@@ -25,6 +25,12 @@ Keybinds._overrideBindings = {
 -- Lockdown state preservation (using Yapper's existing LastUsed system)
 Keybinds._preLockdownLastUsed = nil
 
+-- Housing editor decor-selection state, tracked from the editor's
+-- SELECTED_TARGET_CHANGED event payloads so yield checks don't have to poll
+-- a C API whose return may be unusable (secret/erroring) in that context.
+Keybinds._decorSelected = false
+Keybinds._decorSelectionObserved = false
+
 -- Secure buttons for each binding type
 Keybinds._secureButtons = {}
 
@@ -342,26 +348,137 @@ local function CreateSecureButtonForBinding(bindingName, prefillText, syncAttrib
 end
 
 --- Create secure buttons for all override bindings.
+--- Idempotent: existing buttons are kept. Recreating a button that holds an
+--- override binding would leave the stale frame intercepting the key with no
+--- way to clear it (override bindings persist on the old frame object).
 function Keybinds:CreateSecureButtons()
-    -- OPENCHAT - standard chat open, sync attributes for lockdown
-    self._secureButtons["OPENCHAT"] = CreateSecureButtonForBinding("OPENCHAT", nil, true)
-    
-    -- OPENCHATSLASH - chat open with "/" pre-filled, sync attributes for lockdown
-    self._secureButtons["OPENCHATSLASH"] = CreateSecureButtonForBinding("OPENCHATSLASH", "/", true)
+    if not self._secureButtons["OPENCHAT"] then
+        -- OPENCHAT - standard chat open, sync attributes for lockdown
+        self._secureButtons["OPENCHAT"] = CreateSecureButtonForBinding("OPENCHAT", nil, true)
+    end
 
-    -- REPLY - reply to last incoming whisper via Yapper's secret-safe reader.
-    -- Overridden because the native binding runs Blizzard's ReplyTell inside
-    -- execution tainted by Yapper's ChatFrameUtil wrappers; a secret entry in
-    -- Blizzard's remembered-target list then errors and eats the keypress.
-    self._secureButtons["REPLY"] = CreateSecureButtonForBinding("REPLY", nil, false)
+    if not self._secureButtons["OPENCHATSLASH"] then
+        -- OPENCHATSLASH - chat open with "/" pre-filled, sync attributes for lockdown
+        self._secureButtons["OPENCHATSLASH"] = CreateSecureButtonForBinding("OPENCHATSLASH", "/", true)
+    end
 
-    -- REPLYTELL2 - re-whisper the last outgoing target via Yapper's safe reader.
-    self._secureButtons["REPLYTELL2"] = CreateSecureButtonForBinding("REPLYTELL2", nil, false)
+    if not self._secureButtons["REPLY"] then
+        -- REPLY - reply to last incoming whisper via Yapper's secret-safe reader.
+        -- Overridden because the native binding runs Blizzard's ReplyTell inside
+        -- execution tainted by Yapper's ChatFrameUtil wrappers; a secret entry in
+        -- Blizzard's remembered-target list then errors and eats the keypress.
+        self._secureButtons["REPLY"] = CreateSecureButtonForBinding("REPLY", nil, false)
+    end
+
+    if not self._secureButtons["REPLYTELL2"] then
+        -- REPLYTELL2 - re-whisper the last outgoing target via Yapper's safe reader.
+        self._secureButtons["REPLYTELL2"] = CreateSecureButtonForBinding("REPLYTELL2", nil, false)
+    end
 end
 
 -- ---------------------------------------------------------------------------
 -- Override Registration
 -- ---------------------------------------------------------------------------
+
+--- Context bindings that are inert until a decor item is selected.
+--- HOUSING_REMOVEDECOR no-ops without a selection (HousingFramesUtil
+--- .RemoveSelectedDecor guards on C_HousingDecor.IsDecorSelected), so we only
+--- yield its key while a decor is actually selected; otherwise the key keeps
+--- its chat meaning (e.g. R still replies to the last whisper).
+local SELECTION_GATED_CONTEXT_BINDINGS = {
+    HOUSING_REMOVEDECOR = true,
+}
+
+local function IsSelectionGatedBindingInert(binding)
+    if not SELECTION_GATED_CONTEXT_BINDINGS[binding] then
+        return false
+    end
+    -- Selection state is tracked from the editor's target-selection event
+    -- payloads (see Init). Before the first observed event this session we
+    -- fall back to the C API — inside pcall, since its return may be a secret
+    -- value that errors on comparison. If we cannot prove the binding is
+    -- inert we treat it as live and yield: a swallowed context key (dead
+    -- remove-decor) is a worse failure than a yielded reply key.
+    if Keybinds._decorSelectionObserved then
+        return Keybinds._decorSelected ~= true
+    end
+    local ok, inert = pcall(function()
+        return (C_HousingDecor and C_HousingDecor.IsDecorSelected
+            and C_HousingDecor.IsDecorSelected()) == false
+    end)
+    return ok and inert == true
+end
+
+--- Return the name of a binding that claims `key` inside a currently active
+--- non-default binding context, or nil when the key is unclaimed.
+--- Binding contexts (Enum.BindingContext) let the client bind a key that is
+--- already bound in the default context — e.g. the housing editor's decor
+--- modes claim R for HOUSING_REMOVEDECOR while R is also REPLY. Our override
+--- bindings outrank context bindings in the engine's key dispatch, so an
+--- overridden chat key becomes a dead key inside the editor (the click
+--- handler resolves no reply target and silently returns). When a context
+--- claims the key we must yield it.
+local function GetConflictingContextBinding(key)
+    if not (C_KeyBindings and Enum and Enum.BindingContext) then
+        return nil
+    end
+    local isActive = C_KeyBindings.IsBindingContextActive
+    local getByKey = C_KeyBindings.GetBindingByKey
+    if type(isActive) ~= "function" or type(getByKey) ~= "function" then
+        return nil
+    end
+    for _, context in pairs(Enum.BindingContext) do
+        if context ~= Enum.BindingContext.None then
+            -- Restricted-adjacent C calls: a runtime error here must not
+            -- abort override registration mid-loop.
+            local ok, binding = pcall(function()
+                if isActive(context) == true then
+                    local found = getByKey(key, context)
+                    if type(found) == "string" and found ~= "" and found ~= "NONE" then
+                        return found
+                    end
+                end
+            end)
+            if ok and binding and not IsSelectionGatedBindingInert(binding) then
+                return binding
+            end
+        end
+    end
+    return nil
+end
+
+--- Clear a button's overrides and re-apply only the keys not claimed by an
+--- active binding context. SetOverrideBindingClick/ClearOverrideBindings are
+--- not protected calls, so this is safe under combat and chat-messaging
+--- lockdown — which matters, because deferring a yield until regen would
+--- leave the context's key dead for an entire session (e.g. the whole time
+--- the housing editor is open).
+local function ApplyButtonOverrides(button, bindingName)
+    pcall(ClearOverrideBindings, button)
+    local key1, key2 = GetBindingKey(bindingName)
+    for index = 1, 2 do
+        local key = index == 1 and key1 or key2
+        local slot = "key" .. index
+        if type(key) ~= "string" or key == "" then
+            LogVerbose("Skipping " .. bindingName .. " " .. slot .. " - no key")
+        else
+            local contextBinding = GetConflictingContextBinding(key)
+            if contextBinding then
+                LogVerbose("Yielding " .. bindingName .. " " .. slot .. " (" .. key
+                    .. ") to active binding context: " .. contextBinding)
+            else
+                local success, err = pcall(function()
+                    SetOverrideBindingClick(button, false, key, button:GetName())
+                end)
+                if success then
+                    LogVerbose("Registered override for " .. bindingName .. " " .. slot .. ": " .. key)
+                else
+                    LogVerbose("Failed to register override for " .. bindingName .. " " .. slot .. ": " .. tostring(err))
+                end
+            end
+        end
+    end
+end
 
 --- Register keybind overrides to route chat opens to Yapper.
 --- Must be called outside of combat/lockdown.
@@ -393,33 +510,7 @@ function Keybinds:RegisterOverrides()
             if not button then
                 LogVerbose("Skipping " .. bindingName .. " - no secure button created")
             else
-                local key1, key2 = GetBindingKey(bindingName)
-                
-                if type(key1) == "string" and key1 ~= "" then
-                    local success, err = pcall(function()
-                        SetOverrideBindingClick(button, false, key1, button:GetName())
-                    end)
-                    if success then
-                        LogVerbose("Registered override for " .. bindingName .. " key1: " .. key1)
-                    else
-                        LogVerbose("Failed to register override for " .. bindingName .. " key1: " .. tostring(err))
-                    end
-                else
-                    LogVerbose("Skipping " .. bindingName .. " key1 - no key")
-                end
-                
-                if type(key2) == "string" and key2 ~= "" then
-                    local success, err = pcall(function()
-                        SetOverrideBindingClick(button, false, key2, button:GetName())
-                    end)
-                    if success then
-                        LogVerbose("Registered override for " .. bindingName .. " key2: " .. key2)
-                    else
-                        LogVerbose("Failed to register override for " .. bindingName .. " key2: " .. tostring(err))
-                    end
-                else
-                    LogVerbose("Skipping " .. bindingName .. " key2 - no key")
-                end
+                ApplyButtonOverrides(button, bindingName)
             end
         else
             LogVerbose("Skipping " .. bindingName .. " - invalid binding name or GetBindingKey not available")
@@ -487,6 +578,24 @@ function Keybinds:RefreshOverrides()
     self:RegisterOverrides()
 end
 
+--- Re-apply overrides so keys claimed by active binding contexts stay
+--- yielded. Unlike RefreshOverrides this intentionally runs during combat
+--- and chat lockdown: it only clears/re-sets override bindings, which are
+--- not protected operations, and deferring a yield until regen would leave
+--- the context's key dead for the entire session.
+--- Called by binding-context and housing-selection change triggers.
+function Keybinds:SyncContextYields()
+    if not self._registered or not GetBindingKey then
+        return
+    end
+    for _, bindingName in ipairs(self._overrideBindings) do
+        local button = type(bindingName) == "string" and self._secureButtons[bindingName]
+        if button then
+            ApplyButtonOverrides(button, bindingName)
+        end
+    end
+end
+
 --- Check if overrides are currently registered.
 --- @return boolean
 function Keybinds:IsRegistered()
@@ -524,6 +633,71 @@ function Keybinds:Init()
                 self:RefreshOverrides()
             end
         end)
+
+        -- Re-evaluate yields on events that can change which keys an active
+        -- context claims. Selection state for selection-gated context
+        -- bindings (HOUSING_REMOVEDECOR) is tracked from the selection
+        -- events' own payloads so the yield gate never has to rely on a
+        -- potentially restricted C API inside the editor.
+        for _, event in ipairs({
+            "HOUSE_EDITOR_MODE_CHANGED",
+            "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED",
+            "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED",
+            "HOUSING_DECOR_REMOVED",
+        }) do
+            YapperTable.Events:Register("PARENT_FRAME", event, function(...)
+                if event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED"
+                    or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED" then
+                    -- Payload: selected, targetType, isPreview — only a Decor
+                    -- target makes a selection-gated binding live.
+                    local ok, isDecor = pcall(function(...)
+                        local selected, targetType = ...
+                        local decorType = (Enum.HousingBasicModeTargetType
+                                and Enum.HousingBasicModeTargetType.Decor)
+                            or (Enum.HousingExpertModeTargetType
+                                and Enum.HousingExpertModeTargetType.Decor)
+                            or 1
+                        return selected == true and targetType == decorType
+                    end, ...)
+                    if ok then
+                        Keybinds._decorSelected = isDecor == true
+                        Keybinds._decorSelectionObserved = true
+                    end
+                elseif event == "HOUSING_DECOR_REMOVED" then
+                    Keybinds._decorSelected = false
+                    Keybinds._decorSelectionObserved = true
+                elseif event == "HOUSE_EDITOR_MODE_CHANGED" then
+                    -- Mode switches may keep or clear the selection;
+                    -- re-derive (contained) so stale state can't stick.
+                    local ok, selected = pcall(function()
+                        return C_HousingDecor.IsDecorSelected() == true
+                    end)
+                    if ok then
+                        Keybinds._decorSelected = selected == true
+                        Keybinds._decorSelectionObserved = true
+                    end
+                end
+                if self._registered then
+                    self:SyncContextYields()
+                end
+            end)
+        end
+    end
+
+    -- Binding contexts (housing editor modes, etc.) claim keys while active.
+    -- Re-sync yields on every context change so claimed keys are yielded to
+    -- the context action instead of being swallowed by our secure button.
+    -- Deferred one frame so back-to-back (de)activations settle in one pass.
+    if C_KeyBindings and type(C_KeyBindings.ActivateBindingContext) == "function" then
+        local function OnBindingContextChanged()
+            C_Timer.After(0, function()
+                if Keybinds._registered then
+                    Keybinds:SyncContextYields()
+                end
+            end)
+        end
+        hooksecurefunc(C_KeyBindings, "ActivateBindingContext", OnBindingContextChanged)
+        hooksecurefunc(C_KeyBindings, "DeactivateBindingContext", OnBindingContextChanged)
     end
 
     -- Listen for combat/lockdown end to complete pending registration

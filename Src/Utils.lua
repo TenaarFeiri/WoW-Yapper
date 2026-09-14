@@ -26,8 +26,18 @@ function Utils:Print(...)
         prefix = ("|c%s%s:|r "):format(SENDER_PRESETS[preset], YapperName)
     end
 
-    for i = 1, #args do args[i] = tostring(args[i]) end
+    for i = 1, #args do args[i] = self:SafeToString(args[i]) end
     print(prefix .. table.concat(args, " "))
+end
+
+--- Convert a value for diagnostics without attempting to stringify a secret.
+--- @param value any
+--- @return string
+function Utils:SafeToString(value)
+    if value == nil then return "nil" end
+    if self:IsSecret(value) then return "<secret>" end
+    local ok, result = pcall(tostring, value)
+    return ok and result or "<unavailable>"
 end
 
 function Utils:VerbosePrint(...)
@@ -253,9 +263,9 @@ end
 --- @param name any
 --- @return string|nil
 function Utils:NormaliseCharName(name)
-    if name == nil then return nil end
-    local s = tostring(name)
-    if s == "" then return nil end
+    if name == nil or self:IsSecret(name) then return nil end
+    local ok, s = pcall(tostring, name)
+    if not ok or s == "" then return nil end
     return s:gsub("%-.*$", ""):lower()
 end
 
@@ -426,9 +436,9 @@ end
 --- @param target any
 --- @return boolean
 function Utils:IsUnambiguousBnetTarget(target)
-    if not target then return false end
-    local text = tostring(target)
-    if text == "" then return false end
+    if not target or self:IsSecret(target) then return false end
+    local ok, text = pcall(tostring, target)
+    if not ok or text == "" then return false end
     return tonumber(text) ~= nil or text:find("#", 1, true) ~= nil
 end
 

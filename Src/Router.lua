@@ -17,6 +17,7 @@ local string_lower = string.lower
 local type     = type
 local tostring = tostring
 local tonumber = tonumber
+local Utils    = YapperTable.Utils
 
 -- Raw Blizzard send functions (set during Init).
 Router.SendChatMessage = nil
@@ -29,7 +30,11 @@ local _bnetCacheTTL  = 60   -- seconds
 
 local function NormaliseBnetTarget(value)
     if not value then return nil end
-    local text = tostring(value)
+    if Utils and type(Utils.IsSecret) == "function" and Utils:IsSecret(value) then
+        return nil
+    end
+    local ok, text = pcall(tostring, value)
+    if not ok then return nil end
     text = text:match("^%s*(.-)%s*$")
     if text == "" then return nil end
     return text
@@ -226,12 +231,12 @@ function Router:Send(msg, chatType, language, target)
         if numericTarget then
             if C_BattleNet and C_BattleNet.SendWhisper then
                 local ok, err = pcall(C_BattleNet.SendWhisper, numericTarget, msg)
-                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
                 return ok
             end
             if self.BNSendWhisper then
                 local ok, err = pcall(self.BNSendWhisper, numericTarget, msg)
-                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
                 return ok
             end
             return false
@@ -243,14 +248,14 @@ function Router:Send(msg, chatType, language, target)
         local legacyPresenceID = type(target) == "string" and tonumber(target) or nil
         if legacyPresenceID and self.BNSendWhisper then
             local ok, err = pcall(self.BNSendWhisper, legacyPresenceID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
             return ok
         end
 
         local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
         if C_BattleNet and C_BattleNet.SendWhisper and bnetAccountID then
             local ok, err = pcall(C_BattleNet.SendWhisper, bnetAccountID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
             return ok
         end
         if not presenceID then
@@ -259,7 +264,7 @@ function Router:Send(msg, chatType, language, target)
         end
         if self.BNSendWhisper then
             local ok, err = pcall(self.BNSendWhisper, presenceID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. tostring(err)) end
+            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
             return ok
         end
         return false
@@ -271,7 +276,7 @@ function Router:Send(msg, chatType, language, target)
         if isClub and clubId and streamId then
             if self.ClubSendMessage then
                 local ok, err = pcall(self.ClubSendMessage, clubId, streamId, msg)
-                if not ok then YapperTable.Utils:DebugPrint("ClubSendMessage error: " .. tostring(err)) end
+                if not ok then YapperTable.Utils:DebugPrint("ClubSendMessage error: " .. Utils:SafeToString(err)) end
                 return ok
             end
             return false
@@ -284,7 +289,7 @@ function Router:Send(msg, chatType, language, target)
         local streamId = target
         if self.ClubSendMessage and clubId and streamId then
             local ok, err = pcall(self.ClubSendMessage, clubId, streamId, msg)
-            if not ok then YapperTable.Utils:DebugPrint("ClubSendMessage error: " .. tostring(err)) end
+            if not ok then YapperTable.Utils:DebugPrint("ClubSendMessage error: " .. Utils:SafeToString(err)) end
             return ok
         end
         return false
@@ -300,7 +305,7 @@ function Router:Send(msg, chatType, language, target)
         end
         local ok, err = pcall(self.SendChatMessage, msg, chatType, language, target)
         if not ok then
-            YapperTable.Utils:Print("Error sending message: " .. tostring(err))
+            YapperTable.Utils:Print("Error sending message: " .. Utils:SafeToString(err))
         end
         return ok
     end

@@ -151,6 +151,86 @@ YapperTable.EditBox.GetLastToldTargetInfo = function() return "WHISPER", "Bob" e
 clickBinding("REPLYTELL2")
 check("re-whisper selects outgoing whisper target", YapperTable.EditBox.Target == "Bob")
 
+print("\nTest 7: overrides yield keys claimed by an active binding context")
+-- Simulate the housing decor context claiming R while REPLY is bound to R.
+-- Overrides are per-button: ClearOverrideBindings(owner) must only clear
+-- that owner's keys, mirroring the real API.
+local overridden = {}
+_G.SetOverrideBindingClick = function(owner, isPriority, key)
+    overridden[owner] = overridden[owner] or {}
+    overridden[owner][key] = true
+end
+_G.ClearOverrideBindings = function(owner)
+    overridden[owner] = {}
+end
+_G.Enum = { BindingContext = { None = 0, HousingEditorBasicAndExpertDecorMode = 7 } }
+local contextActive = false
+local decorSelected = false
+_G.C_KeyBindings = {
+    IsBindingContextActive = function(ctx) return contextActive and ctx ~= 0 end,
+    GetBindingByKey = function(key, ctx)
+        if ctx == 7 and key == "R" then return "HOUSING_REMOVEDECOR" end
+        return "NONE"
+    end,
+}
+_G.C_HousingDecor = {
+    IsDecorSelected = function() return decorSelected end,
+}
+_G.GetBindingKey = function(action)
+    if action == "REPLY" then return "R" end
+    return nil
+end
+
+local replyButton = Keybinds._secureButtons["REPLY"]
+local function replyOverridden()
+    return overridden[replyButton] and overridden[replyButton]["R"] == true
+end
+
+-- Selection state is tracked from event payloads in-game; drive it directly.
+Keybinds._decorSelectionObserved = true
+local function setDecorSelected(v)
+    Keybinds._decorSelected = v
+end
+
+contextActive = true
+setDecorSelected(true)
+Keybinds:RegisterOverrides()
+check("context-claimed key is not overridden while decor selected", not replyOverridden())
+
+setDecorSelected(false)
+Keybinds:RefreshOverrides()
+check("key keeps its chat meaning when no decor is selected", replyOverridden())
+
+setDecorSelected(true)
+Keybinds:RefreshOverrides()
+check("key is yielded again when decor is re-selected", not replyOverridden())
+
+contextActive = false
+Keybinds:RefreshOverrides()
+check("key is overridden once the context is inactive", replyOverridden())
+
+contextActive = true
+Keybinds:RefreshOverrides()
+check("key is yielded again when the context reactivates", not replyOverridden())
+
+-- Context sync must also apply under lockdown: SyncContextYields skips the
+-- combat/chat-lockdown deferral because clearing an override is safe.
+YapperTable.Utils.IsChatLockdown = function() return true end
+setDecorSelected(false)
+Keybinds:SyncContextYields()
+check("context sync still applies under chat lockdown", replyOverridden())
+setDecorSelected(true)
+Keybinds:SyncContextYields()
+check("yield applies under chat lockdown", not replyOverridden())
+YapperTable.Utils.IsChatLockdown = function() return false end
+
+-- Before any selection event is observed, the C API fallback is used; an
+-- erroring/unusable return must not leave the key unbound (fail = stay live).
+Keybinds._decorSelectionObserved = false
+_G.C_HousingDecor.IsDecorSelected = function() error("restricted") end
+Keybinds:SyncContextYields()
+check("unusable selection API yields rather than breaking", not replyOverridden())
+
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then
     os.exit(1)

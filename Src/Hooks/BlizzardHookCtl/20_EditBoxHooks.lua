@@ -18,6 +18,16 @@ local GATE_SKIP_SETTEXT_INTENT_ADOPTION_ON_EXPLICIT = Ctl.GATE_SKIP_SETTEXT_INTE
 local type = type
 local tonumber = tonumber
 local tostring = tostring
+
+local function SafeToString(value)
+    local utils = YapperTable.Utils
+    if utils and type(utils.SafeToString) == "function" then
+        return utils:SafeToString(value)
+    end
+    local ok, result = pcall(tostring, value)
+    return ok and result or "<unavailable>"
+end
+
 function EditBox:HookBlizzardEditBox(blizzEditBox)
     if self.HookedBoxes[blizzEditBox] then return end
     self.HookedBoxes[blizzEditBox] = true
@@ -275,10 +285,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                         return false
                     end
                     if chatType == "CHANNEL" then
-                        return tostring(intent.target or "") == tostring(target or "")
+                        local intentTarget = YapperTable.Utils:SanitizeTarget(intent.target)
+                        local currentTarget = YapperTable.Utils:SanitizeTarget(target)
+                        return intentTarget ~= nil and currentTarget ~= nil
+                            and tostring(intentTarget) == tostring(currentTarget)
                     end
                     if chatType == "WHISPER" then
-                        return tostring(intent.target or ""):lower() == tostring(target or ""):lower()
+                        local intentTarget = YapperTable.Utils:SanitizeTarget(intent.target)
+                        local currentTarget = YapperTable.Utils:SanitizeTarget(target)
+                        return intentTarget ~= nil and currentTarget ~= nil
+                            and tostring(intentTarget):lower() == tostring(currentTarget):lower()
                     end
                     return true
                 end
@@ -302,10 +318,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             and HasRecentExplicitIntent("WHISPER", preTarget)
                         if explicitWins then
                             TriggerTrace("IntentPath.SetTextFallback.Gated", string.format("kind=whisper source=%s target=%s action=sanitize-only",
-                                tostring(isInsert and "Insert" or "SetText"), tostring(preTarget)))
+                                tostring(isInsert and "Insert" or "SetText"), SafeToString(preTarget)))
                         else
                             TriggerTrace("IntentPath.SetTextFallback", string.format("kind=whisper source=%s target=%s",
-                                tostring(isInsert and "Insert" or "SetText"), tostring(preTarget)))
+                                tostring(isInsert and "Insert" or "SetText"), SafeToString(preTarget)))
                         end
                         local curText = targetBox:GetText() or ""
                         local nextText = preRemainder or ""
@@ -343,10 +359,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             and HasRecentExplicitIntent(chanType, chanTarget)
                         if explicitWins then
                             TriggerTrace("IntentPath.SetTextFallback.Gated", string.format("kind=channel source=%s chatType=%s target=%s action=sanitize-only",
-                                tostring(isInsert and "Insert" or "SetText"), tostring(chanType), tostring(chanTarget)))
+                                tostring(isInsert and "Insert" or "SetText"), SafeToString(chanType), SafeToString(chanTarget)))
                         else
                             TriggerTrace("IntentPath.SetTextFallback", string.format("kind=channel source=%s chatType=%s target=%s",
-                                tostring(isInsert and "Insert" or "SetText"), tostring(chanType), tostring(chanTarget)))
+                                tostring(isInsert and "Insert" or "SetText"), SafeToString(chanType), SafeToString(chanTarget)))
                         end
                         local curText = targetBox:GetText() or ""
                         local nextText = chanRemainder or ""
@@ -437,7 +453,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 and type(self.RefreshLabel) == "function" then
                 self:RefreshLabel()
             end
-            YapperTable.Utils:VerbosePrint("SetGameLanguage: " .. tostring(self.Language))
+            YapperTable.Utils:VerbosePrint("SetGameLanguage: " .. SafeToString(self.Language))
         end)
     end
 
