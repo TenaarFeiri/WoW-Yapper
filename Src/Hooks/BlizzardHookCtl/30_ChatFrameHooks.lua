@@ -17,7 +17,16 @@ local ParseLinkType = Ctl.ParseLinkType
 local type = type
 local tonumber = tonumber
 local tostring = tostring
+local nativeToString = tostring
 
+local function SafeToString(value)
+    local utils = YapperTable.Utils
+    if utils and type(utils.SafeToString) == "function" then
+        return utils:SafeToString(value)
+    end
+    local ok, result = pcall(nativeToString, value)
+    return ok and result or "<unavailable>"
+end
 
 function EditBox:HookAllChatFrames()
     local function EnsureEditBoxHooked(eb)
@@ -69,16 +78,19 @@ function EditBox:HookAllChatFrames()
     -- Native SetItemRef/LinkUtil/OpenChat handling remains authoritative.
     if EventRegistry and not self._hyperlinkIntentRegistered then
         EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkClick", function(_, chatFrame, link, _, button)
-            local linkType = ParseLinkType(link)
+            local linkType
+            if not (YapperTable.Utils and YapperTable.Utils:IsSecret(link)) then
+                linkType = ParseLinkType(link)
+            end
             TriggerTrace("ChatFrame.OnHyperlinkClick", string.format("type=%s button=%s frame=%s link=%s",
-                tostring(linkType),
-                tostring(button),
-                tostring(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil),
-                tostring(link)
+                SafeToString(linkType),
+                SafeToString(button),
+                SafeToString(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil),
+                SafeToString(link)
             ))
 
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
-                TriggerTrace("ChatFrame.OnHyperlinkClick.PassToBlizzard", string.format("reason=lockdown link=%s", tostring(link)))
+                TriggerTrace("ChatFrame.OnHyperlinkClick.PassToBlizzard", string.format("reason=lockdown link=%s", SafeToString(link)))
             end
         end, self)
         self._hyperlinkIntentRegistered = true
@@ -89,7 +101,10 @@ function EditBox:HookAllChatFrames()
     if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
             TriggerTrace("ChatFrameUtil.OpenChat", string.format("text=%s frame=%s",
-                tostring(text), tostring(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
+                SafeToString(text), SafeToString(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
+            if text and YapperTable.Utils and YapperTable.Utils:IsSecret(text) then
+                return
+            end
             if self._suppressOpenChatHook then
                 self._suppressOpenChatHook = nil
                 return
@@ -145,7 +160,7 @@ function EditBox:HookAllChatFrames()
                             local ct, tgt, remainder = Core.ParseChannelSlash(text)
                             if ct then
                                 TriggerTrace("IntentPath.OpenChatEarly", string.format("kind=channel chatType=%s target=%s",
-                                    tostring(ct), tostring(tgt)))
+                                    SafeToString(ct), SafeToString(tgt)))
                                 StampRecentOpenChatIntent(self, ct, (ct == "CHANNEL") and tgt or nil)
                                 self.ChatType = ct
                                 if ct == "CHANNEL" then
@@ -172,7 +187,7 @@ function EditBox:HookAllChatFrames()
                         elseif Core.IsWhisperSlashPrefill(text) then
                             local tgt, remainder = Core.ParseWhisperSlash(text)
                             if tgt then
-                                TriggerTrace("IntentPath.OpenChatEarly", string.format("kind=whisper target=%s", tostring(tgt)))
+                                TriggerTrace("IntentPath.OpenChatEarly", string.format("kind=whisper target=%s", SafeToString(tgt)))
                                 StampRecentOpenChatIntent(self, "WHISPER", tgt)
                                 self.ChatType = "WHISPER"
                                 self.Target = tgt
@@ -229,7 +244,7 @@ function EditBox:HookAllChatFrames()
                     local ct, tgt = Core.ParseChannelSlash(text)
                     if ct then
                         TriggerTrace("IntentPath.OpenChatDeferred", string.format("kind=channel chatType=%s target=%s",
-                            tostring(ct), tostring(tgt)))
+                            SafeToString(ct), SafeToString(tgt)))
                         StampRecentOpenChatIntent(self, ct, (ct == "CHANNEL") and tgt or nil)
                         self._explicitChannel = {
                             chatType    = ct,
@@ -242,7 +257,7 @@ function EditBox:HookAllChatFrames()
                 elseif Core.IsWhisperSlashPrefill(text) then
                     local tgt = Core.ParseWhisperSlash(text)
                     if tgt then
-                        TriggerTrace("IntentPath.OpenChatDeferred", string.format("kind=whisper target=%s", tostring(tgt)))
+                        TriggerTrace("IntentPath.OpenChatDeferred", string.format("kind=whisper target=%s", SafeToString(tgt)))
                         StampRecentOpenChatIntent(self, "WHISPER", tgt)
                         self._explicitChannel = {
                             chatType = "WHISPER",
@@ -475,7 +490,7 @@ function EditBox:HookAllChatFrames()
             -- treated as unusable input (Blizzard's own path still runs).
             target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
             TriggerTrace("ChatFrameUtil.SendTell", string.format("target=%s frame=%s",
-                tostring(target), tostring(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
+                SafeToString(target), SafeToString(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
             -- Fail fast on unusable input or lockdown: leave Blizzard's box as-is.
             if type(target) ~= "string" or target == "" then return end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
@@ -545,7 +560,7 @@ function EditBox:HookAllChatFrames()
         hooksecurefunc(ChatFrameUtil, "SendBNetTell", function(target)
             -- Same secret quarantine as the SendTell hook above.
             target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
-            TriggerTrace("ChatFrameUtil.SendBNetTell", string.format("target=%s", tostring(target)))
+            TriggerTrace("ChatFrameUtil.SendBNetTell", string.format("target=%s", SafeToString(target)))
             if type(target) ~= "string" or target == "" then return end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
@@ -652,7 +667,7 @@ function EditBox:HookAllChatFrames()
                     editBox     = chatFrame.editBox,
                 }
                 editBox:Show(chatFrame.editBox)
-                YapperTable.Utils:VerbosePrint("Applied tab switch via Show(): chatType="..tostring(switch.chatType).." target="..tostring(switch.target))
+                YapperTable.Utils:VerbosePrint("Applied tab switch via Show(): chatType="..SafeToString(switch.chatType).." target="..SafeToString(switch.target))
             else
                 editBox._pendingTabSwitch = {
                     chatType    = switch.chatType,
@@ -663,7 +678,7 @@ function EditBox:HookAllChatFrames()
                     editBox     = chatFrame.editBox,
                 }
                 editBox._suppressNextShowFor = nil
-                YapperTable.Utils:VerbosePrint("Stored pending tab switch: chatType="..tostring(switch.chatType).." target="..tostring(switch.target))
+                YapperTable.Utils:VerbosePrint("Stored pending tab switch: chatType="..SafeToString(switch.chatType).." target="..SafeToString(switch.target))
             end
         end
 
@@ -712,7 +727,7 @@ function EditBox:HookAllChatFrames()
             -- SanitizeTarget: whisper-tab chatTarget can be secret under
             -- forced addon restrictions; treat as targetless below.
             local cfTarget = YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget)
-            YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..tostring(cfType).." chatTarget="..tostring(cfTarget))
+            YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..SafeToString(cfType).." chatTarget="..SafeToString(cfTarget))
 
             if chatFrame.isTemporary and cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
                 and cfTarget and cfTarget ~= "" then

@@ -37,6 +37,7 @@ local _, YapperTable                 = ...
 local Multiline                      = {}
 YapperTable.Multiline                = Multiline
 local State                          = YapperTable.State
+local Utils                          = YapperTable.Utils
 
 
 -- Localise Lua globals for performance
@@ -102,8 +103,9 @@ local function RefreshMLLabel(ml)
 
 		if mode == "blizzard" then
 			-- Blizzard mode: use ChatTypeInfo
-			if chatType == "CHANNEL" and ml.ChatTarget then
-				local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(ml.ChatTarget)]
+			local safeTarget = Utils and Utils:SanitizeTarget(ml.ChatTarget) or ml.ChatTarget
+			if chatType == "CHANNEL" and safeTarget then
+				local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(safeTarget)]
 				if info and type(info.r) == "number" then
 					r, g, b = info.r, info.g, info.b
 					modeResolved = true

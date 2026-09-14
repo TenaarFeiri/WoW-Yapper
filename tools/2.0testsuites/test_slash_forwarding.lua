@@ -93,9 +93,11 @@ _G.hash_EmoteTokenList = {
 _G.IsSecureCmd = function(command)
     return hash_SecureCmdList[strupper(command)] ~= nil
 end
--- Localised alias globals for non-secure commands that call protected APIs.
+-- Localised alias globals used by the slash-command policy tests.
 _G.SLASH_MACRO1 = "/macro"
 _G.SLASH_MACRO2 = "/m"
+_G.SLASH_TARGET1 = "/target"
+_G.SLASH_TARGET2 = "/tar"
 _G.C_ChatInfo = {
     PerformEmote = function(token, message)
         forwardedText = token .. ":" .. message
@@ -154,39 +156,45 @@ end)
 check("named emote reaches native parser", ok and forwardedEmote == "SILLY")
 check("named emote keeps message", forwardedText == "SILLY:hello")
 
-print("\nTest 5: native cleanup is preserved")
+print("\nTest 5: permanently forbidden target command is not forwarded")
+forwardedText, printedLine = nil, nil
+YapperTable.EditBox:ForwardSlashCommand("/target Boss")
+check("target command is not forwarded", forwardedText == nil)
+check("target command explains the Blizzard fallback", printedLine ~= nil and printedLine:find("Blizzard chat box") ~= nil)
+
+print("\nTest 6: native cleanup is preserved")
 nativeShown = true
 YapperTable.EditBox:ForwardSlashCommand("/reload")
 check("native editbox is cleaned after forwarding", nativeDeactivateCalls == 1 and nativeText == "")
 nativeShown = false
 
-print("\nTest 6: lockdown remains handed off")
+print("\nTest 7: lockdown remains handed off")
 YapperTable.Utils.IsChatLockdown = function() return true end
 YapperTable.EditBox:ForwardSlashCommand("/reload")
 check("lockdown hands control to Blizzard", handedOff == true)
 YapperTable.Utils.IsChatLockdown = function() return false end
 
-print("\nTest 7: protected non-secure command blocked during combat lockdown")
+print("\nTest 8: protected non-secure command blocked during combat lockdown")
 inCombat = true
 forwardedText, printedLine = nil, nil
 YapperTable.EditBox:ForwardSlashCommand("/m")
 check("/m is not forwarded", forwardedText == nil)
 check("/m prints a user-facing explanation", printedLine ~= nil and printedLine:find("/m") ~= nil)
 
-print("\nTest 8: secure command blocked during combat lockdown")
+print("\nTest 9: secure command blocked during combat lockdown")
 forwardedSecure, forwardedText, printedLine = nil, nil, nil
 YapperTable.EditBox:ForwardSlashCommand("/cast Fireball")
 check("/cast is not forwarded", forwardedText == nil and forwardedSecure == nil)
 check("/cast prints a user-facing explanation", printedLine ~= nil and printedLine:find("/cast") ~= nil)
 
-print("\nTest 9: unprotected command still forwards during combat lockdown")
+print("\nTest 10: unprotected command still forwards during combat lockdown")
 called, forwardedText = false, nil
 YapperTable.EditBox:ForwardSlashCommand("/reload")
 check("/reload reaches native parser", forwardedText == "/reload")
 check("registered handler is called", called == true)
 inCombat = false
 
-print("\nTest 10: protected command forwards normally out of combat")
+print("\nTest 11: protected command forwards normally out of combat")
 forwardedText, printedLine = nil, nil
 YapperTable.EditBox:ForwardSlashCommand("/m")
 check("/m reaches native parser", forwardedText == "/m")

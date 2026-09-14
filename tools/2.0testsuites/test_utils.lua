@@ -191,8 +191,12 @@ check("SanitizeNumber boolean -> nil", Utils:SanitizeNumber(true) == nil)
 
 oldIsSecretValue = _G.issecretvalue
 oldCanAccessValue = _G.canaccessvalue
-_G.issecretvalue = function(value) return value == 777 end
-_G.canaccessvalue = function(value) return value ~= 777 end
+_G.issecretvalue = function(value) return value == 777 or value == "SECRET" end
+_G.canaccessvalue = function(value) return value ~= 777 and value ~= "SECRET" end
+check("SafeToString normal string", Utils:SafeToString("hello") == "hello")
+check("SafeToString secret value is redacted", Utils:SafeToString("SECRET") == "<secret>")
+local safePrintOK = pcall(function() Utils:Print("SECRET") end)
+check("Print tolerates secret values", safePrintOK)
 check("SanitizeNumber secret -> nil", Utils:SanitizeNumber(777) == nil)
 check("SafeNumber normal", Utils:SafeNumber(12, 0) == 12)
 check("SafeNumber nil -> fallback", Utils:SafeNumber(nil, 0) == 0)

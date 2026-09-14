@@ -29,6 +29,14 @@ local strmatch = string.match
 local strlower = string.lower
 local strbyte  = string.byte
 
+local function SafeToString(value)
+    local utils = YapperTable.Utils
+    if utils and type(utils.SafeToString) == "function" then
+        return utils:SafeToString(value)
+    end
+    local ok, result = pcall(tostring, value)
+    return ok and result or "<unavailable>"
+end
 
 function EditBox:SetupOverlayScripts()
     local edit         = self.OverlayEdit
@@ -496,7 +504,7 @@ function EditBox:SetupOverlayScripts()
             target, isSecure = self:ResolveWhisperTarget(chatType, self._secureReplySource, self.Target)
         end
 
-        YapperTable.Utils:DebugPrint("OnEnterPressed: SENDING text=" .. tostring(trimmed):sub(1,40) .. ", chatType=" .. tostring(chatType) .. ", secure=" .. tostring(isSecure))
+        YapperTable.Utils:DebugPrint("OnEnterPressed: SENDING text=" .. SafeToString(trimmed):sub(1,40) .. ", chatType=" .. SafeToString(chatType) .. ", secure=" .. SafeToString(isSecure))
 
         local didSend = true
         if self.OnSend then

@@ -19,6 +19,7 @@ local RefreshOverlayVisuals = Core.RefreshOverlayVisuals
 -- Re-localise Lua globals.
 local type       = type
 local tostring   = tostring
+local nativeToString = tostring
 local tonumber   = tonumber
 local math_max   = math.max
 local math_min   = math.min
@@ -28,6 +29,14 @@ local canaccessvalue = _G["canaccessvalue"]
 
 local IsSecretValue = function(value)
     return Utils:IsSecret(value)
+end
+
+local function SafeToString(value)
+    if Utils and type(Utils.SafeToString) == "function" then
+        return Utils:SafeToString(value)
+    end
+    local ok, result = pcall(nativeToString, value)
+    return ok and result or "<unavailable>"
 end
 
 local function IsUsableGeometryValue(value)
@@ -76,11 +85,11 @@ local function LogSecretGeometry(editBox, chatParent, fields)
 
     local editName = type(editBox.GetName) == "function" and editBox:GetName() or "<unknown>"
     local parentName = type(chatParent.GetName) == "function" and chatParent:GetName() or "<unknown>"
-    local key = tostring(editName) .. "|" .. tostring(parentName) .. "|" .. table_concat(fields, ",")
+    local key = SafeToString(editName) .. "|" .. SafeToString(parentName) .. "|" .. table_concat(fields, ",")
     if EditBox._repositionSecretLogKey == key then return end
 
     EditBox._repositionSecretLogKey = key
-    Utils:VerbosePrint("RepositionOverlay: secret geometry on " .. tostring(editName)
+    Utils:VerbosePrint("RepositionOverlay: secret geometry on " .. SafeToString(editName)
         .. " (" .. table_concat(fields, ",") .. "); using cached layout when available.")
 end
 
@@ -271,7 +280,7 @@ function EditBox:Show(origEditBox)
     local pendingTabSwitch = self._pendingTabSwitch
     if pendingTabSwitch then
         self._pendingTabSwitch = nil
-        YapperTable.Utils:VerbosePrint("Applying pending tab switch: chatType="..tostring(pendingTabSwitch.chatType).." target="..tostring(pendingTabSwitch.target))
+        YapperTable.Utils:VerbosePrint("Applying pending tab switch: chatType="..SafeToString(pendingTabSwitch.chatType).." target="..SafeToString(pendingTabSwitch.target))
         if pendingTabSwitch.editBox and pendingTabSwitch.editBox ~= origEditBox then
             origEditBox = pendingTabSwitch.editBox
         end
@@ -1101,7 +1110,7 @@ end
 -- @param force boolean: when true, apply regardless of SettingsHaveChanged flag.
 function EditBox:ApplyConfigToLiveOverlay(force)
     if not self.Overlay or not self.OverlayEdit then return end
-    Utils:VerbosePrint("EditBox:ApplyConfigToLiveOverlay called (force=" .. tostring(force) .. ")")
+    Utils:VerbosePrint("EditBox:ApplyConfigToLiveOverlay called (force=" .. SafeToString(force) .. ")")
 
     local localConf = _G.YapperLocalConf
     if type(localConf) ~= "table"
