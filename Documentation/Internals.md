@@ -479,8 +479,8 @@ Bound by `SetupOverlayScripts` when overlay is created.
 
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
-  - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L33`](../Src/EditBox/Handlers.lua#L33)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1063`](../Src/EditBox/Handlers.lua#L1063)).
+  - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L41`](../Src/EditBox/Handlers.lua#L41)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1071`](../Src/EditBox/Handlers.lua#L1071)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -630,13 +630,13 @@ Initialised by `Chat:Init`.
   - `SendChatMessage`, `BNSendWhisper`, `ClubSendMessage` cached function refs ([`../Src/Router.lua#L26-L28`](../Src/Router.lua#L26-L28)).
 - Methods:
   - `ChannelPolicy:SanitizeCommittedSelection(current) → table|nil`: Normalize a runtime channel selection before persistence or commit, removing unusable secret or unavailable targets. ([`../Src/Policies/ChannelPolicy.lua#L163`](../Src/Policies/ChannelPolicy.lua#L163))
-  - `ResolveBnetTarget` ([`../Src/Router.lua#L59`](`../Src/Router.lua#L59`))
-  - `_ResolveBnetTargetUncached` ([`../Src/Router.lua#L81`](`../Src/Router.lua#L81`))
-  - `ResolveBnetDisplay` ([`../Src/Router.lua#L114`](`../Src/Router.lua#L114`))
-  - `FlushBnetCache` ([`../Src/Router.lua#L173`](`../Src/Router.lua#L173`))
-  - `Init` ([`../Src/Router.lua#L177`](`../Src/Router.lua#L177`))
-  - `DetectCommunityChannel` ([`../Src/Router.lua#L196`](`../Src/Router.lua#L196`))
-  - `Send` ([`../Src/Router.lua#L214`](`../Src/Router.lua#L214`))
+  - `ResolveBnetTarget` ([`../Src/Router.lua#L64`](`../Src/Router.lua#L64`))
+  - `_ResolveBnetTargetUncached` ([`../Src/Router.lua#L86`](`../Src/Router.lua#L86`))
+  - `ResolveBnetDisplay` ([`../Src/Router.lua#L119`](`../Src/Router.lua#L119`))
+  - `FlushBnetCache` ([`../Src/Router.lua#L178`](`../Src/Router.lua#L178`))
+  - `Init` ([`../Src/Router.lua#L182`](`../Src/Router.lua#L182`))
+  - `DetectCommunityChannel` ([`../Src/Router.lua#L201`](`../Src/Router.lua#L201`))
+  - `Send` ([`../Src/Router.lua#L219`](`../Src/Router.lua#L219`))
 - Side effects:
   - May delegate to `GopherBridge:Send`.
 
@@ -750,13 +750,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1079`](../Src/Multiline.lua#L1079))
   - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1038`](../Src/Multiline.lua#L1038))
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L155`](`../Src/Multiline.lua#L155`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L186`](`../Src/Multiline.lua#L186`))
-  - `Enter` ([`../Src/Multiline.lua#L619`](`../Src/Multiline.lua#L619`))
-  - `Exit` ([`../Src/Multiline.lua#L773`](`../Src/Multiline.lua#L773`))
-  - `Submit` ([`../Src/Multiline.lua#L901`](`../Src/Multiline.lua#L901`))
-  - `Cancel` ([`../Src/Multiline.lua#L1002`](`../Src/Multiline.lua#L1002`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1096`](`../Src/Multiline.lua#L1096`))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L157`](`../Src/Multiline.lua#L157`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L188`](`../Src/Multiline.lua#L188`))
+  - `Enter` ([`../Src/Multiline.lua#L621`](`../Src/Multiline.lua#L621`))
+  - `Exit` ([`../Src/Multiline.lua#L775`](`../Src/Multiline.lua#L775`))
+  - `Submit` ([`../Src/Multiline.lua#L903`](`../Src/Multiline.lua#L903`))
+  - `Cancel` ([`../Src/Multiline.lua#L1004`](`../Src/Multiline.lua#L1004`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1098`](`../Src/Multiline.lua#L1098`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
