@@ -363,6 +363,19 @@ function EditBox:Show(origEditBox)
         end
     end
 
+    local pendingBnetWhisper = self._pendingBnetWhisper
+    self._pendingBnetWhisper = nil
+    if pendingBnetWhisper and GetTime() - pendingBnetWhisper.t <= 1 then
+        local pendingTarget = Utils:SanitizeTarget(pendingBnetWhisper.target)
+        if pendingTarget then
+            explicitChannel = {
+                chatType = "BN_WHISPER",
+                target = pendingTarget,
+                t = GetTime(),
+            }
+        end
+    end
+
     -- Did Blizzard open with a specific target?
     local blizzHasTarget         = ((blizzType == "WHISPER" or blizzType == "BN_WHISPER")
             and blizzTell and blizzTell ~= "")

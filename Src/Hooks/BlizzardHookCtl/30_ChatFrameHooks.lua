@@ -28,6 +28,35 @@ local function SafeToString(value)
     return ok and result or "<unavailable>"
 end
 
+local function OpenBnetAccountWhisper(bnetAccountID, chatFrame, name)
+    local utils = YapperTable.Utils
+    bnetAccountID = utils and utils:SanitizeTarget(bnetAccountID) or bnetAccountID
+    if (type(bnetAccountID) ~= "string" and type(bnetAccountID) ~= "number")
+        or bnetAccountID == "" then
+        return
+    end
+
+    if utils and utils.IsChatLockdown and utils:IsChatLockdown() then
+        return
+    end
+
+    local target = tonumber(bnetAccountID) or bnetAccountID
+    if not chatFrame and ChatEdit_GetActiveWindow then
+        local activeEditBox = ChatEdit_GetActiveWindow()
+        chatFrame = activeEditBox and activeEditBox.chatFrame
+    end
+
+    local handler = YapperTable.EditBox
+    if handler and type(handler.OpenWhisperFromUnitMenu) == "function" then
+        name = utils and utils:SanitizeTarget(name) or name
+        handler:OpenWhisperFromUnitMenu({
+            bnetIDAccount = target,
+            name = name,
+            chatFrame = chatFrame,
+        })
+    end
+end
+
 function EditBox:HookAllChatFrames()
     local function EnsureEditBoxHooked(eb)
         if not eb then return end
@@ -94,6 +123,102 @@ function EditBox:HookAllChatFrames()
             end
         end, self)
         self._hyperlinkIntentRegistered = true
+    end
+
+    if LinkUtil and LinkUtil.ProcessLink and not self._bnetLinkHooked then
+        hooksecurefunc(LinkUtil, "ProcessLink", function(link, _, contextData)
+            if type(contextData) ~= "table" or contextData.button ~= "LeftButton" then
+                return
+            end
+            if IsModifiedClick and IsModifiedClick("CHATLINK") then
+                return
+            end
+
+            local utils = YapperTable.Utils
+            local safeLink = utils and utils:SanitizeTarget(link) or link
+            if not safeLink then
+                return
+            end
+
+            local linkType, options = LinkUtil.SplitLinkData(safeLink)
+            if linkType ~= LinkTypes.BNPlayer and linkType ~= LinkTypes.BNPlayerCommunity then
+                return
+            end
+
+            local _, bnetAccountID = LinkUtil.SplitLinkOptions(options)
+            bnetAccountID = utils and utils:SanitizeTarget(bnetAccountID) or bnetAccountID
+            local numericID = bnetAccountID and tonumber(bnetAccountID)
+            if numericID then
+                OpenBnetAccountWhisper(numericID, contextData.frame)
+            end
+        end)
+        self._bnetLinkHooked = true
+    end
+
+    local function GetSelectedBnetFriend()
+        if not FriendsFrame
+            or FriendsFrame.selectedFriendType ~= FRIENDS_BUTTON_TYPE_BNET
+            or not FriendsFrame.selectedFriend
+            or not C_BattleNet
+            or type(C_BattleNet.GetFriendAccountInfo) ~= "function" then
+            return nil
+        end
+
+        local accountInfo = C_BattleNet.GetFriendAccountInfo(FriendsFrame.selectedFriend)
+        if not accountInfo then
+            return nil
+        end
+
+        local utils = YapperTable.Utils
+        local bnetAccountID = utils and utils:SanitizeTarget(accountInfo.bnetAccountID)
+            or accountInfo.bnetAccountID
+        if (type(bnetAccountID) ~= "string" and type(bnetAccountID) ~= "number")
+            or bnetAccountID == "" then
+            return nil
+        end
+
+        return tonumber(bnetAccountID) or bnetAccountID,
+            utils and utils:SanitizeTarget(accountInfo.accountName) or accountInfo.accountName
+    end
+
+    local function HookFriendsFrameSendMessage()
+        local button = FriendsFrameSendMessageButton
+        if self._friendsBnetButtonHooked
+            or not button
+            or type(button.HookScript) ~= "function" then
+            return
+        end
+
+        button:HookScript("PreClick", function()
+            self._pendingBnetWhisper = nil
+            local bnetAccountID, name = GetSelectedBnetFriend()
+            if bnetAccountID then
+                self._pendingBnetWhisper = {
+                    target = bnetAccountID,
+                    name = name,
+                    t = GetTime(),
+                }
+            end
+        end)
+        button:HookScript("OnClick", function()
+            local pending = self._pendingBnetWhisper
+            if pending and GetTime() - pending.t <= 1 then
+                OpenBnetAccountWhisper(pending.target, nil, pending.name)
+            end
+        end)
+        self._friendsBnetButtonHooked = true
+    end
+
+    HookFriendsFrameSendMessage()
+    if not self._friendsBnetAddonLoadedHooked and CreateFrame then
+        local addonFrame = CreateFrame("Frame")
+        addonFrame:RegisterEvent("ADDON_LOADED")
+        addonFrame:SetScript("OnEvent", function(_, _, addonName)
+            if addonName == "Blizzard_FriendsFrame" then
+                HookFriendsFrameSendMessage()
+            end
+        end)
+        self._friendsBnetAddonLoadedHooked = true
     end
 
     -- Capture the raw OpenChat argument so we can preserve leading slashes
