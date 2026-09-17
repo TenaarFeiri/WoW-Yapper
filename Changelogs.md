@@ -2,6 +2,7 @@
 
 ### Bug Fixes
 - Yapper should no longer override keybindings in housing editor, causing blockage.
+- You should now be able to initiate bnet whispers with the Send Message button in your Contacts list.
 
 # 2.4.3
 
