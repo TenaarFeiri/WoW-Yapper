@@ -75,9 +75,9 @@ local SEND_POLICIES = {
         ackEvent = "CHAT_MSG_GUILD_DISCORD",
     },
     [POLICY_CLASS.GUILD] = {
-        promptEveryChunk = false,
-        autoUntilThrottle = true,
-        requiresHardwareEvent = false,
+        promptEveryChunk = true,
+        autoUntilThrottle = false,
+        requiresHardwareEvent = true,
         ackEvent = {
             GUILD = "CHAT_MSG_GUILD",
             OFFICER = "CHAT_MSG_OFFICER",
