@@ -248,11 +248,15 @@ for _, case in ipairs({
     h:reset()
     h:enqueue({ chatType .. " one", chatType .. " two" }, chatType, "Common", nil)
     h.Queue:Flush(false)
-    check(chatType .. " auto-sends first chunk", h:sent_count() == 1 and not h.Queue.NeedsContinue)
+    check(chatType .. " waits for hardware", h:sent_count() == 0 and h.Queue.NeedsContinue == true)
+    h.Queue:OnOpenChat()
+    check(chatType .. " sends first chunk after hardware", h:sent_count() == 1)
     drain(h, 1)
-    check(chatType .. " auto-sends after ACK", h:sent_count() == 2 and not h.Queue.NeedsContinue)
+    check(chatType .. " prompts for hardware after ACK", h:sent_count() == 1 and h.Queue.NeedsContinue == true)
+    h.Queue:OnOpenChat()
+    check(chatType .. " sends second chunk after hardware", h:sent_count() == 2)
     drain(h, 1)
-    check(chatType .. " auto-advancing sequence completes", h:queue_state().pending == 0)
+    check(chatType .. " hardware-gated sequence completes", h:queue_state().pending == 0)
 end
 
 h:reset()
