@@ -284,7 +284,7 @@ end
 --- True when running on the World of Warcraft: Forever client. Detection is
 --- rename-proof: Forever-only API surfaces are probed first, then runtime
 --- flavour/product labels (camelot/forever/classicplus variants), then a weak
---- build-version heuristic (Forever reports 1.6x while retail is on 11.x+).
+--- build-version heuristic (Forever reports 1.6x while retail is on 12.x+).
 --- @return boolean
 function Utils:IsForeverClient()
     if self._isForeverClient ~= nil then return self._isForeverClient end
@@ -319,7 +319,7 @@ function Utils:IsForeverClient()
     end
 
     -- Build-version heuristic: Forever clients report a 1.6x interface
-    -- version (e.g. 1.60.1.70009) while retail majors are 11.x+. Weak signal
+    -- version (e.g. 1.60.1.70009) while retail majors are 12.x+. Weak signal
     -- only; feature gates below still key off the specific API.
     if not detected and type(GetBuildInfo) == "function" then
         local ok, version = pcall(GetBuildInfo)

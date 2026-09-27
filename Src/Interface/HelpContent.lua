@@ -74,7 +74,7 @@ HelpContent.Items = {
     separator(),
 
     heading("Channels and Whispers"),
-    body(key("Tab"), " — cycle forward through available channels. ",
+    body(key("Tab"), " — cycle forward through available channels.\n ",
         key("Shift+Tab"), " — cycle backwards when spellcheck suggestions are not available."),
     body("The cycle includes Say, Emote, Yell, Party, Instance, Raid, Raid Warning, Guild, "
         .. "and Officer when those channels are available."),
