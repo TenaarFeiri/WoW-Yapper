@@ -268,6 +268,50 @@ local function IsWhisperSlashPrefill(text)
         or cmd == "cw" or cmd == "send" or cmd == "charwhisper"
 end
 
+--- Regional-unique-names (WoW: Forever) whisper targets may be "First Last"
+--- or "First-Last", so a lone space cannot terminate the target. This is a
+--- port of Blizzard's ChatFrameEditBoxBaseMixin:ExtractTellTarget (WHISPER
+--- branch): the name is only complete once it contains an interior
+--- separator boundary, and the longest prefix matching a known character
+--- wins. Returns nil while the input is still an incomplete name so callers
+--- keep waiting, exactly like Blizzard's own editbox.
+--- @param rest string  Text after the whisper slash command.
+--- @return string|nil target, string|nil remainder
+local function ExtractRegionalWhisperTarget(rest)
+    if type(rest) ~= "string" then return nil end
+    local target = rest:match("%s*(.*)")
+    if not target or target == "" then return nil end
+    if target:sub(1, 1) == "|" then return nil end
+
+    local acEntry = AUTOCOMPLETE_LIST and AUTOCOMPLETE_LIST.WHISPER_EXTRACT
+    local function MatchesKnownName(candidate)
+        if not (C_AutoComplete and type(C_AutoComplete.GetAutoCompleteResults) == "function") then
+            return false
+        end
+        local ok, matches = pcall(C_AutoComplete.GetAutoCompleteResults,
+            candidate, 1, 0, true,
+            acEntry and acEntry.include, acEntry and acEntry.exclude)
+        return ok and type(matches) == "table" and #matches > 0
+    end
+
+    -- Without an interior "sep word space" boundary the surname may still be
+    -- being typed.
+    if not target:find("[%s-](%w+)%s") then return nil end
+
+    -- The whole rest naming a known character means the user is still typing
+    -- (Blizzard returns false to keep the raw text).
+    if MatchesKnownName(target) then return nil end
+
+    -- Keep pulling off the last word until a known name or two words remain.
+    while target:find("[%s-](%w+)%s") do
+        target = target:match("(.+)%s+[^%s]*")
+        if MatchesKnownName(target) then break end
+    end
+
+    if not target or target == "" then return nil end
+    return target, (rest:sub(#target + 1):match("^%s*(.-)%s*$"))
+end
+
 local function ParseWhisperSlash(text)
     if type(text) ~= "string" then return nil end
     local cmd, rest = text:match("^%s*/([%w_]+)%s+([%s%S]*)")
@@ -276,6 +320,9 @@ local function ParseWhisperSlash(text)
     if cmd ~= "w" and cmd ~= "whisper" and cmd ~= "tell" and cmd ~= "t"
         and cmd ~= "cw" and cmd ~= "send" and cmd ~= "charwhisper" then
         return nil
+    end
+    if Utils and Utils.HasRegionalUniqueNames and Utils:HasRegionalUniqueNames() then
+        return ExtractRegionalWhisperTarget(rest)
     end
     local target, remainder = (rest or ""):match("^(%S+)%s*([%s%S]*)")
     if not target or target == "" then return nil end
@@ -605,6 +652,7 @@ EditBox._GROUP_CHAT_TYPES       = GROUP_CHAT_TYPES
 EditBox._CHATTYPE_TO_OVERRIDE_KEY = CHATTYPE_TO_OVERRIDE_KEY
 EditBox._REPLY_QUEUE_MAX        = REPLY_QUEUE_MAX
 EditBox.IsWhisperSlashPrefill   = IsWhisperSlashPrefill
+EditBox.ExtractRegionalWhisperTarget = ExtractRegionalWhisperTarget
 EditBox.ParseWhisperSlash       = ParseWhisperSlash
 EditBox.IsChannelSlashPrefill   = IsChannelSlashPrefill
 EditBox.ParseChannelSlash       = ParseChannelSlash
