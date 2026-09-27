@@ -182,7 +182,17 @@ function EditBox:SetupOverlayScripts()
 
         if cmd == "w" or cmd == "whisper" or cmd == "tell" or cmd == "t"
             or cmd == "cw" or cmd == "send" or cmd == "charwhisper" then
-            local target, remainder = strmatch(rest2 or "", "^(%S+)%s+([%s%S]*)")
+            local target, remainder
+            if YapperTable.Utils and YapperTable.Utils.HasRegionalUniqueNames
+                and YapperTable.Utils:HasRegionalUniqueNames()
+                and EditBox.ExtractRegionalWhisperTarget then
+                -- Forever parity: a bare space cannot terminate the target —
+                -- wait until the surname boundary is in, mirroring
+                -- Blizzard's ExtractTellTarget.
+                target, remainder = EditBox.ExtractRegionalWhisperTarget(rest2)
+            else
+                target, remainder = strmatch(rest2 or "", "^(%S+)%s+([%s%S]*)")
+            end
             if target then
                 self.ChatType = "WHISPER"
                 self.Target   = target
@@ -312,7 +322,20 @@ function EditBox:SetupOverlayScripts()
                 if enterCmd == "w" or enterCmd == "whisper"
                     or enterCmd == "tell" or enterCmd == "t"
                     or enterCmd == "cw" or enterCmd == "send" or enterCmd == "charwhisper" then
-                    local target = strmatch(enterRest or "", "^(%S+)")
+                    local target
+                    if YapperTable.Utils and YapperTable.Utils.HasRegionalUniqueNames
+                        and YapperTable.Utils:HasRegionalUniqueNames()
+                        and EditBox.ExtractRegionalWhisperTarget then
+                        -- Forever: Enter commits — pad a trailing space so the
+                        -- extractor's boundary rule can close the surname.
+                        target = EditBox.ExtractRegionalWhisperTarget((enterRest or "") .. " ")
+                        if not target then
+                            local whole = (enterRest or ""):match("^%s*(.-)%s*$")
+                            if whole ~= "" then target = whole end
+                        end
+                    else
+                        target = strmatch(enterRest or "", "^(%S+)")
+                    end
                     if target then
                         self.ChatType = "WHISPER"
                         self.Target   = target
@@ -999,9 +1022,15 @@ function EditBox:SetupOverlayScripts()
 
             local function NormaliseWhisperTarget(v, whisperKind)
                 if not HasComparableTarget(v) then return nil end
+                if whisperKind == "WHISPER"
+                    and YapperTable.Utils and YapperTable.Utils.NormaliseCharName then
+                    -- Realm suffixes are transient across WoW whisper flows;
+                    -- NormaliseCharName also canonicalises Forever surname
+                    -- spellings ("First-Last" / "First Last").
+                    return YapperTable.Utils:NormaliseCharName(v)
+                end
                 local s = v:lower()
                 if whisperKind == "WHISPER" then
-                    -- Realm suffixes are transient across WoW whisper flows.
                     s = s:gsub("%-.*$", "")
                 end
                 return s
