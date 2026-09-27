@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120100, 16001
 ## Title: Yapper Dictionary — English (Base)
 ## Notes: English language engine and base dictionary for Yapper. Required by all English regional dict addons.
 ## Version: 1.0.0

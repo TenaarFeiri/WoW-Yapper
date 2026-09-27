@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120100, 16001
 ## Title: Yapper Dictionary — English (GB)
 ## Notes: British English regional dictionary for Yapper.
 ## Version: 1.0.0
