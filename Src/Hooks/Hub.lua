@@ -24,6 +24,7 @@ YapperTable.EditBoxHooksCore = {
 
     -- Helper functions from EditBox
     IsWhisperSlashPrefill = EditBox.IsWhisperSlashPrefill,
+    ExtractRegionalWhisperTarget = EditBox.ExtractRegionalWhisperTarget,
     ParseWhisperSlash = EditBox.ParseWhisperSlash,
     IsChannelSlashPrefill = EditBox.IsChannelSlashPrefill,
     ParseChannelSlash = EditBox.ParseChannelSlash,
