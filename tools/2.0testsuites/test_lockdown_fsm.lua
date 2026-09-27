@@ -224,20 +224,7 @@ loadModule("Src/State.lua")
 loadModule("Src/Spellcheck/Recolour.lua")
 loadModule("Src/EditBox.lua")
 
--- YapperAPI global used by ShowHide/EditBox for state transitions.
-_G.YapperAPI = {
-    SetState = function(_, s)
-        local State = YapperTable.State
-        if s == "IDLE" and State.ToIdle then State:ToIdle()
-        elseif s == "EDITING" and State.ToEditing then State:ToEditing()
-        elseif s == "LOCKDOWN" and State.ToLockdown then State:ToLockdown()
-        elseif State.To and State.To then
-            -- fall through: unknown state names are ignored in tests
-        end
-        _G.YapperAPI._lastState = s
-    end,
-}
-
+-- ShowHide and the test harness use the internal State object directly.
 loadModule("Src/Hooks/ShowHide.lua")
 loadModule("Src/Multiline.lua")
 
@@ -269,7 +256,7 @@ local function ResetWorld()
     EditBox._lockdown.handedOff = false
     EditBox._lockdown.savedDraft = false
     EditBox._lockdown.eventRunning = false
-    YapperAPI:SetState("IDLE")
+    State:ToIdle()
 end
 
 -- ===========================================================================
@@ -444,7 +431,7 @@ check("handoff: skips tainted native deactivation", deactivateCalls == deactivat
 check("handoff: focus override cleared (OpenChat fallback must not target the hidden overlay)",
     focusOverride == nil)
 check("handoff: overlay hidden", not EditBox.Overlay:IsShown())
-check("handoff: state = LOCKDOWN", YapperAPI._lastState == "LOCKDOWN")
+check("handoff: state = LOCKDOWN", State:IsLockdown())
 -- Regression: Hide(true) used to SetText+SetFocus the Blizzard editbox
 -- unconditionally, re-activating the (proxy-mode) skin frame right after
 -- DeactivateChat closed it. bypassOpen defaults true: Blizzard's box must

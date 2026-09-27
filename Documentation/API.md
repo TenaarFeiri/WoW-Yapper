@@ -1,242 +1,289 @@
 # Yapper public API (`_G.YapperAPI`)
 
-> ⚠️ `_G.YapperAPI` is the stable interaction point between integrating add-ons and Yapper's platform. Prefer this over internals where possible, ask for new API if you feel it would be appropriate.
-> When API is updated or calls are slated to be changed or removed, existing API will be protected in the codebase for up to **6 months** either as an alias (common for renames) or as a wrapper around
-> new API slated to replace old (for example in cases of consolidation, etc.). An in-game notice about deprecated API usage will appear once per session.
-> Once the 6-month grace period ends, deprecated API calls are no longer protected and may be removed or rendered unusable at any time.
+> `_G.YapperAPI` is the supported integration boundary between other add-ons and Yapper. Prefer this API over internal tables. If an integration needs a missing hook or accessor, request a public API rather than depending on implementation details.
 >
-> Every effort will be made to keep the API a stable interface between Yapper and other add-ons for as long as reasonably possible. If you use a deprecated API function and receive a notice about it
-> in-game, please update your add-on ASAP to prevent future interruption of service.
+> Deprecated API names are retained for compatibility where explicitly documented. Yapper may warn when a deprecated alias is used. The current compatibility aliases are listed below; do not assume that undocumented names are protected.
+>
+> Explicitly deprecated API is intended to remain protected for up to six months through an alias or replacement wrapper. After that grace period, it may be removed or become unusable. Update integrations when a deprecation notice appears.
 
 Source of truth: [`Src/API.lua`](../Src/API.lua).
 
 ## Stability and usage
 
-- Public object is created at [`Src/API.lua#L235`](../Src/API.lua#L235).
-- Registrations are sandboxed (`pcall`) so consumer errors do not crash Yapper.
-- Filters are cancellable pre-hooks; callbacks are post events.
+- The public object is created at [`Src/API.lua#L237-L240`](../Src/API.lua#L237-L240).
+- API compatibility is feature-detected; there is no API-version field to branch on.
+- External filter and callback handlers are invoked through `pcall`, so handler errors do not propagate into Yapper.
+- Filters are pre-operation hooks and may modify or cancel. Callbacks are notification events and cannot modify or cancel the operation.
+- A maximum of 50 filters is allowed per hook point and 50 callbacks per event. Registration returns `nil` when validation fails or a cap is reached.
+- Filter registrations receive monotonically increasing numeric handles. Callback registrations use the same handle sequence; handles are opaque and should only be passed back to the matching unregister method.
 
 ## Filters
 
-Register/unregister:
+### Registration
 
-- `YapperAPI:RegisterFilter(hookPoint: string, callback: function, priority?: number) → handle|nil` ([`#L253`](../Src/API.lua#L253))
-- `YapperAPI:UnregisterFilter(handle: number) → nil` ([`#L324`](../Src/API.lua#L324))
+- `YapperAPI:RegisterFilter(hookPoint: string, callback: function, priority?: number) → number|nil` ([`Src/API.lua#L410`](../Src/API.lua#L410))
+- `YapperAPI:UnregisterFilter(handle: number) → nil` ([`Src/API.lua#L481`](../Src/API.lua#L481))
+
+`callback` receives one payload table. A filter may:
+
+- return the payload table, usually the same table after in-place mutation;
+- return a replacement table;
+- return `false` to cancel a cancellable operation; or
+- return `nil` to continue with the current payload unchanged. This is supported for compatibility, but returning the payload explicitly is preferred.
+
+`priority` defaults to `10`; lower values run first. Equal priorities run in registration order. Unknown hook points are rejected. There are currently no filter aliases.
 
 ### `PRE_EDITBOX_SHOW`
 
-- Signature: `callback(payload) → payload|false`
 - Payload: `{ chatType: string|nil, target: string|nil }`
-- Fired from [`Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L119`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L119), [`Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L543`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua#L543), and [`Src/EditBox/Keybinds.lua#L165`](../Src/EditBox/Keybinds.lua#L165).
-- Return `false` to suppress overlay open.
+- Return `false` to suppress the overlay opening.
+- Fired by the Blizzard editbox hooks and Yapper keybind path before the overlay is shown.
 
 ### `PRE_EDITBOX_LABEL`
 
 - Payload: `{ chatType: string|nil, target: string|number|nil, channelName: string|nil, label: string|nil, unit: string|nil }`
-- Fired from [`Src/EditBox/Overlay.lua#L259`](../Src/EditBox/Overlay.lua#L259).
-- Fires when `BuildLabelText` resolves label text for the editbox UI.
-- Intended use: mutate `payload.label` for specific channels (for example EMOTE/RP name formatting).
-- This hook is non-blocking: returning `false` is ignored and Yapper falls back to default label logic.
-- Yapper snapshots the original payload (deep copy) before filter execution and restores from that snapshot if a filter returns malformed/corrupted payload data.
+- This hook is deliberately non-cancellable. Returning `false` is ignored.
+- Mutate `payload.label` to provide custom label text. Yapper falls back to normal label resolution when no non-empty string label is supplied.
+- Yapper deep-copies the original payload before filtering and restores it when a filter returns `false`, a non-table, or malformed values.
+- Implementation: [`Src/EditBox/Overlay.lua#L231-L280`](../Src/EditBox/Overlay.lua#L231-L280).
 
 ### `PRE_SEND`
 
 - Payload: `{ text: string, chatType: string, language: any, target: string|number|nil }`
-- Fired from [`Src/Chat.lua#L154`](../Src/Chat.lua#L154), inside `Chat:SendPosts` — the single send pipeline shared by the single-line overlay and the multiline composer.
-- Fires **once per send**, before chunking, and after the raw input has been recorded to history.
-- `payload.text` may contain `\n`. Yapper treats every line as a separate chat message, so a filter that prepends a prefix must prepend it to each line, not just the first.
-- A filter may rewrite `chatType`, `language` and `target`; the resolved values are what Yapper routes with and what the sticky-channel state is persisted from.
+- Runs once per composed send in `Chat:SendPosts`, after raw input is recorded to history and before chunking.
+- `payload.text` may contain newlines. Yapper splits each resulting line into a separate post, so a prefix intended for every line must be applied to every line.
+- Filters may rewrite `text`, `chatType`, `language`, or `target`. The resolved routing fields are used for delivery and sticky-channel persistence.
 - Return `false` to cancel the send.
+- Implementation: [`Src/Chat.lua#L135-L150`](../Src/Chat.lua#L135-L150).
 
 ### `PRE_CHUNK`
 
 - Payload: `{ text: string, limit: number, chatType: string|nil, language: any }`
-- Fired from [`Src/Chunking.lua#L408`](../Src/Chunking.lua#L408), inside `Chunking:Split`.
-- Fires **once per contiguous text unit about to be chunked**, after paragraph isolation, and for every post — including posts short enough to need no splitting.
-- A filter may lower `payload.limit` or rewrite `payload.text`.
-- A filter may set `payload.continuationPrefix: string`, which the chunker prepends to every chunk after the first and charges against the byte budget automatically. Do not also reduce `limit` to make room for it.
-- Ordering within a continuation chunk is `<delineator><continuationPrefix><text>` — for example `» [Common] text`.
-- A filter may also set `payload.continuationPrefixFirst: boolean`. Set it when the prefix is parsed by a receiving addon that requires it at the head of the message; the chunker then emits `<continuationPrefix><delineator><text>` instead. Yapper's delineator is user-configurable free text, so a prefix with a strict anchor should not assume what precedes it.
-- Return `false` to cancel the send; `Chunking:Split` then returns `nil` and the caller aborts.
+- Runs once per contiguous text unit passed to `Chunking:Split`, after paragraph isolation and even when the text needs no splitting.
+- Filters may rewrite `text` or `limit`.
+- `payload.continuationPrefix: string`, when supplied, is prepended to every chunk after the first and charged against the byte budget automatically. Do not reduce `limit` separately to reserve space for it.
+- By default a continuation chunk is ordered as `<delineator><continuationPrefix><text>`.
+- `payload.continuationPrefixFirst: boolean` moves the continuation prefix before the delineator: `<continuationPrefix><delineator><text>`. Use this when the receiving addon requires its marker at the head of the message; the delineator is user-configurable and must not be assumed.
+- Return `false` to cancel chunking. `Chunking:Split` returns `nil` and the caller aborts the send.
+- Implementation: [`Src/Chunking.lua#L365-L426`](../Src/Chunking.lua#L365-L426).
 
 ### `PRE_DELIVER`
 
 - Payload: `{ text: string, chatType: string, language: any, target: string|number|nil }`
-- Fired from [`Src/Chat.lua#L243`](../Src/Chat.lua#L243).
-- Return `false` to claim delivery; this emits `POST_CLAIMED` and starts delegation timeout.
+- Runs immediately before `Router:Send` for one message.
+- A filter may rewrite the payload or return `false` to claim delivery. A claim causes `POST_CLAIMED` to fire and starts a five-second delegation timeout.
+- The claiming addon must call `YapperAPI:ResolvePost(handle)` before the timeout. If it does not, Yapper sends the message itself and reports the claiming owner.
+- Implementation: [`Src/Chat.lua#L277-L317`](../Src/Chat.lua#L277-L317).
 
 ### `PRE_SPELLCHECK`
 
 - Payload: `{ text: string }`
-- Fired from [`Src/Spellcheck/Engine.lua#L88`](../Src/Spellcheck/Engine.lua#L88).
-- Return `false` to skip spellcheck for that text.
+- Runs before spellcheck examines the text.
+- Return `false` to skip spellcheck for that operation.
+- Implementation: [`Src/Spellcheck/Engine.lua#L83-L91`](../Src/Spellcheck/Engine.lua#L83-L91).
 
 ### `PRE_SPELLCHECK_SUGGESTIONS`
 
 - Payload: `{ word: string, suggestions: table[], locale: string }`
-- Fired from [`Src/Spellcheck/Engine.lua#L1246`](../Src/Spellcheck/Engine.lua#L1246).
-- Fires after the engine has scored, sorted, and formatted the suggestion list for a misspelled word, but before the result is cached and shown.
-- Each entry in `suggestions` is a table: `{ kind="word", value=string, score=number, baseScore=number }` or `{ kind="add", value=string }` or `{ kind="ignore", value=string }` or `{ kind="split", value=string }`.
-- Plugins may reorder, append, remove, or rewrite suggestions by mutating the `suggestions` array and returning the payload.
-- Return `false` to suppress the suggestion popup entirely.
-- To force a refresh after changing plugin state, call `YapperAPI:ClearSuggestionCache()`.
+- Runs after suggestions are scored, sorted, and formatted, but before the result is cached and shown.
+- Entries normally have one of these forms:
+  - `{ kind="word", value=string, score=number, baseScore=number }`
+  - `{ kind="add", value=string }`
+  - `{ kind="ignore", value=string }`
+  - `{ kind="split", value=string }`
+- Add-ons may reorder, append, remove, or rewrite entries by mutating the `suggestions` array and returning the payload.
+- Return `false` to suppress the suggestion result. Call `YapperAPI:ClearSuggestionCache()` after changing plugin state when cached results must be recomputed.
+- Implementation: [`Src/Spellcheck/Engine.lua#L1198-L1226`](../Src/Spellcheck/Engine.lua#L1198-L1226).
 
 ### `PRE_MULTILINE_SHOW`
 
 - Payload: `{ text: string, chatType: string, language: any, target: string|number|nil }`
-- Fired from [`Src/Multiline.lua#L629`](../Src/Multiline.lua#L629).
-- Fires before the expanded multiline editor opens.
-- Modify payload to change initial text/channel or return false to block.
+- Runs before the expanded multiline editor opens.
+- Modify the initial text or routing fields, or return `false` to block opening.
+- Implementation: [`Src/Multiline.lua#L624-L644`](../Src/Multiline.lua#L624-L644).
 
 ### `PRE_ICON_GALLERY_SHOW`
 
 - Payload: `{ rawEditBox: EditBox, query: string }`
-- Fired from [`Src/IconGallery.lua#L82`](../Src/IconGallery.lua#L82).
-- Fires before the raid-icon gallery popup is shown.
-- Modify `query` to change the pre-filter string or return false to suppress the gallery.
+- Runs before the raid-icon gallery opens.
+- Filters may rewrite both `rawEditBox` and `query`, or return `false` to suppress the gallery.
+- Implementation: [`Src/IconGallery.lua#L78-L107`](../Src/IconGallery.lua#L78-L107).
 
 ## Callbacks
 
-Register/unregister:
+### Registration
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → handle|nil` ([`Src/API.lua#L342`](../Src/API.lua#L342))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L402`](../Src/API.lua#L402))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → number|nil` ([`Src/API.lua#L499`](../Src/API.lua#L499))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L559`](../Src/API.lua#L559))
+
+Callbacks receive event-specific arguments. Return values are ignored. Unknown event names are rejected. Each event allows at most 50 registered callbacks.
 
 ### Event list
 
-- `POST_SEND(text, chatType, language, target)` — [`Src/Chat.lua#L273`](../Src/Chat.lua#L273), [`Src/API.lua#L1012`](../Src/API.lua#L1012)
-- `POST_CLAIMED(handle, text, chatType, language, target)` — [`Src/Chat.lua#L254`](../Src/Chat.lua#L254)
-- `CONFIG_CHANGED(path, value)` — [`Src/Interface/Config.lua#L395`](../Src/Interface/Config.lua#L395)
-- `STATE_CHANGED(newState, oldState, ...)` — [`Src/State.lua#L162`](../Src/State.lua#L162)
-- `EDITBOX_SHOW(chatType, target)` — [`Src/Hooks/ShowHide.lua#L409`](../Src/Hooks/ShowHide.lua#L409)
-- `EDITBOX_HIDE()` — [`Src/Hooks/ShowHide.lua#L483`](../Src/Hooks/ShowHide.lua#L483)
-- `EDITBOX_TEXT_CHANGED(text, isUserInput, box)` — [`Src/EditBox/Handlers.lua#L45`](../Src/EditBox/Handlers.lua#L45), [`Src/Multiline.lua#L526`](../Src/Multiline.lua#L526), [`Src/Autocomplete.lua#L782`](../Src/Autocomplete.lua#L782), [`Src/Spellcheck/UI.lua#L1171`](../Src/Spellcheck/UI.lua#L1171)
-- `EDITBOX_CHANNEL_CHANGED(chatType, target)` — [`Src/Hooks/Label.lua#L264`](../Src/Hooks/Label.lua#L264)
-- `EDITBOX_LABEL_UPDATED(label, r, g, b)` — [`Src/Hooks/Label.lua#L210`](../Src/Hooks/Label.lua#L210)
-- `THEME_CHANGED(themeName)` — [`Src/Theme.lua#L112`](../Src/Theme.lua#L112), [`Src/Theme.lua#L239`](../Src/Theme.lua#L239)
-- `SPELLCHECK_SUGGESTION(word, suggestions)` — [`Src/Spellcheck/UI.lua#L961`](../Src/Spellcheck/UI.lua#L961)
-- `SPELLCHECK_SUGGESTION_HIGHLIGHTED(text, index, total)` — [`Src/Spellcheck/UI.lua#L807`](../Src/Spellcheck/UI.lua#L807)
-- `SPELLCHECK_APPLIED(original, replacement)` — [`Src/Spellcheck/UI.lua#L1142`](../Src/Spellcheck/UI.lua#L1142), [`Src/Spellcheck/UI.lua#L1197`](../Src/Spellcheck/UI.lua#L1197)
-- `SPELLCHECK_CLOSED()` — [`Src/Spellcheck/UI.lua#L1000`](../Src/Spellcheck/UI.lua#L1000)
-- `SPELLCHECK_WORD_ADDED(word, locale)` — [`Src/Spellcheck.lua#L592`](../Src/Spellcheck.lua#L592)
-- `SPELLCHECK_WORD_IGNORED(word, locale)` — [`Src/Spellcheck.lua#L615`](../Src/Spellcheck.lua#L615)
-- `YALLM_WORD_LEARNED(word, locale)` [DEPRECATED — automatically aliased to YAS_WORD_LEARNED]
-- `YAS_WORD_LEARNED(word, locale)` — [`Src/Spellcheck/Adaptive.lua#L605`](../Src/Spellcheck/Adaptive.lua#L605)
-- `QUEUE_STALL(chatType, policyClass, chunksRemaining)` — [`Src/Queue.lua#L662`](../Src/Queue.lua#L662)
-- `QUEUE_COMPLETE()` — [`Src/Queue.lua#L504`](../Src/Queue.lua#L504), [`Src/Queue.lua#L830`](../Src/Queue.lua#L830)
-- `ICON_GALLERY_SHOW(query)` — [`Src/IconGallery.lua#L106`](../Src/IconGallery.lua#L106)
-- `ICON_GALLERY_HIDE()` — [`Src/IconGallery.lua#L118`](../Src/IconGallery.lua#L118)
-- `ICON_GALLERY_SELECT(index, text, code)` — [`Src/IconGallery.lua#L168`](../Src/IconGallery.lua#L168)
-- `API_ERROR(kind, hook, handlerInfo, errorMessage, data, ...)` — [`Src/API.lua#L152`](../Src/API.lua#L152) (internal dispatch, not via `Fire`)
+- `POST_SEND(text, chatType, language, target)` — fires after the router or WoW chat API accepts the message.
+- `POST_CLAIMED(handle, text, chatType, language, target)` — fires when `PRE_DELIVER` claims a message and creates a delegation handle.
+- `CONFIG_CHANGED(path, value)` — fires when a Yapper setting changes. `path` is a dot-delimited config path.
+- `STATE_CHANGED(newState, oldState, ...)` — fires after a state transition. Trailing values are transition metadata.
+- `EDITBOX_SHOW(chatType, target)` — fires when the Yapper overlay becomes visible.
+- `EDITBOX_HIDE()` — fires when the Yapper overlay is hidden.
+- `EDITBOX_TEXT_CHANGED(text, isUserInput, box)` — fires when a managed editbox's text changes. `box` is the relevant WoW EditBox.
+- `EDITBOX_CHANNEL_CHANGED(chatType, target)` — fires when the active chat channel or target changes.
+- `EDITBOX_LABEL_UPDATED(label, r, g, b)` — fires after the visible label and its text colour are refreshed.
+- `THEME_CHANGED(themeName)` — fires after the active theme changes.
+- `SPELLCHECK_SUGGESTION(word, suggestions)` — fires when the suggestion popup is shown. `suggestions` is the displayed array of strings.
+- `SPELLCHECK_SUGGESTION_HIGHLIGHTED(text, index, total)` — fires when a suggestion is highlighted. `text` has colour codes stripped; `index` is one-based.
+- `SPELLCHECK_APPLIED(original, replacement)` — fires when a suggestion is applied.
+- `SPELLCHECK_CLOSED()` — fires when the suggestion popup closes.
+- `SPELLCHECK_WORD_ADDED(word, locale)` — fires when a word is added to the current user dictionary.
+- `SPELLCHECK_WORD_IGNORED(word, locale)` — fires when a word is marked ignored.
+- `YAS_WORD_LEARNED(word, locale)` — fires when YAS automatically promotes a word to the user dictionary.
+- `QUEUE_STALL(chatType, policyClass, chunksRemaining)` — fires when the queue acknowledgement timer expires and the Continue prompt is shown. `chunksRemaining` includes the stalled chunk.
+- `QUEUE_COMPLETE()` — fires when the delivery queue finishes or is cancelled.
+- `ICON_GALLERY_SHOW(query)` — fires when the raid-icon gallery opens. `query` may be empty.
+- `ICON_GALLERY_HIDE()` — fires when the gallery closes.
+- `ICON_GALLERY_SELECT(index, text, code)` — fires when an icon is selected. `index` is 1-8; `text` is the icon name; `code` is its shorthand such as `rt8`.
+- `API_ERROR(kind, hook, handler_info, errorMessage, data, ...)` — reports handler failures, unexpected filter return values, registration-cap failures, delegation timeouts, and other API-level errors.
 
-Emission sites: [`Src/Chat.lua`](../Src/Chat.lua), [`Src/Queue.lua`](../Src/Queue.lua), [`Src/Interface/Config.lua`](../Src/Interface/Config.lua), [`Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua), [`Src/Hooks/Label.lua`](../Src/Hooks/Label.lua), [`Src/EditBox/Handlers.lua`](../Src/EditBox/Handlers.lua), [`Src/Theme.lua`](../Src/Theme.lua), [`Src/IconGallery.lua`](../Src/IconGallery.lua), [`Src/Spellcheck.lua`](../Src/Spellcheck.lua), [`Src/Spellcheck/UI.lua`](../Src/Spellcheck/UI.lua), [`Src/Spellcheck/Adaptive.lua`](../Src/Spellcheck/Adaptive.lua), [`Src/State.lua`](../Src/State.lua), [`Src/Autocomplete.lua`](../Src/Autocomplete.lua), [`Src/Multiline.lua`](../Src/Multiline.lua), [`Src/API.lua`](../Src/API.lua).
+`YALLM_WORD_LEARNED(word, locale)` is a deprecated alias for `YAS_WORD_LEARNED`. Registering the old name resolves it to the canonical event and emits a deprecation warning. The alias is defined at [`Src/API.lua#L72-L75`](../Src/API.lua#L72-L75).
 
-### `API_ERROR` ownership/scoping
+Callback emission sites include [`Src/Chat.lua`](../Src/Chat.lua), [`Src/Queue.lua`](../Src/Queue.lua), [`Src/Interface/Config.lua`](../Src/Interface/Config.lua), [`Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua), [`Src/Hooks/Label.lua`](../Src/Hooks/Label.lua), [`Src/Theme.lua`](../Src/Theme.lua), [`Src/IconGallery.lua`](../Src/IconGallery.lua), [`Src/Spellcheck.lua`](../Src/Spellcheck.lua), [`Src/Spellcheck/UI.lua`](../Src/Spellcheck/UI.lua), [`Src/Spellcheck/Adaptive.lua`](../Src/Spellcheck/Adaptive.lua), [`Src/State.lua`](../Src/State.lua), [`Src/Multiline.lua`](../Src/Multiline.lua), and [`Src/API.lua`](../Src/API.lua).
 
-When a handler faults, Yapper first attempts to route `API_ERROR` only to handlers owned by the same addon/module (owner captured at registration from source path). If no owner-matched handlers exist, it falls back to broadcasting all `API_ERROR` handlers; if none exist, it emits debug output. See [`Src/API.lua#L152-L192`](../Src/API.lua#L152-L192).
+### `API_ERROR` ownership and payload
+
+When a handler faults, Yapper first attempts to deliver `API_ERROR` only to handlers whose best-effort detected owner matches the failing handler's owner. If no owner-matched handlers exist, it broadcasts to all `API_ERROR` handlers. If none are registered, it emits debug output instead. API_ERROR handlers are themselves protected and do not recursively emit another `API_ERROR` event.
+
+`handler_info` is nil when no registered handler caused the error. Otherwise it contains a snapshot with `handle`, `priority` when applicable, and `owner` when available. `data` and trailing callback arguments are bounded, sanitized snapshots: secret values are replaced with `<secret>` and nested tables are not passed through live. The `kind` value commonly includes `filter`, `callback`, and `filter-return`, but operation-level errors may use values such as `FILTER`, `CALLBACK`, `SETTINGS`, `RegisterDictionary`, `RegisterLanguageEngine`, `deprecated`, or `delegation-timeout`.
+
+Implementation: [`Src/API.lua#L153-L224`](../Src/API.lua#L153-L224).
 
 ## Methods
 
-### Registration / lifecycle
+All methods below are members of `_G.YapperAPI` and use colon-call syntax.
 
-- `YapperAPI:GetVersion() → string` ([`#L419`](../Src/API.lua#L419))
-- `YapperAPI:GetCurrentTheme() → string|nil` ([`#L425`](../Src/API.lua#L425))
-- `YapperAPI:IsOverlayShown() → boolean` ([`#L436`](../Src/API.lua#L436))
-- `YapperAPI:GetConfig(path: string) → any` ([`#L454`](../Src/API.lua#L454))
-- `YapperAPI:GetDelineator() → string|nil` ([`#L488`](../Src/API.lua#L488))
-- `YapperAPI:OpenBlizzardChat() → nil` ([`#L448`](../Src/API.lua#L448))
-  Force the Yapper overlay to close and open the original Blizzard editbox. Equivalent to the user pressing the "Bypass Yapper" keybind (Shift-Enter).
-- `YapperAPI:GetState() → string` ([`#L497`](../Src/API.lua#L497))
-- `YapperAPI:IsState(state: string) → boolean` ([`#L506`](../Src/API.lua#L506))
-- `YapperAPI:GetStates() → string[]` ([`#L515`](../Src/API.lua#L515))
-- `YapperAPI:GetStateLogs() → table` ([`#L529`](../Src/API.lua#L529)) — returns the full circular buffer of state transitions (max 200 entries).
-- `YapperAPI:GetStateLog(index: number) → table|nil` ([`#L539`](../Src/API.lua#L539)) — returns a specific transition entry from the history.
-- `YapperAPI:GetStateLogCount() → number` ([`#L548`](../Src/API.lua#L548)) — returns the current number of transitions stored in the buffer.
+### Core, configuration, and lifecycle
+
+- `YapperAPI:GetVersion() → string` ([`Src/API.lua#L575`](../Src/API.lua#L575)) — returns addon metadata version, or `"unknown"` if the core is unavailable.
+- `YapperAPI:GetCurrentTheme() → string|nil` ([`Src/API.lua#L583`](../Src/API.lua#L583)) — returns the active theme name.
+- `YapperAPI:IsOverlayShown() → boolean` ([`Src/API.lua#L594`](../Src/API.lua#L594)) — reports whether the single-line overlay is visible.
+- `YapperAPI:OpenBlizzardChat() → nil` ([`Src/API.lua#L604`](../Src/API.lua#L604)) — requests the Blizzard editbox path, equivalent to the Bypass Yapper keybind.
+- `YapperAPI:GetConfig(path: string) → any|nil` ([`Src/API.lua#L612`](../Src/API.lua#L612)) — reads a dot-delimited path. Returned tables are deep copies. `Spellcheck.UnderlineColor` is a deprecated alias for `Spellcheck.MisspellingColour`.
+- `YapperAPI:GetDelineator() → string|nil` ([`Src/API.lua#L643`](../Src/API.lua#L643)) — returns `Chat.DELINEATOR`, falling back to the legacy `Chat.PREFIX` key.
+
+### State and frames
+
+- `YapperAPI:GetState() → string` ([`Src/API.lua#L652`](../Src/API.lua#L652))
+- `YapperAPI:IsState(state: string) → boolean` ([`Src/API.lua#L661`](../Src/API.lua#L661))
+- `YapperAPI:GetStates() → string[]` ([`Src/API.lua#L670`](../Src/API.lua#L670)) — sorted valid states are `INITIALISING`, `IDLE`, `EDITING`, `MULTILINE`, `SENDING`, `STALLED`, `LOCKDOWN`, and `CONFIG`.
+- `YapperAPI:GetStateLogs() → table` ([`Src/API.lua#L684`](../Src/API.lua#L684)) — returns a copy of the circular buffer, capped at 200 entries.
+- `YapperAPI:GetStateLog(index: number) → table|nil` ([`Src/API.lua#L694`](../Src/API.lua#L694)) — returns a copy of the entry at an index.
+- `YapperAPI:GetStateLogCount() → number` ([`Src/API.lua#L703`](../Src/API.lua#L703)).
+- `YapperAPI:SetState(stateName: string, ...) → boolean` ([`Src/API.lua#L730`](../Src/API.lua#L730)) — deprecated compatibility escape hatch. It emits a one-time deprecation warning and `API_ERROR` notification when first used. It returns false for an invalid state; otherwise requests the transition and returns true. Extra arguments are forwarded as `STATE_CHANGED` metadata. Avoid new usage because forced transitions can bypass internal safety logic.
+- `YapperAPI:ListFrames() → table` ([`Src/API.lua#L752`](../Src/API.lua#L752)) — returns flat keys `Overlay`, `OverlayEdit`, `LabelBg`, `SuggestionFrame`, `HintFrame`, `SuggestionClickCatcher`, `MultilineFrame`, `MultilineEdit`, and `MultilineScroll`, plus `All`, the categorized live frame registry.
+
+State log entries have `{ time, old, new, file, func, line }`. `GetStateLogs` and `GetStateLog` return copied data. `ListFrames` intentionally exposes live frame objects so addons can re-parent or restyle them; callers should not replace or mutate the registry structure itself.
 
 ### Spellcheck helpers
 
-- `YapperAPI:IsSpellcheckEnabled() → boolean` ([`#L605`](../Src/API.lua#L605))
-- `YapperAPI:CheckWord(word: string) → boolean` ([`#L614`](../Src/API.lua#L614))
-- `YapperAPI:GetSuggestions(word: string) → string[]|nil` ([`#L624`](../Src/API.lua#L624))
-- `YapperAPI:GetSpellcheckLocale() → string|nil` ([`#L645`](../Src/API.lua#L645))
-- `YapperAPI:AddToDictionary(word: string) → boolean` ([`#L655`](../Src/API.lua#L655))
-- `YapperAPI:IgnoreWord(word: string) → boolean` ([`#L668`](../Src/API.lua#L668))
-- `YapperAPI:FindMisspellings(text: string) → table[]|nil` ([`#L713`](../Src/API.lua#L713))
-- `YapperAPI:IsSuggestionOpen() → boolean` ([`#L682`](../Src/API.lua#L682))
-- `YapperAPI:HideSuggestions() → boolean` ([`#L691`](../Src/API.lua#L691))
-- `YapperAPI:ApplySuggestion(index: number) → boolean` ([`#L700`](../Src/API.lua#L700))
+- `YapperAPI:IsSpellcheckEnabled() → boolean` ([`Src/API.lua#L785`](../Src/API.lua#L785))
+- `YapperAPI:CheckWord(word: string) → boolean` ([`Src/API.lua#L794`](../Src/API.lua#L794))
+- `YapperAPI:GetSuggestions(word: string) → string[]|nil` ([`Src/API.lua#L804`](../Src/API.lua#L804)) — unwraps internal suggestion records to public word strings.
+- `YapperAPI:GetSpellcheckLocale() → string|nil` ([`Src/API.lua#L825`](../Src/API.lua#L825))
+- `YapperAPI:AddToDictionary(word: string) → boolean` ([`Src/API.lua#L835`](../Src/API.lua#L835))
+- `YapperAPI:IgnoreWord(word: string) → boolean` ([`Src/API.lua#L848`](../Src/API.lua#L848))
+- `YapperAPI:IsSuggestionOpen() → boolean` ([`Src/API.lua#L860`](../Src/API.lua#L860))
+- `YapperAPI:HideSuggestions() → boolean` ([`Src/API.lua#L869`](../Src/API.lua#L869)) — true means spellcheck was available and the hide operation was called; it does not necessarily mean a visible popup existed.
+- `YapperAPI:ApplySuggestion(index: number) → boolean` ([`Src/API.lua#L880`](../Src/API.lua#L880)) — accepts a one-based suggestion row.
+- `YapperAPI:FindMisspellings(text: string) → table[]|nil` ([`Src/API.lua#L893`](../Src/API.lua#L893)) — returns nil when disabled, unavailable, or empty; entries are `{ startPos, endPos, word }`.
+- `YapperAPI:ClearSuggestionCache() → boolean` ([`Src/API.lua#L1369`](../Src/API.lua#L1369)) — returns true when the spellcheck service cleared its cache.
 
-### Dictionary / language engine
+These wrappers return false or nil when spellcheck is unavailable or arguments are invalid.
 
-- `YapperAPI:RegisterDictionary(locale: string, data: table) → boolean` ([`#L733`](../Src/API.lua#L733))
-  Register a dictionary. If the dictionary belongs to a language family, that family must have a registered engine that satisfies the security validation (see `RegisterLanguageEngine`). Registration will fail if no secure engine is found for the associated family.
-- `YapperAPI:RegisterLanguageEngine(familyId: string, engine: table) → boolean` ([`#L750`](../Src/API.lua#L750))
-  Register a language engine. **Security Requirement**: The `engine` table MUST provide a `BlockedHashes` table and a `HashWord` function. Registration is blocked if these are missing.
-- `YapperAPI:IsLanguageEngineRegistered(familyId: string) → boolean` ([`#L764`](../Src/API.lua#L764))
-- `YapperAPI:RegisterLocaleAddon(locale: string, addonName: string) → boolean` ([`#L783`](../Src/API.lua#L783))
+### Dictionary and language engines
 
-### Queue
+- `YapperAPI:RegisterDictionary(locale: string, data: table|function) → boolean` ([`Src/API.lua#L914`](../Src/API.lua#L914)) — accepts a dictionary data table or lazy builder function. Tables may provide `words`, `phonetics`, `extends`, `languageFamily`, `affixRules`, and an optional `engine`. Delta status is inferred from `extends`; an `isDelta` field is not used by the implementation. A true result means dispatch completed without a Lua error; internal security validation may still reject the data.
+- `YapperAPI:RegisterLanguageEngine(familyId: string, engine: table) → boolean` ([`Src/API.lua#L932`](../Src/API.lua#L932)) — requires `GetPhoneticHash` plus security data `BlockedHashes` (table) and `HashWord` (function). Optional fields include `NormaliseVowels`, `HasVariantRules`, `VariantRules`, `ScoreWeights`, and `KBLayouts`.
+- `YapperAPI:IsLanguageEngineRegistered(familyId: string) → boolean` ([`Src/API.lua#L947`](../Src/API.lua#L947)).
+- `YapperAPI:GetLanguageEngine(familyId: string) → table|nil` ([`Src/API.lua#L955`](../Src/API.lua#L955)) — returns a deep copy of the registered engine; functions remain callable, but nested tables are not live registry data.
+- `YapperAPI:RegisterLocaleAddon(locale: string, addonName: string) → boolean` ([`Src/API.lua#L966`](../Src/API.lua#L966)) — maps a load-on-demand dictionary addon to a locale and retries `EnsureLocale` immediately when that locale is active.
 
-- `YapperAPI:GetQueueState() → { active, stalled, chatType, policyClass, pending, inFlight }` ([`#L847`](../Src/API.lua#L847))
-- `YapperAPI:CancelQueue() → number` ([`#L860`](../Src/API.lua#L860))
-- `YapperAPI:ResolvePost(handle: number) → boolean` ([`#L1036`](../Src/API.lua#L1036))
+### Queue, delivery, and text handling
 
-### Theme
+- `YapperAPI:InsertText(text: string) → boolean` ([`Src/API.lua#L1007`](../Src/API.lua#L1007)) — inserts non-empty text into the active Yapper editbox. Multiline has priority; false means no active Yapper editbox.
+- `YapperAPI:GetQueueState() → table` ([`Src/API.lua#L1030`](../Src/API.lua#L1030)) — returns `active`, `stalled`, `chatType`, `policyClass`, `pending`, and `inFlight`. `expectedAckEvent` is removed as an internal field. When Queue is unavailable, the fallback contains `active=false`, `stalled=false`, `pending=0`, and `inFlight=0`.
+- `YapperAPI:CancelQueue() → number` ([`Src/API.lua#L1043`](../Src/API.lua#L1043)) — cancels the active queue and returns the number of discarded chunks; returns 0 when there is nothing to cancel.
+- `YapperAPI:ResolvePost(handle: number) → boolean` ([`Src/API.lua#L1218`](../Src/API.lua#L1218)) — clears an active `POST_CLAIMED` delegation claim before its timeout.
+- `YapperAPI:RegisterAtomicPattern(pattern: string) → boolean` ([`Src/API.lua#L991`](../Src/API.lua#L991)) — registers a non-empty Lua string pattern that the chunker treats as atomic. Duplicate patterns are allowed.
+- `YapperAPI:GetRegisteredAtomicPatterns() → string[]` ([`Src/API.lua#L998`](../Src/API.lua#L998)) — returns a copy of the registry array.
 
-- `YapperAPI:RegisterTheme(name: string, data: table) → boolean` ([`#L876`](../Src/API.lua#L876))
-- `YapperAPI:SetTheme(name: string) → boolean` ([`#L886`](../Src/API.lua#L886))
-- `YapperAPI:GetRegisteredThemes() → string[]` ([`#L894`](../Src/API.lua#L894))
-- `YapperAPI:GetTheme(name?: string) → table|nil` ([`#L902`](../Src/API.lua#L902))
+### Themes and utility helpers
 
-### Utility wrappers
-
-- `YapperAPI:IsChatLockdown() → boolean` ([`#L915`](../Src/API.lua#L915))
-- `YapperAPI:IsSecret(value: any) → boolean` ([`#L928`](../Src/API.lua#L928))
-- `YapperAPI:GetChatParent() → Frame` ([`#L949`](../Src/API.lua#L949))
-- `YapperAPI:MakeFullscreenAware(frame: Frame) → nil` ([`#L959`](../Src/API.lua#L959))
+- `YapperAPI:RegisterTheme(name: string, data: table) → boolean` ([`Src/API.lua#L1060`](../Src/API.lua#L1060)) — registers a deep copy of a theme table containing fields such as `inputBg`, `labelBg`, `textColor`, `borderColor`, `border`, `allowRoundedCorners`, `allowDropShadow`, `font`, and optional `OnApply`.
+- `YapperAPI:SetTheme(name: string) → boolean` ([`Src/API.lua#L1070`](../Src/API.lua#L1070)) — activates and persists a registered theme, updates live UI, and emits `THEME_CHANGED`.
+- `YapperAPI:GetRegisteredThemes() → string[]` ([`Src/API.lua#L1078`](../Src/API.lua#L1078)) — returns names sorted alphabetically.
+- `YapperAPI:GetTheme(name?: string) → table|nil` ([`Src/API.lua#L1086`](../Src/API.lua#L1086)) — returns a deep copy; nil selects the active theme.
+- `YapperAPI:IsChatLockdown() → boolean` ([`Src/API.lua#L1097`](../Src/API.lua#L1097)).
+- `YapperAPI:IsSecret(value: any) → boolean` ([`Src/API.lua#L1110`](../Src/API.lua#L1110)) — uses Blizzard secret/accessibility predicates, with `|K` and empty-string fallbacks; nil and false are treated as secret.
+- `YapperAPI:Deleet(word: string) → string` ([`Src/API.lua#L1121`](../Src/API.lua#L1121)) — converts common leetspeak substitutions to letters.
+- `YapperAPI:GetChatParent() → Frame` ([`Src/API.lua#L1131`](../Src/API.lua#L1131)).
+- `YapperAPI:MakeFullscreenAware(frame: Frame) → nil` ([`Src/API.lua#L1141`](../Src/API.lua#L1141)) — hooks reparenting across fullscreen panel changes.
 
 ### Icon gallery
 
-- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`#L1058`](../Src/API.lua#L1058))
-- `YapperAPI:HideIconGallery() → nil` ([`#L1066`](../Src/API.lua#L1066))
-- `YapperAPI:IsIconGalleryShown() → boolean` ([`#L1072`](../Src/API.lua#L1072))
-- `YapperAPI:GetRaidIconData() → table[]` ([`#L1079`](../Src/API.lua#L1079))
+- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`Src/API.lua#L1240`](../Src/API.lua#L1240)) — anchors to `anchorFrame` or `editBox`; invalid editbox values are ignored. `PRE_ICON_GALLERY_SHOW` may rewrite the editbox/query or cancel.
+- `YapperAPI:HideIconGallery() → nil` ([`Src/API.lua#L1248`](../Src/API.lua#L1248)).
+- `YapperAPI:IsIconGalleryShown() → boolean` ([`Src/API.lua#L1254`](../Src/API.lua#L1254)).
+- `YapperAPI:GetRaidIconData() → table[]` ([`Src/API.lua#L1261`](../Src/API.lua#L1261)) — returns eight newly-created `{ index, text, code }` metadata tables for `star/rt1` through `skull/rt8`.
 
-### Ghost text / autocomplete
+### Autocomplete and ghost text
 
-- `YapperAPI:GetAutocompleteSuggestion(word: string) → string|nil` ([`#L1094`](../Src/API.lua#L1094)) — returns the best autocomplete suggestion for the given partial word, or `nil`.
-- `YapperAPI:GetCaretOffset(editBox: EditBox) → number` ([`#L1104`](../Src/API.lua#L1104)) — returns the current pixel x-offset of the cursor/caret within an EditBox.
-- `YapperAPI:GetGhostFrame() → table|nil` ([`#L1121`](../Src/API.lua#L1121)) — returns the shared FontString used for ghost text rendering.
-- `YapperAPI:ShowGhostText(text: string, editBox: EditBox, prefix: string, textUpToCursor: string) → nil` ([`#L1133`](../Src/API.lua#L1133)) — manually show ghost text on a specific EditBox.
-- `YapperAPI:HideGhostText() → nil` ([`#L1149`](../Src/API.lua#L1149)) — hide the ghost text.
-- `YapperAPI:SetGhostTextOffset(offsetX: number, offsetY: number) → nil` ([`#L1158`](../Src/API.lua#L1158)) — set a manual pixel offset for ghost text alignment.
-- `YapperAPI:SyncGhostTextFont() → nil` ([`#L1166`](../Src/API.lua#L1166)) — force the ghost text to re-synchronise its font with its current parent EditBox.
-- `YapperAPI:SetSpellcheckTooltipOffset(hintX: number, hintY: number, suggestX: number, suggestY: number) → nil` ([`#L1178`](../Src/API.lua#L1178)) — set manual pixel offsets for spellcheck hint and suggestion tooltips.
+- `YapperAPI:GetAutocompleteSuggestion(word: string) → string|nil` ([`Src/API.lua#L1276`](../Src/API.lua#L1276)).
+- `YapperAPI:GetCaretOffset(editBox: EditBox) → number, number, number` ([`Src/API.lua#L1286`](../Src/API.lua#L1286)) — returns logical-pixel `x, y, height`, or `0, 0, 0` when the editbox is not the currently hooked one.
+- `YapperAPI:GetGhostFrame() → FontString|nil` ([`Src/API.lua#L1303`](../Src/API.lua#L1303)).
+- `YapperAPI:ShowGhostText(text: string, editBox: EditBox, prefix?: string, textUpToCursor?: string) → nil` ([`Src/API.lua#L1315`](../Src/API.lua#L1315)).
+- `YapperAPI:HideGhostText() → nil` ([`Src/API.lua#L1331`](../Src/API.lua#L1331)).
+- `YapperAPI:SetGhostTextOffset(offsetX: number, offsetY: number) → nil` ([`Src/API.lua#L1340`](../Src/API.lua#L1340)).
+- `YapperAPI:SyncGhostTextFont() → nil` ([`Src/API.lua#L1348`](../Src/API.lua#L1348)).
+- `YapperAPI:SetSpellcheckTooltipOffset(hintX?: number, hintY?: number, suggestX?: number, suggestY?: number) → nil` ([`Src/API.lua#L1360`](../Src/API.lua#L1360)).
 
-### State / frames
+### Settings categories
 
-- `YapperAPI:SetState(stateName: string) → nil` ([`#L559`](../Src/API.lua#L559)) — transition the state machine to a new state. Prefer `State:Transition` internally; use via API for external orchestration.
-- `YapperAPI:ListFrames() → table` ([`#L572`](../Src/API.lua#L572)) — returns a table mapping internal frame names to their WoW frame objects.
+- `YapperAPI:RegisterSettingsCategory(id: string, label: string, options: table) → boolean` ([`Src/API.lua#L1460`](../Src/API.lua#L1460)) — rejects invalid or duplicate IDs and caps registrations at 20. `options.render` must be a function when present; `options.schema` must be a table when present. At least one of `render`, `schema`, or the internal `_internal` flag is required. `options.internal = true` marks the category hidden from `GetRegisteredSettingsCategories()`.
+- `YapperAPI:UnregisterSettingsCategory(id: string) → nil` ([`Src/API.lua#L1500`](../Src/API.lua#L1500)) — ignores invalid or unknown IDs.
+- `YapperAPI:GetRegisteredSettingsCategories() → { { id: string, label: string } }` ([`Src/API.lua#L1518`](../Src/API.lua#L1518)) — returns newly-created `{ id, label }` tables for categories not marked `internal`.
+- `YapperAPI:OpenSettingsCategory(id: string) → boolean` ([`Src/API.lua#L1531`](../Src/API.lua#L1531)) — returns false for a non-string ID or unavailable Interface module. It passes string IDs to `Interface:OpenToCategory` and does not verify that a category with that ID exists.
 
-### Text insertion
+## Grouped aliases
 
-- `YapperAPI:InsertText(text: string) → nil` ([`#L824`](../Src/API.lua#L824)) — insert `text` at the current cursor position in the active Yapper editbox.
+The following tables are feature-detection-friendly aliases to the existing flat methods. They reference the same functions and do not introduce separate behavior. Use colon-call syntax; the original flat names remain the compatibility surface.
 
-### Atomic patterns
+- `YapperAPI.Filters`: `RegisterFilter`, `UnregisterFilter`
+- `YapperAPI.Callbacks`: `RegisterCallback`, `UnregisterCallback`
+- `YapperAPI.State`: `GetState`, `IsState`, `GetStates`, `GetStateLogs`, `GetStateLog`, `GetStateLogCount`, `SetState`
+- `YapperAPI.Chat`: `GetDelineator`, `InsertText`, `GetQueueState`, `CancelQueue`, `ResolvePost`, `RegisterAtomicPattern`, `GetRegisteredAtomicPatterns`, `OpenBlizzardChat`
+- `YapperAPI.Spellcheck`: spellcheck helpers plus dictionary and language-engine registration methods
+- `YapperAPI.Themes`: theme accessors and mutators
+- `YapperAPI.UI`: overlay, frame, icon-gallery, autocomplete, ghost-text, and fullscreen-parent methods
+- `YapperAPI.Settings`: settings-category methods
+- `YapperAPI.Utility`: `GetConfig`, `IsChatLockdown`, `IsSecret`, `Deleet`
 
-- `YapperAPI:RegisterAtomicPattern(pattern: string) → nil` ([`#L808`](../Src/API.lua#L808)) — register a custom Lua string pattern that the Yapper chunker should never split across chunk boundaries.
-- `YapperAPI:GetRegisteredAtomicPatterns() → string[]` ([`#L815`](../Src/API.lua#L815)) — returns an array of all registered atomic patterns.
+Example:
 
-### Language engine (public accessor)
+```lua
+YapperAPI.Spellcheck:CheckWord("hello")
+YapperAPI.Filters:RegisterFilter("PRE_SEND", handler)
+```
 
-- `YapperAPI:GetLanguageEngine(familyId: string) → table|nil` ([`#L772`](../Src/API.lua#L772)) — returns the registered language engine for `familyId`, or `nil` if not found.
+## Compatibility aliases
 
-## Public API
+- Callback alias: `YALLM_WORD_LEARNED` → `YAS_WORD_LEARNED`.
+- Config alias: `Spellcheck.UnderlineColor` → `Spellcheck.MisspellingColour`, resolved by `GetConfig()` with a warning.
+- There are currently no filter aliases.
 
-- Methods:
-  - `YapperAPI:OpenSettingsCategory(id) → boolean`: Open Yapper's settings window to a specific category; returns false for invalid IDs or unavailable interface state. ([`../Src/API.lua#L1339`](../Src/API.lua#L1339))
-  - `YapperAPI:GetRegisteredSettingsCategories() → table[]`: Get non-internal registered settings categories as `{id, label}` tables. ([`../Src/API.lua#L1326`](../Src/API.lua#L1326))
-  - `YapperAPI:UnregisterSettingsCategory(id) → nil`: Unregister a previously registered settings category by ID. ([`../Src/API.lua#L1308`](../Src/API.lua#L1308))
-  - `YapperAPI:RegisterSettingsCategory(id, label, options) → boolean`: Register a settings category with an optional render callback or schema; returns false for invalid, duplicate, or capped registrations. ([`../Src/API.lua#L1268`](../Src/API.lua#L1268))
-  - `YapperAPI:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/API.lua#L939`](../Src/API.lua#L939))
-  - `YapperAPI:ClearSuggestionCache() → nil`: Clear the spellcheck suggestion cache, forcing re-generation (and re-filtering) ([`../Src/API.lua#L1187`](../Src/API.lua#L1187))
+## Add-on author notes
+
+- Use colon-call syntax and retain registration handles so handlers can be unregistered.
+- `GetStateLogs`, `GetStateLog`, `GetLanguageEngine`, `GetTheme`, `GetConfig`, and `GetRegisteredAtomicPatterns` return copied data. `ListFrames` intentionally exposes live frame objects for addon customization; do not replace the registry structure itself.
+- Filter payloads are validated after each handler. Mutate in place and return the payload explicitly; malformed replacements are rejected and reported through `API_ERROR`.
+- `API_ERROR` data is sanitized and may contain `<secret>`, bounded table snapshots, or redacted values rather than the original object.
+- `PRE_EDITBOX_LABEL` is non-cancellable. `PRE_DELIVER` is the filter that starts external delivery delegation when it returns false.
+- Do not depend on `YapperTable` or the internal `API:RunFilter`/`API:Fire` object; those are implementation entry points for Yapper's own modules.

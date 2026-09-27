@@ -755,7 +755,7 @@ function EditBox:SetupOverlayScripts()
 
         -- When focus is lost (e.g. clicked game world), stop typing signals.
         if State and State:IsEditing() then
-            YapperAPI:SetState("IDLE")
+            State:ToIdle()
         end
 
         -- In proxy mode, set the Blizzard editbox to deactivated opacity (0.35)
@@ -779,7 +779,7 @@ function EditBox:SetupOverlayScripts()
 
         -- Resume typing signals when clicking back in.
         if State and State:IsIdle() then
-            YapperAPI:SetState("EDITING")
+            State:ToEditing()
         end
 
         -- In proxy mode, ensure the Blizzard editbox stays at activated opacity (1.0)
@@ -915,7 +915,7 @@ function EditBox:SetupOverlayScripts()
             if not chatStillLocked and type(self.ResyncFromBlizzardAfterLockdown) == "function" then
                 pcall(function() self:ResyncFromBlizzardAfterLockdown() end)
             end
-            YapperAPI:SetState("IDLE")
+            State:ToIdle()
             self:UpdateFocusOverride()
             -- If we saved a draft during lockdown, poll until lockdown
             -- is truly over (checks every 1s for up to 5s).
