@@ -255,17 +255,115 @@ function Utils:SafeNumber(value, fallback)
 end
 
 -- ---------------------------------------------------------------------------
+-- Client flavour / feature detection
+-- ---------------------------------------------------------------------------
+
+-- Strings observed (or plausibly seen) identifying the World of Warcraft:
+-- Forever client. The internal flavour label may still change during
+-- development (currently "Camelot"), so the capability probes below are the
+-- primary signal; these patterns cover any runtime string that exposes a
+-- product/flavour name.
+local FOREVER_LABEL_PATTERNS = {
+    "camelot",
+    "forever",
+    "classicplus",
+    "classic_plus",
+    "classic plus",
+    "classic%+",
+}
+
+local function MatchesForeverLabel(value)
+    if type(value) ~= "string" then return false end
+    local s = value:lower()
+    for _, pattern in ipairs(FOREVER_LABEL_PATTERNS) do
+        if s:find(pattern) then return true end
+    end
+    return false
+end
+
+--- True when running on the World of Warcraft: Forever client. Detection is
+--- rename-proof: Forever-only API surfaces are probed first, then runtime
+--- flavour/product labels (camelot/forever/classicplus variants), then a weak
+--- build-version heuristic (Forever reports 1.6x while retail is on 11.x+).
+--- @return boolean
+function Utils:IsForeverClient()
+    if self._isForeverClient ~= nil then return self._isForeverClient end
+
+    local detected = false
+
+    -- Forever-only API surfaces.
+    if type(C_GameRules) == "table" then
+        if type(C_GameRules.GetForeverExperiencePreset) == "function"
+            or type(C_GameRules.SetForeverExperiencePreset) == "function" then
+            detected = true
+        elseif type(C_GameRules.GetGameModeGlueScreenName) == "function" then
+            local ok, screenName = pcall(C_GameRules.GetGameModeGlueScreenName)
+            if ok and MatchesForeverLabel(screenName) then detected = true end
+        end
+    end
+    if not detected and type(Enum) == "table"
+        and type(Enum.ForeverExperiencePreset) == "table" then
+        detected = true
+    end
+    if not detected and type(C_NameUtil) == "table"
+        and type(C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator) == "function" then
+        detected = true
+    end
+    if not detected and type(C_CharacterCreation) == "table"
+        and type(C_CharacterCreation.AreRegionalUniqueNamesEnabled) == "function" then
+        detected = true
+    end
+    if not detected and type(C_PlayerInfo) == "table"
+        and type(C_PlayerInfo.ShouldDisplaySurname) == "function" then
+        detected = true
+    end
+
+    -- Build-version heuristic: Forever clients report a 1.6x interface
+    -- version (e.g. 1.60.1.70009) while retail majors are 11.x+. Weak signal
+    -- only; feature gates below still key off the specific API.
+    if not detected and type(GetBuildInfo) == "function" then
+        local ok, version = pcall(GetBuildInfo)
+        if ok and type(version) == "string" and version:match("^1%.6%d") then
+            detected = true
+        end
+    end
+
+    self._isForeverClient = detected
+    return detected
+end
+
+--- True when the current ruleset/realm has regional-unique (surname-bearing)
+--- player names enabled — Blizzard's own gate inside its chat editbox.
+--- Deliberately independent of IsForeverClient(): if the naming scheme ever
+--- ships on mainline, Yapper's behaviour follows automatically.
+--- @return boolean
+function Utils:HasRegionalUniqueNames()
+    if type(RegionalUniqueNamesEnabled) ~= "function" then return false end
+    local ok, enabled = pcall(RegionalUniqueNamesEnabled)
+    return ok and enabled == true
+end
+
+-- ---------------------------------------------------------------------------
 -- Name normalisation helpers
 -- ---------------------------------------------------------------------------
 
 --- Strip the realm suffix from a character name and lowercase it.
 --- e.g. "Arthas-Frostmourne" → "arthas"
+--- On clients where RegionalUniqueNamesEnabled() is true (WoW: Forever) the
+--- "-" is a *surname* separator, not a realm suffix, and the same player also
+--- appears as "Charname Surname" — first names are not unique there, so
+--- nothing is stripped; both spellings are canonicalised to lowercase with a
+--- single space between parts.
 --- @param name any
 --- @return string|nil
 function Utils:NormaliseCharName(name)
     if name == nil or self:IsSecret(name) then return nil end
     local ok, s = pcall(tostring, name)
     if not ok or s == "" then return nil end
+    if self.HasRegionalUniqueNames and self:HasRegionalUniqueNames() then
+        s = s:gsub("%-", " "):gsub("%s+", " "):match("^%s*(.-)%s*$")
+        return s:lower()
+    end
     return s:gsub("%-.*$", ""):lower()
 end
 
