@@ -106,12 +106,9 @@ Loaded before all integration hooks.
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
   - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1217`](../Src/API.lua#L1217)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1029`](../Src/API.lua#L1029))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1203`](../Src/API.lua#L1203))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1238`](../Src/API.lua#L1238))
-  - `API:GetStateLogCount() → number` ([`../Src/API.lua#L548`](../Src/API.lua#L548)) — returns the number of entries in the FSM state history.
-  - `API:GetStateLog(index) → table|nil` ([`../Src/API.lua#L539`](../Src/API.lua#L539)) — returns a specific state transition log entry.
-  - `API:GetStateLogs() → table` ([`../Src/API.lua#L529`](../Src/API.lua#L529)) — returns the full circular buffer of state transitions.
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1211`](../Src/API.lua#L1211))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1385`](../Src/API.lua#L1385))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1430`](../Src/API.lua#L1430))
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -174,32 +171,32 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
   - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
 - Methods:
-  - `Spellcheck:GetNgramTopCandidates() → number`: Return the clamped NgramTopCandidates config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L658`](../Src/Spellcheck.lua#L658))
-  - `Spellcheck:GetNgramMaxPosting() → number`: Return the clamped NgramMaxPosting config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L653`](../Src/Spellcheck.lua#L653))
-  - `Spellcheck:GetNgramN() → number`: Return the clamped NgramN config value (2-4, default 2). ([`../Src/Spellcheck.lua#L648`](../Src/Spellcheck.lua#L648))
-  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L668`](../Src/Spellcheck.lua#L668))
-  - `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YAS learning). ([`../Src/Spellcheck.lua#L548`](../Src/Spellcheck.lua#L548))
-  - `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L529`](../Src/Spellcheck.lua#L529))
-  - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L435`](../Src/Spellcheck.lua#L435))
+  - `Spellcheck:GetNgramTopCandidates() → number`: Return the clamped NgramTopCandidates config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L659`](../Src/Spellcheck.lua#L659))
+  - `Spellcheck:GetNgramMaxPosting() → number`: Return the clamped NgramMaxPosting config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L654`](../Src/Spellcheck.lua#L654))
+  - `Spellcheck:GetNgramN() → number`: Return the clamped NgramN config value (2-4, default 2). ([`../Src/Spellcheck.lua#L649`](../Src/Spellcheck.lua#L649))
+  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L669`](../Src/Spellcheck.lua#L669))
+  - `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YAS learning). ([`../Src/Spellcheck.lua#L549`](../Src/Spellcheck.lua#L549))
+  - `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L530`](../Src/Spellcheck.lua#L530))
+  - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L436`](../Src/Spellcheck.lua#L436))
   - `Spellcheck:Init(threads) → nil` ([`../Src/Spellcheck.lua#L196`](../Src/Spellcheck.lua#L196))
-  - `Spellcheck:_RegisterLanguageEngine(familyId, engine) → boolean` ([`../Src/Spellcheck.lua#L221`](../Src/Spellcheck.lua#L221)) — **Security Note**: Enforces mandatory `BlockedHashes` table and `HashWord` function. Returns `false` and prints a chat error if missing.
-  - `Spellcheck:GetActiveEngine() → table|nil` ([`../Src/Spellcheck.lua#L246`](../Src/Spellcheck.lua#L246))
-  - `Spellcheck:GetEngine(familyId) → table|nil` ([`../Src/Spellcheck.lua#L255`](../Src/Spellcheck.lua#L255))
-  - `Spellcheck:GetConfig() → table` ([`../Src/Spellcheck.lua#L342`](../Src/Spellcheck.lua#L342))
-  - `Spellcheck:IsEnabled() → boolean` ([`../Src/Spellcheck.lua#L346`](../Src/Spellcheck.lua#L346))
-  - `Spellcheck:GetLocale() → string` ([`../Src/Spellcheck.lua#L351`](../Src/Spellcheck.lua#L351))
-  - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L379`](../Src/Spellcheck.lua#L379))
-  - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L387`](../Src/Spellcheck.lua#L387))
-  - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L397`](../Src/Spellcheck.lua#L397))
+  - `Spellcheck:_RegisterLanguageEngine(familyId, engine) → boolean` ([`../Src/Spellcheck.lua#L222`](../Src/Spellcheck.lua#L222)) — **Security Note**: Enforces mandatory `BlockedHashes` table and `HashWord` function. Returns `false` and prints a chat error if missing.
+  - `Spellcheck:GetActiveEngine() → table|nil` ([`../Src/Spellcheck.lua#L247`](../Src/Spellcheck.lua#L247))
+  - `Spellcheck:GetEngine(familyId) → table|nil` ([`../Src/Spellcheck.lua#L256`](../Src/Spellcheck.lua#L256))
+  - `Spellcheck:GetConfig() → table` ([`../Src/Spellcheck.lua#L343`](../Src/Spellcheck.lua#L343))
+  - `Spellcheck:IsEnabled() → boolean` ([`../Src/Spellcheck.lua#L347`](../Src/Spellcheck.lua#L347))
+  - `Spellcheck:GetLocale() → string` ([`../Src/Spellcheck.lua#L352`](../Src/Spellcheck.lua#L352))
+  - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L380`](../Src/Spellcheck.lua#L380))
+  - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L388`](../Src/Spellcheck.lua#L388))
+  - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L398`](../Src/Spellcheck.lua#L398))
 
-  - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L455`](../Src/Spellcheck.lua#L455))
-  - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L479`](../Src/Spellcheck.lua#L479))
-  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L489`](../Src/Spellcheck.lua#L489))
-  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L496`](../Src/Spellcheck.lua#L496))
-  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L510`](../Src/Spellcheck.lua#L510))
-  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L566`](../Src/Spellcheck.lua#L566)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
-  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L594`](../Src/Spellcheck.lua#L594))
-  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L618`](../Src/Spellcheck.lua#L618))
+  - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L456`](../Src/Spellcheck.lua#L456))
+  - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L480`](../Src/Spellcheck.lua#L480))
+  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L490`](../Src/Spellcheck.lua#L490))
+  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L497`](../Src/Spellcheck.lua#L497))
+  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L511`](../Src/Spellcheck.lua#L511))
+  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L567`](../Src/Spellcheck.lua#L567)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
+  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L595`](../Src/Spellcheck.lua#L595))
+  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L619`](../Src/Spellcheck.lua#L619))
   - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L623`](`../Src/Spellcheck.lua#L623`))
   - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L628`](`../Src/Spellcheck.lua#L628`))
   - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L633`](`../Src/Spellcheck.lua#L633`))

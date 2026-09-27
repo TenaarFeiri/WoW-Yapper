@@ -251,7 +251,7 @@ function EditBox:Show(origEditBox)
             C_Timer.After(0, function()
                 -- If we are refocusing, ensure state is set back to MULTILINE
                 if State and not State:IsMultiline() then
-                    YapperAPI:SetState("MULTILINE")
+                    State:ToMultiline()
                 end
                 if mlb and mlb.SetFocus then
                     mlb:SetFocus()
@@ -752,7 +752,7 @@ function EditBox:Show(origEditBox)
         self.OverlayEdit:SetFocus()
     end
     if State and not State:IsMultiline() then
-        YapperAPI:SetState("EDITING")
+        State:ToEditing()
     end
 
     -- API callback: notify external addons that editbox is shown.
@@ -944,7 +944,7 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
     -- REGEN_ENABLED recovery ticker in Handlers.lua.
     self._lockdown.handedOff = true
 
-    YapperAPI:SetState("LOCKDOWN")
+    State:ToLockdown()
     self:UpdateFocusOverride()
 
     -- Centralised lockdown cleanup (cancels timers/tickers).

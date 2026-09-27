@@ -188,6 +188,69 @@ check("deprecated alias warns", #warnLines == 1 and warnLines[1]:find("deprecate
 
 check("GetConfig returns a copy, not live config", viaOld ~= YapperTable.Config.Spellcheck.MisspellingColour)
 
+-- ================= Payload validation and defensive copies =================
+local invalidFilterHandle = YapperAPI:RegisterFilter("PRE_SEND", function()
+    return {}
+end)
+local preservedPayload = YapperTable.API:RunFilter("PRE_SEND", {
+    text = "hello", chatType = "SAY", language = nil, target = nil,
+})
+check("malformed filter payload is rejected", preservedPayload.text == "hello")
+YapperAPI:UnregisterFilter(invalidFilterHandle)
+
+local apiErrorPayload
+YapperAPI:RegisterCallback("API_ERROR", function(kind, hook, info, err, data, payload)
+    if kind == "filter-return" and hook == "PRE_SPELLCHECK" then
+        apiErrorPayload = payload
+    end
+end)
+local badReturnHandle = YapperAPI:RegisterFilter("PRE_SPELLCHECK", function()
+    return 42
+end)
+YapperTable.API:RunFilter("PRE_SPELLCHECK", { text = "|Ksecret" })
+check("API_ERROR payload redacts secret values",
+    apiErrorPayload and apiErrorPayload.text == "<secret>")
+YapperAPI:UnregisterFilter(badReturnHandle)
+
+local sourceEngine = {
+    GetPhoneticHash = function(word) return word end,
+    BlockedHashes = { blocked = true },
+    HashWord = function(word) return word end,
+}
+YapperTable.Spellcheck._RegisterLanguageEngine = function(self, familyId, engine)
+    self.LanguageEngines = self.LanguageEngines or {}
+    self.LanguageEngines[familyId] = engine
+    return true
+end
+check("RegisterLanguageEngine accepts a valid engine",
+    YapperAPI:RegisterLanguageEngine("test", sourceEngine) == true)
+local engineCopy = YapperAPI:GetLanguageEngine("test")
+engineCopy.BlockedHashes.blocked = false
+check("GetLanguageEngine returns a defensive copy",
+    YapperTable.Spellcheck.LanguageEngines.test.BlockedHashes.blocked == true)
+
+local stateLogs = { { old = "IDLE", new = "EDITING" } }
+YapperTable.State = {
+    GetLogs = function() return stateLogs end,
+    GetLog = function(_, index) return stateLogs[index] end,
+}
+local stateLogCopy = YapperAPI:GetStateLogs()
+stateLogCopy[1].old = "MUTATED"
+check("GetStateLogs returns a defensive copy", stateLogs[1].old == "IDLE")
+local stateEntryCopy = YapperAPI:GetStateLog(1)
+stateEntryCopy.new = "MUTATED"
+check("GetStateLog returns a defensive copy", stateLogs[1].new == "EDITING")
+
+YapperAPI:RegisterAtomicPattern("%%[test%%]")
+local patternCopy = YapperAPI:GetRegisteredAtomicPatterns()
+patternCopy[1] = "mutated"
+check("GetRegisteredAtomicPatterns returns a defensive copy",
+    YapperAPI:GetRegisteredAtomicPatterns()[1] == "%%[test%%]")
+
+check("grouped aliases reference flat methods",
+    YapperAPI.Filters.RegisterFilter == YapperAPI.RegisterFilter
+        and YapperAPI.Spellcheck.GetSuggestions == YapperAPI.GetSuggestions)
+
 cleanup()
 
 print(string.rep("-", 60))

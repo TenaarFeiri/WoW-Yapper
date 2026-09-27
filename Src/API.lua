@@ -5,11 +5,11 @@
     This file creates `_G.YapperAPI`, a safe, public-facing object that
     lets other addons hook into Yapper without touching internal tables.
 
-    Full documentation is available in:
-    Src/API_Documentation.txt
-
-    Or on GitHub:
+    Technical documentation is available in:
     https://github.com/TenaarFeiri/WoW-Yapper/tree/main/Documentation
+
+    A plain-text reference is also available in:
+    Src/API_Documentation.txt
 ===========================================================================
 ]]
 
@@ -84,6 +84,7 @@ local type                    = type
 local pairs                   = pairs
 local ipairs                  = ipairs
 local pcall                   = pcall
+local unpack                  = unpack
 local table_insert            = table.insert
 local table_sort              = table.sort
 local table_remove            = table.remove
@@ -98,7 +99,70 @@ local function _truncate_string(s, max)
     return s
 end
 
+-- Treat secret values as opaque in API error callbacks and debug output.
+local function _is_secret_value(value)
+    if value == nil then return false end
+
+    local utils = YapperTable and YapperTable.Utils
+    if utils and type(utils.IsSecret) == "function" then
+        local ok, result = pcall(utils.IsSecret, utils, value)
+        if ok and result == true then
+            return true
+        end
+    end
+
+    return type(value) == "string" and value:find("|K", 1, true) ~= nil
+end
+
+-- Copy API-owned data before returning it to callers or retaining caller data
+-- in a registry.  Functions and scalar values remain shared; nested tables do
+-- not.
+local function _copy_value(value, seen)
+    if type(value) ~= "table" then return value end
+
+    seen = seen or {}
+    if seen[value] then return seen[value] end
+
+    local copy = {}
+    seen[value] = copy
+    for key, nested in pairs(value) do
+        copy[key] = _copy_value(nested, seen)
+    end
+    return copy
+end
+
+-- Produce a bounded, redacted snapshot for API_ERROR handlers.  In
+-- particular, do not pass live WoW frames or secret-bearing tables through the
+-- error channel just because a handler happened to fail while processing one.
+local function _sanitize_error_value(value, depth, seen)
+    if _is_secret_value(value) then return "<secret>" end
+
+    local valueType = type(value)
+    if valueType ~= "table" then return value end
+    depth = depth or 2
+    if depth <= 0 then return "<table>" end
+
+    seen = seen or {}
+    if seen[value] then return "<cycle>" end
+    seen[value] = true
+
+    local copy = {}
+    local count = 0
+    for key, nested in pairs(value) do
+        count = count + 1
+        if count > 12 then
+            copy["..."] = "truncated"
+            break
+        end
+        copy[key] = _sanitize_error_value(nested, depth - 1, seen)
+    end
+
+    seen[value] = nil
+    return copy
+end
+
 local function _serialize_value(val, depth, seen)
+    if _is_secret_value(val) then return "<secret>" end
     depth = depth or 2
     seen = seen or {}
     local t = type(val)
@@ -177,14 +241,21 @@ local function _emit_error_event(kind, hook, failing_entry, err, payload_or_resu
         tocall = list
     end
 
+    local safePayload = _sanitize_error_value(payload_or_result, 2)
+    local argCount = select('#', ...)
+    local safeArgs = {}
+    for i = 1, argCount do
+        safeArgs[i] = _sanitize_error_value(select(i, ...), 2)
+    end
+
     for _, ev in ipairs(tocall) do
         local ok, e = pcall(ev.cb,
             kind,
             hook,
             (failing_entry and { handle = failing_entry.handle, priority = failing_entry.priority, owner = failing_entry.owner } or nil),
             err,
-            payload_or_result,
-            ...)
+            safePayload,
+            unpack(safeArgs, 1, argCount))
         if not ok then
             if YapperTable and YapperTable.Utils and YapperTable.Utils.DebugPrint then
                 YapperTable.Utils:DebugPrint("YapperAPI: API_ERROR handler error: " .. tostring(e))
@@ -234,14 +305,100 @@ end
 -- ---------------------------------------------------------------------------
 -- Public object (sandbox)
 -- ---------------------------------------------------------------------------
-local YapperAPI             = {
-    _version = "1.2", -- API version, independent of addon version
-}
+local YapperAPI             = {}
 _G.YapperAPI                = YapperAPI
 
 -- Per-hook / per-event registration cap to prevent runaway leaks.
 local MAX_FILTERS_PER_HOOK  = 50
 local MAX_CALLBACKS_PER_EVT = 50
+
+local function _optional_type(value, expected)
+    return value == nil or type(value) == expected
+end
+
+local function _target_is_valid(value)
+    local valueType = type(value)
+    return value == nil or valueType == "string" or valueType == "number"
+end
+
+-- Filter callbacks run in pcall, but their returned payload is consumed by
+-- Yapper after the pcall.  Validate the fields that each consumer relies on so
+-- malformed addon output cannot escape the sandbox and break the send/UI path.
+local FILTER_VALIDATORS = {
+    PRE_EDITBOX_SHOW = function(payload)
+        return type(payload) == "table"
+            and _optional_type(payload.chatType, "string")
+            and _target_is_valid(payload.target)
+    end,
+    PRE_EDITBOX_LABEL = function(payload)
+        return type(payload) == "table"
+            and _optional_type(payload.chatType, "string")
+            and _target_is_valid(payload.target)
+            and _optional_type(payload.channelName, "string")
+            and _optional_type(payload.label, "string")
+            and _optional_type(payload.unit, "string")
+    end,
+    PRE_MULTILINE_SHOW = function(payload)
+        return type(payload) == "table"
+            and type(payload.text) == "string"
+            and type(payload.chatType) == "string"
+            and _target_is_valid(payload.target)
+    end,
+    PRE_SEND = function(payload)
+        return type(payload) == "table"
+            and type(payload.text) == "string"
+            and type(payload.chatType) == "string"
+            and _target_is_valid(payload.target)
+    end,
+    PRE_CHUNK = function(payload)
+        return type(payload) == "table"
+            and type(payload.text) == "string"
+            and type(payload.limit) == "number"
+            and _optional_type(payload.chatType, "string")
+            and _optional_type(payload.continuationPrefix, "string")
+            and _optional_type(payload.continuationPrefixFirst, "boolean")
+    end,
+    PRE_SPELLCHECK = function(payload)
+        return type(payload) == "table" and type(payload.text) == "string"
+    end,
+    PRE_SPELLCHECK_SUGGESTIONS = function(payload)
+        return type(payload) == "table"
+            and type(payload.word) == "string"
+            and type(payload.suggestions) == "table"
+            and _optional_type(payload.locale, "string")
+    end,
+    PRE_DELIVER = function(payload)
+        return type(payload) == "table"
+            and type(payload.text) == "string"
+            and type(payload.chatType) == "string"
+            and _target_is_valid(payload.target)
+    end,
+    PRE_ICON_GALLERY_SHOW = function(payload)
+        return type(payload) == "table"
+            and type(payload.rawEditBox) == "table"
+            and _optional_type(payload.query, "string")
+    end,
+}
+
+local function _is_valid_filter_payload(hookPoint, payload)
+    local validator = FILTER_VALIDATORS[hookPoint]
+    return not validator or validator(payload)
+end
+
+-- Most payloads contain only scalar routing fields.  Preserve frame identity
+-- for the icon-gallery payload while copying nested suggestion data so an
+-- erroring filter cannot leave the active suggestion list half-mutated.
+local function _snapshot_filter_payload(hookPoint, payload)
+    local snapshot = {}
+    for key, value in pairs(payload) do
+        if hookPoint == "PRE_SPELLCHECK_SUGGESTIONS" and key == "suggestions" then
+            snapshot[key] = _copy_value(value)
+        else
+            snapshot[key] = value
+        end
+    end
+    return snapshot
+end
 
 -- ===== FILTERS =============================================================
 
@@ -413,7 +570,8 @@ end
 
 -- ===== READ-ONLY ACCESSORS =================================================
 
---- Returns the addon version string (e.g. "1.3.0").
+--- Returns the addon metadata version string, or "unknown" if unavailable.
+--- API compatibility should be feature-detected rather than inferred from it.
 function YapperAPI:GetVersion()
     if YapperTable.Core and YapperTable.Core.GetVersion then
         return YapperTable.Core:GetVersion()
@@ -450,7 +608,7 @@ function YapperAPI:OpenBlizzardChat()
 end
 
 --- Read a config value by dot-path (e.g. "EditBox.FontSize").
---- Tables are shallow-copied to prevent mutation of live config.
+--- Tables are deep-copied to prevent mutation of live config.
 function YapperAPI:GetConfig(path)
     if type(path) ~= "string" then return nil end
     local aliasTarget = CONFIG_KEY_ALIASES[path]
@@ -469,13 +627,10 @@ function YapperAPI:GetConfig(path)
         cfg = cfg[key]
     end
 
-    -- Shallow-copy tables so callers can't mutate live config.
+    -- Deep-copy tables so callers cannot mutate live config, including nested
+    -- color/schema tables.
     if type(cfg) == "table" then
-        local copy = {}
-        for k, v in pairs(cfg) do
-            copy[k] = v
-        end
-        return copy
+        return _copy_value(cfg)
     end
 
     return cfg
@@ -528,7 +683,7 @@ end
 --- @return table
 function YapperAPI:GetStateLogs()
     if YapperTable.State and YapperTable.State.GetLogs then
-        return YapperTable.State:GetLogs()
+        return _copy_value(YapperTable.State:GetLogs())
     end
     return {}
 end
@@ -538,7 +693,7 @@ end
 --- @return table|nil
 function YapperAPI:GetStateLog(index)
     if YapperTable.State and YapperTable.State.GetLog then
-        return YapperTable.State:GetLog(index)
+        return _copy_value(YapperTable.State:GetLog(index))
     end
     return nil
 end
@@ -552,11 +707,36 @@ function YapperAPI:GetStateLogCount()
     return 0
 end
 
+local setStateDeprecationWarned = false
+
+local function _is_internal_yapper_call()
+    if type(debug) ~= "table" or type(debug.getinfo) ~= "function" then
+        return false
+    end
+
+    local ok, info = pcall(debug.getinfo, 2, "S")
+    local source = ok and info and (info.source or info.short_src) or nil
+    if type(source) ~= "string" then return false end
+
+    return source:find("[/\\\\]Src[/\\\\]") ~= nil
+        or source:find("[/\\\\]WoW%-Yapper[/\\\\]") ~= nil
+end
+
 --- Transition the state machine to a new state.
+--- Deprecated: direct state mutation is retained for compatibility only.
 --- Use with caution: forcing states may bypass safety logic or cause UI desync.
 --- @param stateName string  One of "IDLE", "EDITING", "MULTILINE", etc.
 --- @param ... any          Metadata to pass to the state machine and observers.
 function YapperAPI:SetState(stateName, ...)
+    if not _is_internal_yapper_call() and not setStateDeprecationWarned then
+        setStateDeprecationWarned = true
+        local message = "YapperAPI:SetState is deprecated and will be removed from the stable API; avoid new usage and prefer feature detection."
+        if YapperTable.Utils and YapperTable.Utils.Print then
+            YapperTable.Utils:Print("warn", message)
+        end
+        _report_api_error("deprecated", "SetState", nil, message)
+    end
+
     if type(stateName) ~= "string" then return false end
     local s = YapperTable.State
     if s and s.STATES and s.STATES[stateName] and type(s.Transition) == "function" then
@@ -726,10 +906,11 @@ end
 
 --- Register a dictionary via the public API.
 --- `locale` — the locale key, e.g. "enBase", "enGB", "enUS".
---- `data`   — table with the same fields accepted by the internal
----             RegisterDictionary call (words, phonetics, extends, etc.).
----             See the header doc comment for the full field list.
---- Returns true if accepted, false on invalid arguments.
+--- `data`   — dictionary table or lazy builder function. Tables accept the
+---             fields used by RegisterDictionary (words, phonetics, extends,
+---             languageFamily, affixRules, and optional engine data).
+--- Returns true when dispatch completes without a Lua error. Internal
+--- security validation may still reject the dictionary data.
 function YapperAPI:RegisterDictionary(locale, data)
     if type(locale) ~= "string" or locale == "" then return false end
     if type(data) ~= "table" and type(data) ~= "function" then return false end
@@ -745,14 +926,16 @@ end
 
 --- Register a language engine for a locale family.
 --- `familyId` — short string id, e.g. "en", "de", "fr".
---- `engine`   — table; GetPhoneticHash is the only required field.
---- Returns true on success, false on invalid arguments.
+--- `engine`   — table; GetPhoneticHash, BlockedHashes, and HashWord are
+---             required for phonetic lookup and security validation.
+--- Returns true on success, false on invalid arguments or failed validation.
 function YapperAPI:RegisterLanguageEngine(familyId, engine)
     if type(familyId) ~= "string" or familyId == "" then return false end
     if type(engine) ~= "table" then return false end
     local sc = YapperTable.Spellcheck
     if not sc or not sc._RegisterLanguageEngine then return false end
-    local ok, result = pcall(sc._RegisterLanguageEngine, sc, familyId, engine)
+    local engineCopy = _copy_value(engine)
+    local ok, result = pcall(sc._RegisterLanguageEngine, sc, familyId, engineCopy)
     if not ok then
         _report_api_error("RegisterLanguageEngine", familyId, nil, result, { familyId = familyId })
         return false
@@ -768,12 +951,12 @@ function YapperAPI:IsLanguageEngineRegistered(familyId)
     return sc.LanguageEngines[familyId] ~= nil
 end
 
---- Returns the language engine for `familyId`, or nil.
+--- Returns a copy of the language engine for `familyId`, or nil.
 function YapperAPI:GetLanguageEngine(familyId)
     if type(familyId) ~= "string" then return nil end
     local sc = YapperTable.Spellcheck
     if not sc or not sc.LanguageEngines then return nil end
-    return sc.LanguageEngines[familyId]
+    return _copy_value(sc.LanguageEngines[familyId])
 end
 
 --- Map a Load-On-Demand addon to a specific locale so Yapper knows what to load
@@ -811,9 +994,9 @@ function YapperAPI:RegisterAtomicPattern(pattern)
     return true
 end
 
---- Returns an array of all registered atomic patterns.
+--- Returns a copy of all registered atomic patterns.
 function YapperAPI:GetRegisteredAtomicPatterns()
-    return registeredAtomicPatterns
+    return _copy_value(registeredAtomicPatterns)
 end
 
 --- Insert `text` at the current cursor position in the active Yapper
@@ -871,13 +1054,14 @@ end
 --- Register a named theme.  `data` follows the same structure as Yapper's
 --- built-in themes: inputBg, labelBg, textColor, borderColor (each {r,g,b,a}),
 --- border (bool), allowRoundedCorners (bool), allowDropShadow (bool),
---- font ({path,size,flags}), and an optional OnApply hook.
+--- font ({path,size,flags}), and an optional OnApply hook.  The data is
+--- copied before it enters the registry.
 --- Returns true on success, false if name or data is invalid.
 function YapperAPI:RegisterTheme(name, data)
     if type(name) ~= "string" or type(data) ~= "table" then return false end
     local th = YapperTable.Theme
     if not th then return false end
-    return th:RegisterTheme(name, data) == true
+    return th:RegisterTheme(name, _copy_value(data)) == true
 end
 
 --- Activate a registered theme by name.  Persists the selection to
@@ -897,16 +1081,14 @@ function YapperAPI:GetRegisteredThemes()
     return th:GetRegisteredNames()
 end
 
---- Return a shallow copy of a registered theme's data table, or nil.
+--- Return a deep copy of a registered theme's data table, or nil.
 --- Pass no argument (or nil) to get the currently active theme.
 function YapperAPI:GetTheme(name)
     local th = YapperTable.Theme
     if not th then return nil end
     local data = th:GetTheme(name)
     if type(data) ~= "table" then return nil end
-    local copy = {}
-    for k, v in pairs(data) do copy[k] = v end
-    return copy
+    return _copy_value(data)
 end
 
 -- ===== UTILITY HELPERS =====================================================
@@ -1207,9 +1389,12 @@ function API:RunFilter(hookPoint, payload)
     end
 
     for _, entry in ipairs(list) do
+        local snapshot = _snapshot_filter_payload(hookPoint, payload)
         local ok, result = pcall(entry.cb, payload)
         if not ok then
-            -- External code errored — report details and continue.
+            -- External code errored — restore the pre-handler payload, report
+            -- details, and continue with the remaining filters.
+            payload = snapshot
             _report_api_error("filter", hookPoint, entry, result, payload)
         elseif result == false then
             -- Filter explicitly cancelled the operation.
@@ -1217,10 +1402,17 @@ function API:RunFilter(hookPoint, payload)
             self._lastCancelOwner = entry.owner
             return false
         elseif type(result) == "table" then
-            payload = result
+            if _is_valid_filter_payload(hookPoint, result) then
+                payload = result
+            else
+                payload = snapshot
+                _report_api_error("filter-return", hookPoint, entry,
+                    "invalid payload returned by filter", result, payload)
+            end
         elseif result ~= nil then
-            -- Unexpected non-table non-false return; report it for debugging but
-            -- continue with the current payload to avoid breaking consumers.
+            -- Unexpected non-table non-false return; restore any in-place
+            -- mutation and report it without breaking the filter chain.
+            payload = snapshot
             _report_api_error("filter-return", hookPoint, entry, "unexpected return value", result, payload)
         end
         -- nil return = "I didn't change anything", continue with current payload.
@@ -1345,3 +1537,98 @@ function YapperAPI:OpenSettingsCategory(id)
     Interface:OpenToCategory(id)
     return true
 end
+
+-- ===== GROUPED ALIASES =====================================================
+-- These tables are feature-detection-friendly aliases to the original flat
+-- methods.  They intentionally reference the existing functions instead of
+-- wrapping or reimplementing them.
+YapperAPI.Filters = {
+    RegisterFilter   = YapperAPI.RegisterFilter,
+    UnregisterFilter = YapperAPI.UnregisterFilter,
+}
+
+YapperAPI.Callbacks = {
+    RegisterCallback   = YapperAPI.RegisterCallback,
+    UnregisterCallback = YapperAPI.UnregisterCallback,
+}
+
+YapperAPI.State = {
+    GetState        = YapperAPI.GetState,
+    IsState         = YapperAPI.IsState,
+    GetStates       = YapperAPI.GetStates,
+    GetStateLogs    = YapperAPI.GetStateLogs,
+    GetStateLog     = YapperAPI.GetStateLog,
+    GetStateLogCount = YapperAPI.GetStateLogCount,
+    SetState        = YapperAPI.SetState,
+}
+
+YapperAPI.Chat = {
+    GetDelineator   = YapperAPI.GetDelineator,
+    InsertText      = YapperAPI.InsertText,
+    GetQueueState   = YapperAPI.GetQueueState,
+    CancelQueue     = YapperAPI.CancelQueue,
+    ResolvePost     = YapperAPI.ResolvePost,
+    RegisterAtomicPattern = YapperAPI.RegisterAtomicPattern,
+    GetRegisteredAtomicPatterns = YapperAPI.GetRegisteredAtomicPatterns,
+    OpenBlizzardChat = YapperAPI.OpenBlizzardChat,
+}
+
+YapperAPI.Spellcheck = {
+    IsSpellcheckEnabled       = YapperAPI.IsSpellcheckEnabled,
+    CheckWord                = YapperAPI.CheckWord,
+    GetSuggestions           = YapperAPI.GetSuggestions,
+    GetSpellcheckLocale      = YapperAPI.GetSpellcheckLocale,
+    AddToDictionary          = YapperAPI.AddToDictionary,
+    IgnoreWord               = YapperAPI.IgnoreWord,
+    IsSuggestionOpen         = YapperAPI.IsSuggestionOpen,
+    HideSuggestions          = YapperAPI.HideSuggestions,
+    ApplySuggestion          = YapperAPI.ApplySuggestion,
+    FindMisspellings         = YapperAPI.FindMisspellings,
+    ClearSuggestionCache     = YapperAPI.ClearSuggestionCache,
+    RegisterDictionary       = YapperAPI.RegisterDictionary,
+    RegisterLanguageEngine   = YapperAPI.RegisterLanguageEngine,
+    IsLanguageEngineRegistered = YapperAPI.IsLanguageEngineRegistered,
+    GetLanguageEngine        = YapperAPI.GetLanguageEngine,
+    RegisterLocaleAddon      = YapperAPI.RegisterLocaleAddon,
+}
+
+YapperAPI.Themes = {
+    GetCurrentTheme    = YapperAPI.GetCurrentTheme,
+    RegisterTheme      = YapperAPI.RegisterTheme,
+    SetTheme           = YapperAPI.SetTheme,
+    GetRegisteredThemes = YapperAPI.GetRegisteredThemes,
+    GetTheme           = YapperAPI.GetTheme,
+}
+
+YapperAPI.UI = {
+    IsOverlayShown       = YapperAPI.IsOverlayShown,
+    ListFrames           = YapperAPI.ListFrames,
+    ShowIconGallery      = YapperAPI.ShowIconGallery,
+    HideIconGallery      = YapperAPI.HideIconGallery,
+    IsIconGalleryShown   = YapperAPI.IsIconGalleryShown,
+    GetRaidIconData      = YapperAPI.GetRaidIconData,
+    GetAutocompleteSuggestion = YapperAPI.GetAutocompleteSuggestion,
+    GetCaretOffset       = YapperAPI.GetCaretOffset,
+    GetGhostFrame        = YapperAPI.GetGhostFrame,
+    ShowGhostText        = YapperAPI.ShowGhostText,
+    HideGhostText        = YapperAPI.HideGhostText,
+    SetGhostTextOffset   = YapperAPI.SetGhostTextOffset,
+    SyncGhostTextFont    = YapperAPI.SyncGhostTextFont,
+    SetSpellcheckTooltipOffset = YapperAPI.SetSpellcheckTooltipOffset,
+    GetChatParent        = YapperAPI.GetChatParent,
+    MakeFullscreenAware  = YapperAPI.MakeFullscreenAware,
+}
+
+YapperAPI.Settings = {
+    RegisterSettingsCategory   = YapperAPI.RegisterSettingsCategory,
+    UnregisterSettingsCategory = YapperAPI.UnregisterSettingsCategory,
+    GetRegisteredSettingsCategories = YapperAPI.GetRegisteredSettingsCategories,
+    OpenSettingsCategory       = YapperAPI.OpenSettingsCategory,
+}
+
+YapperAPI.Utility = {
+    GetConfig       = YapperAPI.GetConfig,
+    IsChatLockdown  = YapperAPI.IsChatLockdown,
+    IsSecret        = YapperAPI.IsSecret,
+    Deleet          = YapperAPI.Deleet,
+}

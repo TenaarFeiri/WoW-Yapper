@@ -410,14 +410,14 @@ function Multiline:CreateFrame()
 
 		-- If focus is lost (e.g. clicked game world), stop typing signals.
 		if State and State:IsMultiline() then
-			YapperAPI:SetState("IDLE")
+			State:ToIdle()
 		end
 	end)
 
 	edit:HookScript("OnEditFocusGained", function(box)
 		-- Resume typing signals when clicking back in.
 		if State and State:IsIdle() then
-			YapperAPI:SetState("MULTILINE")
+			State:ToMultiline()
 		end
 	end)
 
@@ -709,7 +709,7 @@ function Multiline:Enter(text, chatType, language, target)
 	end
 
 	-- Transition machine to MULTILINE state.
-	YapperAPI:SetState("MULTILINE")
+	State:ToMultiline()
 
 	-- Position the frame using absolute UIParent coordinates captured
 	-- from the overlay and the active chat frame before the overlay is hidden.
@@ -804,7 +804,7 @@ function Multiline:Exit(restoreText, suppressOverlay)
 			YapperTable.History:ClearDraft(self.EditBox)
 		end
 	end
-	YapperAPI:SetState("IDLE")
+	State:ToIdle()
 
 	if self.Frame then
 		self.Frame:Hide()
@@ -944,12 +944,12 @@ function Multiline:Submit()
 		end
 		if eb and eb.OverlayEdit then eb.OverlayEdit:SetText("") end
 		if eb then eb:Hide() end
-		YapperAPI:SetState("IDLE")
+		State:ToIdle()
 		return
 	end
 
 	-- Close the multiline frame before handing off to the pipeline.
-	YapperAPI:SetState("IDLE")
+	State:ToIdle()
 	if self.Frame then self.Frame:Hide() end
 	local editBoxOwner = YapperTable.EditBox
 	if editBoxOwner and type(editBoxOwner.UpdateFocusOverride) == "function" then

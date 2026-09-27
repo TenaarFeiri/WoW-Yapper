@@ -235,7 +235,7 @@ function Queue:Reset()
     self:HideContinuePrompt()
     self:DisableEscapeCancel()
 
-    YapperAPI:SetState("IDLE")
+    State:ToIdle()
 end
 
 -- ===========================================================================
@@ -401,7 +401,7 @@ function Queue:Flush(inHardwareEvent)
     if #self.Entries == 0 then return end
     if State:IsSending() then return end
     -- Transition to SENDING state.
-    YapperAPI:SetState("SENDING")
+    State:ToSending()
 
     local policy = self:GetPolicy(self.Entries[1])
     if not policy then
@@ -411,7 +411,7 @@ function Queue:Flush(inHardwareEvent)
 
     self:EnableEscapeCancel()
 
-    YapperAPI:SetState("SENDING")
+    State:ToSending()
 
     self:SendNext(inHardwareEvent == true)
 end
@@ -540,7 +540,7 @@ end
 
 function Queue:Complete()
     self:Reset()
-    YapperAPI:SetState("IDLE")
+    State:ToIdle()
     if YapperTable.API then
         YapperTable.API:Fire("QUEUE_COMPLETE")
     end
@@ -660,7 +660,7 @@ function Queue:OnOpenChat(...)
     if not self.NeedsContinue then return end
     self.NeedsContinue = false
 
-    YapperAPI:SetState("SENDING")
+    State:ToSending()
 
     self:SendNext(true)
 end
@@ -718,7 +718,7 @@ function Queue:OnStallTimeout()
     self:ClearPendingAck()
     self:ShowContinuePrompt()
 
-    YapperAPI:SetState("STALLED")
+    State:ToStalled()
 
     if YapperTable.API then
         YapperTable.API:Fire("QUEUE_STALL", entry.type, policyClass, #self.Entries)
@@ -881,7 +881,7 @@ function Queue:Cancel()
     local discarded = #self.Entries + (self.PendingEntry and 1 or 0)
     self:Reset()
 
-    YapperAPI:SetState("IDLE")
+    State:ToIdle()
 
     if discarded > 0 then
         YapperTable.Utils:Print(

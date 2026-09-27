@@ -214,7 +214,8 @@ end
 
 --- Internal: register a language engine for a given family id.
 --- Called by API:RegisterLanguageEngine (the public surface).
---- engine must be a table; GetPhoneticHash is the only required field.
+--- The engine must provide GetPhoneticHash plus BlockedHashes and HashWord
+--- security data before it can be registered.
 --- @param familyId string e.g. "en", "de"
 --- @param engine   table  the engine data table
 --- @return boolean true if accepted

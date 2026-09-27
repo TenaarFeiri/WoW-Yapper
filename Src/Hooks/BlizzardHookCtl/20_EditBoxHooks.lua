@@ -155,7 +155,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             -- If we are suppressing the overlay open (e.g. WIM taking focus),
                             -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
                             if State and not State:IsIdle() then
-                                YapperAPI:SetState("IDLE")
+                                State:ToIdle()
                             end
                             self._bnetEditBox = nil
                             return
@@ -611,7 +611,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     -- If we are suppressing the overlay open (e.g. WIM taking focus),
                     -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
                     if State and not State:IsIdle() then
-                        YapperAPI:SetState("IDLE")
+                        State:ToIdle()
                     end
                     return
                 end

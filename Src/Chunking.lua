@@ -468,8 +468,8 @@ function Chunking:Split(text, limit, opts)
         local isReset  = (b1 == 124 and b2 == 114 and #token == 2)
         local isEscape = (b1 == 124 and #token > 1) or b1 == 123
         
-        if not isEscape and YapperAPI and YapperAPI.GetRegisteredAtomicPatterns then
-            for _, pat in ipairs(YapperAPI:GetRegisteredAtomicPatterns()) do
+        if not isEscape and atomicPatterns then
+            for _, pat in ipairs(atomicPatterns) do
                 if string_match(token, "^" .. pat .. "$") then
                     isEscape = true
                     break

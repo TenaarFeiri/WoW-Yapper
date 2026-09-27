@@ -797,8 +797,6 @@ function Interface:ShowMainWindow()
     
     if YapperTable.State and type(YapperTable.State.ToConfig) == "function" then
         YapperTable.State:ToConfig()
-    else
-        YapperAPI:SetState("CONFIG")
     end
     
     Interface.MainWindowFrame:Show()
@@ -825,8 +823,6 @@ function Interface:OpenToCategory(catId)
     
     if YapperTable.State and type(YapperTable.State.ToConfig) == "function" then
         YapperTable.State:ToConfig()
-    else
-        YapperAPI:SetState("CONFIG")
     end
     
     Interface.MainWindowFrame:Show()
