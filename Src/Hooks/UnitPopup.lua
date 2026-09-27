@@ -68,14 +68,25 @@ local function ResolveFullPlayerName(contextData)
             return fullName
         end
     end
-    -- Fallback: assemble from the context fields OpenMenu populated.
+    -- Fallback: assemble from the context fields OpenMenu populated, mirroring
+    -- Blizzard's GetFullPlayerName. `surname` is the modern context field —
+    -- the realm name when regional-unique names are off (retail), the surname
+    -- when on (Forever); `server` is the legacy field kept for older contexts.
     local name = Utils and Utils:SanitizeTarget(contextData.name) or contextData.name
     if type(name) ~= "string" or name == "" then
         return nil
     end
-    local server = contextData.server
-    if type(server) == "string" and server ~= "" then
-        return name .. "-" .. server
+    local surname = contextData.surname or contextData.server
+    if type(surname) == "string" and surname ~= "" then
+        if contextData.unit
+            and Utils and Utils.HasRegionalUniqueNames and Utils:HasRegionalUniqueNames() then
+            local sepConsts = Constants and Constants.CharacterNameSeparatorConsts
+            local sep = (sepConsts and sepConsts.CHARACTERNAME_SURNAME_SEPARATOR) or " "
+            return name .. sep .. surname
+        end
+        -- "-" is a valid whisper-target form on both clients (realm suffix on
+        -- retail, surname link-separator on Forever).
+        return name .. "-" .. surname
     end
     return name
 end
