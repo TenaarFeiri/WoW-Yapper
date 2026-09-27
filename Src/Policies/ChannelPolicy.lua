@@ -34,12 +34,18 @@ local function NormaliseWhisperTarget(v, whisperKind)
     if v == nil then return nil end
     local s = tostring(v)
     if s == "" then return nil end
-    s = s:lower()
     if whisperKind == "WHISPER" then
-        -- WoW targets can oscillate between Name and Name-Realm.
-        s = s:gsub("%-.*$", "")
+        -- WoW targets can oscillate between Name and Name-Realm; on Forever
+        -- the same character can be "First-Last" or "First Last".
+        -- NormaliseCharName handles both clients (resolves lazily — Utils
+        -- loads after this file).
+        local utils = YapperTable and YapperTable.Utils
+        if utils and type(utils.NormaliseCharName) == "function" then
+            return utils:NormaliseCharName(s)
+        end
+        return s:lower():gsub("%-.*$", "")
     end
-    return s
+    return s:lower()
 end
 
 local function BuildSelection(chatType, language, target, channelName)
