@@ -291,10 +291,14 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             and tostring(intentTarget) == tostring(currentTarget)
                     end
                     if chatType == "WHISPER" then
-                        local intentTarget = YapperTable.Utils:SanitizeTarget(intent.target)
-                        local currentTarget = YapperTable.Utils:SanitizeTarget(target)
-                        return intentTarget ~= nil and currentTarget ~= nil
-                            and tostring(intentTarget):lower() == tostring(currentTarget):lower()
+                        local utils = YapperTable.Utils
+                        local intentTarget = utils:SanitizeTarget(intent.target)
+                        local currentTarget = utils:SanitizeTarget(target)
+                        -- Canonicalise both sides: retail Name↔Name-Realm and
+                        -- Forever "First Last"↔"First-Last" must compare equal.
+                        local nIntent = intentTarget and utils:NormaliseCharName(intentTarget) or nil
+                        local nCurrent = currentTarget and utils:NormaliseCharName(currentTarget) or nil
+                        return nIntent ~= nil and nIntent == nCurrent
                     end
                     return true
                 end
