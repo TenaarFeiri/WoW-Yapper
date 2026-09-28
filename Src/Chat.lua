@@ -9,7 +9,7 @@
       history → PRE_SEND → Chunking:Split (fires PRE_CHUNK) → Queue or DirectSend
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local Chat = {}
 YapperTable.Chat = Chat

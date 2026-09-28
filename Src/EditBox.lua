@@ -225,9 +225,7 @@ local LABEL_PREFIXES           = {
 }
 
 -- Hot-path locals
-local strmatch                 = string.match
 local strlower                 = string.lower
-local strbyte                  = string.byte
 
 -- Chat types that are always sticky when in a group, even if StickyChannel is off.
 local GROUP_CHAT_TYPES         = {

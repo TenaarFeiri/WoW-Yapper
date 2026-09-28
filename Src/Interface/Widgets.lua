@@ -18,7 +18,6 @@ local RoundToEven       = Interface.RoundToEven
 local NormalizeFontFlags = Interface.NormalizeFontFlags
 local GetFontFlagsLabel = Interface.GetFontFlagsLabel
 local LAYOUT            = Interface._LAYOUT
-local COLOUR_KEYS       = Interface._COLOUR_KEYS
 local SETTING_TOOLTIPS  = Interface._SETTING_TOOLTIPS
 local FONT_OUTLINE_OPTIONS = Interface._FONT_OUTLINE_OPTIONS
 

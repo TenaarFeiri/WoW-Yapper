@@ -487,7 +487,6 @@ function Multiline:CreateFrame()
 			-- Canonical read: snapshots and drafts replay with plain-text
 			-- byte math; display escapes would corrupt offsets and persist.
 			local text = YapperTable.Recolour.CanonicalText(box)
-			local name = box.GetName and box:GetName() or "YapperMultilineEdit"
 			local last = box._yapperLastText or ""
 
 			local function IsWordBoundary(b)

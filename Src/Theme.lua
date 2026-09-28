@@ -7,7 +7,7 @@
     EditBox or Interface yet — that integration will be done separately.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local Theme = {}
 YapperTable.Theme = Theme

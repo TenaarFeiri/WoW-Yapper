@@ -3,7 +3,7 @@
     (ring buffer into SavedVariables), and per-session undo/redo.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local History                 = {}
 YapperTable.History           = History

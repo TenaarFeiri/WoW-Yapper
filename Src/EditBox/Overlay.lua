@@ -20,9 +20,6 @@ local tostring   = tostring
 local tonumber   = tonumber
 local math_max   = math.max
 local math_min   = math.min
-local math_floor = math.floor
-local strmatch   = string.match
-local strlower   = string.lower
 local table_insert = table.insert
 
 local function IsUsableNumber(value)
@@ -666,7 +663,6 @@ function EditBox:CreateOverlay()
 
     local cfg = YapperTable.Config.EditBox or {}
     local inputBg = cfg.InputBg or {}
-    local labelCfg = cfg.LabelBg or {}
 
     -- Container frame — matches position/size of the original editbox.
     local frame = CreateFrame("Frame", "YapperOverlayFrame", UIParent, "BackdropTemplate")

@@ -22,7 +22,6 @@ local tostring   = tostring
 local nativeToString = tostring
 local tonumber   = tonumber
 local math_max   = math.max
-local math_min   = math.min
 local table_concat = table.concat
 local issecretvalue = _G["issecretvalue"]
 local canaccessvalue = _G["canaccessvalue"]

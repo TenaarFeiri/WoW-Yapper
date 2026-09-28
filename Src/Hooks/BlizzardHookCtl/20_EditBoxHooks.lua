@@ -4,15 +4,12 @@ local State = YapperTable.State
 
 local Ctl = YapperTable.BlizzardHookCtl
 local Core = Ctl.Core
-local CHATTYPE_TO_OVERRIDE_KEY = Ctl.CHATTYPE_TO_OVERRIDE_KEY
 local ResolveChannelName = Ctl.ResolveChannelName
 local UserBypassingYapper = Ctl.UserBypassingYapper
 local SetUserBypassingYapper = Ctl.SetUserBypassingYapper
 local BypassEditBox = Ctl.BypassEditBox
 local SetBypassEditBox = Ctl.SetBypassEditBox
 local TriggerTrace = Ctl.TriggerTrace
-local StampRecentOpenChatIntent = Ctl.StampRecentOpenChatIntent
-local ParseLinkType = Ctl.ParseLinkType
 local GATE_SKIP_SETTEXT_INTENT_ADOPTION_ON_EXPLICIT = Ctl.GATE_SKIP_SETTEXT_INTENT_ADOPTION_ON_EXPLICIT
 
 local type = type

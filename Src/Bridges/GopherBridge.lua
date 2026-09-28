@@ -8,7 +8,7 @@
             3) Offer to disable that addon (with reload) and warn about breakage.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local GopherBridge       = {}
 YapperTable.GopherBridge = GopherBridge

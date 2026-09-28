@@ -89,7 +89,6 @@ function IconGallery:Show(rawEditBox, anchorFrame, query)
         query = payload.query
         rawEditBox = payload.rawEditBox
     end
-    local parent = anchorFrame or rawEditBox
     self:Init()
     self._rawEditBox  = rawEditBox
     self._anchorFrame = anchorFrame or rawEditBox
