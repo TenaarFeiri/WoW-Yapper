@@ -1,4 +1,4 @@
-# 2.4.4
+# 2.4.5
 
 ### New Features
 - Support World of Warcraft: Forever! Still in beta.
@@ -7,6 +7,11 @@
 ### Technical Changes
 - Cleaned up a bunch of dead code.
 - Cleaned out the use of deprecated functions and replaced them with modern API.
+
+### Bug Fixes
+- Corrected some text alignment in the Help page.
+
+# 2.4.4
 
 ### Bug Fixes
 - Yapper should no longer override keybindings in housing editor, causing blockage.
