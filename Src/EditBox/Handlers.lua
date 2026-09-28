@@ -555,8 +555,6 @@ function EditBox:SetupOverlayScripts()
                 self:AddReplyTarget(sentTarget, chatType)
                 if ChatFrameUtil and ChatFrameUtil.SetLastToldTarget then
                     pcall(ChatFrameUtil.SetLastToldTarget, sentTarget, chatType)
-                elseif ChatEdit_SetLastToldTarget then
-                    pcall(ChatEdit_SetLastToldTarget, sentTarget, chatType)
                 end
             end
             -- Replace the Yapper-stored target with the secure one so

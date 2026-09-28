@@ -73,7 +73,7 @@ function EditBox:ForwardSlashCommand(text)
                 self._ignoreSetText = true
                 eb:SetText("/r " .. text)
                 self._ignoreSetText = false
-                ChatEdit_SendText(eb)
+                eb:SendText()
                 return
             end
             eb:SetAttribute("tellTarget", self.Target)
@@ -97,9 +97,9 @@ function EditBox:ForwardSlashCommand(text)
     self._ignoreSetText = true
     eb:SetText(text)
     self._ignoreSetText = false
-    ChatEdit_SendText(eb)
+    eb:SendText()
 
-    -- Clean up in case ChatEdit_SendText didn't close it.
+    -- Clean up in case SendText didn't close it.
     if self.OrigEditBox:IsShown() then
         self.OrigEditBox:SetText("")
         self.OrigEditBox:Deactivate()

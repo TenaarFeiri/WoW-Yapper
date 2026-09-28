@@ -116,7 +116,7 @@ function EditBox:UpdateFocusOverride()
         -- Only install CHAT_FOCUS_OVERRIDE while a Yapper editor is actually
         -- visible. Keeping it active while hidden makes ChatFrameUtil.OpenChat("")
         -- short-circuit to a hidden editor and can break addons that rely on
-        -- OpenChat + ChatEdit_GetActiveWindow().
+        -- OpenChat + ChatFrameUtil.GetActiveWindow().
         if editorActive
             and not UserBypassingYapper
             and not BypassEditBox
@@ -387,8 +387,6 @@ local function GetLastTellTargetInfo()
         local ok = true
         if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
             ok, lastTell, lastType = pcall(ChatFrameUtil.GetLastTellTarget)
-        elseif ChatEdit_GetLastTellTarget then
-            ok, lastTell, lastType = pcall(ChatEdit_GetLastTellTarget)
         end
         if not ok then
             Utils:VerbosePrint("Reply target unavailable: Blizzard's last-tell list holds a secret value.")
@@ -435,8 +433,6 @@ local function GetLastToldTargetInfo()
     -- pcall + IsSecret: same secret-value containment as GetLastTellTargetInfo.
     if ChatFrameUtil and ChatFrameUtil.GetLastToldTarget then
         ok, lastTold, lastType = pcall(ChatFrameUtil.GetLastToldTarget)
-    elseif ChatEdit_GetLastToldTarget then
-        ok, lastTold, lastType = pcall(ChatEdit_GetLastToldTarget)
     end
     if not ok or Utils:IsSecret(lastTold) then
         return nil, nil
@@ -520,8 +516,8 @@ function EditBox:OpenBlizzardChat()
         -- In lockdown Blizzard's native editbox is authoritative. Do not read
         -- or write secret-sensitive attributes from this tainted callback.
         if Utils:IsChatOrCombatLockdown() then
-            if ChatFrame_OpenChat then
-                pcall(ChatFrame_OpenChat, "", eb)
+            if ChatFrameUtil and ChatFrameUtil.OpenChat then
+                pcall(ChatFrameUtil.OpenChat, "", eb)
             elseif eb and eb.Show then
                 pcall(function() eb:Show() end)
             end
@@ -581,11 +577,11 @@ function EditBox:OpenBlizzardChat()
             end
         end
 
-        -- Prefer using Blizzard's ChatFrame_OpenChat so Blizzard/ChatFrameUtil
+        -- Prefer using Blizzard's ChatFrameUtil.OpenChat so Blizzard's
         -- callbacks (focus gained, etc.) run and other addons (e.g. Chattery)
         -- can observe the editbox properly.
-        if ChatFrame_OpenChat then
-            pcall(ChatFrame_OpenChat, "", eb)
+        if ChatFrameUtil and ChatFrameUtil.OpenChat then
+            pcall(ChatFrameUtil.OpenChat, "", eb)
             if eb and eb.SetFocus then eb:SetFocus() end
         else
             if eb and eb.Show then eb:Show() end

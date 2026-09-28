@@ -181,7 +181,9 @@ end
 
 --- Hide all Blizzard chat editboxes when CEBE is active.
 local function hideAllBlizzardEditBoxes()
-    for i = 1, NUM_CHAT_WINDOWS do
+    local maxChatWindows = (Constants and Constants.ChatFrameConstants
+        and Constants.ChatFrameConstants.MaxChatWindows) or 10
+    for i = 1, maxChatWindows do
         local editBox = _G["ChatFrame" .. i .. "EditBox"]
         if editBox and editBox.Hide then
             pcall(function() editBox:Hide() end)

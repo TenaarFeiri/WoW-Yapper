@@ -218,8 +218,8 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
 
     -- Prefer the currently active native chat editbox first; IM history can lag
     -- behind during whisper retarget/close sequences and reopen stale contexts.
-    local activeWindow = (ChatFrameUtil and ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
-        or (ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow())
+    local activeWindow = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
+        and ChatFrameUtil.GetActiveWindow()
     local targetEditBox = IsNativeChatEditBox(activeWindow) and activeWindow or nil
     if not targetEditBox and IsNativeChatEditBox(EditBox._lastActiveIMEditBox) then
         targetEditBox = EditBox._lastActiveIMEditBox

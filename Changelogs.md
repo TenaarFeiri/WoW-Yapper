@@ -1,5 +1,13 @@
 # 2.4.4
 
+### New Features
+- Support World of Warcraft: Forever! Still in beta.
+- Now supports Firstname and Lastname whispers in WoWF.
+
+### Technical Changes
+- Cleaned up a bunch of dead code.
+- Cleaned out the use of deprecated functions and replaced them with modern API.
+
 ### Bug Fixes
 - Yapper should no longer override keybindings in housing editor, causing blockage.
 - You should now be able to initiate bnet whispers with the Send Message button in your Contacts list.

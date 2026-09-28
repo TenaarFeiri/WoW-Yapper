@@ -3,7 +3,7 @@
 
         Resolves which WoW API to use for a given (chatType, target) pair:
             1. C_ChatInfo.SendChatMessage  — SAY, EMOTE, YELL, PARTY, WHISPER, etc.
-            2. BNSendWhisper               — Battle.net whispers.
+            2. C_BattleNet.SendWhisper     — Battle.net whispers.
             3. C_Club.SendMessage          — Communities / Guild / Officer chat.
 ]]
 
@@ -21,7 +21,6 @@ local Utils    = YapperTable.Utils
 
 -- Raw Blizzard send functions (set during Init).
 Router.SendChatMessage = nil
-Router.BNSendWhisper   = nil
 Router.ClubSendMessage = nil
 
 -- BNet friend lookup cache (60-second TTL).
@@ -182,7 +181,6 @@ end
 function Router:Init()
     -- Cache the current globals for fallback sends.
     self.SendChatMessage = C_ChatInfo.SendChatMessage
-    self.BNSendWhisper   = _G.BNSendWhisper
     self.ClubSendMessage = _G.C_Club and _G.C_Club.SendMessage or nil
 
     -- Flush BNet cache when the friend list changes.
@@ -223,20 +221,16 @@ function Router:Send(msg, chatType, language, target)
 
     -- Battle.net whisper
     if chatType == "BN_WHISPER" or chatType == "BNET" then
+        local sendWhisper = C_BattleNet and C_BattleNet.SendWhisper or nil
+
         -- Numeric targets are BNet account IDs supplied directly by friend-list
         -- menu context or CHAT_MSG_BN_WHISPER. They must not be treated as
-        -- presence IDs: C_BattleNet.SendWhisper and the legacy BNSendWhisper
-        -- both consume the account ID.
+        -- presence IDs: C_BattleNet.SendWhisper consumes the account ID.
         local numericTarget = type(target) == "number" and target or nil
         if numericTarget then
-            if C_BattleNet and C_BattleNet.SendWhisper then
-                local ok, err = pcall(C_BattleNet.SendWhisper, numericTarget, msg)
-                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
-                return ok
-            end
-            if self.BNSendWhisper then
-                local ok, err = pcall(self.BNSendWhisper, numericTarget, msg)
-                if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
+            if sendWhisper then
+                local ok, err = pcall(sendWhisper, numericTarget, msg)
+                if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
                 return ok
             end
             return false
@@ -244,27 +238,26 @@ function Router:Send(msg, chatType, language, target)
 
         -- Preserve the legacy string representation for callers that store a
         -- presence ID as text. Numeric strings historically bypassed friend
-        -- lookup and went directly to BNSendWhisper.
+        -- lookup and went directly to the whisper send.
         local legacyPresenceID = type(target) == "string" and tonumber(target) or nil
-        if legacyPresenceID and self.BNSendWhisper then
-            local ok, err = pcall(self.BNSendWhisper, legacyPresenceID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
-            return ok
+        if legacyPresenceID then
+            if sendWhisper then
+                local ok, err = pcall(sendWhisper, legacyPresenceID, msg)
+                if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
+                return ok
+            end
+            return false
         end
 
         local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
-        if C_BattleNet and C_BattleNet.SendWhisper and bnetAccountID then
-            local ok, err = pcall(C_BattleNet.SendWhisper, bnetAccountID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
-            return ok
-        end
-        if not presenceID then
+        local resolvedID = bnetAccountID or presenceID
+        if not resolvedID then
             YapperTable.Utils:DebugPrint("Router: BNet whisper with no valid presenceID.")
             return false
         end
-        if self.BNSendWhisper then
-            local ok, err = pcall(self.BNSendWhisper, presenceID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("BNSendWhisper error: " .. Utils:SafeToString(err)) end
+        if sendWhisper then
+            local ok, err = pcall(sendWhisper, resolvedID, msg)
+            if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
             return ok
         end
         return false

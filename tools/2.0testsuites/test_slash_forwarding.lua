@@ -49,7 +49,7 @@ local function NativeParseAndSend(editBox)
     end
 end
 
-_G.ChatEdit_SendText = NativeParseAndSend
+function nativeEditBox:SendText() NativeParseAndSend(self) end
 _G.strtrim = function(value)
     return (value or ""):match("^%s*(.-)%s*$")
 end

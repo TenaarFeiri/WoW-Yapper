@@ -640,5 +640,3 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end)
     end
 end
-
---- Hook all NUM_CHAT_WINDOWS editboxes.  Call once on init.

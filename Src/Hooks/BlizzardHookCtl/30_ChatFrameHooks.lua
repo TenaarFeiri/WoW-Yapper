@@ -38,8 +38,8 @@ local function OpenBnetAccountWhisper(bnetAccountID, chatFrame, name)
     end
 
     local target = tonumber(bnetAccountID) or bnetAccountID
-    if not chatFrame and ChatEdit_GetActiveWindow then
-        local activeEditBox = ChatEdit_GetActiveWindow()
+    if not chatFrame and ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
+        local activeEditBox = ChatFrameUtil.GetActiveWindow()
         chatFrame = activeEditBox and activeEditBox.chatFrame
     end
 
@@ -78,7 +78,9 @@ function EditBox:HookAllChatFrames()
         self._lastActiveIMEditBox = seed
     end
 
-    for i = 1, (NUM_CHAT_WINDOWS or 10) do
+    local maxChatWindows = (Constants and Constants.ChatFrameConstants
+        and Constants.ChatFrameConstants.MaxChatWindows) or 10
+    for i = 1, maxChatWindows do
         local eb = _G["ChatFrame" .. i .. "EditBox"]
         if eb then
             EnsureEditBoxHooked(eb)
@@ -86,7 +88,7 @@ function EditBox:HookAllChatFrames()
     end
 
     if YapperTable.Utils then
-        YapperTable.Utils:VerbosePrint("EditBox overlays hooked for " .. (NUM_CHAT_WINDOWS or 10) .. " chat frames.")
+        YapperTable.Utils:VerbosePrint("EditBox overlays hooked for " .. maxChatWindows .. " chat frames.")
     end
 
     -- Record sends made through Blizzard's native editbox (lockdown / bypass /
@@ -447,7 +449,6 @@ function EditBox:HookAllChatFrames()
                 local function CaptureMenuSelection()
                     local active = (ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
                         or (ChatFrameUtil.GetLastActiveWindow and ChatFrameUtil.GetLastActiveWindow())
-                        or (ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow())
                         or self.OrigEditBox
                     if not (active and active.GetChatType) then return nil end
 
@@ -618,8 +619,9 @@ function EditBox:HookAllChatFrames()
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
             local blizzBox = chatFrame and chatFrame.editBox
-            if not self:IsNativeChatEditBox(blizzBox) then
-                blizzBox = ChatEdit_GetActiveWindow()
+            if not self:IsNativeChatEditBox(blizzBox)
+                and ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
+                blizzBox = ChatFrameUtil.GetActiveWindow()
             end
             if not self:IsNativeChatEditBox(blizzBox) then
                 local fallback = self.OrigEditBox
@@ -686,7 +688,7 @@ function EditBox:HookAllChatFrames()
             if type(target) ~= "string" or target == "" then return end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
-            local blizzBox = ChatEdit_GetActiveWindow()
+            local blizzBox = ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow()
             if not self:IsNativeChatEditBox(blizzBox) then
                 local fallback = self.OrigEditBox
                     or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
@@ -735,12 +737,14 @@ function EditBox:HookAllChatFrames()
     -- Removed as part of hook reduction effort - keybind system provides primary path.
     -- Potential impact: Addons that call ReplyTell2 programmatically may not trigger Yapper overlay.
 
-    -- Handle Native ChatEdit_InsertLink Bypass
-    -- TRP3 natively calls ChatEdit_InsertLink when shift-clicking links.
-    -- If Yapper is closed, this bypasses ChatFrame_OpenChat entirely,
-    -- inserting text into the hidden YapperOverlayEditBox and failing SetFocus.
+    -- Handle Native InsertLink Bypass
+    -- TRP3 shift-clicking links calls ChatFrameUtil.InsertLink (or the
+    -- deprecated ChatEdit_InsertLink alias when Blizzard's fallbacks are
+    -- loaded). If Yapper is closed, this bypasses ChatFrameUtil.OpenChat
+    -- entirely, inserting text into the hidden YapperOverlayEditBox and
+    -- failing SetFocus.
     if not self._insertLinkHooked then
-        hooksecurefunc("ChatEdit_InsertLink", function(text)
+        local function OnInsertLink(text)
             -- Keep the editor that Blizzard just routed to focused.  This is
             -- especially important for multiline, whose frame replaces the
             -- hidden single-line overlay while the link API is running.
@@ -760,7 +764,15 @@ function EditBox:HookAllChatFrames()
                     self.OverlayEdit:SetFocus()
                 end
             end
-        end)
+        end
+        -- The deprecated alias is a separate reference to the original
+        -- function, so both entry points need their own wrapper.
+        if ChatFrameUtil and ChatFrameUtil.InsertLink then
+            hooksecurefunc(ChatFrameUtil, "InsertLink", OnInsertLink)
+        end
+        if _G.ChatEdit_InsertLink then
+            hooksecurefunc("ChatEdit_InsertLink", OnInsertLink)
+        end
         self._insertLinkHooked = true
     end
 
