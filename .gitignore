@@ -17,3 +17,6 @@ scratch/
 tools/scratch/
 Research/
 Yapper Architecture.png
+.devin/hooks/
+.devin/rules/
+.devin/hooks.v1.json
