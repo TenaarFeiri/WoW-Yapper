@@ -3,13 +3,15 @@
 Run everything that gates a commit with:
 
 ```
-tools/run_tests.sh
+tools/run_tests.sh            # bash (Linux/macOS/WSL, what CI runs)
+python tools/run_tests.py     # Windows-friendly port of the same manifest
 ```
 
 CI (`.github/workflows/tests.yml`) runs the same script on every push/PR
 using Lua 5.1, which matches WoW's runtime semantics. The gating manifest
 lives in `tools/run_tests.sh` — that script is the single source of truth
-for what must pass.
+for what must pass. `tools/run_tests.py` mirrors it for hosts without bash;
+keep the two manifests in sync.
 
 ## Categories
 
