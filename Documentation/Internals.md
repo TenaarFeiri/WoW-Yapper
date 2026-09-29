@@ -751,13 +751,13 @@ Lazy frame creation; active only when user enters multiline mode.
 - Methods:
   - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1104`](../Src/Multiline.lua#L1104))
   - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1063`](../Src/Multiline.lua#L1063))
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L157`](`../Src/Multiline.lua#L157`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L188`](`../Src/Multiline.lua#L188`))
-  - `Enter` ([`../Src/Multiline.lua#L634`](`../Src/Multiline.lua#L634`))
-  - `Exit` ([`../Src/Multiline.lua#L788`](`../Src/Multiline.lua#L788`))
-  - `Submit` ([`../Src/Multiline.lua#L916`](`../Src/Multiline.lua#L916`))
-  - `Cancel` ([`../Src/Multiline.lua#L1017`](`../Src/Multiline.lua#L1017`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1111`](`../Src/Multiline.lua#L1111`))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L169`](`../Src/Multiline.lua#L169`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L200`](`../Src/Multiline.lua#L200`))
+  - `Enter` ([`../Src/Multiline.lua#L646`](`../Src/Multiline.lua#L646`))
+  - `Exit` ([`../Src/Multiline.lua#L800`](`../Src/Multiline.lua#L800`))
+  - `Submit` ([`../Src/Multiline.lua#L928`](`../Src/Multiline.lua#L928`))
+  - `Cancel` ([`../Src/Multiline.lua#L1029`](`../Src/Multiline.lua#L1029`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1123`](`../Src/Multiline.lua#L1123`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -860,10 +860,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L337`](`../Src/Interface/Schema.lua#L337`))
-  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L478`](`../Src/Interface/Schema.lua#L478`))
-  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L486`](`../Src/Interface/Schema.lua#L486`))
-  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L492`](`../Src/Interface/Schema.lua#L492`))
+  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L345`](`../Src/Interface/Schema.lua#L345`))
+  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L486`](`../Src/Interface/Schema.lua#L486`))
+  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L494`](`../Src/Interface/Schema.lua#L494`))
+  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L500`](`../Src/Interface/Schema.lua#L500`))
 
 ## Interface.Config
 
@@ -891,8 +891,8 @@ Handles config reads/writes and side-effect fan-out.
   - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L434`](`../Src/Interface/Config.lua#L434`))
   - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L451`](`../Src/Interface/Config.lua#L451`))
   - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L491`](`../Src/Interface/Config.lua#L491`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L529`](`../Src/Interface/Config.lua#L529`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L568`](`../Src/Interface/Config.lua#L568`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L531`](`../Src/Interface/Config.lua#L531`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L570`](`../Src/Interface/Config.lua#L570`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
