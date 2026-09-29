@@ -149,6 +149,18 @@ local function RefreshMLLabel(ml)
 	if ml.EditBox then
 		ml.EditBox:SetTextColor(r, g, b)
 	end
+
+	-- Remember the resolved channel colour so ApplyTheme can tint the drop
+	-- shadow to match when MultilineShadowChannelColor is enabled.
+	if type(r) == "number" and type(g) == "number" and type(b) == "number" then
+		ml._lastChannelRGB = { r = r, g = g, b = b }
+		if cfg.MultilineShadowChannelColor == true and ml.Frame then
+			local tint = YapperTable.EditBox and YapperTable.EditBox._ApplyShadowTint
+			if tint then
+				tint(ml.Frame, r, g, b, (cfg.ShadowColor and cfg.ShadowColor.a) or 0.5)
+			end
+		end
+	end
 end
 
 --- Adjust the scroll frame's top anchor so the text area starts just below
@@ -1232,6 +1244,15 @@ function Multiline:ApplyTheme()
 	if activeThemeForShadow and activeThemeForShadow.allowDropShadow == false then shadow = false end
 	local shadCol = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
 	local shadSz  = cfg.ShadowSize or 4
+	-- When enabled, the shadow follows the resolved channel colour (stored by
+	-- RefreshMLLabel); the configured alpha still governs base opacity.
+	local shadR, shadG, shadB = shadCol.r or 0, shadCol.g or 0, shadCol.b or 0
+	if cfg.MultilineShadowChannelColor == true then
+		local c = self._lastChannelRGB
+		if c and type(c.r) == "number" and type(c.g) == "number" and type(c.b) == "number" then
+			shadR, shadG, shadB = c.r, c.g, c.b
+		end
+	end
 	-- f is already set above (the multiline Frame)
 	if shadow then
 		if not f._yapperShadowLayer then
@@ -1252,7 +1273,7 @@ function Multiline:ApplyTheme()
 			stex:SetPoint("TOPLEFT", f, "TOPLEFT", -offset, offset)
 			stex:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", offset, -offset)
 			stex:SetColorTexture(
-				shadCol.r or 0, shadCol.g or 0, shadCol.b or 0,
+				shadR, shadG, shadB,
 				(shadCol.a or 0.5) * (falloff[i] or 0.1))
 		end
 	else
