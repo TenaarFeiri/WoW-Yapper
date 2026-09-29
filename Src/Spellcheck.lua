@@ -12,22 +12,14 @@ YapperTable.Spellcheck = Spellcheck
 local Utils = YapperTable.Utils
 
 -- Localise Lua globals for performance (avoids table lookups in hot loops)
-local math_abs   = math.abs
 local math_min   = math.min
 local math_max   = math.max
-local math_floor = math.floor
-local math_huge  = math.huge
-local table_insert = table.insert
-local table_sort = table.sort
 local table_remove = table.remove
 local string_sub = string.sub
 local string_byte = string.byte
 local string_lower = string.lower
 local string_gsub = string.gsub
-local string_upper = string.upper
-local string_match = string.match
 local string_char = string.char
-local string_format = string.format
 local type = type
 local ipairs = ipairs
 local pairs = pairs
@@ -193,7 +185,7 @@ local KB_LAYOUTS = {
 -- Build a flat 676-entry distance lookup indexed by (b1-97)*26 + (b2-97) + 1
 -- where b1,b2 are byte values of lowercase a-z. Called once per layout change.
 
-function Spellcheck:Init(threads)
+function Spellcheck:Init()
     -- Ensure distance buffers are pre-allocated to avoid first-run stalls/nils
     if not self._ed_prev then self._ed_prev = {} end
     if not self._ed_cur then self._ed_cur = {} end

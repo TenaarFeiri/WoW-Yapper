@@ -169,7 +169,12 @@ if ENABLE_WINDOW_REPLACEMENTS and origGetActiveWindow then
         return origGetActiveWindow()
     end
     ChatFrameUtil.GetActiveWindow = compatGetActiveWindow
-    _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
+    -- Redirect the deprecated global as well when Blizzard actually shipped it
+    -- (loadDeprecationFallbacks), so legacy addons see the overlay too. We
+    -- never create it ourselves when the fallback table wasn't loaded.
+    if _G.ChatEdit_GetActiveWindow then
+        _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
+    end
 end
 
 if ENABLE_WINDOW_REPLACEMENTS and origFocusActiveWindow then
@@ -202,7 +207,9 @@ function EditBox:SetChatCompatibilityEnabled(enabled)
     if enabled then
         if compatGetActiveWindow then
             ChatFrameUtil.GetActiveWindow = compatGetActiveWindow
-            _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
+            if _G.ChatEdit_GetActiveWindow then
+                _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
+            end
         end
         if compatFocusActiveWindow then
             ChatFrameUtil.FocusActiveWindow = compatFocusActiveWindow
@@ -210,7 +217,9 @@ function EditBox:SetChatCompatibilityEnabled(enabled)
     else
         if origGetActiveWindow then
             ChatFrameUtil.GetActiveWindow = origGetActiveWindow
-            _G.ChatEdit_GetActiveWindow = origGetActiveWindow
+            if _G.ChatEdit_GetActiveWindow then
+                _G.ChatEdit_GetActiveWindow = origGetActiveWindow
+            end
         end
         if origFocusActiveWindow then
             ChatFrameUtil.FocusActiveWindow = origFocusActiveWindow

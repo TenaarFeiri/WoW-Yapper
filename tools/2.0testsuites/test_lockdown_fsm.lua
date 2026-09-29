@@ -404,7 +404,7 @@ YapperTable.Multiline = nil
 -- No lockdown, overlay CLOSED: override cleared. Yapper no longer keeps a
 -- stale CHAT_FOCUS_OVERRIDE pointing at the hidden overlay while closed — that
 -- made ChatFrameUtil.OpenChat("") short-circuit and broke addons relying on
--- OpenChat -> ChatEdit_GetActiveWindow() -> ChatEdit_SendText() (e.g. Paste).
+-- OpenChat -> ChatFrameUtil.GetActiveWindow() -> SendText() (e.g. Paste).
 -- Interception on the next open is re-established by the overlay Show hook.
 ResetWorld()
 EditBox:Show(blizzBox)

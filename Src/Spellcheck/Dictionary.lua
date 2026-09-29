@@ -9,7 +9,6 @@ local Spellcheck      = YapperTable.Spellcheck
 local Utils           = YapperTable.Utils
 
 -- Re-localise shared helpers from hub.
-local Clamp           = Spellcheck.Clamp
 local NormaliseWord   = Spellcheck.NormaliseWord
 local NormaliseVowels = Spellcheck.NormaliseVowels
 local IsWordStartByte = Spellcheck.IsWordStartByte
@@ -24,9 +23,6 @@ local tonumber        = tonumber
 local math_min        = math.min
 local string_byte     = string.byte
 local string_sub      = string.sub
-local string_lower    = string.lower
-local string_format   = string.format
-local table_insert    = table.insert
 local table_sort      = table.sort
 local rawget          = rawget
 
@@ -286,10 +282,7 @@ function Spellcheck:RegisterDictionary(locale, data)
 
     -- If dict is pre-processed or extends another, outWords might not match words.
     -- But if words matches outWords (synchronous load), we can skip ONLY IF the index is already populated.
-    local hasIndex = false
-    for k, v in pairs(index) do
-        hasIndex = true; break
-    end
+    local hasIndex = next(index) ~= nil
 
     if words == outWords and #outWords > 0 and not data.isDelta and hasIndex then
         -- Already populated via builder/cache

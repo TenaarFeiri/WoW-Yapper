@@ -4,15 +4,12 @@ local State = YapperTable.State
 
 local Ctl = YapperTable.BlizzardHookCtl
 local Core = Ctl.Core
-local CHATTYPE_TO_OVERRIDE_KEY = Ctl.CHATTYPE_TO_OVERRIDE_KEY
 local ResolveChannelName = Ctl.ResolveChannelName
 local UserBypassingYapper = Ctl.UserBypassingYapper
 local SetUserBypassingYapper = Ctl.SetUserBypassingYapper
 local BypassEditBox = Ctl.BypassEditBox
 local SetBypassEditBox = Ctl.SetBypassEditBox
 local TriggerTrace = Ctl.TriggerTrace
-local StampRecentOpenChatIntent = Ctl.StampRecentOpenChatIntent
-local ParseLinkType = Ctl.ParseLinkType
 local GATE_SKIP_SETTEXT_INTENT_ADOPTION_ON_EXPLICIT = Ctl.GATE_SKIP_SETTEXT_INTENT_ADOPTION_ON_EXPLICIT
 
 local type = type
@@ -170,9 +167,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     self.Target   = nil
                     self._secureReplySource = nil
                     if newChatType == "WHISPER" and savedEB.GetAttribute then
-                        self.Target = savedEB:GetAttribute("tellTarget")
+                        -- Raw GetAttribute can return a secret under any active
+                        -- restriction type; SanitizeTarget quarantines to nil.
+                        self.Target = YapperTable.Utils:SanitizeTarget(savedEB:GetAttribute("tellTarget"))
                     elseif newChatType == "CHANNEL" and savedEB.GetAttribute then
-                        local ch         = savedEB:GetAttribute("channelTarget")
+                        local ch         = YapperTable.Utils:SanitizeTarget(savedEB:GetAttribute("channelTarget"))
                         self.Target      = ch
                         self.ChannelName = ResolveChannelName(tonumber(ch))
                     end
@@ -291,10 +290,14 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             and tostring(intentTarget) == tostring(currentTarget)
                     end
                     if chatType == "WHISPER" then
-                        local intentTarget = YapperTable.Utils:SanitizeTarget(intent.target)
-                        local currentTarget = YapperTable.Utils:SanitizeTarget(target)
-                        return intentTarget ~= nil and currentTarget ~= nil
-                            and tostring(intentTarget):lower() == tostring(currentTarget):lower()
+                        local utils = YapperTable.Utils
+                        local intentTarget = utils:SanitizeTarget(intent.target)
+                        local currentTarget = utils:SanitizeTarget(target)
+                        -- Canonicalise both sides: retail Name↔Name-Realm and
+                        -- Forever "First Last"↔"First-Last" must compare equal.
+                        local nIntent = intentTarget and utils:NormaliseCharName(intentTarget) or nil
+                        local nCurrent = currentTarget and utils:NormaliseCharName(currentTarget) or nil
+                        return nIntent ~= nil and nIntent == nCurrent
                     end
                     return true
                 end
@@ -599,9 +602,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 local filterCT = targetEB.GetAttribute and targetEB:GetAttribute("chatType") or "SAY"
                 local filterTarget
                 if filterCT == "WHISPER" and targetEB.GetAttribute then
-                    filterTarget = targetEB:GetAttribute("tellTarget")
+                    filterTarget = YapperTable.Utils:SanitizeTarget(targetEB:GetAttribute("tellTarget"))
                 elseif filterCT == "CHANNEL" and targetEB.GetAttribute then
-                    filterTarget = targetEB:GetAttribute("channelTarget")
+                    filterTarget = YapperTable.Utils:SanitizeTarget(targetEB:GetAttribute("channelTarget"))
                 end
                 local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
                     chatType = filterCT,
@@ -639,5 +642,3 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end)
     end
 end
-
---- Hook all NUM_CHAT_WINDOWS editboxes.  Call once on init.

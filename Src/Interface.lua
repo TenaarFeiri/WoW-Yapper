@@ -13,25 +13,17 @@ Interface.DICTIONARY_DOWNLOAD_URL = "https://www.curseforge.com/wow/addons/yappe
 
 -- Localise Lua globals for performance
 local math_floor              = math.floor
-local math_rad                = math.rad
-local math_cos                = math.cos
-local math_sin                = math.sin
-local math_deg                = math.deg
-local math_atan2              = math.atan2 or math.atan
 local math_max                = math.max
 local math_min                = math.min
 local math_abs                = math.abs
 local string_upper            = string.upper
-local string_format           = string.format
 local table_concat            = table.concat
-local table_sort              = table.sort
 local type                    = type
 local pairs                   = pairs
 local ipairs                  = ipairs
 local tostring                = tostring
 local tonumber                = tonumber
 local select                  = select
-local tinsert                 = table.insert
 
 -- ---------------------------------------------------------------------------
 -- StaticPopups

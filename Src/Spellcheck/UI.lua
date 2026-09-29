@@ -20,12 +20,9 @@ local pairs               = pairs
 local ipairs              = ipairs
 local tostring            = tostring
 local tonumber            = tonumber
-local math_abs            = math.abs
 local math_min            = math.min
 local math_max            = math.max
-local math_floor          = math.floor
 local string_sub          = string.sub
-local string_format       = string.format
 local table_insert        = table.insert
 
 function Spellcheck:Bind(editBox, overlay)

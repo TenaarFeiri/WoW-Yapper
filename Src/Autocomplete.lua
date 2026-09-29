@@ -42,7 +42,6 @@ local math_max           = math.max
 local math_min           = math.min
 local math_log           = math.log
 local math_huge          = math.huge
-local string_gsub        = string.gsub
 
 local Utils = YapperTable.Utils
 

@@ -10,12 +10,9 @@ local Spellcheck      = YapperTable.Spellcheck
 
 
 -- Re-localise shared helpers from hub.
-local Clamp           = Spellcheck.Clamp
 local NormaliseWord   = Spellcheck.NormaliseWord
 local NormaliseVowels = Spellcheck.NormaliseVowels -- built-in fallback
-local SuggestionKey   = Spellcheck.SuggestionKey
 local IsWordByte      = Spellcheck.IsWordByte
-local IsWordStartByte = Spellcheck.IsWordStartByte
 local IsDebugEnabled  = Spellcheck.IsDebugEnabled
 local IterWords       = Spellcheck.IterWords
 local SCORE_WEIGHTS   = Spellcheck._SCORE_WEIGHTS
@@ -30,7 +27,6 @@ local tonumber        = tonumber
 local math_abs        = math.abs
 local math_min        = math.min
 local math_max        = math.max
-local math_floor      = math.floor
 local math_huge       = math.huge
 local table_insert    = table.insert
 local table_sort      = table.sort
@@ -39,8 +35,6 @@ local string_byte     = string.byte
 local string_lower    = string.lower
 local string_gsub     = string.gsub
 local string_upper    = string.upper
-local string_match    = string.match
-local string_char     = string.char
 local string_format   = string.format
 local rawget          = rawget
 

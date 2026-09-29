@@ -104,7 +104,7 @@ local function install_globals(harness)
     _G.UIParent:Show()
     _G.ChatFrame1EditBox = frame_factory()
     _G.DEFAULT_CHAT_FRAME = { editBox = _G.ChatFrame1EditBox, AddMessage = function() end }
-    _G.NUM_CHAT_WINDOWS = 1
+    _G.Constants = { ChatFrameConstants = { MaxChatWindows = 1 } }
     _G.ChatTypeInfo = {}
     _G.ChatFontNormal = { GetFont = function() return "Fonts\\FRIZQT__.TTF", 14, "" end }
     _G.SlashCmdList = {}
@@ -148,9 +148,6 @@ local function install_globals(harness)
         end,
         GetFriendAccountInfo = function() return nil end,
     }
-    _G.BNSendWhisper = function(presenceID, message)
-        return harness.server:send(message, "BN_WHISPER", nil, presenceID)
-    end
     _G.C_Club = {
         SendMessage = function(clubID, streamID, message)
             return harness.server:send(message, "CLUB", clubID, streamID)

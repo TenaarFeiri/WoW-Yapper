@@ -167,7 +167,7 @@ local function OnAddonLoaded(addonName)
     end
 
     if YapperTable.Spellcheck and YapperTable.Spellcheck.Init then
-        YapperTable.Spellcheck:Init(1)
+        YapperTable.Spellcheck:Init()
     end
 
     -- Initialise persistent history store.

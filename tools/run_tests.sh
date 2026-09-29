@@ -37,6 +37,7 @@ GATING_FROM_ROOT=(
     test_slash_forwarding
     test_lockdown_fsm
     test_sticky_sync
+    test_forever_names
     test_recolour
     test_sendposts_strip
     test_help_content

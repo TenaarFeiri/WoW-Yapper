@@ -487,7 +487,6 @@ function Multiline:CreateFrame()
 			-- Canonical read: snapshots and drafts replay with plain-text
 			-- byte math; display escapes would corrupt offsets and persist.
 			local text = YapperTable.Recolour.CanonicalText(box)
-			local name = box.GetName and box:GetName() or "YapperMultilineEdit"
 			local last = box._yapperLastText or ""
 
 			local function IsWordBoundary(b)
@@ -539,11 +538,25 @@ function Multiline:CreateFrame()
 		f:RegisterEvent("PLAYER_REGEN_DISABLED")
 		f:RegisterEvent("PLAYER_REGEN_ENABLED")
 		f:RegisterEvent("UPDATE_CHAT_COLOR")
-		f:SetScript("OnEvent", function(_, event)
+		-- WoW 12.x restriction transitions (see EditBox/Handlers.lua).
+		if type(C_RestrictedActions) == "table"
+			and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function" then
+			f:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
+		end
+		f:SetScript("OnEvent", function(_, event, ...)
 			if event == "PLAYER_REGEN_DISABLED" then
 				Multiline:OnLockdownStart()
 			elseif event == "PLAYER_REGEN_ENABLED" then
 				Multiline:OnLockdownEnd()
+			elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
+				local restrictionState = select(2, ...)
+				local rstates = Enum and Enum.AddOnRestrictionState
+				if rstates and (restrictionState == rstates.Activating
+					or restrictionState == rstates.Active) then
+					Multiline:OnLockdownStart()
+				elseif rstates and restrictionState == rstates.Inactive then
+					Multiline:OnLockdownEnd()
+				end
 			elseif event == "UPDATE_CHAT_COLOR" then
 				if Multiline.Frame and Multiline.Frame:IsShown() then
 					Multiline:UpdateLabelColour()

@@ -11,12 +11,10 @@ local Interface               = YapperTable.Interface
 local IsAnchorPoint           = Interface.IsAnchorPoint
 local LAYOUT                  = Interface._LAYOUT
 local CATEGORIES              = Interface._CATEGORIES
-local LayoutCursor            = Interface._LayoutCursor
 
 -- Re-localise Lua globals.
 local type                    = type
 local ipairs                  = ipairs
-local math_abs                = math.abs
 local math_floor              = math.floor
 local math_max                = math.max
 local math_min                = math.min
@@ -475,7 +473,7 @@ function Interface:CreateWelcomeChoiceFrame()
     end
 
     -- Left column: Blizzard Skin Proxy.
-    local blizzBtn, blizzPreview   = BuildColumn(
+    local _, blizzPreview        = BuildColumn(
         -(COL_W / 2 + PAD / 2), -- left of centre
         "Blizzard",
         "Imitates Blizzard's default appearance, but offers less customisation. May not be compatible with other re-skinning addons, in which case Yapper's own theme may serve your needs.",
@@ -486,7 +484,7 @@ function Interface:CreateWelcomeChoiceFrame()
     )
 
     -- Right column: Yapper's Own.
-    local yapperBtn, yapperPreview = BuildColumn(
+    local _, yapperPreview         = BuildColumn(
         (COL_W / 2 + PAD / 2), -- right of centre
         "Yapper",
         "Fully customisable with background colours and opacity. Has several styling options.",
@@ -512,7 +510,7 @@ function Interface:CreateWelcomeChoiceFrame()
     featureLabel:SetTextColor(1, 0.82, 0, 1)
     toggleY = toggleY - 24
 
-    local spellToggle, spellLabel, nextY = CreatePopupToggle(
+    local spellToggle, _, nextY = CreatePopupToggle(
         frame,
         { "Spellcheck", "Enabled" },
         "Enable spellcheck  |cFF888888(per-locale dictionaries with adaptive learning)|r",
@@ -530,7 +528,7 @@ function Interface:CreateWelcomeChoiceFrame()
         nextY
     )
 
-    local yasToggle, yasLabel, nextY3 = CreatePopupToggle(
+    local yasToggle, yasLabel = CreatePopupToggle(
         frame,
         { "Spellcheck", "YASEnabled" },
         "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
@@ -625,7 +623,6 @@ function Interface:CreateWhatsNewFrame()
     dimmer:Show()
 
     -- ── Feature opt-in toggles ────────────────────────────────────────
-    local togglesAdded = false
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
     local yasEnabled = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" })
@@ -668,7 +665,6 @@ function Interface:CreateWhatsNewFrame()
         togLabel:SetText("New Features — Try Them Out")
         togLabel:SetTextColor(1, 0.82, 0, 1)
         toggleCursor = toggleCursor - 24
-        togglesAdded = true
 
         local acT, acL, yasT, yasL, spellT
 

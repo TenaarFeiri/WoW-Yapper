@@ -3,7 +3,7 @@
     Personalized ranking and vocabulary tracking for the spellcheck engine.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 local YAS = {}
 YapperTable.Spellcheck.YAS = YAS -- Hook into internal table
 local Utils = YapperTable.Utils
@@ -29,14 +29,11 @@ local type = type
 local next = next
 local math_min = math.min
 local math_max = math.max
-local math_abs = math.abs
 local math_floor = math.floor
 local table_insert = table.insert
 local table_sort = table.sort
 local string_format = string.format
 local string_sub = string.sub
-local string_lower = string.lower
-local string_gsub  = string.gsub
 
 local function VerifyFreqIndex(db)
     if not IsDebugEnabled() then return end

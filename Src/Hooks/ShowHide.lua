@@ -22,7 +22,6 @@ local tostring   = tostring
 local nativeToString = tostring
 local tonumber   = tonumber
 local math_max   = math.max
-local math_min   = math.min
 local table_concat = table.concat
 local issecretvalue = _G["issecretvalue"]
 local canaccessvalue = _G["canaccessvalue"]
@@ -842,7 +841,7 @@ function EditBox:Hide(isHandoff)
     -- Clear CHAT_FOCUS_OVERRIDE now that the overlay is hidden. Leaving a stale
     -- override pointing at the hidden OverlayEdit makes ChatFrameUtil.OpenChat("")
     -- short-circuit (focus override branch) without calling ActivateChat, so
-    -- ACTIVE_CHAT_EDIT_BOX is never set and ChatEdit_GetActiveWindow() returns nil.
+    -- ACTIVE_CHAT_EDIT_BOX is never set and ChatFrameUtil.GetActiveWindow() returns nil.
     -- That breaks addons using the OpenChat -> GetActiveWindow -> SendText pattern
     -- after Yapper closes. UpdateFocusOverride re-evaluates against
     -- the now-hidden overlay and clears the override.

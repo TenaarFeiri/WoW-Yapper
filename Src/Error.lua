@@ -3,7 +3,7 @@
     Centralised error codes, formatted printing, and fatal throws.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local Error = {}
 YapperTable.Error = Error

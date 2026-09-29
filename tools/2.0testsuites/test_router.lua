@@ -35,12 +35,6 @@ _G.C_ChatInfo = {
     end,
 }
 
-_G.BNSendWhisper = function(presenceID, msg)
-    sentMessages[#sentMessages + 1] = {
-        msg = msg, presenceID = presenceID, api = "BNSendWhisper",
-    }
-end
-
 _G.C_BattleNet = {
     GetFriendAccountInfo = function(index)
         local friends = {
@@ -207,8 +201,8 @@ print("\nTest 8: BN_WHISPER with numeric presenceID")
 ResetSends()
 Router:FlushBnetCache()
 
--- When target is numeric and no BNet resolution finds it, it falls through
--- to the legacy BNSendWhisper path.
+-- When target is a numeric string it bypasses friend resolution and goes
+-- straight to C_BattleNet.SendWhisper.
 _G.BNGetFriendInfo = function(i)
     if i == 1 then return 500, "LegacyFriend", "Legacy#1111", nil, "ToonName", nil, nil, nil, nil, nil, nil, nil, nil, 2000 end
     return nil
@@ -217,6 +211,8 @@ _G.BNGetNumFriends = function() return 1 end
 
 ok = Router:Send("Legacy msg", "BN_WHISPER", nil, "500")
 check("numeric presenceID send ok", ok == true)
+check("numeric presenceID uses C_BattleNet.SendWhisper", sentMessages[1].api == "C_BattleNet.SendWhisper")
+check("numeric presenceID passed directly", sentMessages[1].bnetAccountID == 500)
 
 -- Restore.
 _G.BNGetFriendInfo = nil

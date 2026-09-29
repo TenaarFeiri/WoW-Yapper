@@ -49,7 +49,7 @@ local function NativeParseAndSend(editBox)
     end
 end
 
-_G.ChatEdit_SendText = NativeParseAndSend
+function nativeEditBox:SendText() NativeParseAndSend(self) end
 _G.strtrim = function(value)
     return (value or ""):match("^%s*(.-)%s*$")
 end
@@ -199,6 +199,20 @@ forwardedText, printedLine = nil, nil
 YapperTable.EditBox:ForwardSlashCommand("/m")
 check("/m reaches native parser", forwardedText == "/m")
 check("no warning is printed", printedLine == nil)
+
+print("\nTest 12: SendText errors are contained and fall back to handoff")
+local origSendText = nativeEditBox.SendText
+nativeEditBox.SendText = function()
+    error("attempt to compare local 'server' (a secret string value)")
+end
+handedOff, printedLine = false, nil
+ok = pcall(function()
+    YapperTable.EditBox:ForwardSlashCommand("/invite")
+end)
+check("secret-compare error is contained", ok == true)
+check("handoff preserves the draft", handedOff == true)
+check("user-facing warning printed", printedLine ~= nil and printedLine:find("restrictions") ~= nil)
+nativeEditBox.SendText = origSendText
 
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then

@@ -16,12 +16,8 @@ local NormalizeChatMarkers  = Interface.NormalizeChatMarkers
 local Clamp01               = Interface.Clamp01
 local TrimString            = Interface.TrimString
 local PruneUnknown          = Interface.PruneUnknown
-local IsAnchorPoint         = Interface.IsAnchorPoint
-local IsColourTable         = Interface.IsColourTable
-local CopyColour            = Interface.CopyColour
 local COLOUR_KEYS           = Interface._COLOUR_KEYS
 local FRIENDLY_LABELS       = Interface._FRIENDLY_LABELS
-local SETTING_TOOLTIPS      = Interface._SETTING_TOOLTIPS
 
 -- Re-localise Lua globals.
 local type     = type

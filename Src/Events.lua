@@ -3,7 +3,7 @@
     Simple event bus: register/unregister handlers per Blizzard event.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local Events = {}
 YapperTable.Events = Events

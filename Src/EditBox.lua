@@ -116,7 +116,7 @@ function EditBox:UpdateFocusOverride()
         -- Only install CHAT_FOCUS_OVERRIDE while a Yapper editor is actually
         -- visible. Keeping it active while hidden makes ChatFrameUtil.OpenChat("")
         -- short-circuit to a hidden editor and can break addons that rely on
-        -- OpenChat + ChatEdit_GetActiveWindow().
+        -- OpenChat + ChatFrameUtil.GetActiveWindow().
         if editorActive
             and not UserBypassingYapper
             and not BypassEditBox
@@ -225,9 +225,7 @@ local LABEL_PREFIXES           = {
 }
 
 -- Hot-path locals
-local strmatch                 = string.match
 local strlower                 = string.lower
-local strbyte                  = string.byte
 
 -- Chat types that are always sticky when in a group, even if StickyChannel is off.
 local GROUP_CHAT_TYPES         = {
@@ -268,6 +266,50 @@ local function IsWhisperSlashPrefill(text)
         or cmd == "cw" or cmd == "send" or cmd == "charwhisper"
 end
 
+--- Regional-unique-names (WoW: Forever) whisper targets may be "First Last"
+--- or "First-Last", so a lone space cannot terminate the target. This is a
+--- port of Blizzard's ChatFrameEditBoxBaseMixin:ExtractTellTarget (WHISPER
+--- branch): the name is only complete once it contains an interior
+--- separator boundary, and the longest prefix matching a known character
+--- wins. Returns nil while the input is still an incomplete name so callers
+--- keep waiting, exactly like Blizzard's own editbox.
+--- @param rest string  Text after the whisper slash command.
+--- @return string|nil target, string|nil remainder
+local function ExtractRegionalWhisperTarget(rest)
+    if type(rest) ~= "string" then return nil end
+    local target = rest:match("%s*(.*)")
+    if not target or target == "" then return nil end
+    if target:sub(1, 1) == "|" then return nil end
+
+    local acEntry = AUTOCOMPLETE_LIST and AUTOCOMPLETE_LIST.WHISPER_EXTRACT
+    local function MatchesKnownName(candidate)
+        if not (C_AutoComplete and type(C_AutoComplete.GetAutoCompleteResults) == "function") then
+            return false
+        end
+        local ok, matches = pcall(C_AutoComplete.GetAutoCompleteResults,
+            candidate, 1, 0, true,
+            acEntry and acEntry.include, acEntry and acEntry.exclude)
+        return ok and type(matches) == "table" and #matches > 0
+    end
+
+    -- Without an interior "sep word space" boundary the surname may still be
+    -- being typed.
+    if not target:find("[%s-](%w+)%s") then return nil end
+
+    -- The whole rest naming a known character means the user is still typing
+    -- (Blizzard returns false to keep the raw text).
+    if MatchesKnownName(target) then return nil end
+
+    -- Keep pulling off the last word until a known name or two words remain.
+    while target:find("[%s-](%w+)%s") do
+        target = target:match("(.+)%s+[^%s]*")
+        if MatchesKnownName(target) then break end
+    end
+
+    if not target or target == "" then return nil end
+    return target, (rest:sub(#target + 1):match("^%s*(.-)%s*$"))
+end
+
 local function ParseWhisperSlash(text)
     if type(text) ~= "string" then return nil end
     local cmd, rest = text:match("^%s*/([%w_]+)%s+([%s%S]*)")
@@ -276,6 +318,9 @@ local function ParseWhisperSlash(text)
     if cmd ~= "w" and cmd ~= "whisper" and cmd ~= "tell" and cmd ~= "t"
         and cmd ~= "cw" and cmd ~= "send" and cmd ~= "charwhisper" then
         return nil
+    end
+    if Utils and Utils.HasRegionalUniqueNames and Utils:HasRegionalUniqueNames() then
+        return ExtractRegionalWhisperTarget(rest)
     end
     local target, remainder = (rest or ""):match("^(%S+)%s*([%s%S]*)")
     if not target or target == "" then return nil end
@@ -342,8 +387,6 @@ local function GetLastTellTargetInfo()
         local ok = true
         if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
             ok, lastTell, lastType = pcall(ChatFrameUtil.GetLastTellTarget)
-        elseif ChatEdit_GetLastTellTarget then
-            ok, lastTell, lastType = pcall(ChatEdit_GetLastTellTarget)
         end
         if not ok then
             Utils:VerbosePrint("Reply target unavailable: Blizzard's last-tell list holds a secret value.")
@@ -390,8 +433,6 @@ local function GetLastToldTargetInfo()
     -- pcall + IsSecret: same secret-value containment as GetLastTellTargetInfo.
     if ChatFrameUtil and ChatFrameUtil.GetLastToldTarget then
         ok, lastTold, lastType = pcall(ChatFrameUtil.GetLastToldTarget)
-    elseif ChatEdit_GetLastToldTarget then
-        ok, lastTold, lastType = pcall(ChatEdit_GetLastToldTarget)
     end
     if not ok or Utils:IsSecret(lastTold) then
         return nil, nil
@@ -475,8 +516,8 @@ function EditBox:OpenBlizzardChat()
         -- In lockdown Blizzard's native editbox is authoritative. Do not read
         -- or write secret-sensitive attributes from this tainted callback.
         if Utils:IsChatOrCombatLockdown() then
-            if ChatFrame_OpenChat then
-                pcall(ChatFrame_OpenChat, "", eb)
+            if ChatFrameUtil and ChatFrameUtil.OpenChat then
+                pcall(ChatFrameUtil.OpenChat, "", eb)
             elseif eb and eb.Show then
                 pcall(function() eb:Show() end)
             end
@@ -536,11 +577,11 @@ function EditBox:OpenBlizzardChat()
             end
         end
 
-        -- Prefer using Blizzard's ChatFrame_OpenChat so Blizzard/ChatFrameUtil
+        -- Prefer using Blizzard's ChatFrameUtil.OpenChat so Blizzard's
         -- callbacks (focus gained, etc.) run and other addons (e.g. Chattery)
         -- can observe the editbox properly.
-        if ChatFrame_OpenChat then
-            pcall(ChatFrame_OpenChat, "", eb)
+        if ChatFrameUtil and ChatFrameUtil.OpenChat then
+            pcall(ChatFrameUtil.OpenChat, "", eb)
             if eb and eb.SetFocus then eb:SetFocus() end
         else
             if eb and eb.Show then eb:Show() end
@@ -605,6 +646,7 @@ EditBox._GROUP_CHAT_TYPES       = GROUP_CHAT_TYPES
 EditBox._CHATTYPE_TO_OVERRIDE_KEY = CHATTYPE_TO_OVERRIDE_KEY
 EditBox._REPLY_QUEUE_MAX        = REPLY_QUEUE_MAX
 EditBox.IsWhisperSlashPrefill   = IsWhisperSlashPrefill
+EditBox.ExtractRegionalWhisperTarget = ExtractRegionalWhisperTarget
 EditBox.ParseWhisperSlash       = ParseWhisperSlash
 EditBox.IsChannelSlashPrefill   = IsChannelSlashPrefill
 EditBox.ParseChannelSlash       = ParseChannelSlash

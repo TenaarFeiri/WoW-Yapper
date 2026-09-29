@@ -6,7 +6,7 @@
     Adds optional delineators (" >>" / ">> ") for continuation.
 ]]
 
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 -- Localise Lua globals for performance
 local string_byte   = string.byte

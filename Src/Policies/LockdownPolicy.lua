@@ -9,8 +9,55 @@ local _, YapperTable = ...
 local LockdownPolicy = {}
 YapperTable.LockdownPolicy = LockdownPolicy
 
+-- ---------------------------------------------------------------------------
+-- Addon restriction API (WoW 12.x: C_RestrictedActions / Enum.AddOnRestriction*)
+-- ---------------------------------------------------------------------------
+
+--- True when the client exposes the C_RestrictedActions surface.
+--- @return boolean
+function LockdownPolicy:HasAddOnRestrictionAPI()
+    return type(C_RestrictedActions) == "table"
+        and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function"
+        and type(Enum) == "table"
+        and type(Enum.AddOnRestrictionType) == "table"
+end
+
+--- Returns true when a single Enum.AddOnRestrictionType is enforced.
+--- @param restrictionType number|nil
+--- @return boolean
+function LockdownPolicy:IsAddOnRestrictionActive(restrictionType)
+    if not self:HasAddOnRestrictionAPI() or restrictionType == nil then
+        return false
+    end
+    local ok, active = pcall(C_RestrictedActions.IsAddOnRestrictionActive, restrictionType)
+    return ok and active == true
+end
+
+--- Returns true while ANY addon restriction type is enforced. Non-chat
+--- restrictions leave messaging usable but poison Blizzard-produced data
+--- (unit names, etc.) with secret values, so tainted calls into Blizzard
+--- handlers — forwarded slash commands, unit-menu clicks — error on secret
+--- comparisons inside Blizzard code.
+--- @return boolean
+function LockdownPolicy:IsAnyAddOnRestrictionActive()
+    if not self:HasAddOnRestrictionAPI() then return false end
+    for _, restrictionType in pairs(Enum.AddOnRestrictionType) do
+        if self:IsAddOnRestrictionActive(restrictionType) then
+            return true
+        end
+    end
+    return false
+end
+
 -- Returns true if chat messaging security restrictions are active.
 function LockdownPolicy:IsChatLockdown()
+    -- The Chat restriction type is authoritative on clients with
+    -- C_RestrictedActions; InChatMessagingLockdown covers older clients.
+    local chatType = Enum and Enum.AddOnRestrictionType
+        and Enum.AddOnRestrictionType.Chat
+    if self:IsAddOnRestrictionActive(chatType) then
+        return true
+    end
     return C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
         and C_ChatInfo.InChatMessagingLockdown() == true
 end

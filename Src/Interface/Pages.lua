@@ -13,14 +13,10 @@ local Utils          = YapperTable.Utils
 local JoinPath                    = Interface.JoinPath
 local IsColourTable               = Interface.IsColourTable
 local CopyColour                  = Interface.CopyColour
-local Clamp01                     = Interface.Clamp01
 local LAYOUT                      = Interface._LAYOUT
-local COLOUR_KEYS                 = Interface._COLOUR_KEYS
 local CHANNEL_OVERRIDE_OPTIONS    = Interface._CHANNEL_OVERRIDE_OPTIONS
 local CREDITS_DICTIONARIES_BUNDLED  = Interface._CREDITS_BUNDLED
 local CREDITS_DICTIONARIES_OPTIONAL = Interface._CREDITS_OPTIONAL
-local FRIENDLY_LABELS             = Interface._FRIENDLY_LABELS
-local SETTING_TOOLTIPS            = Interface._SETTING_TOOLTIPS
 
 -- OpenColorPicker is defined in Widgets.lua which loads before us.
 local OpenColorPicker = Interface._OpenColorPicker
@@ -31,10 +27,8 @@ local pairs      = pairs
 local ipairs     = ipairs
 local tostring   = tostring
 local tonumber   = tonumber
-local math_abs   = math.abs
 local math_floor = math.floor
 local math_max   = math.max
-local table_sort    = table.sort
 local table_concat  = table.concat
 local string_format = string.format
 
@@ -43,7 +37,7 @@ local TrimString    = Interface.TrimString
 function Interface:CreateChannelOverrideControls(parent, cursor)
     -- Custom row block (outside schema renderer) for per-channel colours.
     local y = cursor:Y()
-    local title = self:CreateLabel(parent, "Channel Text Colour Overrides",
+    self:CreateLabel(parent, "Channel Text Colour Overrides",
         LAYOUT.WINDOW_PADDING, y, 340, self:GetTooltip("CHANNEL.HEADER"), "GameFontNormal")
 
     local rows = {}

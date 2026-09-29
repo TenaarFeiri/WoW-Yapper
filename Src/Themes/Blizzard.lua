@@ -1,5 +1,5 @@
 -- Blizzard-style theme for Yapper overlay
-local YapperName, YapperTable = ...
+local _, YapperTable = ...
 
 local function GetChatTypeColor(chatType, fallback)
     local info = ChatTypeInfo and chatType and ChatTypeInfo[chatType]

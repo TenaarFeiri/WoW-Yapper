@@ -58,6 +58,12 @@ preserves Blizzard behavior:
 - Character context: `ChatFrameUtil.SendTell`
 - Battle.net context: `ChatFrameUtil.SendBNetTell`
 
+While *any* addon restriction type is enforced (`C_RestrictedActions`), the
+`Menu.ModifyMenu` callback leaves the native Whisper responder untouched and
+the responder itself bails to a `pcall`'d `SendTell` fallback: unit context
+fields are secret under restrictions and even a `~= nil` comparison errors
+inside tainted execution.
+
 Yapper's `SendTell` and `SendBNetTell` hooks return early during lockdown, so
 Blizzard's editbox remains authoritative.
 
