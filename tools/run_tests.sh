@@ -40,6 +40,7 @@ GATING_FROM_ROOT=(
     test_forever_names
     test_recolour
     test_sendposts_strip
+    test_shadow_tint
     test_help_content
 )
 
