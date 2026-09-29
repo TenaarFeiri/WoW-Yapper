@@ -101,6 +101,19 @@ end
 --- caused the target to be set then immediately reverted when the overlay was
 --- already shown.
 function EditBox:OpenWhisperFromUnitMenu(contextData)
+    -- A menu opened before a restriction engaged can still fire this
+    -- responder inside it: contextData fields are secret now and even a
+    -- `~= nil` comparison errors under our taint. Best-effort: hand the
+    -- raw (untouched) name to Blizzard's own resolver, which handles
+    -- secrets securely; under a Chat restriction it no-ops harmlessly.
+    if Utils and type(Utils.IsAnyAddOnRestriction) == "function"
+        and Utils:IsAnyAddOnRestriction() then
+        if ChatFrameUtil and ChatFrameUtil.SendTell then
+            pcall(ChatFrameUtil.SendTell, contextData.name, contextData.chatFrame)
+        end
+        return
+    end
+
     local isBNet = contextData.bnetIDAccount ~= nil
 
     -- Mirror the native guard: no whispering non-player units.  BNet friend
@@ -208,6 +221,16 @@ end
 --- is already shown, causing the target to appear briefly then revert.
 local function OnUnitMenuOpened(_, rootDescription, contextData)
     if type(contextData) ~= "table" then
+        return
+    end
+
+    -- While any addon restriction is enforced, unit context fields are
+    -- secret: reading them inside our responder would error on the first
+    -- comparison under tainted execution (the same failure other addons
+    -- hit). Leave the native Whisper responder in place — Blizzard's own
+    -- click path handles secrets securely.
+    if Utils and type(Utils.IsAnyAddOnRestriction) == "function"
+        and Utils:IsAnyAddOnRestriction() then
         return
     end
 

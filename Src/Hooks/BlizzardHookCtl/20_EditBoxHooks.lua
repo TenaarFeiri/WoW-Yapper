@@ -167,9 +167,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     self.Target   = nil
                     self._secureReplySource = nil
                     if newChatType == "WHISPER" and savedEB.GetAttribute then
-                        self.Target = savedEB:GetAttribute("tellTarget")
+                        -- Raw GetAttribute can return a secret under any active
+                        -- restriction type; SanitizeTarget quarantines to nil.
+                        self.Target = YapperTable.Utils:SanitizeTarget(savedEB:GetAttribute("tellTarget"))
                     elseif newChatType == "CHANNEL" and savedEB.GetAttribute then
-                        local ch         = savedEB:GetAttribute("channelTarget")
+                        local ch         = YapperTable.Utils:SanitizeTarget(savedEB:GetAttribute("channelTarget"))
                         self.Target      = ch
                         self.ChannelName = ResolveChannelName(tonumber(ch))
                     end
@@ -600,9 +602,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 local filterCT = targetEB.GetAttribute and targetEB:GetAttribute("chatType") or "SAY"
                 local filterTarget
                 if filterCT == "WHISPER" and targetEB.GetAttribute then
-                    filterTarget = targetEB:GetAttribute("tellTarget")
+                    filterTarget = YapperTable.Utils:SanitizeTarget(targetEB:GetAttribute("tellTarget"))
                 elseif filterCT == "CHANNEL" and targetEB.GetAttribute then
-                    filterTarget = targetEB:GetAttribute("channelTarget")
+                    filterTarget = YapperTable.Utils:SanitizeTarget(targetEB:GetAttribute("channelTarget"))
                 end
                 local result = YapperTable.API:RunFilter("PRE_EDITBOX_SHOW", {
                     chatType = filterCT,

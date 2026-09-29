@@ -54,7 +54,7 @@ Loaded at startup; used by most modules.
   - `Utils:GetChatParent() → Frame` ([`../Src/Utils.lua#L58`](../Src/Utils.lua#L58))
   - `Utils:MakeFullscreenAware(frame) → nil` ([`../Src/Utils.lua#L70`](../Src/Utils.lua#L70))
   - `Utils:IsChatLockdown() → boolean` ([`../Src/Utils.lua#L99`](../Src/Utils.lua#L99))
-  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L174`](../Src/Utils.lua#L174))
+  - `Utils:IsSecret(value) → boolean` ([`../Src/Utils.lua#L189`](../Src/Utils.lua#L189))
 
 ## Error
 
@@ -478,7 +478,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
   - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L41`](../Src/EditBox/Handlers.lua#L41)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1098`](../Src/EditBox/Handlers.lua#L1098)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1155`](../Src/EditBox/Handlers.lua#L1155)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -611,11 +611,14 @@ Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
 
 - Description: Policy objects expose decision methods but do not perform startup work or register runtime hooks.
 - Modules:
-  - `LockdownPolicy:IsChatLockdown() → boolean`: Returns true when chat messaging lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L13`](../Src/Policies/LockdownPolicy.lua#L13))
-  - `LockdownPolicy:IsCombatLockdown() → boolean`: Returns true when protected-frame combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L19`](../Src/Policies/LockdownPolicy.lua#L19))
-  - `LockdownPolicy:IsChatOrCombatLockdown() → boolean`: Returns true when either chat or combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L24`](../Src/Policies/LockdownPolicy.lua#L24))
-  - `LockdownPolicy:IsProtectedSlashCommand(command) → boolean`: Returns true when a slash command token (e.g. "/m") resolves to an action insecure code cannot run during combat lockdown — secure registry commands via `IsSecureCmd` plus curated non-secure commands that call protected APIs. ([`../Src/Policies/LockdownPolicy.lua#L86`](../Src/Policies/LockdownPolicy.lua#L86))
-  - `LockdownPolicy:IsAlwaysForbiddenSlashCommand(command) → boolean`: Returns true for targeting and focus slash commands whose protected Blizzard handlers must never be dispatched through Yapper's tainted forwarding path. ([`../Src/Policies/LockdownPolicy.lua#L103`](../Src/Policies/LockdownPolicy.lua#L103))
+  - `LockdownPolicy:IsChatLockdown() → boolean`: Returns true when chat messaging lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L53`](../Src/Policies/LockdownPolicy.lua#L53))
+  - `LockdownPolicy:IsCombatLockdown() → boolean`: Returns true when protected-frame combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L66`](../Src/Policies/LockdownPolicy.lua#L66))
+  - `LockdownPolicy:IsChatOrCombatLockdown() → boolean`: Returns true when either chat or combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L71`](../Src/Policies/LockdownPolicy.lua#L71))
+  - `LockdownPolicy:IsProtectedSlashCommand(command) → boolean`: Returns true when a slash command token (e.g. "/m") resolves to an action insecure code cannot run during combat lockdown — secure registry commands via `IsSecureCmd` plus curated non-secure commands that call protected APIs. ([`../Src/Policies/LockdownPolicy.lua#L133`](../Src/Policies/LockdownPolicy.lua#L133))
+  - `LockdownPolicy:IsAlwaysForbiddenSlashCommand(command) → boolean`: Returns true for targeting and focus slash commands whose protected Blizzard handlers must never be dispatched through Yapper's tainted forwarding path. ([`../Src/Policies/LockdownPolicy.lua#L150`](../Src/Policies/LockdownPolicy.lua#L150))
+  - `LockdownPolicy:HasAddOnRestrictionAPI() → boolean`: Returns true when the client exposes the WoW 12.x `C_RestrictedActions` / `Enum.AddOnRestrictionType` surface. ([`../Src/Policies/LockdownPolicy.lua#L18`](../Src/Policies/LockdownPolicy.lua#L18))
+  - `LockdownPolicy:IsAddOnRestrictionActive(restrictionType) → boolean`: Returns true when a single `Enum.AddOnRestrictionType` is enforced. ([`../Src/Policies/LockdownPolicy.lua#L28`](../Src/Policies/LockdownPolicy.lua#L28))
+  - `LockdownPolicy:IsAnyAddOnRestrictionActive() → boolean`: Returns true while any addon restriction type is enforced; non-chat restrictions leave messaging usable but poison Blizzard-produced data with secret values, so tainted calls into Blizzard handlers can error on secret comparisons. ([`../Src/Policies/LockdownPolicy.lua#L42`](../Src/Policies/LockdownPolicy.lua#L42))
   - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L100`](../Src/Policies/ChannelPolicy.lua#L100))
   - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L186`](../Src/Policies/ChannelPolicy.lua#L186))
 
@@ -746,15 +749,15 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
   - `Target` ([`../Src/Multiline.lua#L63`](`../Src/Multiline.lua#L63`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1078`](../Src/Multiline.lua#L1078))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1037`](../Src/Multiline.lua#L1037))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1092`](../Src/Multiline.lua#L1092))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1051`](../Src/Multiline.lua#L1051))
   - `UpdateLabelGap` ([`../Src/Multiline.lua#L157`](`../Src/Multiline.lua#L157`))
   - `CreateFrame` ([`../Src/Multiline.lua#L188`](`../Src/Multiline.lua#L188`))
-  - `Enter` ([`../Src/Multiline.lua#L620`](`../Src/Multiline.lua#L620`))
-  - `Exit` ([`../Src/Multiline.lua#L774`](`../Src/Multiline.lua#L774`))
-  - `Submit` ([`../Src/Multiline.lua#L902`](`../Src/Multiline.lua#L902`))
-  - `Cancel` ([`../Src/Multiline.lua#L1003`](`../Src/Multiline.lua#L1003`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1097`](`../Src/Multiline.lua#L1097`))
+  - `Enter` ([`../Src/Multiline.lua#L634`](`../Src/Multiline.lua#L634`))
+  - `Exit` ([`../Src/Multiline.lua#L788`](`../Src/Multiline.lua#L788`))
+  - `Submit` ([`../Src/Multiline.lua#L916`](`../Src/Multiline.lua#L916`))
+  - `Cancel` ([`../Src/Multiline.lua#L1017`](`../Src/Multiline.lua#L1017`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1111`](`../Src/Multiline.lua#L1111`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -989,22 +992,23 @@ Per-category page builders called by `BuildConfigUI`.
 ## Utilities
 
 - Methods:
-  - `Utils:SafeNumber(value, fallback) → number`: Return a sanitized number, or `fallback` when the value is nil/secret/non-numeric. Convenience wrapper around SanitizeNumber. ([`../Src/Utils.lua#L253`](../Src/Utils.lua#L253))
-  - `Utils:SanitizeNumber(value) → number|nil`: Return a number only when it is usable from tainted code; secret numbers (which pass `or 0` then fail inside Blizzard arithmetic) return nil. ([`../Src/Utils.lua#L241`](../Src/Utils.lua#L241))
-  - `Utils:SanitizeTarget(value) → string|number|nil`: Return a chat target only when it is usable from tainted code. Secret values (and non-string/number types) return nil so callers treat them as "no target" instead of erroring on comparisons. ([`../Src/Utils.lua#L225`](../Src/Utils.lua#L225))
-  - `Utils:StripDisplayEscapes(text) → string`: Strip display-only WoW escape sequences from text while preserving complete hyperlinks. ([`../Src/Utils.lua#L381`](../Src/Utils.lua#L381))
-  - `Utils:IsUnambiguousBnetTarget(target) → boolean`: Return true when target is an unambiguous Battle.net identifier, such as a numeric ID or BattleTag containing `#`. ([`../Src/Utils.lua#L536`](../Src/Utils.lua#L536))
-  - `Utils:SetFontIfChanged(widget, face, size, flags) → boolean`: Set a widget's font only when the target differs from the current font; returns whether SetFont was called. ([`../Src/Utils.lua#L495`](../Src/Utils.lua#L495))
-  - `Utils:IsForeverClient() → boolean`: True on the World of Warcraft: Forever client, detected via Forever-only API surfaces first, then flavour/product labels (camelot/forever/classicplus variants), then a 1.6x build-version heuristic. Cached after first call. ([`../Src/Utils.lua#L289`](../Src/Utils.lua#L289))
-  - `Utils:HasRegionalUniqueNames() → boolean`: True when the current ruleset has surname-bearing regional-unique player names — Blizzard's own `RegionalUniqueNamesEnabled()` gate; intentionally independent of `IsForeverClient()`. ([`../Src/Utils.lua#L340`](../Src/Utils.lua#L340))
-  - `Utils:NormaliseCharName(name) → string|nil`: Canonicalise a character name for comparison — strips the `-Realm` suffix on retail; on regional-unique-names clients (Forever) keeps the surname and canonicalises "First Last"/"First-Last" to a single lowercase space-separated form. ([`../Src/Utils.lua#L359`](../Src/Utils.lua#L359))
+  - `Utils:SafeNumber(value, fallback) → number`: Return a sanitized number, or `fallback` when the value is nil/secret/non-numeric. Convenience wrapper around SanitizeNumber. ([`../Src/Utils.lua#L268`](../Src/Utils.lua#L268))
+  - `Utils:SanitizeNumber(value) → number|nil`: Return a number only when it is usable from tainted code; secret numbers (which pass `or 0` then fail inside Blizzard arithmetic) return nil. ([`../Src/Utils.lua#L256`](../Src/Utils.lua#L256))
+  - `Utils:SanitizeTarget(value) → string|number|nil`: Return a chat target only when it is usable from tainted code. Secret values (and non-string/number types) return nil so callers treat them as "no target" instead of erroring on comparisons. ([`../Src/Utils.lua#L240`](../Src/Utils.lua#L240))
+  - `Utils:StripDisplayEscapes(text) → string`: Strip display-only WoW escape sequences from text while preserving complete hyperlinks. ([`../Src/Utils.lua#L396`](../Src/Utils.lua#L396))
+  - `Utils:IsUnambiguousBnetTarget(target) → boolean`: Return true when target is an unambiguous Battle.net identifier, such as a numeric ID or BattleTag containing `#`. ([`../Src/Utils.lua#L551`](../Src/Utils.lua#L551))
+  - `Utils:SetFontIfChanged(widget, face, size, flags) → boolean`: Set a widget's font only when the target differs from the current font; returns whether SetFont was called. ([`../Src/Utils.lua#L510`](../Src/Utils.lua#L510))
+  - `Utils:IsForeverClient() → boolean`: True on the World of Warcraft: Forever client, detected via Forever-only API surfaces first, then flavour/product labels (camelot/forever/classicplus variants), then a 1.6x build-version heuristic. Cached after first call. ([`../Src/Utils.lua#L304`](../Src/Utils.lua#L304))
+  - `Utils:HasRegionalUniqueNames() → boolean`: True when the current ruleset has surname-bearing regional-unique player names — Blizzard's own `RegionalUniqueNamesEnabled()` gate; intentionally independent of `IsForeverClient()`. ([`../Src/Utils.lua#L355`](../Src/Utils.lua#L355))
+  - `Utils:NormaliseCharName(name) → string|nil`: Canonicalise a character name for comparison — strips the `-Realm` suffix on retail; on regional-unique-names clients (Forever) keeps the surname and canonicalises "First Last"/"First-Last" to a single lowercase space-separated form. ([`../Src/Utils.lua#L374`](../Src/Utils.lua#L374))
   - `Utils:SafeToString(value) → string`: Convert diagnostic values without stringifying secret values; returns `<secret>` for secret values and `<unavailable>` when conversion fails. ([`../Src/Utils.lua#L36`](../Src/Utils.lua#L36))
-  - `Utils:IsChatOrCombatLockdown() → boolean`: Return true when either chat-messaging or combat lockdown is active. ([`../Src/Utils.lua#L124`](../Src/Utils.lua#L124))
+  - `Utils:IsChatOrCombatLockdown() → boolean`: Return true when either chat-messaging or combat lockdown is active. ([`../Src/Utils.lua#L139`](../Src/Utils.lua#L139))
+  - `Utils:IsAnyAddOnRestriction() → boolean`: Return true while any addon restriction type is enforced — secret values may exist in Blizzard code paths, so tainted forwarding can hit illegal secret comparisons. ([`../Src/Utils.lua#L129`](../Src/Utils.lua#L129))
   - `Utils:IsCombatLockdown() → boolean`: Return true when protected-frame combat restrictions are active. ([`../Src/Utils.lua#L111`](../Src/Utils.lua#L111))
-  - `Utils:AssertType(value, expectedType, default) → any`: Assert type matches expected, returning the original value or default. ([`../Src/Utils.lua#L168`](../Src/Utils.lua#L168))
-  - `Utils:EnsureTablePath(root, ...) → table`: Ensure a table path exists, creating intermediate tables as needed, and return the deepest table. ([`../Src/Utils.lua#L150`](../Src/Utils.lua#L150))
-  - `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L142`](../Src/Utils.lua#L142))
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L551`](../Src/Utils.lua#L551))
+  - `Utils:AssertType(value, expectedType, default) → any`: Assert type matches expected, returning the original value or default. ([`../Src/Utils.lua#L183`](../Src/Utils.lua#L183))
+  - `Utils:EnsureTablePath(root, ...) → table`: Ensure a table path exists, creating intermediate tables as needed, and return the deepest table. ([`../Src/Utils.lua#L165`](../Src/Utils.lua#L165))
+  - `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L157`](../Src/Utils.lua#L157))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L566`](../Src/Utils.lua#L566))
 
 ## TotalRP3Bridge
 
@@ -1015,7 +1019,7 @@ Per-category page builders called by `BuildConfigUI`.
 ## Hooks.UnitPopup
 
 - Methods:
-  - `EditBox:InstallUnitPopupWhisperOverride() → boolean`: Install the Menu.ModifyMenu registrations for character and Battle.net unit-popup Whisper actions. Idempotent; returns false when the Menu API is unavailable. ([`../Src/Hooks/UnitPopup.lua#L232`](../Src/Hooks/UnitPopup.lua#L232))
+  - `EditBox:InstallUnitPopupWhisperOverride() → boolean`: Install the Menu.ModifyMenu registrations for character and Battle.net unit-popup Whisper actions. Idempotent; returns false when the Menu API is unavailable. ([`../Src/Hooks/UnitPopup.lua#L255`](../Src/Hooks/UnitPopup.lua#L255))
 
 ## Bridges\WhisperMessengerBridge
 

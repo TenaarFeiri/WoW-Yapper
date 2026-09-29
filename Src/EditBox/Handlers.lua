@@ -826,11 +826,21 @@ function EditBox:SetupOverlayScripts()
     frame:RegisterEvent("CHALLENGE_MODE_START")
     frame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
     frame:RegisterEvent("ENCOUNTER_STATE_CHANGED")
+    -- WoW 12.x restriction system: Activating dispatches BEFORE enforcement
+    -- (IsAddOnRestrictionActive still reads false), which is the sanctioned
+    -- cleanup window; Inactive fires after the lift.
+    if type(C_RestrictedActions) == "table"
+        and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function" then
+        frame:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
+    end
     -- Track incoming whispers so we can cycle reply targets.
     frame:RegisterEvent("CHAT_MSG_WHISPER")
     frame:RegisterEvent("CHAT_MSG_BN_WHISPER")
     -- Track Blizzard chat colour changes to refresh labels when using Blizzard mode.
     frame:RegisterEvent("UPDATE_CHAT_COLOR")
+    -- Loading screens can swallow per-type Inactive dispatches; PEW resyncs
+    -- lockdown cleanup so handoff flags cannot stick across teleports.
+    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
     -- Also we want to watch for when the user shows or hides their UI, to close our editbox.
     UIParent:HookScript("OnHide", function()
@@ -851,11 +861,41 @@ function EditBox:SetupOverlayScripts()
     local function HandleEvent(_, event, ...)
         local isLockdownStartEvent = (event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START")
         local isLockdownEndEvent = (event == "PLAYER_REGEN_ENABLED" or event == "CHALLENGE_MODE_COMPLETED")
+        local restrictionEnforcing = false
 
         if event == "ENCOUNTER_STATE_CHANGED" then
             local isInProgress = select(1, ...) == true
             isLockdownStartEvent = isInProgress
             isLockdownEndEvent = not isInProgress
+        elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
+            local restrictionType, restrictionState = ...
+            local rtypes  = Enum and Enum.AddOnRestrictionType
+            local rstates = Enum and Enum.AddOnRestrictionState
+            if rstates and (restrictionState == rstates.Activating
+                or restrictionState == rstates.Active) then
+                isLockdownStartEvent = true
+                -- Only the Chat restriction forces the handoff itself: other
+                -- types leave chat messaging usable, so they get the shared
+                -- wrapper/focus cleanup below plus the usual IsChatLockdown
+                -- poll. Chat's Activating is a reliable heads-up that
+                -- InChatMessagingLockdown is about to flip.
+                restrictionEnforcing = (rtypes ~= nil
+                    and restrictionType == rtypes.Chat)
+            elseif rstates and restrictionState == rstates.Inactive then
+                isLockdownEndEvent = true
+            end
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            -- Only synthesise an end event when there is stale lockdown state to
+            -- clean and the destination is genuinely unrestricted — otherwise a
+            -- plain zone change would stomp State mid-send or during restriction.
+            -- Pending timers self-resolve; the sticky flags are the real hazard.
+            local hasPendingLockdown = self._lockdown.eventRunning or self._lockdown.handedOff
+                or self._lockdown.showHandled
+            local nothingRestricted = not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown())
+                and not (YapperTable.Utils
+                    and type(YapperTable.Utils.IsAnyAddOnRestriction) == "function"
+                    and YapperTable.Utils:IsAnyAddOnRestriction())
+            isLockdownEndEvent = hasPendingLockdown and nothingRestricted or false
         end
 
         if isLockdownStartEvent or isLockdownEndEvent then
@@ -894,8 +934,12 @@ function EditBox:SetupOverlayScripts()
                 end
             end
 
-            -- Immediate check.
-            if (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) or YapperTable.Config.System.DEBUG then
+            -- Immediate check. A Chat-restriction Activating dispatch
+            -- counts even though IsChatLockdown still reads false during
+            -- the grace window — handoff now, before enforcement lands.
+            if restrictionEnforcing
+                or (YapperTable.Utils and YapperTable.Utils:IsChatLockdown())
+                or YapperTable.Config.System.DEBUG then
                 if not self._lockdown.eventRunning then
                     self._lockdown.eventRunning = true
                     YapperTable.Utils:DebugPrint("Lockdown event triggered (DEBUG or real lockdown).")
@@ -930,7 +974,14 @@ function EditBox:SetupOverlayScripts()
             -- Combat / M+ over — centralised cleanup.
             self:ClearLockdownState()
             local chatStillLocked = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
-            if type(self.SetChatCompatibilityEnabled) == "function" and not chatStillLocked then
+            -- Per-type Inactive events can fire while another restriction
+            -- type is still enforced; only restore the compat wrappers once
+            -- nothing is restricted anymore.
+            local stillRestricted = YapperTable.Utils
+                and type(YapperTable.Utils.IsAnyAddOnRestriction) == "function"
+                and YapperTable.Utils:IsAnyAddOnRestriction()
+            if type(self.SetChatCompatibilityEnabled) == "function"
+                and not chatStillLocked and not stillRestricted then
                 self:SetChatCompatibilityEnabled(true)
             end
             if not chatStillLocked and type(self.ResyncFromBlizzardAfterLockdown) == "function" then
@@ -945,7 +996,13 @@ function EditBox:SetupOverlayScripts()
                 C_Timer.NewTicker(1, function(ticker)
                     checks = checks + 1
                     if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                        if type(self.SetChatCompatibilityEnabled) == "function" then
+                        -- Chat lifted, but another restriction type may still be
+                        -- enforced (e.g. Map for the rest of a dungeon); keep the
+                        -- wrappers off until nothing is restricted.
+                        if type(self.SetChatCompatibilityEnabled) == "function"
+                            and not (YapperTable.Utils
+                                and type(YapperTable.Utils.IsAnyAddOnRestriction) == "function"
+                                and YapperTable.Utils:IsAnyAddOnRestriction()) then
                             self:SetChatCompatibilityEnabled(true)
                         end
                         if type(self.ResyncFromBlizzardAfterLockdown) == "function" then

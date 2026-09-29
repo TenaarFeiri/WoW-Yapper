@@ -10,6 +10,10 @@
 
 ### Bug Fixes
 - Corrected some text alignment in the Help page.
+- Fixed forwarded slash commands (like `/invite` with no name) erroring with "secret string value" while addon restrictions are active. Yapper now reacts to `ADDON_RESTRICTION_STATE_CHANGED` and cleans up before enforcement; commands that trip a secret check fall back to a saved draft instead of an error.
+- Unit-popup Whisper routing now stays untouched while addon restrictions are enforced, so secret unit context never reaches tainted code.
+- Fixed lockdown flags occasionally sticking across teleports/loading screens by resyncing cleanup on `PLAYER_ENTERING_WORLD`.
+- Hardened editbox attribute reads so secret whisper/channel targets degrade to no-target instead of erroring during non-chat restrictions.
 
 # 2.4.4
 

@@ -119,6 +119,21 @@ function Utils:IsCombatLockdown()
     return false
 end
 
+--- Return true while any addon restriction type (combat, encounter, M+,
+--- PvP match, restricted map, chat) is being enforced. Distinct from
+--- IsChatLockdown: non-chat restrictions leave chat messaging usable but
+--- make Blizzard-produced data (unit names, etc.) secret to tainted code,
+--- so calls forwarded into Blizzard handlers can hit illegal secret
+--- comparisons. Always false on clients without C_RestrictedActions.
+--- @return boolean
+function Utils:IsAnyAddOnRestriction()
+    local policy = YapperTable and YapperTable.LockdownPolicy
+    if policy and type(policy.IsAnyAddOnRestrictionActive) == "function" then
+        return policy:IsAnyAddOnRestrictionActive() == true
+    end
+    return false
+end
+
 -- Return true when either chat-messaging or combat lockdown is active.
 -- Useful for paths that manipulate secure/protected attributes.
 function Utils:IsChatOrCombatLockdown()
