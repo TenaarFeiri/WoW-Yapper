@@ -8,6 +8,7 @@ re-localise `YapperTable.*` upvalues at load time.
 
 ```
 tools/run_tests.sh                      # gating tests + syntax + doc refs (what CI runs)
+python tools/run_tests.py               # Windows-friendly port of the above
 tools/run_tests.sh --syntax             # luac -p over every shipped .lua only
 python3 tools/check_doc_refs.py         # verify Documentation/ #L line references
 python3 tools/check_doc_refs.py --fix   # auto-relocate drifted references

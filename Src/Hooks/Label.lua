@@ -19,6 +19,7 @@ local ResetLabelToBaseFont = Core.ResetLabelToBaseFont
 local TruncateLabelToWidth = Core.TruncateLabelToWidth
 local FitLabelFontToWidth = Core.FitLabelFontToWidth
 local UpdateLabelBackgroundForText = Core.UpdateLabelBackgroundForText
+local ApplyShadowTint = Core.ApplyShadowTint
 
 -- Re-localise Lua globals.
 local type       = type
@@ -215,6 +216,19 @@ function EditBox:RefreshLabel()
     -- Update overlay editbox text colour to match
     if self.OverlayEdit then
         self.OverlayEdit:SetTextColor(resolvedR, resolvedG, resolvedB, 1)
+    end
+
+    -- Remember the resolved channel colour so RefreshOverlayVisuals can tint
+    -- the drop shadow to match when ShadowChannelColor is enabled.
+    if type(resolvedR) == "number" and type(resolvedG) == "number" and type(resolvedB) == "number" then
+        self._lastChannelRGB = { r = resolvedR, g = resolvedG, b = resolvedB }
+
+        -- Retint immediately as well: channel switches call RefreshLabel
+        -- without re-running RefreshOverlayVisuals.
+        if cfg.ShadowChannelColor == true and ApplyShadowTint and self.Overlay then
+            local alphaBase = (cfg.ShadowColor and cfg.ShadowColor.a) or 0.5
+            ApplyShadowTint(self.Overlay, resolvedR, resolvedG, resolvedB, alphaBase)
+        end
     end
 
     -- Fire label updated callback

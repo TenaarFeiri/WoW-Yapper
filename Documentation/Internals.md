@@ -23,19 +23,19 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 - Fields:
   - `Yapper.Config: table` live config root ([`../Src/Core.lua#L284`](../Src/Core.lua#L284)).
 - Methods:
-  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L320`](../Src/Core.lua#L320))
-  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L384`](../Src/Core.lua#L384))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L824`](../Src/Core.lua#L824))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L622`](../Src/Core.lua#L622))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L351`](../Src/Core.lua#L351))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L290`](../Src/Core.lua#L290))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L512`](../Src/Core.lua#L512)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L645`](../Src/Core.lua#L645))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L649`](../Src/Core.lua#L649))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L653`](../Src/Core.lua#L653))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L666`](../Src/Core.lua#L666)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L731`](../Src/Core.lua#L731)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L845`](../Src/Core.lua#L845)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L325`](../Src/Core.lua#L325))
+  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L389`](../Src/Core.lua#L389))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L829`](../Src/Core.lua#L829))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L627`](../Src/Core.lua#L627))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L356`](../Src/Core.lua#L356))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L295`](../Src/Core.lua#L295))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L517`](../Src/Core.lua#L517)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L650`](../Src/Core.lua#L650))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L654`](../Src/Core.lua#L654))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L658`](../Src/Core.lua#L658))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L671`](../Src/Core.lua#L671)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L736`](../Src/Core.lua#L736)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L850`](../Src/Core.lua#L850)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -464,12 +464,12 @@ Used by `EditBox:Show` to create and refresh frame contents.
 
 - Description: Overlay frame creation and label/font rendering helpers.
 - Fields:
-  - `_RefreshOverlayVisuals`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L478-L485`](../Src/EditBox/Overlay.lua#L478-L485)).
+  - `_RefreshOverlayVisuals`, `_ApplyShadowTint`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L829-L837`](../Src/EditBox/Overlay.lua#L829-L837)).
 - Methods:
-  - `EditBox:ShowMultilineHint() → nil`: Show the onboarding hint once during the current session and let it fade ([`../Src/EditBox/Overlay.lua#L521`](../Src/EditBox/Overlay.lua#L521))
-  - `EditBox:CreateMultilineHint() → nil`: Create the non-interactive hint frame lazily, using UIParent as its parent ([`../Src/EditBox/Overlay.lua#L488`](../Src/EditBox/Overlay.lua#L488))
-  - `EditBox:HideMultilineHint() → nil`: Cancel and hide the session-only multiline onboarding hint. ([`../Src/EditBox/Overlay.lua#L470`](../Src/EditBox/Overlay.lua#L470))
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L661`](../Src/EditBox/Overlay.lua#L661)).
+  - `EditBox:ShowMultilineHint() → nil`: Show the onboarding hint once during the current session and let it fade ([`../Src/EditBox/Overlay.lua#L544`](../Src/EditBox/Overlay.lua#L544))
+  - `EditBox:CreateMultilineHint() → nil`: Create the non-interactive hint frame lazily, using UIParent as its parent ([`../Src/EditBox/Overlay.lua#L511`](../Src/EditBox/Overlay.lua#L511))
+  - `EditBox:HideMultilineHint() → nil`: Cancel and hide the session-only multiline onboarding hint. ([`../Src/EditBox/Overlay.lua#L493`](../Src/EditBox/Overlay.lua#L493))
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L684`](../Src/EditBox/Overlay.lua#L684)).
 
 ## EditBox.Handlers
 
@@ -511,10 +511,10 @@ Channel label and tab cycling.
 - Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
-  - `EditBox:ResyncFromBlizzardAfterLockdown() → boolean`: Pull safe native channel state (chatType, tellTarget, channelTarget, language) back into Yapper from Blizzard's editbox attributes after lockdown recovery. Returns false when attributes are missing or secret-tainted. Called from the lockdown-recovery path in Handlers. ([`../Src/Hooks/Label.lua#L383`](../Src/Hooks/Label.lua#L383))
-  - `EditBox:ResetSyncedAttributes() → nil`: Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral state and clear cached native attributes. ([`../Src/Hooks/Label.lua#L334`](../Src/Hooks/Label.lua#L334))
-  - `EditBox:SyncAttributesToBlizzard(allowLockdown) → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's native editbox when safe. Whisper attributes remain owned by Blizzard to avoid taint. ([`../Src/Hooks/Label.lua#L240`](../Src/Hooks/Label.lua#L240))
-  - `EditBox:GetAvailableChatTypes() → table`: Return the subset of TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L425`](../Src/Hooks/Label.lua#L425))
+  - `EditBox:ResyncFromBlizzardAfterLockdown() → boolean`: Pull safe native channel state (chatType, tellTarget, channelTarget, language) back into Yapper from Blizzard's editbox attributes after lockdown recovery. Returns false when attributes are missing or secret-tainted. Called from the lockdown-recovery path in Handlers. ([`../Src/Hooks/Label.lua#L397`](../Src/Hooks/Label.lua#L397))
+  - `EditBox:ResetSyncedAttributes() → nil`: Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral state and clear cached native attributes. ([`../Src/Hooks/Label.lua#L348`](../Src/Hooks/Label.lua#L348))
+  - `EditBox:SyncAttributesToBlizzard(allowLockdown) → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's native editbox when safe. Whisper attributes remain owned by Blizzard to avoid taint. ([`../Src/Hooks/Label.lua#L254`](../Src/Hooks/Label.lua#L254))
+  - `EditBox:GetAvailableChatTypes() → table`: Return the subset of TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L439`](../Src/Hooks/Label.lua#L439))
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.
@@ -749,15 +749,15 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` ([`../Src/Multiline.lua#L62`](`../Src/Multiline.lua#L62`))
   - `Target` ([`../Src/Multiline.lua#L63`](`../Src/Multiline.lua#L63`))
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1092`](../Src/Multiline.lua#L1092))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1051`](../Src/Multiline.lua#L1051))
-  - `UpdateLabelGap` ([`../Src/Multiline.lua#L157`](`../Src/Multiline.lua#L157`))
-  - `CreateFrame` ([`../Src/Multiline.lua#L188`](`../Src/Multiline.lua#L188`))
-  - `Enter` ([`../Src/Multiline.lua#L634`](`../Src/Multiline.lua#L634`))
-  - `Exit` ([`../Src/Multiline.lua#L788`](`../Src/Multiline.lua#L788`))
-  - `Submit` ([`../Src/Multiline.lua#L916`](`../Src/Multiline.lua#L916`))
-  - `Cancel` ([`../Src/Multiline.lua#L1017`](`../Src/Multiline.lua#L1017`))
-  - `ApplyTheme` ([`../Src/Multiline.lua#L1111`](`../Src/Multiline.lua#L1111`))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1104`](../Src/Multiline.lua#L1104))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1063`](../Src/Multiline.lua#L1063))
+  - `UpdateLabelGap` ([`../Src/Multiline.lua#L169`](`../Src/Multiline.lua#L169`))
+  - `CreateFrame` ([`../Src/Multiline.lua#L200`](`../Src/Multiline.lua#L200`))
+  - `Enter` ([`../Src/Multiline.lua#L646`](`../Src/Multiline.lua#L646`))
+  - `Exit` ([`../Src/Multiline.lua#L800`](`../Src/Multiline.lua#L800`))
+  - `Submit` ([`../Src/Multiline.lua#L928`](`../Src/Multiline.lua#L928`))
+  - `Cancel` ([`../Src/Multiline.lua#L1029`](`../Src/Multiline.lua#L1029`))
+  - `ApplyTheme` ([`../Src/Multiline.lua#L1123`](`../Src/Multiline.lua#L1123`))
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -860,10 +860,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L337`](`../Src/Interface/Schema.lua#L337`))
-  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L478`](`../Src/Interface/Schema.lua#L478`))
-  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L486`](`../Src/Interface/Schema.lua#L486`))
-  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L492`](`../Src/Interface/Schema.lua#L492`))
+  - `BuildRenderSchema` ([`../Src/Interface/Schema.lua#L345`](`../Src/Interface/Schema.lua#L345`))
+  - `GetRenderSchema` ([`../Src/Interface/Schema.lua#L486`](`../Src/Interface/Schema.lua#L486`))
+  - `RefreshRenderSchema` ([`../Src/Interface/Schema.lua#L494`](`../Src/Interface/Schema.lua#L494`))
+  - `OnWindowClosed` ([`../Src/Interface/Schema.lua#L500`](`../Src/Interface/Schema.lua#L500`))
 
 ## Interface.Config
 
@@ -891,8 +891,8 @@ Handles config reads/writes and side-effect fan-out.
   - `UpdateMinimapButtonAngleFromCursor` ([`../Src/Interface/Config.lua#L434`](`../Src/Interface/Config.lua#L434`))
   - `ApplyMinimapButtonVisibility` ([`../Src/Interface/Config.lua#L451`](`../Src/Interface/Config.lua#L451`))
   - `IsPathDisabledByTheme` ([`../Src/Interface/Config.lua#L491`](`../Src/Interface/Config.lua#L491`))
-  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L529`](`../Src/Interface/Config.lua#L529`))
-  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L568`](`../Src/Interface/Config.lua#L568`))
+  - `GetFriendlyLabel` ([`../Src/Interface/Config.lua#L531`](`../Src/Interface/Config.lua#L531`))
+  - `SanitizeLocalConfig` ([`../Src/Interface/Config.lua#L570`](`../Src/Interface/Config.lua#L570`))
 - Non-obvious rationale migrated from old docs:
   - `SetLocalPath` is the **single authoritative write source** for configuration; it handles profile-aware routing, theme-override marking, and automatic `PromoteCharacterToGlobal` triggers during profile toggles.
   - `SetLocalPath` enforces channel marker sync (`Chat.DELINEATOR` and `Chat.PREFIX`) as a single logical setting update.
