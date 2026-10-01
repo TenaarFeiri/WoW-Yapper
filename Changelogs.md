@@ -1,3 +1,41 @@
+<<<<<<< Updated upstream
+=======
+# 2.4.6
+
+### New Features
+- Dictionaries are now isolated from the core spellchecking engine, and control their own logic! This means anyone can make a dictionary to add to Yapper's language support! :D
+- Dictionary addons now own everything language-specific: word tokenisation, normalisation, phonetics, affixes/morphology, casing rules, variant spellings, keyboard layouts, and blocked-word lists -- all through a validated `RegisterLanguageEngine` contract.
+- Language families are owner-locked: only the addon that registered a language engine may replace it, and dictionaries can only bind to a valid engine.
+- A faulting language engine is automatically purged along with its dependent dictionaries instead of corrupting spellcheck state.
+- Full dictionary-authoring documentation added in `Documentation/Dictionaries.md`. (GitHub)
+- UI strings are now localisable.
+- YAS is now genuinely adaptive rather than a fixed lookup table:
+- YAS learns to tell accidental typos from intentional spellings (like your RP name) by watching whether you see suggestions and still send the word unchanged, whether you always spell it the same way, and whether you correct it -- consistently-misspelled-but-deliberate words stop being flagged.
+- YAS now has basic context-awareness and learns which words you actually write after other words and favours candidates that fit your habits.
+- YAS now has error-profile learning; your habitual slip pattern (such as transposing letters, dropping doubles, specific letter confusions) now generalises and learned corrections help beyond the exact typo you made.
+- YAS now implements learned scoring. The suggestion weights adapt to how *you* pick corrections, with a self-evaluation circuit breaker that regresses the model if YAS-surfaced picks keep getting re-corrected.
+
+### Technical Changes
+- Removed the built-in English fallback engine. All language behaviour now flows through the registered engine contract, and dictionaries ship their own engine which controls spellchecking logic.
+- YAS phonetic-bias learning and phonetic autocomplete now actually work. `Spellcheck:GetPhoneticHash` never existed, so those paths were silently dead until the engine delegate exposed them.
+- All YAS learned data is strictly bounded and periodically consolidated in small per-tick chunks, so it can't grow memory unbounded or stall frames.
+- Future autocorrect scaffolding is in place: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like compound-word splitting).
+- Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
+
+
+### Bug Fixes
+- Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary. The setting toggle now stops all observation, learning, and dictionary writes.
+- Restored lost learned data: legacy learned vocabulary and personal dictionaries were being migrated into an orphaned `enBASE` partition that nothing ever read; existing users' migrated data is recovered and merged into the correct language partition.
+- Suggestion cache now correctly refreshes when YAS learns (frequency, rejections, and clears now invalidate cached scores); previously a candidate you rejected could immediately reappear.
+- YAS word-sanity checks now respect the configured n-gram size instead of silently disabling themselves.
+- Learned words are now keyed through the same normaliser as everything else, and word-count caps stay accurate when entries are promoted or cleared.
+- Regional phonetic suggestions were completely broken: the English locale dictionaries (enUS/enGB/enAU) shipped phonetic indices pointing past their own word lists, so phonetic candidate gathering found nothing (or the wrong word).
+- Phonetic matches that existed in both the base and a regional dictionary only ever showed the regional ones, and a shared phonetic key shadowed the base list. Candidate gathering now walks the whole inheritance chain and unions both.
+- Fixed phonetic divergences between the shipped engines and the dictionary generators: repeated-letter runs collapsed differently (zzz -> S, not SS), and non-ASCII characters could be dropped entirely because Lua's `string.upper` is ASCII-only.
+- The blocklist generator only hashed one word form. Anything with apostrophes, digits, or non-ASCII characters hashed differently at runtime and slipped through. It now emits every surface the engine checks, including leetspeak-folded variants.
+- A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
+
+>>>>>>> Stashed changes
 # 2.4.5
 
 ### New Features
