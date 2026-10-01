@@ -162,7 +162,7 @@ All methods below are members of `_G.YapperAPI` and use colon-call syntax.
 
 ### Core, configuration, and lifecycle
 
-- `YapperAPI:GetVersion() → string` ([`Src/API.lua#L575`](../Src/API.lua#L557)) — returns addon metadata version, or `"unknown"` if the core is unavailable.
+- `YapperAPI:GetVersion() → string` ([`Src/API.lua#L557`](../Src/API.lua#L557)) — returns addon metadata version, or `"unknown"` if the core is unavailable.
 - `YapperAPI:GetCurrentTheme() → string|nil` ([`Src/API.lua#L583`](../Src/API.lua#L565)) — returns the active theme name.
 - `YapperAPI:IsOverlayShown() → boolean` ([`Src/API.lua#L594`](../Src/API.lua#L576)) — reports whether the single-line overlay is visible.
 - `YapperAPI:OpenBlizzardChat() → nil` ([`Src/API.lua#L604`](../Src/API.lua#L586)) — requests the Blizzard editbox path, equivalent to the Bypass Yapper keybind.
