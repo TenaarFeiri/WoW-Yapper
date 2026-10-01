@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 # 2.4.6
 
 ### New Features
@@ -22,7 +20,6 @@
 - Future autocorrect scaffolding is in place: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like compound-word splitting).
 - Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
 
-
 ### Bug Fixes
 - Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary. The setting toggle now stops all observation, learning, and dictionary writes.
 - Restored lost learned data: legacy learned vocabulary and personal dictionaries were being migrated into an orphaned `enBASE` partition that nothing ever read; existing users' migrated data is recovered and merged into the correct language partition.
@@ -35,7 +32,6 @@
 - The blocklist generator only hashed one word form. Anything with apostrophes, digits, or non-ASCII characters hashed differently at runtime and slipped through. It now emits every surface the engine checks, including leetspeak-folded variants.
 - A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
 
->>>>>>> Stashed changes
 # 2.4.5
 
 ### New Features
