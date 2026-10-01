@@ -45,18 +45,13 @@ YapperTable.WHATS_NEW = {
             "Older learned vocabulary and personal dictionary entries were being migrated into a storage "
                 .. "partition nothing could read. That data is now recovered and merged into the correct "
                 .. "language automatically."),
-        note("The German dictionary actually works now",
-            "It was silently broken before: it registered under the wrong name, was bound to the English "
-                .. "engine, and had no phonetic index at all. It now registers correctly as its own language "
-                .. "with phonetic matching generated for all 355k words — and the engine now handles "
-                .. "lowercase umlauts properly."),
         note("Bug fixes",
             "- Suggestion cache now refreshes when YAS learns, so rejected corrections stop immediately reappearing.\n\n"
                 .. "- Learned-word sanity checks now respect the configured n-gram size instead of silently disabling themselves.\n\n"
                 .. "- YAS phonetic learning and phonetic autocomplete now work — the function they called never existed.\n\n"
                 .. "- Phonetic suggestions in the regional English dictionaries (US/GB/AU) were dead — their "
                 .. "indices pointed past their own word lists. All three were regenerated and verified.\n\n"
-                .. "- Blocked-word filtering now catches apostrophe, digit, umlaut, and leetspeak variants "
+                .. "- Blocked-word filtering now catches apostrophe, digit, and leetspeak variants "
                 .. "that used to slip through.")
     ),
     ["2.4.5"] = release(
