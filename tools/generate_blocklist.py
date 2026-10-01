@@ -7,18 +7,48 @@ from pathlib import Path
 def djb2_hash(word):
     """
     Computes a 32-bit DJB2 hash of the word.
-    Matches the exact implementation in WoW-Yapper's Lua engine.
+    Matches the exact byte-wise implementation in WoW-Yapper's Lua engine.
+
+    Lua's string.byte iterates over the bytes of a UTF-8 string, while Python
+    iterates over Unicode code points. Encode before hashing so German
+    characters such as ä, ö, ü, and ß produce matching hashes.
     """
     hash_val = 5381
-    for char in word:
+    for byte in word.encode("utf-8"):
         # hash = (hash * 33 + c) mod 2^32
-        hash_val = ((hash_val * 33) + ord(char)) % 4294967296
+        hash_val = ((hash_val * 33) + byte) % 4294967296
     return hash_val
 
-def normalize_word(word):
-    # Match the Lua normalizer: lowercase and strip punctuation/spaces
-    word = word.lower().strip()
+_LEET_MAP = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a",
+                           "5": "s", "7": "t", "$": "s", "!": "i", "+": "t"})
+
+def deleet(word):
+    """Mirror of Utils.Deleet (Src/Utils.lua)."""
+    return word.translate(_LEET_MAP)
+
+def ascii_lower(word):
+    """Mirror of the engine's NormaliseWord: Lua string.lower is ASCII-only,
+    so 'ÄPFEL' -> 'Äpfel', NOT 'äpfel'."""
+    return "".join(chr(ord(c) + 32) if "A" <= c <= "Z" else c for c in word)
+
+def alpha_only(word):
+    # Fuzzy normalizer: strips punctuation/digits to catch "dune-coon"-style
+    # evasion when the user types it unpunctuated.
     return "".join(c for c in word if c.isalpha())
+
+def surfaces(raw):
+    """All word forms that can collide with a runtime hash. The runtime
+    checks hash(NormaliseWord(typed)) and hash(Deleet(NormaliseWord(typed))),
+    so emit the engine-surface, the unicode-lowered list surface, their
+    alpha-stripped forms, and their deleeted forms."""
+    out = set()
+    for lower in {ascii_lower(raw.strip()), raw.strip().lower()}:
+        if not lower:
+            continue
+        for s in {lower, alpha_only(lower), deleet(lower), deleet(alpha_only(lower))}:
+            if s:
+                out.add(s)
+    return out
 
 def process_file(filepath):
     words = set()
@@ -26,23 +56,22 @@ def process_file(filepath):
     if not path.exists():
         print(f"Error: File '{filepath}' not found.")
         sys.exit(1)
-        
+
+    def add(raw):
+        words.update(surfaces(raw))
+
     with open(path, 'r', encoding='utf-8') as f:
         # Check if it's a CSV
         if path.suffix.lower() == '.csv':
             reader = csv.reader(f)
             for row in reader:
                 for col in row:
-                    w = normalize_word(col)
-                    if w:
-                        words.add(w)
+                    add(col)
         else:
             # Assume text file, one word per line
             for line in f:
-                w = normalize_word(line)
-                if w:
-                    words.add(w)
-                    
+                add(line)
+
     return sorted(list(words))
 
 def main():
@@ -84,7 +113,7 @@ def main():
         print(line)
         
     print("}")
-    print("\n-- Remember to copy this into Dictionaries/Yapper_Dict_en/Engine.lua")
+    print("\n-- Copy BLOCKED_HASHES into the target language engine.")
 
 if __name__ == "__main__":
     main()

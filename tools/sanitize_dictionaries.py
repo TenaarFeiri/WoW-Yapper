@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import shutil
 import sys
 from glob import glob
@@ -84,14 +85,22 @@ def main():
             # 4. We don't write them back directly here because generate_phonetic_dict 
             # needs to be run anyway to regenerate phonetics. 
             
-            locale = filename.replace(".lua", "")
-            # Determine if it's the base or a variant
-            extends_val = "nil"
-            if locale != "enBase":
-                extends_val = '"enBase"'
-            
+            # Preserve the file's own registration metadata rather than
+            # guessing from the filename: `RegisterDictionary("X")` is the
+            # locale key, `extends = "Y"` marks a delta, `languageFamily` is
+            # required on bases. (The old code emitted locale "Dict_deDE"
+            # and extends="enBase" for the German base dict.)
+            with open(filepath, "r", encoding="utf-8") as src:
+                content = src.read()
+            m = re.search(r'RegisterDictionary\("([^"]+)"', content)
+            locale = m.group(1) if m else filename.replace("Dict_", "").replace(".lua", "")
+            m = re.search(r'extends\s*=\s*"([^"]+)"', content)
+            extends_val = m.group(1) if m else None
+            m = re.search(r'languageFamily\s*=\s*"([^"]+)"', content)
+            family = m.group(1) if m else "en"
+
             sorted_words = sorted(list(filtered_words))
-            gen.write_lua_dict(filepath, locale, extends_val, sorted_words, {})
+            gen.write_lua_dict(filepath, locale, extends_val, sorted_words, {}, family=family)
             print(f"  Wrote sanitized dictionary (phonetics cleared).")
 
 if __name__ == "__main__":

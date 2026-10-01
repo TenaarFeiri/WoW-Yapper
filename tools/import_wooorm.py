@@ -101,7 +101,6 @@ def write_yapper_delta_dict(out_path, locale, extends, words_list, phonetics_dic
         f.write(f'        languageFamily = "{locale[:2].lower()}",\n')
         if extends:
             f.write(f'        extends        = "{extends}",\n')
-            f.write('        isDelta        = true,\n')
         f.write('        words          = {},\n')
         f.write('        phonetics      = {},\n')
         f.write('    }\n')
@@ -157,18 +156,18 @@ def main():
         delta_set = target_words_set - base_words_set
         print(f"Calculated Delta: {len(delta_set)} new words to add over base.")
         process_set = delta_set
-        index_offset = base_count
     else:
         print(f"Generating full base dictionary ({len(target_words_set)} words).")
         process_set = target_words_set
-        index_offset = 0
 
     sorted_words = sorted(list(process_set))
     phonetics_dict = {}
 
-    # 5. Phonetize
+    # 5. Phonetize — indices are the word's LOCAL 1-based position in this
+    # file's words array. The loader indexes a delta's words at 1..N (the
+    # delta `words` table chains to the base via metatable), so no offset.
     print(f"Applying '{args.family}' phonetic rules to {len(sorted_words)} words...")
-    for idx, word in enumerate(sorted_words, start=1 + index_offset):
+    for idx, word in enumerate(sorted_words, start=1):
         p_hash = get_phonetic_hash(word)
         if not p_hash: continue
         if p_hash not in phonetics_dict:
