@@ -356,7 +356,7 @@ Initialised from `Spellcheck:Init` when present.
 - Methods:
   - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L166`](../Src/Spellcheck/Adaptive.lua#L166))
   - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L159`](../Src/Spellcheck/Adaptive.lua#L159))
-  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L1804`](../Src/Spellcheck/Adaptive.lua#L1804))
+  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L1896`](../Src/Spellcheck/Adaptive.lua#L1896))
   - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L1281`](../Src/Spellcheck/Adaptive.lua#L1281))
   - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L515`](../Src/Spellcheck/Adaptive.lua#L515))
   - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L129`](../Src/Spellcheck/Adaptive.lua#L129))
@@ -885,10 +885,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L344`](../Src/Interface/Schema.lua#L344)
-  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L485`](../Src/Interface/Schema.lua#L485)
-  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L493`](../Src/Interface/Schema.lua#L493)
-  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L499`](../Src/Interface/Schema.lua#L499)
+  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L360`](../Src/Interface/Schema.lua#L360)
+  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L501`](../Src/Interface/Schema.lua#L501)
+  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L509`](../Src/Interface/Schema.lua#L509)
+  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L515`](../Src/Interface/Schema.lua#L515)
 
 ## Interface.Config
 
@@ -991,13 +991,13 @@ Per-category page builders called by `BuildConfigUI`.
   - `CreateChannelOverrideControls` [`../Src/Interface/Pages.lua#L36`](../Src/Interface/Pages.lua#L36)
   - `CreateGlobalSyncControls` [`../Src/Interface/Pages.lua#L330`](../Src/Interface/Pages.lua#L330)
   - `CreateYASLearningPage` [`../Src/Interface/Pages.lua#L389`](../Src/Interface/Pages.lua#L389)
-  - `CreateQueueDiagnostics` [`../Src/Interface/Pages.lua#L627`](../Src/Interface/Pages.lua#L627)
-  - `CreateTutorialPage` [`../Src/Interface/Pages.lua#L731`](../Src/Interface/Pages.lua#L731)
-  - `CreateCreditsPage` [`../Src/Interface/Pages.lua#L829`](../Src/Interface/Pages.lua#L829)
-  - `CreateSpellcheckLocaleDropdown` [`../Src/Interface/Pages.lua#L941`](../Src/Interface/Pages.lua#L941)
-  - `CreateSpellcheckKeyboardLayoutDropdown` [`../Src/Interface/Pages.lua#L1041`](../Src/Interface/Pages.lua#L1041)
-  - `CreateSpellcheckUserDictEditor` [`../Src/Interface/Pages.lua#L1106`](../Src/Interface/Pages.lua#L1106)
-  - `CreateThemeDropdown` [`../Src/Interface/Pages.lua#L1292`](../Src/Interface/Pages.lua#L1292)
+  - `CreateQueueDiagnostics` [`../Src/Interface/Pages.lua#L723`](../Src/Interface/Pages.lua#L723)
+  - `CreateTutorialPage` [`../Src/Interface/Pages.lua#L827`](../Src/Interface/Pages.lua#L827)
+  - `CreateCreditsPage` [`../Src/Interface/Pages.lua#L925`](../Src/Interface/Pages.lua#L925)
+  - `CreateSpellcheckLocaleDropdown` [`../Src/Interface/Pages.lua#L1037`](../Src/Interface/Pages.lua#L1037)
+  - `CreateSpellcheckKeyboardLayoutDropdown` [`../Src/Interface/Pages.lua#L1137`](../Src/Interface/Pages.lua#L1137)
+  - `CreateSpellcheckUserDictEditor` [`../Src/Interface/Pages.lua#L1202`](../Src/Interface/Pages.lua#L1202)
+  - `CreateThemeDropdown` [`../Src/Interface/Pages.lua#L1388`](../Src/Interface/Pages.lua#L1388)
 - Invariants:
   - Dropdown handlers assume config roots are initialised.
 

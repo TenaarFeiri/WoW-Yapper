@@ -7,12 +7,13 @@
 - Language families are owner-locked: only the addon that registered a language engine may replace it, and dictionaries can only bind to a valid engine.
 - A faulting language engine is automatically purged along with its dependent dictionaries instead of corrupting spellcheck state.
 - Full dictionary-authoring documentation added in `Documentation/Dictionaries.md`.
-- UI strings are now localisable: Yapper ships a complete English string table and dictionary addons can register translations (`RegisterStrings`) that update the UI when they load — translations live in the dictionary addon, no core changes needed.
+- UI strings are now localisable.
 - YAS is now genuinely adaptive rather than a fixed lookup table:
 - - Intent classification: YAS learns to tell accidental typos from intentional spellings (like your RP name) by watching whether you see suggestions and still send the word unchanged, whether you always spell it the same way, and whether you correct it — consistently-misspelled-but-deliberate words stop being flagged.
 - - Context awareness: YAS learns which words you actually write after other words and favours candidates that fit your habits.
 - - Error-profile learning: your habitual slip pattern (transposing letters, dropping doubles, specific letter confusions) now generalises — learned corrections help beyond the exact typo you made.
 - - Learned scoring: the suggestion weights adapt to how *you* pick corrections, with a self-evaluation circuit breaker that regresses the model if YAS-surfaced picks keep getting re-corrected.
+- The Adaptive Learning settings page now shows everything YAS tracks — intent verdicts, context pairs, your typing-error profile, the learned scoring model, and the autocorrect shadow log — with tooltips explaining each section.
 
 ### Technical Changes
 - Removed the built-in English fallback engine — all language behaviour now flows through the registered engine contract. English ships its own engine.

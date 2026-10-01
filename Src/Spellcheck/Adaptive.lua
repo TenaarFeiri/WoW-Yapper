@@ -1786,15 +1786,107 @@ function YAS:GetDataSummary(locale)
     end
     table_sort(negList, function(a, b) return a.count > b.count end)
 
+    -- Intent records: per-token behavioural evidence plus the verdict the
+    -- classifier currently reaches (pinned classes surface as such).
+    local SUMMARY_MAX = 75 -- UI display bound per section
+    local intentList = {}
+    for word, rec in pairs(db.intent or {}) do
+        table_insert(intentList, {
+            word          = word,
+            class         = ClassifyRecord(rec) or "—",
+            pinned        = rec.pinned,
+            sentUnchanged = rec.sentUnchanged or 0,
+            waived        = rec.waived or 0,
+            accepted      = rec.accepted or 0,
+            corrected     = rec.corrected or 0,
+            last          = rec.lastSeen or rec.t or 0,
+        })
+    end
+    table_sort(intentList, function(a, b) return a.last > b.last end)
+
+    local bigramList = {}
+    for prev, bucket in pairs(db.bigram or {}) do
+        for nxt, e in pairs(bucket) do
+            table_insert(bigramList, { prev = prev, nxt = nxt, count = e.c, last = e.t })
+        end
+    end
+    table_sort(bigramList, function(a, b) return a.count > b.count end)
+
+    local errOpsList = {}
+    local errConfList = {}
+    if db.errProfile then
+        for op, c in pairs(db.errProfile.ops or {}) do
+            table_insert(errOpsList, { op = op, count = c })
+        end
+        for pair, c in pairs(db.errProfile.conf or {}) do
+            table_insert(errConfList, { pair = pair, count = c })
+        end
+    end
+    table_sort(errOpsList, function(a, b) return a.count > b.count end)
+    table_sort(errConfList, function(a, b) return a.count > b.count end)
+
+    -- Learned model: per-feature multipliers plus the self-eval counters.
+    local m = db.model
+    local modelData = {
+        updates = (m and m.updates) or 0,
+        evalAccepted   = (m and m.eval and m.eval.promotedAccepted) or 0,
+        evalRecorrected = (m and m.eval and m.eval.retypeAfterPromoted) or 0,
+        mults = {},
+    }
+    for _, k in ipairs(MODEL_FEATURES) do
+        modelData.mults[#modelData.mults + 1] =
+            { feature = k, value = (m and m.m and m.m[k]) or 1 }
+    end
+
+    -- Shadow autocorrect decisions (most recent last in storage; reverse for display).
+    local autocorrList = {}
+    local log = db.autocorrLog
+    if type(log) == "table" then
+        for i = #log, math_max(1, #log - 49), -1 do
+            local e = log[i]
+            table_insert(autocorrList,
+                { typo = e.t, suggestion = e.s, tier = e.tier, conf = e.conf, last = e.ts })
+        end
+    end
+    local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
+
+    if #freqList > SUMMARY_MAX then for i = #freqList, SUMMARY_MAX + 1, -1 do freqList[i] = nil end end
+    if #intentList > SUMMARY_MAX then for i = #intentList, SUMMARY_MAX + 1, -1 do intentList[i] = nil end end
+    if #bigramList > SUMMARY_MAX then for i = #bigramList, SUMMARY_MAX + 1, -1 do bigramList[i] = nil end end
+
     return {
         freq        = freqList,
         bias        = biasList,
         phBias      = phList,
         negBias     = negList,
         auto        = autoList,
+        intent      = intentList,
+        bigram      = bigramList,
+        errOps      = errOpsList,
+        errConf     = errConfList,
+        model       = modelData,
+        autocorr    = autocorrList,
+        shadowEnabled = (cfg and cfg.YASAutocorrectShadow) == true,
         total       = db.total,
         intentCount = db.intentCount or 0,
         bigramCount = db.bigramCount or 0,
+        counts = {
+            freq    = db.total or 0,
+            bias    = db.biasCount or 0,
+            phBias  = db.phBiasCount or 0,
+            negBias = db.negBiasCount or 0,
+            auto    = db.autoCount or 0,
+            intent  = db.intentCount or 0,
+            bigram  = db.bigramCount or 0,
+        },
+        caps = {
+            freq    = self:GetFreqCap(),
+            bias    = self:GetBiasCap(),
+            negBias = self:GetNegBiasCap(),
+            auto    = self:GetAutoCap(),
+            intent  = self:GetIntentCap(),
+            bigram  = self:GetBigramCap(),
+        },
         cap         = self:GetFreqCap(),
         threshold   = self:GetAutoThreshold(),
     }
