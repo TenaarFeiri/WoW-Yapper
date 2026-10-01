@@ -106,9 +106,9 @@ Loaded before all integration hooks.
   - `Yapper.API: table` internal object ([`../Src/API.lua#L379-L380`](../Src/API.lua#L379-L380)).
   - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1217`](../Src/API.lua#L1217)).
 - Methods:
-  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1186`](../Src/API.lua#L1186))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1358`](../Src/API.lua#L1358))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1402`](../Src/API.lua#L1402))
+  - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1228`](../Src/API.lua#L1228))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1400`](../Src/API.lua#L1400))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1444`](../Src/API.lua#L1444))
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -165,48 +165,54 @@ Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecyc
   - `LocaleAddons: table` locale → addon name ([`../Src/Spellcheck.lua#L49-L55`](../Src/Spellcheck.lua#L49-L55)).
   - Frame references: `EditBox`, `Overlay`, `MeasureFS`, `SuggestionFrame`, `HintFrame` ([`../Src/Spellcheck.lua#L56-L58`](../Src/Spellcheck.lua#L56-L58), [`../Src/Spellcheck.lua#L61-L67`](../Src/Spellcheck.lua#L61-L67)).
   - Suggestion state: `SuggestionRows`, `ActiveSuggestions`, `ActiveIndex`, `ActiveWord`, `ActiveRange`, `_debounceTimer` ([`../Src/Spellcheck.lua#L59-L60`](../Src/Spellcheck.lua#L59-L60), [`../Src/Spellcheck.lua#L62-L66`](../Src/Spellcheck.lua#L62-L66), [`../Src/Spellcheck.lua#L76`](../Src/Spellcheck.lua#L76)).
-  - Dictionary/user state: `UserDictCache` ([`../Src/Spellcheck.lua#L68`](`../Src/Spellcheck.lua#L68`))
-  - Dictionary/user state: `_pendingLocaleLoads` ([`../Src/Spellcheck.lua#L69`](`../Src/Spellcheck.lua#L69`))
-  - Dictionary/user state: `DictionaryBuilders` ([`../Src/Spellcheck.lua#L71`](`../Src/Spellcheck.lua#L71`))
+  - Dictionary/user state: `UserDictCache` ([`../Src/Spellcheck.lua#L71`](`../Src/Spellcheck.lua#L71`))
+  - Dictionary/user state: `_pendingLocaleLoads` ([`../Src/Spellcheck.lua#L72`](`../Src/Spellcheck.lua#L72`))
+  - Dictionary/user state: `DictionaryBuilders` ([`../Src/Spellcheck.lua#L74`](`../Src/Spellcheck.lua#L74`))
   - Edit-distance buffers: `_ed_prev`, `_ed_cur`, `_ed_prev_prev` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L73-L75`](../Src/Spellcheck.lua#L73-L75)).
-  - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_KB_LAYOUTS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua#L665-L675`](../Src/Spellcheck.lua#L665-L675)).
+  - Tunable constants/helpers: `_SCORE_WEIGHTS`, `_MAX_SUGGESTION_ROWS`, `_RAID_ICONS`, `_DICT_CHUNK_SIZE` *private by convention; do not rely on* ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua)).
 - Methods:
-  - `Spellcheck:GetNgramTopCandidates() → number`: Return the clamped NgramTopCandidates config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L647`](../Src/Spellcheck.lua#L647))
-  - `Spellcheck:GetNgramMaxPosting() → number`: Return the clamped NgramMaxPosting config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L642`](../Src/Spellcheck.lua#L642))
-  - `Spellcheck:GetNgramN() → number`: Return the clamped NgramN config value (2-4, default 2). ([`../Src/Spellcheck.lua#L637`](../Src/Spellcheck.lua#L637))
-  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L657`](../Src/Spellcheck.lua#L657))
-  - `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YAS learning). ([`../Src/Spellcheck.lua#L538`](../Src/Spellcheck.lua#L538))
-  - `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L519`](../Src/Spellcheck.lua#L519))
-  - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L425`](../Src/Spellcheck.lua#L425))
-  - `Spellcheck:Init() → nil` ([`../Src/Spellcheck.lua#L187`](../Src/Spellcheck.lua#L187))
-  - `Spellcheck:_RegisterLanguageEngine(familyId, engine) → boolean` ([`../Src/Spellcheck.lua#L212`](../Src/Spellcheck.lua#L212)) — **Security Note**: Enforces mandatory `BlockedHashes` table and `HashWord` function. Returns `false` and prints a chat error if missing.
-  - `Spellcheck:GetActiveEngine() → table|nil` ([`../Src/Spellcheck.lua#L237`](../Src/Spellcheck.lua#L237))
-  - `Spellcheck:GetEngine(familyId) → table|nil` ([`../Src/Spellcheck.lua#L246`](../Src/Spellcheck.lua#L246))
-  - `Spellcheck:GetConfig() → table` ([`../Src/Spellcheck.lua#L332`](../Src/Spellcheck.lua#L332))
-  - `Spellcheck:IsEnabled() → boolean` ([`../Src/Spellcheck.lua#L336`](../Src/Spellcheck.lua#L336))
-  - `Spellcheck:GetLocale() → string` ([`../Src/Spellcheck.lua#L341`](../Src/Spellcheck.lua#L341))
-  - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L369`](../Src/Spellcheck.lua#L369))
-  - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L377`](../Src/Spellcheck.lua#L377))
-  - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L387`](../Src/Spellcheck.lua#L387))
+  - `Spellcheck:GetNgramTopCandidates() → number`: Return the clamped NgramTopCandidates config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L1123`](../Src/Spellcheck.lua#L1123))
+  - `Spellcheck:GetNgramMaxPosting() → number`: Return the clamped NgramMaxPosting config value (1-5000, default 500). ([`../Src/Spellcheck.lua#L1118`](../Src/Spellcheck.lua#L1118))
+  - `Spellcheck:GetNgramN() → number`: Return the clamped NgramN config value (2-4, default 2). ([`../Src/Spellcheck.lua#L1113`](../Src/Spellcheck.lua#L1113))
+  - `Spellcheck:GetUserDictWordCap() → number`: Returns the maximum number of words in `AddedWords` before oldest entries are FIFO-evicted. Configurable via `UserDictWordCap`; default 2000, min 50, max 10000. ([`../Src/Spellcheck.lua#L1133`](../Src/Spellcheck.lua#L1133))
+  - `Spellcheck:IsWordBlocked(word, locale, ignoreManual) → boolean`: Convenience function for checking a single word (e.g., during YAS learning). ([`../Src/Spellcheck.lua#L1012`](../Src/Spellcheck.lua#L1012))
+  - `Spellcheck:GetBlockData(locale) → table|nil addedSet`: Returns the data needed to check if a word is blocked at runtime. ([`../Src/Spellcheck.lua#L993`](../Src/Spellcheck.lua#L993))
+  - `Spellcheck:EvictRandomMeta() → nil`: No description provided. ([`../Src/Spellcheck.lua#L862`](../Src/Spellcheck.lua#L862))
+  - `Spellcheck:Init() → nil` ([`../Src/Spellcheck.lua#L210`](../Src/Spellcheck.lua#L210))
+  - `Spellcheck:_RegisterLanguageEngine(familyId, engine, owner) → boolean` ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua)) — **Contract**: strict whitelist + type checks + runtime probes (see `Documentation/Dictionaries.md`); required fields include `NormaliseWord`, `NormaliseVowels`, `GetPhoneticHash`, `HashWord`, `BlockedHashes`, `WordBytes`, `WordStartBytes`. Owner-locks the family to the registering addon. Returns `false` and prints a chat error on any violation.
+  - `Spellcheck:_ValidateEngineContract(familyId, engine) → boolean, string|nil` — the contract checker used at registration.
+  - `Spellcheck:_PurgeEngine(familyId, reason) → nil` — removes a faulting engine, every dictionary bound to its family, and all derived caches; marks locales `ENGINE_PURGED`.
+  - `Spellcheck:_PurgeEngineCaches(familyId) → nil` — wipes suggestion/KB/user-dict/meta caches derived from an engine.
+  - `Spellcheck:_SafeEngineCall(engine, key, passSelf, ...) → any` — pcall boundary for engine entry points; purges on error.
+  - `Spellcheck:_FamilyForLocale(locale) → string|nil`, `Spellcheck:_EngineForLocale(locale) → table|nil, string|nil`, `Spellcheck:_NormForLocale(locale) → function` — locale → family/engine/normaliser resolution.
+  - `Spellcheck:GetActiveEngine() → table|nil` ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua)) — engine of the active locale; **nil** when none is registered (no silent fallback).
+  - `Spellcheck:GetEngine(familyId) → table|nil` ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua))
+  - Engine delegates (dot-call): `Spellcheck.NormaliseWord`, `Spellcheck.NormaliseVowels`, `Spellcheck.GetPhoneticHash`, `Spellcheck.IsWordByte`, `Spellcheck.IsWordStartByte` — dispatch to the active engine, neutral fallback only when no engine is loaded.
+  - `Spellcheck:GetConfig() → table` ([`../Src/Spellcheck.lua#L769`](../Src/Spellcheck.lua#L769))
+  - `Spellcheck:IsEnabled() → boolean` ([`../Src/Spellcheck.lua#L773`](../Src/Spellcheck.lua#L773))
+  - `Spellcheck:GetLocale() → string` ([`../Src/Spellcheck.lua#L778`](../Src/Spellcheck.lua#L778))
+  - `Spellcheck:GetFallbackLocale() → string` ([`../Src/Spellcheck.lua#L806`](../Src/Spellcheck.lua#L806))
+  - `Spellcheck:GetDictionary() → table|nil` ([`../Src/Spellcheck.lua#L814`](../Src/Spellcheck.lua#L814))
+  - `Spellcheck:GetMeta(dict, word) → table|nil` ([`../Src/Spellcheck.lua#L824`](../Src/Spellcheck.lua#L824))
 
-  - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L445`](../Src/Spellcheck.lua#L445))
-  - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L469`](../Src/Spellcheck.lua#L469))
-  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L479`](../Src/Spellcheck.lua#L479))
-  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L486`](../Src/Spellcheck.lua#L486))
-  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L500`](../Src/Spellcheck.lua#L500))
-  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L555`](../Src/Spellcheck.lua#L555)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
-  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L583`](../Src/Spellcheck.lua#L583))
-  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L607`](../Src/Spellcheck.lua#L607))
-  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L612`](`../Src/Spellcheck.lua#L612`))
-  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L617`](`../Src/Spellcheck.lua#L617`))
-  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L622`](`../Src/Spellcheck.lua#L622`))
-  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L627`](`../Src/Spellcheck.lua#L627`))
-  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L632`](`../Src/Spellcheck.lua#L632`))
-  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L652`](`../Src/Spellcheck.lua#L652`))
-  - Accessors: `GetMisspellingColour` ([`../Src/Spellcheck.lua#L664`](`../Src/Spellcheck.lua#L664`))
-  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua#L673`](`../Src/Spellcheck.lua#L673`))
-  - Accessors: `GetKBDistTable` ([`../Src/Spellcheck.lua#L683`](`../Src/Spellcheck.lua#L683`))
-  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua#L702`](`../Src/Spellcheck.lua#L702`))
+  - `Spellcheck:GetUserDictStore() → table` ([`../Src/Spellcheck.lua#L900`](../Src/Spellcheck.lua#L900))
+  - `Spellcheck:GetUserDict(locale) → table` ([`../Src/Spellcheck.lua#L923`](../Src/Spellcheck.lua#L923))
+  - `Spellcheck:TouchUserDict(dict) → nil` ([`../Src/Spellcheck.lua#L949`](../Src/Spellcheck.lua#L949))
+  - `Spellcheck:BuildWordSet(list) → table` ([`../Src/Spellcheck.lua#L958`](../Src/Spellcheck.lua#L958))
+  - `Spellcheck:GetUserSets(locale) → table, table` ([`../Src/Spellcheck.lua#L973`](../Src/Spellcheck.lua#L973))
+  - `Spellcheck:AddUserWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L1029`](../Src/Spellcheck.lua#L1029)) — adds `word` to `AddedWords`; FIFO-evicts the oldest entry when the list exceeds `GetUserDictWordCap()`.
+  - `Spellcheck:IgnoreWord(locale, word) → nil` ([`../Src/Spellcheck.lua#L1058`](../Src/Spellcheck.lua#L1058))
+  - `Spellcheck:ClearSuggestionCache() → nil` ([`../Src/Spellcheck.lua#L1083`](../Src/Spellcheck.lua#L1083))
+  - Accessors: `GetMaxSuggestions` ([`../Src/Spellcheck.lua#L1077`](`../Src/Spellcheck.lua#L1077`))
+  - Accessors: `GetMaxCandidates` ([`../Src/Spellcheck.lua#L1082`](`../Src/Spellcheck.lua#L1082`))
+  - Accessors: `GetSuggestionCacheSize` ([`../Src/Spellcheck.lua#L1087`](`../Src/Spellcheck.lua#L1087`))
+  - Accessors: `GetReshuffleAttempts` ([`../Src/Spellcheck.lua#L1092`](`../Src/Spellcheck.lua#L1092`))
+  - Accessors: `GetMaxWrongLetters` ([`../Src/Spellcheck.lua#L1097`](`../Src/Spellcheck.lua#L1097`))
+  - Accessors: `GetMinWordLength` ([`../Src/Spellcheck.lua#L1117`](`../Src/Spellcheck.lua#L1117`))
+  - Accessors: `GetMisspellingColour` ([`../Src/Spellcheck.lua#L1129`](`../Src/Spellcheck.lua#L1129`))
+  - Accessors: `GetKeyboardLayout` ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua)) — resolves against the active engine's `KBLayouts`/`DefaultLayout`; nil without an engine.
+  - Accessors: `GetKeyboardLayoutNames` ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua)) — sorted layout names offered by the active engine.
+  - Accessors: `_GetKBDistFromLayouts` ([`../Src/Spellcheck.lua`](../Src/Spellcheck.lua)) — builds/caches a distance table from an engine's `KBLayouts`; nil when the layout is unknown.
 - Callbacks fired:
   - `SPELLCHECK_WORD_ADDED`, `SPELLCHECK_WORD_IGNORED`.
 
@@ -216,19 +222,19 @@ Used lazily by `GetDictionary`, locale switches, and LOD registration.
 
 - Description: Dictionary registration/loading, locale availability, async indexing.
 - Methods:
-  - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L31`](../Src/Spellcheck/Dictionary.lua#L31))
-  - `Spellcheck:RegisterDictionary(locale, data) → nil` ([`../Src/Spellcheck/Dictionary.lua#L66`](../Src/Spellcheck/Dictionary.lua#L66)) — **Security Note**: Validates the associated language family engine for `BlockedHashes` before indexing. Blocks registration if the family engine is missing or insecure.
-  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L363`](../Src/Spellcheck/Dictionary.lua#L363))
-  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L404`](../Src/Spellcheck/Dictionary.lua#L404))
-  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L413`](../Src/Spellcheck/Dictionary.lua#L413))
-  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L418`](../Src/Spellcheck/Dictionary.lua#L418))
-  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L448`](../Src/Spellcheck/Dictionary.lua#L448))
-  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L460`](../Src/Spellcheck/Dictionary.lua#L460))
-  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L474`](../Src/Spellcheck/Dictionary.lua#L474))
-  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L489`](../Src/Spellcheck/Dictionary.lua#L489))
-  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L495`](../Src/Spellcheck/Dictionary.lua#L495))
-  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L561`](../Src/Spellcheck/Dictionary.lua#L561))
-  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L186`](../Src/Spellcheck/Dictionary.lua#L186)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
+  - `Spellcheck:LoadDictionary(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L32`](../Src/Spellcheck/Dictionary.lua#L32))
+  - `Spellcheck:RegisterDictionary(locale, data, owner) → nil` ([`../Src/Spellcheck/Dictionary.lua`](../Src/Spellcheck/Dictionary.lua)) — **Contract**: rejects dictionaries that don't resolve to a `languageFamily` with a registered, contract-valid engine (no implicit `"en"` default); indexes words through the family's engine normalisers. `owner` is the registering addon name used for the engine owner-lock.
+  - `Spellcheck:_OnDictRegistrationComplete(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L421`](../Src/Spellcheck/Dictionary.lua#L421))
+  - `Spellcheck:GetAvailableLocales() → string[]` ([`../Src/Spellcheck/Dictionary.lua#L462`](../Src/Spellcheck/Dictionary.lua#L462))
+  - `Spellcheck:GetLocaleAddon(locale) → string|nil` ([`../Src/Spellcheck/Dictionary.lua#L471`](../Src/Spellcheck/Dictionary.lua#L471))
+  - `Spellcheck:HasLocaleAddon(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L476`](../Src/Spellcheck/Dictionary.lua#L476))
+  - `Spellcheck:HasAnyDictionary() → boolean` ([`../Src/Spellcheck/Dictionary.lua#L506`](../Src/Spellcheck/Dictionary.lua#L506))
+  - `Spellcheck:IsLocaleAvailable(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L518`](../Src/Spellcheck/Dictionary.lua#L518))
+  - `Spellcheck:CanLoadLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L532`](../Src/Spellcheck/Dictionary.lua#L532))
+  - `Spellcheck:Notify(msg) → nil` ([`../Src/Spellcheck/Dictionary.lua#L547`](../Src/Spellcheck/Dictionary.lua#L547))
+  - `Spellcheck:EnsureLocale(locale) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L553`](../Src/Spellcheck/Dictionary.lua#L553))
+  - `Spellcheck:ScheduleLocaleRefresh(locale) → nil` ([`../Src/Spellcheck/Dictionary.lua#L619`](../Src/Spellcheck/Dictionary.lua#L619))
+  - `dict:Contains(word: string) → boolean` ([`../Src/Spellcheck/Dictionary.lua#L237`](../Src/Spellcheck/Dictionary.lua#L237)) — returns true if the word (normalised) exists in the dictionary, its base, or the user's personal dictionary.
 - Side effects:
   - Schedules `C_Timer.After(0, ...)` chunk processing and refresh tickers.
 
@@ -238,18 +244,18 @@ Runs during suggestion/recolour rebuild.
 
 - Description: Tokenisation, misspelling detection, candidate scoring.
 - Methods:
-  - `Spellcheck:CollectAffixMatches() → nil`: Scans text for words recognized via affix-stripping. ([`../Src/Spellcheck/Engine.lua#L120`](../Src/Spellcheck/Engine.lua#L120))
-  - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L75`](`../Src/Spellcheck/Engine.lua#L75`))
-  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L136`](`../Src/Spellcheck/Engine.lua#L136`))
-  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L143`](`../Src/Spellcheck/Engine.lua#L143`))
-  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L206`](`../Src/Spellcheck/Engine.lua#L206`))
-  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L215`](`../Src/Spellcheck/Engine.lua#L215`))
-  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L252`](`../Src/Spellcheck/Engine.lua#L252`))
-  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L293`](`../Src/Spellcheck/Engine.lua#L293`))
-  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L374`](`../Src/Spellcheck/Engine.lua#L374`))
-  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L908`](`../Src/Spellcheck/Engine.lua#L908`))
-  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1209`](`../Src/Spellcheck/Engine.lua#L1209`))
-  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1280`](`../Src/Spellcheck/Engine.lua#L1280`))
+  - `Spellcheck:CollectAffixMatches() → nil`: Scans text for words recognized via affix-stripping. ([`../Src/Spellcheck/Engine.lua#L98`](../Src/Spellcheck/Engine.lua#L98))
+  - `CollectMisspellings` ([`../Src/Spellcheck/Engine.lua#L51`](`../Src/Spellcheck/Engine.lua#L51`))
+  - `ShouldCheckWord` ([`../Src/Spellcheck/Engine.lua#L119`](`../Src/Spellcheck/Engine.lua#L119`))
+  - `GetIgnoredRanges` ([`../Src/Spellcheck/Engine.lua#L130`](`../Src/Spellcheck/Engine.lua#L130`))
+  - `IsRangeIgnored` ([`../Src/Spellcheck/Engine.lua#L193`](`../Src/Spellcheck/Engine.lua#L193`))
+  - `IsWordCorrect` ([`../Src/Spellcheck/Engine.lua#L202`](`../Src/Spellcheck/Engine.lua#L202`))
+  - `ResolveImplicitTrace` ([`../Src/Spellcheck/Engine.lua#L241`](`../Src/Spellcheck/Engine.lua#L241`))
+  - `UpdateActiveWord` ([`../Src/Spellcheck/Engine.lua#L282`](`../Src/Spellcheck/Engine.lua#L282`))
+  - `GetWordAtCursor` ([`../Src/Spellcheck/Engine.lua#L363`](`../Src/Spellcheck/Engine.lua#L363`))
+  - `GetSuggestions` ([`../Src/Spellcheck/Engine.lua#L902`](`../Src/Spellcheck/Engine.lua#L902`))
+  - `EditDistance` ([`../Src/Spellcheck/Engine.lua#L1243`](`../Src/Spellcheck/Engine.lua#L1243`))
+  - `FormatSuggestionLabel` ([`../Src/Spellcheck/Engine.lua#L1314`](`../Src/Spellcheck/Engine.lua#L1314`))
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -259,41 +265,41 @@ Bound when overlay exists; reacts to text/cursor updates.
 
 - Description: UI state machine for recolour refresh, hint, and suggestions.
 - Methods:
-  - `Spellcheck:GetScrollOffset() → number`: Derive the horizontal scroll offset of a single-line EditBox. ([`../Src/Spellcheck/UI.lua#L1209`](../Src/Spellcheck/UI.lua#L1209))
-  - `Spellcheck:MeasureText(text) → number`: Measure text width using a FontString matching the editbox's current font and spacing. ([`../Src/Spellcheck/UI.lua#L1183`](../Src/Spellcheck/UI.lua#L1183))
-  - `Spellcheck:ApplyOverlayFont(fontString, maxSize) → number`: Apply the editbox's font to a FontString, optionally clamped to maxSize. Returns the effective size. ([`../Src/Spellcheck/UI.lua#L1169`](../Src/Spellcheck/UI.lua#L1169))
-  - `Spellcheck:GetCaretXOffset() → number`: Compute the X offset of the caret for tooltip positioning, clamped to the visible text area. ([`../Src/Spellcheck/UI.lua#L1142`](../Src/Spellcheck/UI.lua#L1142))
-  - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L548`](../Src/Spellcheck/UI.lua#L548))
-  - `Bind` ([`../Src/Spellcheck/UI.lua#L27`](`../Src/Spellcheck/UI.lua#L27`))
-  - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L64`](`../Src/Spellcheck/UI.lua#L64`))
-  - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L119`](`../Src/Spellcheck/UI.lua#L119`))
-  - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L154`](`../Src/Spellcheck/UI.lua#L154`))
-  - `ApplyState` ([`../Src/Spellcheck/UI.lua#L193`](`../Src/Spellcheck/UI.lua#L193`))
-  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L224`](`../Src/Spellcheck/UI.lua#L224`))
-  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L228`](`../Src/Spellcheck/UI.lua#L228`))
-  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L249`](`../Src/Spellcheck/UI.lua#L249`))
-  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L287`](`../Src/Spellcheck/UI.lua#L287`))
-  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L293`](`../Src/Spellcheck/UI.lua#L293`))
-  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L316`](`../Src/Spellcheck/UI.lua#L316`))
-  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L330`](`../Src/Spellcheck/UI.lua#L330`))
-  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L345`](`../Src/Spellcheck/UI.lua#L345`))
-  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L437`](`../Src/Spellcheck/UI.lua#L437`))
-  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L447`](`../Src/Spellcheck/UI.lua#L447`))
-  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L473`](`../Src/Spellcheck/UI.lua#L473`))
-  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L485`](`../Src/Spellcheck/UI.lua#L485`))
-  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L563`](`../Src/Spellcheck/UI.lua#L563`))
-  - `HideHint` ([`../Src/Spellcheck/UI.lua#L594`](`../Src/Spellcheck/UI.lua#L594`))
-  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L599`](`../Src/Spellcheck/UI.lua#L599`))
-  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L622`](`../Src/Spellcheck/UI.lua#L622`))
-  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L626`](`../Src/Spellcheck/UI.lua#L626`))
-  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L633`](`../Src/Spellcheck/UI.lua#L633`))
-  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L694`](`../Src/Spellcheck/UI.lua#L694`))
-  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L716`](`../Src/Spellcheck/UI.lua#L716`))
-  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L748`](`../Src/Spellcheck/UI.lua#L748`))
-  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L777`](`../Src/Spellcheck/UI.lua#L777`))
-  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L907`](`../Src/Spellcheck/UI.lua#L907`))
-  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L934`](`../Src/Spellcheck/UI.lua#L934`))
-  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L958`](`../Src/Spellcheck/UI.lua#L958`))
+  - `Spellcheck:GetScrollOffset() → number`: Derive the horizontal scroll offset of a single-line EditBox. ([`../Src/Spellcheck/UI.lua#L1230`](../Src/Spellcheck/UI.lua#L1230))
+  - `Spellcheck:MeasureText(text) → number`: Measure text width using a FontString matching the editbox's current font and spacing. ([`../Src/Spellcheck/UI.lua#L1204`](../Src/Spellcheck/UI.lua#L1204))
+  - `Spellcheck:ApplyOverlayFont(fontString, maxSize) → number`: Apply the editbox's font to a FontString, optionally clamped to maxSize. Returns the effective size. ([`../Src/Spellcheck/UI.lua#L1190`](../Src/Spellcheck/UI.lua#L1190))
+  - `Spellcheck:GetCaretXOffset() → number`: Compute the X offset of the caret for tooltip positioning, clamped to the visible text area. ([`../Src/Spellcheck/UI.lua#L1163`](../Src/Spellcheck/UI.lua#L1163))
+  - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L556`](../Src/Spellcheck/UI.lua#L556))
+  - `Bind` ([`../Src/Spellcheck/UI.lua#L35`](`../Src/Spellcheck/UI.lua#L35`))
+  - `BindMultiline` ([`../Src/Spellcheck/UI.lua#L72`](`../Src/Spellcheck/UI.lua#L72`))
+  - `UnbindMultiline` ([`../Src/Spellcheck/UI.lua#L127`](`../Src/Spellcheck/UI.lua#L127`))
+  - `UnloadAllDictionaries` ([`../Src/Spellcheck/UI.lua#L162`](`../Src/Spellcheck/UI.lua#L162`))
+  - `ApplyState` ([`../Src/Spellcheck/UI.lua#L201`](`../Src/Spellcheck/UI.lua#L201`))
+  - `OnConfigChanged` ([`../Src/Spellcheck/UI.lua#L232`](`../Src/Spellcheck/UI.lua#L232`))
+  - `OnTextChanged` ([`../Src/Spellcheck/UI.lua#L236`](`../Src/Spellcheck/UI.lua#L236`))
+  - `OnCursorChanged` ([`../Src/Spellcheck/UI.lua#L257`](`../Src/Spellcheck/UI.lua#L257`))
+  - `OnOverlayHide` ([`../Src/Spellcheck/UI.lua#L295`](`../Src/Spellcheck/UI.lua#L295`))
+  - `ScheduleRefresh` ([`../Src/Spellcheck/UI.lua#L301`](`../Src/Spellcheck/UI.lua#L301`))
+  - `Rebuild` ([`../Src/Spellcheck/UI.lua#L324`](`../Src/Spellcheck/UI.lua#L324`))
+  - `EnsureMeasureFontString` ([`../Src/Spellcheck/UI.lua#L338`](`../Src/Spellcheck/UI.lua#L338`))
+  - `EnsureSuggestionFrame` ([`../Src/Spellcheck/UI.lua#L353`](`../Src/Spellcheck/UI.lua#L353`))
+  - `SuggestionsEqual` ([`../Src/Spellcheck/UI.lua#L445`](`../Src/Spellcheck/UI.lua#L445`))
+  - `EnsureHintFrame` ([`../Src/Spellcheck/UI.lua#L455`](`../Src/Spellcheck/UI.lua#L455`))
+  - `CancelHintTimer` ([`../Src/Spellcheck/UI.lua#L481`](`../Src/Spellcheck/UI.lua#L481`))
+  - `ScheduleHintShow` ([`../Src/Spellcheck/UI.lua#L493`](`../Src/Spellcheck/UI.lua#L493`))
+  - `ShowHint` ([`../Src/Spellcheck/UI.lua#L571`](`../Src/Spellcheck/UI.lua#L571`))
+  - `HideHint` ([`../Src/Spellcheck/UI.lua#L602`](`../Src/Spellcheck/UI.lua#L602`))
+  - `UpdateHint` ([`../Src/Spellcheck/UI.lua#L607`](`../Src/Spellcheck/UI.lua#L607`))
+  - `IsSuggestionOpen` ([`../Src/Spellcheck/UI.lua#L630`](`../Src/Spellcheck/UI.lua#L630`))
+  - `IsSuggestionEligible` ([`../Src/Spellcheck/UI.lua#L634`](`../Src/Spellcheck/UI.lua#L634`))
+  - `HandleKeyDown` ([`../Src/Spellcheck/UI.lua#L641`](`../Src/Spellcheck/UI.lua#L641`))
+  - `MoveSelection` ([`../Src/Spellcheck/UI.lua#L702`](`../Src/Spellcheck/UI.lua#L702`))
+  - `RefreshSuggestionSelection` ([`../Src/Spellcheck/UI.lua#L724`](`../Src/Spellcheck/UI.lua#L724`))
+  - `OpenOrCycleSuggestions` ([`../Src/Spellcheck/UI.lua#L756`](`../Src/Spellcheck/UI.lua#L756`))
+  - `ShowSuggestions` ([`../Src/Spellcheck/UI.lua#L785`](`../Src/Spellcheck/UI.lua#L785`))
+  - `NextSuggestionsPage` ([`../Src/Spellcheck/UI.lua#L920`](`../Src/Spellcheck/UI.lua#L920`))
+  - `HideSuggestions` ([`../Src/Spellcheck/UI.lua#L947`](`../Src/Spellcheck/UI.lua#L947`))
+  - `ApplySuggestion` ([`../Src/Spellcheck/UI.lua#L971`](`../Src/Spellcheck/UI.lua#L971`))
 - Fields:
   - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L551`](../Src/Spellcheck/UI.lua#L551)).
 - Callbacks fired:
@@ -338,35 +344,54 @@ Initialised from `Spellcheck:Init` when present.
   - `phBias["phoneticHash:correction"] = { c, t }` — generalised phonetic correction memory.
   - `negBias["typo:word"] = { c, t, u }` — rejected suggestion penalties; penalty decays exponentially with age (~30-day half-life).
   - `auto[word] = { c, t }` — repeated uncorrected words pending auto-promotion.
+  - `intent[token] = { c, t, sentUnchanged, waived, accepted, corrected, lastSeen, pinned? }` — per-token intent evidence. `pinned` is set by explicit user actions (Add to Dictionary → `INTENTIONAL`, Ignore Word → `WAIVER`) and by auto-promotion; pinned records are immune to pruning.
+  - `intentCount: number` — cached count of `intent` entries.
+  - `bigram[prev][next] = { c, t }` — context transitions between sane tokens; sentence-initial words use the `"<s>"` pseudo-token.
+  - `bigramCount: number` — cached total transition count.
+  - `errProfile = { ops, conf }` — habitual error classes (`transpose`/`substitute`/`insert`/`delete`/`other` counts) plus byte-level confusion pairs (`"o>a"`).
   - `autoCount: number` — cached count of `auto` entries (maintained for O(1) cap checks).
   - `negBiasCount: number` — cached count of `negBias` entries.
   - `total: number` — tracked unique vocabulary size for frequency-cap enforcement.
   ([`../Src/Spellcheck/Adaptive.lua#L63-L100`](../Src/Spellcheck/Adaptive.lua#L63-L100)).
 - Methods:
-  - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L148`](../Src/Spellcheck/Adaptive.lua#L148))
-  - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L141`](../Src/Spellcheck/Adaptive.lua#L141))
-  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L808`](../Src/Spellcheck/Adaptive.lua#L808))
-  - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L645`](../Src/Spellcheck/Adaptive.lua#L645))
-  - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L236`](../Src/Spellcheck/Adaptive.lua#L236))
-  - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L111`](../Src/Spellcheck/Adaptive.lua#L111))
-  - `GetFreqCap` ([`../Src/Spellcheck/Adaptive.lua#L120`](../Src/Spellcheck/Adaptive.lua#L120))
-  - `GetBiasCap` ([`../Src/Spellcheck/Adaptive.lua#L127`](../Src/Spellcheck/Adaptive.lua#L127))
-  - `GetAutoThreshold` ([`../Src/Spellcheck/Adaptive.lua#L134`](../Src/Spellcheck/Adaptive.lua#L134))
-  - `Init` ([`../Src/Spellcheck/Adaptive.lua#L159`](../Src/Spellcheck/Adaptive.lua#L159))
-  - `GetLocaleDB` ([`../Src/Spellcheck/Adaptive.lua#L186`](../Src/Spellcheck/Adaptive.lua#L186))
-  - `IsSaneWord` ([`../Src/Spellcheck/Adaptive.lua#L260`](../Src/Spellcheck/Adaptive.lua#L260))
-  - `RecordUsage` ([`../Src/Spellcheck/Adaptive.lua#L296`](../Src/Spellcheck/Adaptive.lua#L296))
-  - `RecordSelection` ([`../Src/Spellcheck/Adaptive.lua#L343`](../Src/Spellcheck/Adaptive.lua#L343))
-  - `RecordImplicitCorrection` ([`../Src/Spellcheck/Adaptive.lua#L423`](../Src/Spellcheck/Adaptive.lua#L423))
-  - `RecordRejection` ([`../Src/Spellcheck/Adaptive.lua#L514`](../Src/Spellcheck/Adaptive.lua#L514))
-  - `RecordIgnored` ([`../Src/Spellcheck/Adaptive.lua#L546`](../Src/Spellcheck/Adaptive.lua#L546))
-  - `GetBonus` ([`../Src/Spellcheck/Adaptive.lua#L594`](../Src/Spellcheck/Adaptive.lua#L594))
-  - `Prune` ([`../Src/Spellcheck/Adaptive.lua#L691`](../Src/Spellcheck/Adaptive.lua#L691))
-  - `Reset` ([`../Src/Spellcheck/Adaptive.lua#L736`](../Src/Spellcheck/Adaptive.lua#L736))
-  - `GetDataSummary` ([`../Src/Spellcheck/Adaptive.lua#L752`](../Src/Spellcheck/Adaptive.lua#L752))
-  - `ClearSpecificUsage` ([`../Src/Spellcheck/Adaptive.lua#L845`](../Src/Spellcheck/Adaptive.lua#L845))
+  - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L166`](../Src/Spellcheck/Adaptive.lua#L166))
+  - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L159`](../Src/Spellcheck/Adaptive.lua#L159))
+  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L1804`](../Src/Spellcheck/Adaptive.lua#L1804))
+  - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L1281`](../Src/Spellcheck/Adaptive.lua#L1281))
+  - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L515`](../Src/Spellcheck/Adaptive.lua#L515))
+  - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L129`](../Src/Spellcheck/Adaptive.lua#L129))
+  - `YAS:GetFreqCap()` ([`../Src/Spellcheck/Adaptive.lua#L122`](../Src/Spellcheck/Adaptive.lua#L122))
+  - `YAS:GetBiasCap()` ([`../Src/Spellcheck/Adaptive.lua#L129`](../Src/Spellcheck/Adaptive.lua#L129))
+  - `YAS:GetAutoThreshold()` ([`../Src/Spellcheck/Adaptive.lua#L136`](../Src/Spellcheck/Adaptive.lua#L136))
+  - `YAS:GetIntentCap() → number` ([`../Src/Spellcheck/Adaptive.lua#L173`](../Src/Spellcheck/Adaptive.lua#L173)) — cap on `intent` records; configurable via `YASIntentCap`, default 1000, min 100, max 10000.
+  - `YAS:GetBigramCap() → number` ([`../Src/Spellcheck/Adaptive.lua#L181`](../Src/Spellcheck/Adaptive.lua#L181)) — cap on bigram transitions; configurable via `YASBigramCap`, default 2000, min 200, max 20000.
+  - `YAS:RecordExposure(word, locale)` ([`../Src/Spellcheck/Adaptive.lua#L699`](../Src/Spellcheck/Adaptive.lua#L699)) — session-only exposure credit: the suggestion popup is visible for this token now. Consumed by the next `RecordIgnored` for the same token; stale entries (>30s or >200 tracked) are dropped opportunistically.
+  - `YAS:GetIntent(word, locale) → "ACCIDENT"|"WAIVER"|"INTENTIONAL"|nil` ([`../Src/Spellcheck/Adaptive.lua#L847`](../Src/Spellcheck/Adaptive.lua#L847)) — classify a token. Order: pin → any correction evidence (ACCIDENT) → ≥3 consistent unchanged sends (INTENTIONAL) → seen-and-sent-unchanged (WAIVER) → unclassified.
+  - `YAS:PinIntent(word, class, locale)` ([`../Src/Spellcheck/Adaptive.lua#L734`](../Src/Spellcheck/Adaptive.lua#L734)) — permanent intent pin from explicit user actions.
+  - `YAS:PruneBigrams(limit, locale)` ([`../Src/Spellcheck/Adaptive.lua#L1258`](../Src/Spellcheck/Adaptive.lua#L1258)) — evicts lowest-scored transitions to ~90% of the cap; empty buckets are dropped.
+  - `YAS:StartConsolidation(locale)` / `YAS:_ConsolidationStep()` ([`../Src/Spellcheck/Adaptive.lua#L1305`](../Src/Spellcheck/Adaptive.lua#L1305)) — chunked background maintenance (≤200 entries/tick): halves cold counts (30d+), evicts stale unclassified intent (60d+), prunes bigrams/confusion pairs to cap. `C_Timer`-driven in-game; `_ConsolidationStep` is directly callable for deterministic tests.
+  - `YAS:Init()` ([`../Src/Spellcheck/Adaptive.lua#L212`](../Src/Spellcheck/Adaptive.lua#L212)) — parks flat pre-partition data under `_legacy`; the first real locale partition folds it in via merge.
+  - `YAS:GetLocaleDB(locale, noCreate)` ([`../Src/Spellcheck/Adaptive.lua#L245`](../Src/Spellcheck/Adaptive.lua#L245)) — nil locale resolves to the active spellcheck locale; pre-locale writes park under `_pending`. Read hot paths pass `noCreate=true` so lookups never allocate SavedVars tables. Stranded partitions (`_legacy`, `enBASE`, `enBase`, `_pending`) merge into the first real locale that asks.
+  - `YAS:EnsureFreqSorted(locale)` ([`../Src/Spellcheck/Adaptive.lua#L306`](../Src/Spellcheck/Adaptive.lua#L306))
+  - `YAS:IsSaneWord(w, locale)` ([`../Src/Spellcheck/Adaptive.lua#L338`](../Src/Spellcheck/Adaptive.lua#L338)) — consonant-cluster, keyboard-smash, engine veto, then an n-gram anchor against `"ngramIndex" .. GetNgramN()` (dynamic index name; check skipped while the index is absent during LOD).
+  - `YAS:RecordUsage(text, locale)` ([`../Src/Spellcheck/Adaptive.lua#L563`](../Src/Spellcheck/Adaptive.lua#L563)) — records freq plus `prev→next` bigram transitions (only between sane tokens; `<s>` marks openers); bumps `db._rev` on any scoring-relevant write.
+  - `YAS:RecordSelection(typo, correction, utilityGain, locale)` ([`../Src/Spellcheck/Adaptive.lua#L460`](../Src/Spellcheck/Adaptive.lua#L460))
+  - `YAS:RecordImplicitCorrection(typo, correction, candidates, locale)` ([`../Src/Spellcheck/Adaptive.lua#L539`](../Src/Spellcheck/Adaptive.lua#L539))
+  - `YAS:RecordRejection(typo, candidates, locale)` ([`../Src/Spellcheck/Adaptive.lua#L628`](../Src/Spellcheck/Adaptive.lua#L628)) — bumps `db._rev` on negBias writes. On an `INTENTIONAL` token the rejection is waiver evidence only — no `negBias` is written ("stop suggesting" semantics).
+  - `YAS:RecordIgnored(word, locale)` ([`../Src/Spellcheck/Adaptive.lua#L664`](../Src/Spellcheck/Adaptive.lua#L664)) — gated by `IsEnabled()` like every other entry point; decrements `autoCount` on promotion. Auto-promotion additionally requires the token to classify `INTENTIONAL` — a correction event anywhere in the token's history blocks promotion permanently.
+  - `YAS:GetBonus(cand, typo, typoPhHash, locale, prevWord)` ([`../Src/Spellcheck/Adaptive.lua#L1090`](../Src/Spellcheck/Adaptive.lua#L1090))
+  - `YAS:Prune(tableName, limit, locale)` ([`../Src/Spellcheck/Adaptive.lua#L816`](../Src/Spellcheck/Adaptive.lua#L816))
+  - `YAS:Reset(locale)` ([`../Src/Spellcheck/Adaptive.lua#L861`](../Src/Spellcheck/Adaptive.lua#L861))
+  - `YAS:GetDataSummary(locale)` ([`../Src/Spellcheck/Adaptive.lua#L877`](../Src/Spellcheck/Adaptive.lua#L877))
+  - `YAS:ClearSpecificUsage(usageType, key, locale)` ([`../Src/Spellcheck/Adaptive.lua#L970`](../Src/Spellcheck/Adaptive.lua#L970)) — supports `freq`/`bias`/`auto`/`phBias`/`negBias`; maintains cached counters and bumps `_rev` for scoring-relevant tables.
 - Score model:
-  - `GetBonus` applies `freqBonus`, `biasBonus`, `phBonus`, and `negBias` penalty and returns an additive score adjustment used in candidate ranking. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. ([`../Src/Spellcheck/Adaptive.lua#L660`](../Src/Spellcheck/Adaptive.lua#L660), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
+  - `GetBonus` sums six feature terms — `freqBonus`, `biasBonus`, `phBonus`, `negBias` penalty, `bigramBonus` (context: candidate follows the observed prev→next transition), `errAffinity` (candidate's required edit matches the user's habitual error class) — each as `WEIGHT_i * f_i * m_i`. The `negBias` penalty is time-decayed: `penalty × 1/(ageDays/30 + 1)`, halving roughly every 30 days. The suggestion cache key includes the normalised `prevWord` so context-sensitive scoring cannot collide across contexts.
+  - Learned scorer (`db.model`): the per-feature multipliers `m_i` start at 1.0 (= frozen WEIGHTS behaviour) and get bounded perceptron updates — `RecordSelection` reinforces the accepted candidate's feature vector, `RecordRejection` dampens rejected candidates (≤5 per call). `lr = 0.02 / (1 + updates/500)`, multipliers clamped to [0.25, 4.0]. `FeatureVector` is shared between scoring and updates so both paths agree exactly.
+  - Self-eval: a YAS-surfaced pick (`utilityGain > 0`) is remembered in the session-only `YAS._lastPromoted` map; if the same token is later manually re-corrected to a *different* word it counts as `retypeAfterPromoted`. Once ≥20 promoted picks have a ≥40% re-correction ratio, all multipliers regress halfway toward 1.0 and the eval counters reset — the model's own circuit breaker against overreach.
+- Autocorrect scaffold (decision machinery only — nothing mutates user text):
+  - `YAS:ClassifySuggestion(typo, candidate, locale, prevWord)` returns `{ suggestion, confidence, tier, vetoReasons }`. Tiers: `AUTO` (≥0.8 conf, no vetoes), `SUGGEST` (≥0.4), `OFFER`, `SUPPRESS` (INTENTIONAL/WAIVER intent is a permanent hard veto). Engine `Autocorrect.AutocorrectVeto`/`MaxConfidence` are honoured; a hot re-correction ratio suspends AUTO.
+  - `YAS:ShadowClassify(typo, candidate, locale, prevWord)` — opt-in via `Config.Spellcheck.YASAutocorrectShadow`; classifies and appends to a bounded `db.autocorrLog` ring (50 entries) so would-be autocorrections are observable before any apply path exists. Called for the top candidate in `Spellcheck.Engine`'s suggestion path.
+  - `YAS:PushUndo(entry)`/`YAS:PopUndo()` — session-only LIFO ring (50) for future revertable applications; populated only by a real apply path. ([`../Src/Spellcheck/Adaptive.lua#L719`](../Src/Spellcheck/Adaptive.lua#L719), [`../Src/Spellcheck/Engine.lua#L695-L696`](../Src/Spellcheck/Engine.lua#L695-L696)).
 - Learning entry points:
   - `Chat:DirectSend` records usage and ignored-word counts ([`../Src/Chat.lua#L199-L215`](../Src/Chat.lua#L199-L215)).
   - `Spellcheck.UI` records explicit suggestion picks/rejections ([`../Src/Spellcheck/UI.lua#L869-L962`](../Src/Spellcheck/UI.lua#L869-L962)).
@@ -772,11 +797,11 @@ Binds to overlay (or multiline) editbox when available.
   - `CurrentPrefix` ([`../Src/Autocomplete.lua#L61`](`../Src/Autocomplete.lua#L61`))
   - `PrefixText` ([`../Src/Autocomplete.lua#L62`](`../Src/Autocomplete.lua#L62`))
   - `Active` ([`../Src/Autocomplete.lua#L63`](`../Src/Autocomplete.lua#L63`))
-  - `Enabled` ([`../Src/Autocomplete.lua#L62`](`../Src/Autocomplete.lua#L62`))
+  - `Enabled` ([`../Src/Autocomplete.lua#L78`](`../Src/Autocomplete.lua#L78`))
   - `_activeEditBox` ([`../Src/Autocomplete.lua#L65`](`../Src/Autocomplete.lua#L65`))
   - `_isMultiline` ([`../Src/Autocomplete.lua#L66`](`../Src/Autocomplete.lua#L66`))
 - Methods:
-  - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L607`](../Src/Autocomplete.lua#L607))
+  - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L624`](../Src/Autocomplete.lua#L624))
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 
 ## History
@@ -971,8 +996,8 @@ Per-category page builders called by `BuildConfigUI`.
   - `CreateCreditsPage` ([`../Src/Interface/Pages.lua#L829`](`../Src/Interface/Pages.lua#L829`))
   - `CreateSpellcheckLocaleDropdown` ([`../Src/Interface/Pages.lua#L941`](`../Src/Interface/Pages.lua#L941`))
   - `CreateSpellcheckKeyboardLayoutDropdown` ([`../Src/Interface/Pages.lua#L1041`](`../Src/Interface/Pages.lua#L1041`))
-  - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1090`](`../Src/Interface/Pages.lua#L1090`))
-  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1276`](`../Src/Interface/Pages.lua#L1276`))
+  - `CreateSpellcheckUserDictEditor` ([`../Src/Interface/Pages.lua#L1106`](`../Src/Interface/Pages.lua#L1106`))
+  - `CreateThemeDropdown` ([`../Src/Interface/Pages.lua#L1292`](`../Src/Interface/Pages.lua#L1292`))
 - Invariants:
   - Dropdown handlers assume config roots are initialised.
 
@@ -982,12 +1007,12 @@ Per-category page builders called by `BuildConfigUI`.
   - `Emotes:EnsureHintUI() → nil`: Ensures the emote hint UI is created. ([`../Src/Emotes.lua#L182`](../Src/Emotes.lua#L182))
   - `Emotes:EnsureMenuUI() → nil`: Ensures the emote menu UI is created. ([`../Src/Emotes.lua#L54`](../Src/Emotes.lua#L54))
   - `Emotes:InitEmoteList() → nil`: Populates the emote list. Only called when the menu is actually opened. ([`../Src/Emotes.lua#L28`](../Src/Emotes.lua#L28))
-  - `Emotes:ApplySelection(index, isEnter) → nil`: Applies the selected emote to the edit box and hides the menu. If `autoSend` is enabled, immediately sends the emote to chat; otherwise, appends a space and refocuses the edit box (suppressing the Enter key if `isEnter` is true). ([`../Src/Emotes.lua#L393`](../Src/Emotes.lua#L393))
-  - `Emotes:RefreshSelection() → nil`: Highlights the currently selected row in the emote menu. ([`../Src/Emotes.lua#L378`](../Src/Emotes.lua#L378))
-  - `Emotes:FilterAndShow() → nil`: Re-renders the emote menu UI based on the current ActiveFilter. ([`../Src/Emotes.lua#L277`](../Src/Emotes.lua#L277))
-  - `Emotes:FilterMenu(query) → nil`: Prepares the search filter state from a raw slash command query. ([`../Src/Emotes.lua#L267`](../Src/Emotes.lua#L267))
-  - `Emotes:HideMenu() → nil`: Hides the emote menu. ([`../Src/Emotes.lua#L259`](../Src/Emotes.lua#L259))
-  - `Emotes:OpenMenu() → nil`: Opens the emote menu. ([`../Src/Emotes.lua#L239`](../Src/Emotes.lua#L239))
+  - `Emotes:ApplySelection(index, isEnter) → nil`: Applies the selected emote to the edit box and hides the menu. If `autoSend` is enabled, immediately sends the emote to chat; otherwise, appends a space and refocuses the edit box (suppressing the Enter key if `isEnter` is true). ([`../Src/Emotes.lua#L396`](../Src/Emotes.lua#L396))
+  - `Emotes:RefreshSelection() → nil`: Highlights the currently selected row in the emote menu. ([`../Src/Emotes.lua#L381`](../Src/Emotes.lua#L381))
+  - `Emotes:FilterAndShow() → nil`: Re-renders the emote menu UI based on the current ActiveFilter. ([`../Src/Emotes.lua#L280`](../Src/Emotes.lua#L280))
+  - `Emotes:FilterMenu(query) → nil`: Prepares the search filter state from a raw slash command query. ([`../Src/Emotes.lua#L270`](../Src/Emotes.lua#L270))
+  - `Emotes:HideMenu() → nil`: Hides the emote menu. ([`../Src/Emotes.lua#L262`](../Src/Emotes.lua#L262))
+  - `Emotes:OpenMenu() → nil`: Opens the emote menu. ([`../Src/Emotes.lua#L242`](../Src/Emotes.lua#L242))
 
 ## Utilities
 
@@ -1070,3 +1095,17 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 
 - Methods:
   - `Keybinds:SyncContextYields() → nil`: Re-apply override bindings so keys claimed by an active binding context (e.g. housing editor modes) stay yielded; unlike `RefreshOverrides` it intentionally runs during combat/chat lockdown since override set/clear is not a protected operation. Called by binding-context and housing-selection change triggers. ([`../Src/EditBox/Keybinds.lua#L503`](../Src/EditBox/Keybinds.lua#L503))
+
+## Strings
+
+Localisation resolver: canonical `enUS` table plus owner-captured sparse
+locale overrides contributed by dictionary addons via
+`YapperAPI:RegisterStrings`. Resolution follows the **client** UI locale
+(never the spellcheck dictionary locale) → `enUS` fallback → the key itself.
+UI resolves strings at render/show time; a `STRINGS_UPDATED` event fires
+when registrations arrive so visible widgets can relabel.
+
+- Methods:
+  - `Strings:Get(key, ...) → string`: Resolve a key for the active client locale with enUS fallback; trailing args are `string.format` parameters. ([`../Src/Strings.lua#L92`](../Src/Strings.lua#L92))
+  - `Strings:Register(locale, tbl, owner) → boolean ok`: Register a sparse locale string table; keys must already exist in the canonical enUS table, `enUS` cannot be overridden, values are length-bounded, and owner-captured re-registration replaces that owner's contribution. ([`../Src/Strings.lua#L117`](../Src/Strings.lua#L117))
+  - `Strings:CanonicalKeys() → table`: Enumerate canonical keys — used by `tools/check_string_refs.py` and tests. ([`../Src/Strings.lua#L190`](../Src/Strings.lua#L190))

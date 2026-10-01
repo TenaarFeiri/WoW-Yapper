@@ -1,3 +1,34 @@
+# 2.4.6
+
+### New Features
+- Dictionaries are now isolated from the core spellchecking engine, and control their own logic!
+- - This means anyone can make a dictionary to add to Yapper's language support! :D
+- Dictionary addons now own everything language-specific: word tokenisation, normalisation, phonetics, affixes/morphology, casing rules, variant spellings, keyboard layouts, and blocked-word lists — all through a validated `RegisterLanguageEngine` contract.
+- Language families are owner-locked: only the addon that registered a language engine may replace it, and dictionaries can only bind to a valid engine.
+- A faulting language engine is automatically purged along with its dependent dictionaries instead of corrupting spellcheck state.
+- Full dictionary-authoring documentation added in `Documentation/Dictionaries.md`.
+- UI strings are now localisable: Yapper ships a complete English string table and dictionary addons can register translations (`RegisterStrings`) that update the UI when they load — German labels can ship with the German dictionary, no core changes needed.
+- YAS is now genuinely adaptive rather than a fixed lookup table:
+- - Intent classification: YAS learns to tell accidental typos from intentional spellings (like your RP name) by watching whether you see suggestions and still send the word unchanged, whether you always spell it the same way, and whether you correct it — consistently-misspelled-but-deliberate words stop being flagged.
+- - Context awareness: YAS learns which words you actually write after other words and favours candidates that fit your habits.
+- - Error-profile learning: your habitual slip pattern (transposing letters, dropping doubles, specific letter confusions) now generalises — learned corrections help beyond the exact typo you made.
+- - Learned scoring: the suggestion weights adapt to how *you* pick corrections, with a self-evaluation circuit breaker that regresses the model if YAS-surfaced picks keep getting re-corrected.
+
+### Technical Changes
+- Removed the built-in English fallback engine — all language behaviour now flows through the registered engine contract. English and German ship their own engines.
+- YAS phonetic-bias learning and phonetic autocomplete now actually work — `Spellcheck:GetPhoneticHash` never existed, so those paths were silently dead until the engine delegate exposed them.
+- The German blocked-word generator now hashes UTF-8 bytes correctly (umlauts/eszett were producing wrong hashes).
+- All YAS learned data is strictly bounded and periodically consolidated in small per-tick chunks, so it can't grow memory unbounded or stall frames.
+- Autocorrect scaffolding is in place — confidence tiers, vetoes, a bounded shadow decision log, and an undo ring — plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like German compound splitting). Nothing is auto-applied yet.
+- Test-suite fix: one YAS suite was silently passing without exercising anything (missing stub meant the feature read as disabled); it now genuinely gates, which caught and fixed a saturation-check assumption.
+
+### Bug Fixes
+- Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary — the setting toggle now stops all observation, learning, and dictionary writes.
+- Restored lost learned data: legacy learned vocabulary and personal dictionaries were being migrated into an orphaned `enBASE` partition that nothing ever read — existing users' migrated data is recovered and merged into the correct language partition.
+- Suggestion cache now correctly refreshes when YAS learns (frequency, rejections, and clears now invalidate cached scores) — previously a candidate you rejected could immediately reappear.
+- YAS word-sanity checks now respect the configured n-gram size instead of silently disabling themselves.
+- Learned words are now keyed through the same normaliser as everything else, and word-count caps stay accurate when entries are promoted or cleared.
+
 # 2.4.5
 
 ### New Features
