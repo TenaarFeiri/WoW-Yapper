@@ -16,6 +16,7 @@ local LABEL_PREFIXES     = EditBox._LABEL_PREFIXES
 -- Re-localise Lua globals.
 local type       = type
 local pairs      = pairs
+local ipairs     = ipairs
 local tostring   = tostring
 local tonumber   = tonumber
 local math_max   = math.max
@@ -24,6 +25,21 @@ local table_insert = table.insert
 
 local function IsUsableNumber(value)
     return type(value) == "number" and not Utils:IsSecret(value)
+end
+
+-- Per-texture alpha falloff shared by the overlay drop shadow (index into it
+-- by shadow texture position). Used by ApplyShadowTint below.
+local SHADOW_FALLOFF = { 0.5, 0.3, 0.15 }
+
+--- Recolour a frame's drop-shadow textures in place.
+--- alphaBase carries the user's configured base opacity; the falloff shapes
+--- each layer's final alpha. No-op when the shadow layer has not been built.
+local function ApplyShadowTint(frame, r, g, b, alphaBase)
+    if not frame or not frame._yapperShadows then return end
+    for i, stex in ipairs(frame._yapperShadows) do
+        stex:SetColorTexture(r or 0, g or 0, b or 0,
+            (alphaBase or 0.5) * (SHADOW_FALLOFF[i] or 0.1))
+    end
 end
 
 local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
@@ -98,6 +114,15 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
 
     local shadCol     = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
     local shadSz      = cfg.ShadowSize or 4
+    -- When enabled, the shadow follows the resolved channel colour (stored by
+    -- RefreshLabel); the configured alpha still governs base opacity.
+    local shadR, shadG, shadB = shadCol.r or 0, shadCol.g or 0, shadCol.b or 0
+    if cfg.ShadowChannelColor == true then
+        local c = editBox._lastChannelRGB
+        if c and IsUsableNumber(c.r) and IsUsableNumber(c.g) and IsUsableNumber(c.b) then
+            shadR, shadG, shadB = c.r, c.g, c.b
+        end
+    end
 
     -- Input background fill + dynamic inset so it never bleeds outside the border.
     local fillR = inputBg.r or 0.05
@@ -166,10 +191,8 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
             stex:ClearAllPoints()
             stex:SetPoint("TOPLEFT", overlay, "TOPLEFT", -offset, offset)
             stex:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", offset + (pad / 2), -offset - (pad / 2))
-            local alphaBase = shadCol.a or 0.5
-            local falloff = { 0.5, 0.3, 0.15 }
-            stex:SetColorTexture(shadCol.r or 0, shadCol.g or 0, shadCol.b or 0, alphaBase * (falloff[i] or 0.1))
         end
+        ApplyShadowTint(overlay, shadR, shadG, shadB, shadCol.a or 0.5)
     else
         if overlay._yapperShadowLayer then
             overlay._yapperShadowLayer:Hide()
@@ -787,6 +810,7 @@ end
 
 -- Export visual/label locals for Hooks.lua & Handlers.lua.
 EditBox._RefreshOverlayVisuals     = RefreshOverlayVisuals
+EditBox._ApplyShadowTint           = ApplyShadowTint
 EditBox._ResolveChannelName        = ResolveChannelName
 EditBox._BuildLabelText            = BuildLabelText
 EditBox._GetLabelUsableWidth       = GetLabelUsableWidth

@@ -102,6 +102,10 @@ local SETTING_TOOLTIPS              = {
     ["EditBox.Shadow"] = "Render a soft drop-shadow behind the chat overlay.",
     ["EditBox.ShadowSize"] = "Size/thickness of the drop-shadow rendering effect.",
     ["EditBox.ShadowColor"] = "Colour and base opacity of the drop-shadow effect.",
+    ["EditBox.ShadowChannelColor"] =
+    "Recolour the drop shadow to match the selected chat channel's colour (including your per-channel overrides).",
+    ["EditBox.MultilineShadowChannelColor"] =
+    "Recolour the storyteller/multiline editor's drop shadow to match the selected chat channel's colour.",
     ["EditBox.FontFace"] = "Custom font file path. Leave empty to use default font.",
     ["EditBox.AutoFitLabel"] =
     "If enabled, label text shrinks to fit. If disabled, long labels are truncated with ellipsis.",
@@ -176,6 +180,8 @@ local FRIENDLY_LABELS               = {
     ["EditBox.Shadow"] = "Enable drop shadow",
     ["EditBox.ShadowSize"] = "Shadow thickness",
     ["EditBox.ShadowColor"] = "Shadow colour",
+    ["EditBox.ShadowChannelColor"] = "Shadow uses channel colour",
+    ["EditBox.MultilineShadowChannelColor"] = "Multiline shadow uses channel colour",
     ["EditBox.FontFace"] = "Font file path",
     ["EditBox.AutoFitLabel"] = "Auto-fit long labels",
     ["EditBox.StickyChannel"] = "Remember last channel",
@@ -244,6 +250,8 @@ local CATEGORIES                    = {
             "EditBox.RoundedCorners",
             "EditBox.Shadow",
             "EditBox.ShadowSize",
+            "EditBox.ShadowChannelColor",
+            "EditBox.MultilineShadowChannelColor",
             -- Colours
             "EditBox.InputBg",
             "EditBox.LabelBg",

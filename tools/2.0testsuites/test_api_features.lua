@@ -48,10 +48,24 @@ assert(type(YapperTable.API) == "table", "YapperTable.API not created")
 
 local tmpFiles = {}
 
+-- Portable temp root: TMPDIR on Unix, TEMP/TMP on Windows. The fake
+-- "AddOns/..." suffix keeps owner detection working on either platform.
+local IS_WINDOWS = package.config:sub(1, 1) == "\\"
+local TMP_ROOT = (os.getenv("TMPDIR") or os.getenv("TEMP") or os.getenv("TMP") or "/tmp")
+    .. "/_yappertest"
+
+local function mkdirp(dir)
+    if IS_WINDOWS then
+        os.execute('mkdir "' .. dir:gsub("/", "\\") .. '" 2>NUL')
+    else
+        os.execute("mkdir -p '" .. dir .. "'")
+    end
+end
+
 local function load_as(code, fake_path)
     local dir = fake_path:match("(.+)/")
-    if dir then os.execute("mkdir -p '/tmp/_yappertest/" .. dir .. "'") end
-    local full = "/tmp/_yappertest/" .. fake_path
+    if dir then mkdirp(TMP_ROOT .. "/" .. dir) end
+    local full = TMP_ROOT .. "/" .. fake_path
     local f = assert(io.open(full, "w"))
     f:write(code)
     f:close()
@@ -63,7 +77,11 @@ end
 
 local function cleanup()
     for i = #tmpFiles, 1, -1 do os.remove(tmpFiles[i]) end
-    os.execute("rm -rf /tmp/_yappertest 2>/dev/null")
+    if IS_WINDOWS then
+        os.execute('rmdir /s /q "' .. TMP_ROOT:gsub("/", "\\") .. '" 2>NUL')
+    else
+        os.execute("rm -rf '" .. TMP_ROOT .. "' 2>/dev/null")
+    end
 end
 
 -- ================= TESTS =================

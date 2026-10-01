@@ -90,6 +90,11 @@ local DEFAULTS = {
         Shadow                = false,
         ShadowColor           = { r = 0, g = 0, b = 0, a = 0.5 },
         ShadowSize            = 4,
+        -- Tint the drop shadow to the resolved channel colour (the same colour
+        -- the label/edit text resolves to, including user overrides).
+        ShadowChannelColor    = true,
+        -- Same, but for the storyteller/multiline frame's shadow.
+        MultilineShadowChannelColor = true,
 
         -- Input area background
         InputBg               = {

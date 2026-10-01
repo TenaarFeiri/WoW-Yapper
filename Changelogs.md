@@ -3,6 +3,7 @@
 ### New Features
 - Support World of Warcraft: Forever! Still in beta.
 - Now supports Firstname and Lastname whispers in WoWF.
+- The drop shadow can now follow your selected channel's colour (respecting your per-channel overrides) for both the overlay and the storyteller/multiline editor — on by default, with separate toggles under Appearance settings.
 
 ### Technical Changes
 - Cleaned up a bunch of dead code.

@@ -490,7 +490,8 @@ function Interface:IsPathDisabledByTheme(path)
     if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
         local full = JoinPath(path)
         if full == "EditBox.RoundedCorners" or full == "EditBox.Shadow" or
-            full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor" then
+            full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor" or
+            full == "EditBox.ShadowChannelColor" then
             return true
         end
         if full == "EditBox.HideBlizzardEditbox" then
@@ -505,7 +506,8 @@ function Interface:IsPathDisabledByTheme(path)
     if full == "EditBox.RoundedCorners" and activeTheme.allowRoundedCorners == false then
         return true
     end
-    if (full == "EditBox.Shadow" or full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor")
+    if (full == "EditBox.Shadow" or full == "EditBox.ShadowSize" or full == "EditBox.ShadowColor"
+        or full == "EditBox.ShadowChannelColor" or full == "EditBox.MultilineShadowChannelColor")
         and activeTheme.allowDropShadow == false then
         return true
     end

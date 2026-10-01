@@ -34,6 +34,7 @@ YapperTable.EditBoxHooksCore = {
 
     -- Overlay helpers (set by Overlay.lua, loaded before us)
     RefreshOverlayVisuals = EditBox._RefreshOverlayVisuals,
+    ApplyShadowTint = EditBox._ApplyShadowTint,
     ResolveChannelName = EditBox._ResolveChannelName,
     BuildLabelText = EditBox._BuildLabelText,
     GetLabelUsableWidth = EditBox._GetLabelUsableWidth,
