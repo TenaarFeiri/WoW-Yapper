@@ -80,7 +80,7 @@ local function FormatSafe(str, ...)
     local args = { ... }
     local count = select(2, str:gsub("%%s", ""))
 
-    -- Too many args — concatenate extras into the last slot.
+    -- Too many args: fold extras into the last slot.
     if #args > count and count > 0 then
         local extras = {}
         for i = count + 1, #args do extras[#extras + 1] = tostring(args[i]) end
@@ -88,7 +88,7 @@ local function FormatSafe(str, ...)
         for i = #args, count + 1, -1 do args[i] = nil end
     end
 
-    -- Too few args — pad with "".
+    -- Pad missing args with "".
     while #args < count do args[#args + 1] = "" end
 
     return string_format(str, unpack(args))

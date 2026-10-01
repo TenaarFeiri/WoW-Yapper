@@ -132,7 +132,7 @@ function Bridge:UpdateState(val)
     self.Enabled = enabled
 
     if not enabled then
-        -- If we were typing, send one last "Stop" signal so we don't get stuck until timeout
+        -- Send a final "stop" so the tracker doesn't sit until timeout.
         if Bridge._isTyping or lastChatType then
             YapperTable.Utils:DebugPrint("TypingTrackerBridge: Disabled - sending final Stop signal.")
             SignalNotTyping()
@@ -199,10 +199,9 @@ end
 -- ---------------------------------------------------------------------------
 -- API self-registration
 -- ---------------------------------------------------------------------------
--- Register as a callback consumer via the public API so the bridge is driven
--- entirely through the event system rather than hardcoded calls.
--- The direct calls from EditBox are kept as a legacy path; this registration
--- is the forward-looking pattern.
+-- Register as a callback consumer so the bridge is driven through the event
+-- system rather than hardcoded calls. Direct calls from EditBox remain as a
+-- legacy path.
 
 if _G.YapperAPI then
     _G.YapperAPI:RegisterCallback("STATE_CHANGED", function(newState, oldState, chatType)
@@ -210,7 +209,7 @@ if _G.YapperAPI then
 
         local State = YapperTable.State
         if State:IsInputActive() then
-            -- Use the chatType passed during transition, or fall back to overlay state, or default.
+            -- Prefer the chatType from the transition; fall back to overlay state.
             local effectiveChatType = chatType or (YapperTable.EditBox and YapperTable.EditBox.ChatType) or "SAY"
             Bridge:OnOverlayFocusGained(effectiveChatType)
         elseif newState == "SENDING" or newState == "IDLE" then

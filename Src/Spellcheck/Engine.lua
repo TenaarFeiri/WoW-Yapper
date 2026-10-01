@@ -18,7 +18,6 @@ local IterWords       = Spellcheck.IterWords
 local SCORE_WEIGHTS   = Spellcheck._SCORE_WEIGHTS
 local RAID_ICONS      = Spellcheck._RAID_ICONS
 
--- Re-localise Lua globals.
 local type            = type
 local pairs           = pairs
 local ipairs          = ipairs
@@ -43,9 +42,8 @@ local Utils = YapperTable.Utils
 -- ---------------------------------------------------------------------------
 -- Engine accessor helper
 -- ---------------------------------------------------------------------------
--- Returns the active language engine if one is registered for the current
--- locale's family, otherwise a synthetic table that delegates to the
--- built-in English helpers so all call-sites can be written uniformly.
+-- GetEngineFor returns the engine registered for the current locale's family,
+-- or a built-in English fallback table so callers can be written uniformly.
 local VARIANT_RULES = {
     { "or",  "our" }, { "our", "or" },
     { "ize", "ise" }, { "ise", "ize" },
@@ -143,10 +141,9 @@ function Spellcheck:ShouldCheckWord(word, minLen)
 end
 
 function Spellcheck:GetIgnoredRanges(text)
-    -- Memoize on the exact text: within a single spellcheck pass this is called
-    -- twice (CollectMisspellings + GetWordAtCursor) on identical text, and it
-    -- performs five full-text scans each time. The one-entry cache is invalidated
-    -- automatically the moment the text changes.
+    -- Called twice per spellcheck pass on identical text and does five
+    -- full-text scans, so memoize on the text itself; the one-entry cache
+    -- invalidates automatically when the text changes.
     if text == self._ignoredRangesText and self._ignoredRangesCache then
         return self._ignoredRangesCache
     end
@@ -237,14 +234,14 @@ function Spellcheck:IsWordCorrect(word)
         return true
     end
 
-    -- 3. Solve A: Affix-stripping fallback
+    -- 3. Affix-stripping fallback
     local engine = self:GetActiveEngine()
     if engine and engine.StripAffixes then
         local base = engine:StripAffixes(norm, dict)
         if base then
-            -- Security check: is the stripped root blocked?
+            -- The stripped root must also clear the blocklist.
             if not self:IsWordBlocked(base, self:GetLocale(), true) then
-                return true, true -- [NEW] Second return indicates affix match
+                return true, true -- second return flags an affix match
             end
         end
     end
@@ -259,18 +256,15 @@ function Spellcheck:ResolveImplicitTrace(force)
     local text, cursor = YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
     local caret = cursor + 1
 
-    -- If not forced, only resolve if the cursor has left the word boundaries
-    -- (accounting for potential length changes).
+    -- Unless forced, only resolve once the cursor has clearly left the word
+    -- (the boundary is generous to tolerate active typing).
     if not force then
-        -- We use a slightly generous boundary check to handle active typing
-        -- but trigger once they are clearly elsewhere.
         if caret >= trace.startPos and caret <= (trace.endPos + 1) then
-            return -- Still inside or at boundary
+            return -- still inside or at boundary
         end
     end
 
-    -- Dynamic Resolution: Re-scan the word at the trace position to find its
-    -- current length.
+    -- Re-scan the traced position; the word may have changed length.
     if #text >= trace.startPos then
         local s = trace.startPos
         local e = s
@@ -283,7 +277,7 @@ function Spellcheck:ResolveImplicitTrace(force)
 
         local currentWord = text:sub(s, e)
         if currentWord ~= "" and currentWord ~= trace.word then
-            -- IsSaneWord guards against keyboard-smash or junk.
+            -- Only learn when the user retyped it into a real word.
             if self:IsWordCorrect(currentWord) then
                 if self.YAS and self.YAS.RecordImplicitCorrection then
                     local locale = self:GetLocale()
@@ -314,9 +308,10 @@ function Spellcheck:UpdateActiveWord()
 
     local wordInfo = self:GetWordAtCursor(text, cursor)
 
-    -- Implicit learning: check if the user manually corrected without using a suggestion
+    -- If the user retyped a misspelling without picking a suggestion, that
+    -- manual fix is worth learning (implicit trace).
     if self._implicitTrace then
-        self:ResolveImplicitTrace(false) -- Non-forced check
+        self:ResolveImplicitTrace(false)
     end
 
     if not wordInfo then
@@ -395,7 +390,7 @@ function Spellcheck:GetWordAtCursor(text, cursor)
         isFirstWord = false
 
         if isCurrentFirstWord and skipFirstWord then
-            -- Skip returning this word for autocomplete
+            -- Slash command + emote picker: don't spellcheck the command word.
         elseif caret >= s and caret <= (e + 1)
             and not self:IsRangeIgnored(s, e, ignoreRanges)
             and self:ShouldCheckWord(word, minLen) then
@@ -612,9 +607,6 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
     }
 end
 
--- The fallback VARIANT_RULES was moved to the top of the file to
--- correctly populate _builtinEngine on first use.
-
 local function CommonPrefixLen(a, b)
     local len = math_min(#a, #b)
     for i = 1, len do
@@ -694,7 +686,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
         score = score - W.firstCharBias
     end
 
-    -- Vowel-Neutral Match Bonus (Optimised: pre-normalised lower)
+    -- Vowel-neutral match bonus
     if ctx.normVowelsFn(candidate) == ctx.lowerVowels then
         score = score - W.vowelBonus
     end
@@ -704,7 +696,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
         score = score - ((candidateLen - lowerLen) * 0.75)
     end
 
-    -- Apostrophe handling
+    -- Apostrophe handling: compare flat (apostrophe-stripped) forms too.
     local cHasApostrophe = candidate:find("'", 1, true)
     if cHasApostrophe or ctx.lHasApostrophe then
         local cFlat = cHasApostrophe and string_gsub(candidate, "'", "") or candidate
@@ -722,9 +714,8 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     local variantBonus = LocaleVariantBonus(ctx, candidate)
     if variantBonus > 0 then score = score - variantBonus end
 
-    -- Keyboard proximity bonus
+    -- Keyboard proximity bonus: only plausible for near-misses.
     if dist <= 2 and lenDiff <= 1 and ctx.kbLayouts then
-        -- Build or reuse the KB distance table for this context's layout.
         local layout    = Spellcheck:GetKeyboardLayout()
         local layouts   = ctx.kbLayouts
         local kbDist    = Spellcheck:_GetKBDistFromLayouts(layouts, layout)
@@ -774,7 +765,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     out[#out + 1] = { word = candidate, dist = dist, score = score, baseScore = baseScore, bag = bagScore }
 end
 
---- Inject direct locale variant swaps (colour↔color etc.) into the output.
+--- Inject direct locale variant swaps (colour<->color etc.) into the output.
 local function InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engineHashFn)
     local lower = ctx.lower
     local dict = ctx.dict
@@ -964,7 +955,7 @@ function Spellcheck:GetSuggestions(word)
     -- Base dict if this is a delta
     local base                             = dict.extends and self.Dictionaries[dict.extends]
 
-    -- ── Gather candidate lists ───────────────────────────────────────
+    -- Gather candidate lists
     local prefixCandidates                 = GatherPrefixCandidates(dict, base, first)
     local addedCandidates                  = GatherUserCandidates(self, locale)
 
@@ -975,9 +966,8 @@ function Spellcheck:GetSuggestions(word)
 
     local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
-    -- ── YAS Bias Injection ─────────────────────────────────────────
-    -- If YAS has learned specific corrections for this typo, inject them
-    -- directly into the pool to ensure they aren't starved by shard caps.
+    -- YAS bias injection: learned corrections go straight into the pool so
+    -- they aren't starved by shard caps.
     local learnedCandidates                = {}
     if self.YAS and self.YAS.GetBiasTargets then
         local targets = self.YAS:GetBiasTargets(lower, locale)
@@ -994,7 +984,7 @@ function Spellcheck:GetSuggestions(word)
             tostring(word), tostring(lower), #prefixCandidates, #learnedCandidates))
     end
 
-    -- ── Build scoring context ────────────────────────────────────────
+    -- Build scoring context
     local inputBag, inputBigrams = BuildInputMeta(self, lower)
     local ctx = MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale, engine)
 
@@ -1009,7 +999,7 @@ function Spellcheck:GetSuggestions(word)
         dynamicCap = math_min(maxCandidates * 4, 5000)
     end
 
-    -- ── Candidate evaluation pipeline ────────────────────────────────
+    -- Candidate evaluation pipeline
     local checks = 0
     local seenCandidates = {}
 
@@ -1118,7 +1108,7 @@ function Spellcheck:GetSuggestions(word)
             tostring(checks) .. " candidatesFound=" .. tostring(#out))
     end
 
-    -- ── Sort + output ────────────────────────────────────────────────
+    -- Sort + output
     table_sort(out, function(a, b)
         if a.score == b.score then
             if a.dist == b.dist then return a.word < b.word end
@@ -1134,7 +1124,7 @@ function Spellcheck:GetSuggestions(word)
         final[i] = { kind = "word", value = o.word, score = o.score, baseScore = o.baseScore }
     end
 
-    -- Add optional actions
+    -- Add optional "add to dictionary" / "ignore" actions after the words.
     local addedSet2, ignoredSet2 = self:GetUserSets(self:GetLocale())
     if word and word ~= "" then
         local norm = NormaliseWord(word)
@@ -1146,10 +1136,8 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    -- Update suggestion cache
-    -- Mirror capitalisation: if the user's original word started with an
-    -- uppercase letter, capitalise the first letter of every word suggestion.
-    -- This preserves sentence-start capitalisation and conscious proper nouns.
+    -- Mirror capitalisation: if the input word started uppercase, capitalise
+    -- every word suggestion (preserves sentence starts and proper nouns).
     local wb = string_byte(word, 1)
     if wb and wb >= 65 and wb <= 90 then
         for _, entry in ipairs(final) do
@@ -1159,11 +1147,9 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    -- ── Compound split detection ─────────────────────────────────────────
-    -- Check if the misspelled token is two valid dictionary words run together
-    -- (e.g. "I'msupposed" → "I'm supposed"). Exact splits only; YAS is
-    -- intentionally bypassed for these entries since both halves are already
-    -- valid words and there is nothing for the learner to remember.
+    -- Compound split detection: is the token two valid words run together
+    -- (e.g. "I'msupposed" -> "I'm supposed")? YAS is bypassed for splits since
+    -- both halves are already valid words, so there is nothing to learn.
     local minSplitLen = math_max(2, self:GetMinWordLength())
     if lowerLen > minSplitLen * 2 then
         local splitResults = {}
@@ -1242,8 +1228,7 @@ function Spellcheck:EditDistance(a, b, maxDist)
     local cur = self._ed_cur
     local prevPrev = self._ed_prev_prev
 
-    -- init prev row
-    for j = 0, lenB do prev[j] = j end
+    for j = 0, lenB do prev[j] = j end -- init prev row
 
     for i = 1, lenA do
         cur[0] = i
@@ -1280,11 +1265,11 @@ function Spellcheck:EditDistance(a, b, maxDist)
 
         if minRow > (maxDist or 0) then return nil end
 
-        -- O(1) swap of buffers (local register swap)
+        -- Rotate row buffers instead of reallocating.
         prevPrev, prev, cur = prev, cur, prevPrev
     end
 
-    -- Save the final rotation back to self to ensure consistency for the next call.
+    -- Persist the rotated buffers for the next call.
     self._ed_prev_prev = prevPrev
     self._ed_prev = prev
     self._ed_cur = cur

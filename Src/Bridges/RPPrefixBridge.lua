@@ -72,21 +72,18 @@ function RPPrefixBridge:Init()
         return false
     end
 
-    -- RPPrefix installs its C_ChatInfo.SendChatMessage hook only when the
-    -- user first clicks the toggle (RP.Hooked flips to true then).
-    -- On every fresh login the toggle starts off, so the hook is not yet
-    -- installed at PLAYER_ENTERING_WORLD.  Either way, the correct raw API
-    -- to cache is:
-    --   • If already hooked: rp.SavedSendChatMessage (RPPrefix stored it).
-    --   • If not yet hooked: the current global IS the raw API.
+    -- RPPrefix only installs its SendChatMessage hook when the user first
+    -- clicks the toggle, so it may not exist yet at PLAYER_ENTERING_WORLD.
+    -- The correct raw API to cache is:
+    --   - already hooked: rp.SavedSendChatMessage (RPPrefix stored it)
+    --   - not yet hooked: the current global IS the raw API
     if rp.Hooked and type(rp.SavedSendChatMessage) == "function" then
         _rawSendChatMessage = rp.SavedSendChatMessage
     else
         _rawSendChatMessage = C_ChatInfo.SendChatMessage
     end
 
-    -- Replace Router.SendChatMessage with the raw API so the Queue's per-
-    -- chunk calls go directly to Blizzard and bypass RPPrefix's hook.
+    -- Route per-chunk sends through the raw API so they bypass RPPrefix's hook.
     if _rawSendChatMessage then
         Router.SendChatMessage = _rawSendChatMessage
     end
@@ -94,10 +91,9 @@ function RPPrefixBridge:Init()
     self.active = true
     YapperTable.Utils:VerbosePrint("RPPrefixBridge: RPPrefix detected — prefix will be prepended to the first chunk only.")
 
-    -- Register as a PRE_SEND filter via the public API so external addons
-    -- can see the bridge in the filter chain and reason about ordering.
-    -- Priority 20 (fires after the default 10) so user filters can modify
-    -- text before the prefix is prepended.
+    -- Register as a PRE_SEND filter so external addons can see the bridge in
+    -- the filter chain. Priority 20 (after the default 10) so user filters
+    -- can modify text before the prefix is prepended.
     if _G.YapperAPI then
         self._filterHandle = _G.YapperAPI:RegisterFilter("PRE_SEND", function(payload)
             payload.text = self:ApplyPrefix(payload.text, payload.chatType)
@@ -141,29 +137,26 @@ end
 --- the prefix appears on the first post and nowhere else.
 ---
 --- Mirrors the conditions in RPPrefix's Hook_SendChatMessage:
----   • Zee.RPPrefix.Enabled is true
----   • chatType is "SAY" or "YELL"
----   • text does not start with "/" (slash commands are passed through)
----   • the saved prefix is not the placeholder default
+---   - Zee.RPPrefix.Enabled is true
+---   - chatType is "SAY" or "YELL"
+---   - text does not start with "/" (slash commands pass through)
+---   - the saved prefix is not the placeholder default
 ---
 --- @param text     string  Full message text before splitting.
---- @param chatType string  WoW chat type ("SAY", "YELL", …).
+--- @param chatType string  WoW chat type ("SAY", "YELL", ...).
 --- @return string          Prefix-prepended text, or the original text.
 function RPPrefixBridge:ApplyPrefix(text, chatType)
     if not self.active then return text end
     if not text or text == "" then return text end
 
-    -- Consult RPPrefix's live state.
     local rp = _G.Zee and _G.Zee.RPPrefix
     if not rp or not rp.Enabled then return text end
 
-    -- Channel guard — RPPrefix only touches SAY and YELL.
+    -- RPPrefix only touches SAY and YELL.
     if chatType ~= "SAY" and chatType ~= "YELL" then return text end
 
-    -- Slash-command guard.
+    -- Slash commands pass through.
     if text:sub(1, 1) == "/" then return text end
-
-    -- Retrieve the stored prefix.
     local settings = _G.RPPrefix_Settings_New
     if not settings then return text end
     local prefix = settings.PreviousPrefix

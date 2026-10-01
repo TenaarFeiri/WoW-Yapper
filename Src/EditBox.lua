@@ -40,17 +40,15 @@ EditBox.HistoryCache       = nil
 EditBox.PreShowCheck       = nil
 EditBox._attrCache         = {}
 
--- Session-only per-tab channel memory for non-whisper tabs.
--- Keyed by chatFrame:GetName(); value: { chatType, target, channelName, language }.
--- Not persisted across reloads.
+-- Session-only per-tab channel memory, keyed by chatFrame:GetName();
+-- value: { chatType, target, channelName, language }. Not persisted.
 EditBox._tabChannelMemory  = {}
 
--- Short-lived hint captured from incoming whispers when the active chat frame
--- is a matching whisper tab/window. Consumed by open-selection policy.
+-- Short-lived hint captured from incoming whispers on a matching whisper
+-- tab/window; consumed by open-selection policy.
 EditBox._incomingWhisperAffinity = nil
 
--- Lockdown state (combat / M+ handoff FSM).
--- Grouped to keep the state machine self-contained.
+-- Lockdown FSM flags (combat / M+ handoff), grouped to stay self-contained.
 EditBox._lockdown = {
     ticker           = nil,    -- C_Timer ticker polling for lockdown start
     handedOff        = false,  -- overlay handed back to Blizzard
@@ -65,8 +63,8 @@ EditBox._lockdown = {
 -- Overlay display state.
 EditBox._overlayUnfocused  = false -- True when overlay is visible but unfocused
 
--- Session-only multiline onboarding hint state. The shown flag is deliberately
--- not persisted: the hint is intended to appear once per login/reload session.
+-- Multiline onboarding hint state. Deliberately session-only: the hint
+-- should reappear once per login/reload.
 EditBox.MultilineHint       = nil
 EditBox._multilineHintShown = false
 EditBox._multilineHintTimer = nil
@@ -133,14 +131,12 @@ end
 
 function EditBox:AddReplyTarget(name, kind)
     if name == nil then return end
-    -- Is it a secret? Then don't add it.
     if Utils:IsSecret(name) then return end
     if type(name) == "string" and name == "" then return end
     kind = kind or "WHISPER"
-    -- Normalize short kinds
     if kind == "BN" then kind = "BN_WHISPER" end
 
-    -- Remove existing matching entry (same name & kind) to avoid duplicates
+    -- Dedupe on name+kind
     for i = #self.ReplyQueue, 1, -1 do
         local e = self.ReplyQueue[i]
         if e and e.name == name and e.kind == kind then
@@ -149,34 +145,29 @@ function EditBox:AddReplyTarget(name, kind)
         end
     end
 
-    -- Insert at front
     table.insert(self.ReplyQueue, 1, { name = name, kind = kind })
 
-    -- Trim tail
     while #self.ReplyQueue > REPLY_QUEUE_MAX do
         table.remove(self.ReplyQueue)
     end
 end
 
--- Get next reply target given current name and direction.
--- Behaviour: if current equals queue front, advance by direction (wrap).
--- Otherwise select front. Returns name, kind or nil.
+-- Next reply target for `currentName`: if it equals the queue front, advance
+-- by `direction` (wrapping); otherwise return the front. -> name, kind | nil
 function EditBox:NextReplyTarget(currentName, direction)
     if not self.ReplyQueue or #self.ReplyQueue == 0 then return nil end
     direction = direction or 1
     local q = self.ReplyQueue
     if currentName and q[1] and q[1].name == currentName then
-        -- advance from front
         local idx = 1 + (direction or 1)
         if idx < 1 then idx = #q end
         if idx > #q then idx = 1 end
         return q[idx].name, q[idx].kind
     end
-    -- Default: pick most recent
     return q[1].name, q[1].kind
 end
 
--- Slash command → chatType.
+-- Slash command -> chatType.
 local SLASH_MAP                = {
     s           = "SAY",
     say         = "SAY",
@@ -375,15 +366,12 @@ local function GetLastTellTargetInfo()
     end
 
     if not lastTell or lastTell == "" then
-        -- Blizzard's list is maintained natively on every incoming whisper of
-        -- BOTH kinds and returns (target, chatType).  Keep the type: guessing
-        -- it back from the name misclassifies BNet friends (account names
-        -- rarely contain '#') as character whispers.
-        -- pcall: under forced addon restrictions Blizzard can store a SECRET
-        -- sender in chatEditLastTell; GetLastTellTarget's own `value ~= ""`
-        -- comparison then errors while our (tainted) execution is on the
-        -- stack. Contain that so /r degrades to "no reply target" instead
-        -- of a Lua error.
+        -- Fall back to Blizzard's last-tell list, which natively tracks both
+        -- whisper kinds. Keep its chatType: guessing from the name
+        -- misclassifies BNet friends (account names rarely contain '#').
+        -- pcall: under addon restrictions the stored sender can be SECRET,
+        -- and Blizzard's own `value ~= ""` comparison then errors on our
+        -- tainted stack. Degrade to "no reply target" instead of erroring.
         local ok = true
         if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
             ok, lastTell, lastType = pcall(ChatFrameUtil.GetLastTellTarget)
@@ -495,26 +483,23 @@ function EditBox:ResolveWhisperTarget(chatType, source, fallback)
     return fallback, false
 end
 
-------------------------------------------------
 --- Bypass Yapper and go straight to Blizzard's editbox.
-------------------------------------------------
 function EditBox:OpenBlizzardChat()
     UserBypassingYapper = true
     local eb = self.OrigEditBox or _G.ChatFrame1EditBox
     BypassEditBox = eb and eb.GetName and eb:GetName() or nil
 
-    -- Ensure any overlay state is handed off and saved first.
-    -- Pass true (silent) so users bypassing intentionally don't see the lockdown message.
-    -- Pass true for bypassOpen so HandoffToBlizzard doesn't trigger its own deferred open.
+    -- Hand off any overlay state first. HandoffToBlizzard(true, true):
+    -- silent (no lockdown message) + no deferred open of its own.
     if self.Overlay and self.Overlay:IsShown() then
         self:HandoffToBlizzard(true, true)
     end
 
-    -- Defer the actual opening to the next frame so our Show-hook
-    -- observes `UserBypassingYapper` and lets Blizzard's editbox win.
+    -- Defer to the next frame so our Show hook sees `UserBypassingYapper`
+    -- and lets Blizzard's editbox win.
     C_Timer.After(0, function()
-        -- In lockdown Blizzard's native editbox is authoritative. Do not read
-        -- or write secret-sensitive attributes from this tainted callback.
+        -- In lockdown Blizzard's editbox is authoritative; do not read or
+        -- write secret-sensitive attributes from this tainted callback.
         if Utils:IsChatOrCombatLockdown() then
             if ChatFrameUtil and ChatFrameUtil.OpenChat then
                 pcall(ChatFrameUtil.OpenChat, "", eb)
@@ -543,9 +528,9 @@ function EditBox:OpenBlizzardChat()
             overrideCT = "SAY"
         end
 
-        -- Skip all native attribute writes for whispers to avoid tainting
-        -- Blizzard's tellTarget. Yapper's internal ChatType/Target remain the
-        -- source of truth for sending; the user can still /w or /r in Blizzard.
+        -- No native attribute writes for whispers: Blizzard owns tellTarget
+        -- and writing it from tainted code can poison it. Yapper's internal
+        -- ChatType/Target stay the source of truth; /w and /r still work.
         if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
             -- fall through to OpenChat/Show/SetFocus below
         else
@@ -577,9 +562,8 @@ function EditBox:OpenBlizzardChat()
             end
         end
 
-        -- Prefer using Blizzard's ChatFrameUtil.OpenChat so Blizzard's
-        -- callbacks (focus gained, etc.) run and other addons (e.g. Chattery)
-        -- can observe the editbox properly.
+        -- Prefer ChatFrameUtil.OpenChat so Blizzard's callbacks (focus
+        -- gained, etc.) run and other addons see a normal open.
         if ChatFrameUtil and ChatFrameUtil.OpenChat then
             pcall(ChatFrameUtil.OpenChat, "", eb)
             if eb and eb.SetFocus then eb:SetFocus() end
@@ -590,7 +574,6 @@ function EditBox:OpenBlizzardChat()
     end)
 end
 
-------------------------------------------------
 local function SetFrameFillColour(frame, r, g, b, a, rounded)
     if not frame then return end
     -- Store the fill colour so external readers (e.g. Multiline) can copy it
@@ -625,9 +608,6 @@ local function SetFrameFillColour(frame, r, g, b, a, rounded)
         frame._yapperSolidFill:SetColorTexture(r or 0, g or 0, b or 0, a or 1)
     end
 end
-
---- Copy every texture from Blizzard’s editbox onto our overlay so it
---- wears the same skin; afterwards the original box can simply hide.
 
 -- Export shared locals for sub-files to re-localise.
 EditBox._UserBypassingYapper = function() return UserBypassingYapper end
@@ -703,19 +683,17 @@ function EditBox:SetOnSend(fn)
     self.OnSend = fn
 end
 
---- Reconcile a language selected through Blizzard or another addon.
---- Blizzard's SetGameLanguage and TRP3's Languages.setLanguage both write the
---- native editbox's languageID directly, so this is intentionally a read-side
---- fallback in addition to the method hooks. It keeps Yapper's send state in
---- sync without treating raid membership as a language restriction.
+--- Reconcile a language picked via Blizzard or another addon.
+--- SetGameLanguage and TRP3's Languages.setLanguage write the native
+--- editbox's languageID directly, so this read-side fallback complements the
+--- method hooks and keeps Yapper's send state in sync.
 function EditBox:SyncLanguageFromNative(blizzEditBox)
     local candidates = {}
     if blizzEditBox then
         candidates[#candidates + 1] = blizzEditBox
     else
-        -- Character language is global. Prefer the default native editbox,
-        -- which is the owner used by Blizzard's language menu and by TRP3,
-        -- before an alternate/proxy chat-frame editbox.
+        -- Character language is global; prefer the default native editbox
+        -- (owner used by Blizzard's language menu and TRP3) over proxies.
         candidates[#candidates + 1] = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox
         candidates[#candidates + 1] = self.OrigEditBox
         candidates[#candidates + 1] = _G.ChatFrame1EditBox
@@ -767,7 +745,6 @@ function EditBox:SetPreShowCheck(fn)
     self.PreShowCheck = fn
 end
 
---- Initialize keybind override system.
 --- Called during addon boot.
 function EditBox:InitKeybinds()
     if not self.Keybinds or not self.Keybinds.Init then
@@ -778,8 +755,7 @@ function EditBox:InitKeybinds()
     self.Keybinds:Init()
 end
 
---- Register keybind overrides when timing is safe.
---- Called on PLAYER_ENTERING_WORLD.
+--- Called on PLAYER_ENTERING_WORLD (timing-safe point for overrides).
 function EditBox:RegisterKeybindOverrides()
     if not self.Keybinds or not self.Keybinds.RegisterOverrides then
         return

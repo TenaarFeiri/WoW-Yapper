@@ -301,7 +301,7 @@ resolve the claim through the API. A successful native send instead fires
 
 This is why a `PRE_DELIVER` veto is not necessarily a failed send. It can be a
 handoff to another delivery owner. See
-[`Chat:DirectSend()`](../Src/Chat.lua#L237-L320).
+[`Chat:DirectSend()`](../Src/Chat.lua#L236-L315).
 
 ## Lockdown is a family of concepts
 

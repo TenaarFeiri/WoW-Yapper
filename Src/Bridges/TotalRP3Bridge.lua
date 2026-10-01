@@ -26,7 +26,7 @@ local function PickRPNameFromTRP3API(unit)
     if not _G.TRP3_API then return nil end
     unit = unit or "player"
 
-    -- Preferred: register API (current shown RP name for a unit)
+    -- Preferred: register API (unit's current RP name)
     local registerAPI = _G.TRP3_API.register
     if registerAPI and type(registerAPI.getUnitRPName) == "function" then
         local ok, name = pcall(registerAPI.getUnitRPName, unit)
@@ -94,9 +94,8 @@ end
 
 --- Call once during startup (self-initialising).
 function TotalRP3Bridge:Init()
-    -- Initialise the API-facing bridge once, but allow a later retry of the
-    -- TRP3 language hook if TRP3 finishes constructing its Languages table
-    -- after Yapper's first login callback.
+    -- The API-facing bridge runs once, but the TRP3 language hook retries
+    -- until TRP3 has finished constructing its Languages table.
     if not self._initialised then
         if not (_G.YapperAPI and type(_G.YapperAPI.RegisterFilter) == "function") then
             return false
@@ -128,12 +127,11 @@ function TotalRP3Bridge:Init()
             hooksecurefunc(TRP3Languages, "setLanguage", function(language)
                 if not language then return end
 
-                -- Extract language ID from TRP3's Language object
                 local languageID = language.GetID and language:GetID()
                 local languageName = language.GetName and language:GetName()
 
                 if languageID then
-                    -- Check if this language is in our cache, rebuild if not
+                    -- Rebuild the language cache if this one is unknown.
                     local foundInCache = false
                     for _, cachedID in pairs(YapperTable.SpokenLanguages or {}) do
                         if cachedID == languageID then
@@ -149,7 +147,7 @@ function TotalRP3Bridge:Init()
                         end
                     end
 
-                    -- Update Yapper's language state
+                    -- Mirror TRP3's language into Yapper's state.
                     if YapperTable.EditBox then
                         YapperTable.EditBox.Language = languageID
                         if YapperTable.EditBox.LastUsed then

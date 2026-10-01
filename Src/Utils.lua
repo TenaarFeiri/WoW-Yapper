@@ -7,8 +7,6 @@ local YapperName, YapperTable = ...
 local Utils = {}
 YapperTable.Utils = Utils
 
--- ---------------------------------------------------------------------------
-
 local SENDER_PRESETS = {
     info    = "FFFFAA00",
     warn    = "FFFF4444",
@@ -72,7 +70,7 @@ function Utils:MakeFullscreenAware(frame)
     local function update()
         if not frame or not frame:IsShown() then return end
         local target = self:GetChatParent()
-        if frame:GetParent() == target then return end   -- already correct
+        if frame:GetParent() == target then return end
         if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
             FrameUtil.SetParentMaintainRenderLayering(frame, target)
         else
@@ -144,14 +142,13 @@ function Utils:IsChatOrCombatLockdown()
     return self:IsChatLockdown() or self:IsCombatLockdown()
 end
 
--- Expose globally — other addons and compat patches may use this.
+-- Expose globally: other addons and compat patches may use this.
 _G.YAPPER_UTILS = Utils
 
 -- ---------------------------------------------------------------------------
 -- Boilerplate helpers
 -- ---------------------------------------------------------------------------
 
---- Ensure a value is a table, returning it or a new empty table.
 --- @param t any
 --- @return table
 function Utils:EnsureTable(t)
@@ -175,11 +172,9 @@ function Utils:EnsureTablePath(root, ...)
     return current
 end
 
---- Assert type matches expected, return default if not.
---- @param value any  The value to check
---- @param expectedType string  Expected type string ("string", "table", etc.)
---- @param default any  Value to return if type doesn't match
---- @return any  Original value if type matches, otherwise default
+--- @param expectedType string  e.g. "string", "table"
+--- @param default any  Returned when the type doesn't match
+--- @return any
 function Utils:AssertType(value, expectedType, default)
     return type(value) == expectedType and value or default
 end
@@ -260,8 +255,7 @@ function Utils:SanitizeNumber(value)
     return value
 end
 
---- Return a sanitized number, or `fallback` when the value is nil/secret/
---- non-numeric. Convenience wrapper around SanitizeNumber.
+--- SanitizeNumber with a fallback for nil/secret/non-numeric input.
 --- @param value any
 --- @param fallback number
 --- @return number
@@ -273,11 +267,9 @@ end
 -- Client flavour / feature detection
 -- ---------------------------------------------------------------------------
 
--- Strings observed (or plausibly seen) identifying the World of Warcraft:
--- Forever client. The internal flavour label may still change during
--- development (currently "Camelot"), so the capability probes below are the
--- primary signal; these patterns cover any runtime string that exposes a
--- product/flavour name.
+-- Strings identifying the WoW: Forever client. The internal flavour label
+-- may still change (currently "Camelot"), so the API probes in
+-- IsForeverClient are the primary signal; these cover runtime strings.
 local FOREVER_LABEL_PATTERNS = {
     "camelot",
     "forever",
@@ -333,9 +325,8 @@ function Utils:IsForeverClient()
         detected = true
     end
 
-    -- Build-version heuristic: Forever clients report a 1.6x interface
-    -- version (e.g. 1.60.1.70009) while retail majors are 12.x+. Weak signal
-    -- only; feature gates below still key off the specific API.
+    -- Weak build heuristic: Forever reports interface 1.6x while retail is
+    -- 12.x+. Callers should still gate on the specific APIs above.
     if not detected and type(GetBuildInfo) == "function" then
         local ok, version = pcall(GetBuildInfo)
         if ok and type(version) == "string" and version:match("^1%.6%d") then
@@ -347,8 +338,8 @@ function Utils:IsForeverClient()
     return detected
 end
 
---- True when the current ruleset/realm has regional-unique (surname-bearing)
---- player names enabled — Blizzard's own gate inside its chat editbox.
+--- True when the ruleset has regional-unique (surname-bearing) player names
+--- enabled; Blizzard's own gate inside its chat editbox.
 --- Deliberately independent of IsForeverClient(): if the naming scheme ever
 --- ships on mainline, Yapper's behaviour follows automatically.
 --- @return boolean
@@ -363,10 +354,10 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Strip the realm suffix from a character name and lowercase it.
---- e.g. "Arthas-Frostmourne" → "arthas"
+--- e.g. "Arthas-Frostmourne" -> "arthas"
 --- On clients where RegionalUniqueNamesEnabled() is true (WoW: Forever) the
 --- "-" is a *surname* separator, not a realm suffix, and the same player also
---- appears as "Charname Surname" — first names are not unique there, so
+--- appears as "Charname Surname" -- first names are not unique there, so
 --- nothing is stripped; both spellings are canonicalised to lowercase with a
 --- single space between parts.
 --- @param name any

@@ -51,11 +51,9 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         shadow = false
     end
 
-    -- ---------------------------------------------------------------
-    -- Proxy mode: the original Blizzard editbox is visible
-    -- behind us (see EditBox:ApplyProxyMode). Hide every Yapper-supplied
-    -- visual and only run the text/anchor positioning below.
-    -- ---------------------------------------------------------------
+    -- Proxy mode: Blizzard's editbox stays visible behind us
+    -- (see EditBox:ApplyProxyMode); hide all Yapper visuals and only run
+    -- the text/anchor positioning below.
     local isProxyMode = (cfg.UseBlizzardSkinProxy == true)
     if isProxyMode then
         if overlay._yapperSolidFill   then overlay._yapperSolidFill:Hide()   end
@@ -79,10 +77,9 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
             edit:SetTextColor(textCfg.r or 1, textCfg.g or 1, textCfg.b or 1, textCfg.a or 1)
         end
 
-        -- Proxy mode: inherit the original editbox's text insets (top/bottom)
-        -- so the text aligns with the native Blizzard skin. Native inset
-        -- values can be secret under chat/combat lockdown; sanitize them so
-        -- SetTextInsets never receives a secret number.
+        -- Proxy mode: inherit the original editbox's text insets so text
+        -- aligns with the native skin. Native values can be secret under
+        -- lockdown; sanitize so SetTextInsets never receives one.
         local origEB = editBox.OrigEditBox
         if origEB and origEB.GetTextInsets and edit.SetTextInsets then
             local okInsets, _, _, origTop, origBottom = pcall(origEB.GetTextInsets, origEB)
@@ -135,12 +132,10 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
     edit:SetPoint("TOPLEFT", labelBg, "TOPRIGHT", 0, 0)
     edit:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", -pad, pad)
 
-    -- Text colour.
     if edit.SetTextColor then
         edit:SetTextColor(textCfg.r or 1, textCfg.g or 1, textCfg.b or 1, textCfg.a or 1)
     end
 
-    -- Border visibility and colour.
     if overlay.Border then
         if borderActive then
             overlay.Border:SetBackdropBorderColor(
@@ -151,11 +146,11 @@ local function RefreshOverlayVisuals(editBox, cfg, borderActive, pad)
         end
     end
 
-    -- Shadow Generation
+    -- Shadow: 3 stacked textures with alpha falloff.
     if shadow then
         if not overlay._yapperShadowLayer then
             overlay._yapperShadowLayer = CreateFrame("Frame", nil, overlay)
-            -- Push it strictly behind the overlay background to prevent bleed-over
+            -- strictly behind the overlay background to prevent bleed-over
             overlay._yapperShadowLayer:SetFrameLevel(math_max(0, overlay:GetFrameLevel() - 1))
             overlay._yapperShadowLayer:SetAllPoints(overlay)
             overlay._yapperShadows = {}
@@ -241,11 +236,9 @@ local function BuildLabelText(chatType, target, channelName)
             return out
         end
 
-        -- PRE_EDITBOX_LABEL is intentionally non-blocking:
-        -- label resolution is a core UX path and must always produce a value.
-        -- Filters may mutate payload.label, but cancellation is ignored.
-        -- We snapshot the original payload and restore from it if a filter
-        -- returns malformed/corrupted values.
+        -- PRE_EDITBOX_LABEL is non-blocking: labels must always resolve, so
+        -- cancellation is ignored and a malformed payload falls back to the
+        -- original.
         local filterPayload = {
             chatType = chatType,
             target = target,
@@ -270,7 +263,6 @@ local function BuildLabelText(chatType, target, channelName)
             end
         end
 
-        -- Non-blocking label hook: ignore cancellation and fall back to default label logic.
         if type(payload.label) == "string" and payload.label ~= "" then
             label = payload.label
         end
@@ -342,11 +334,9 @@ local function ResetLabelToBaseFont(self)
     end
 end
 
--- Memoisation for the label fit/truncate measurement loops. Both are pure
--- functions of (text, available width, base font), but measuring requires
--- SetFont/SetText + GetStringWidth churn on a live FontString every open.
--- The cache is wiped wholesale when it grows past the cap; label texts are
--- a small, recurring set (channel names) so hits dominate in practice.
+-- Memoisation for the label fit/truncate loops: measuring needs
+-- SetFont/SetText + GetStringWidth churn on a live FontString. The cache is
+-- wiped wholesale past the cap; label texts recur so hits dominate.
 local labelFitCache      = {}
 local labelFitCacheCount = 0
 local LABEL_FIT_CACHE_MAX = 128
@@ -639,20 +629,17 @@ local function UpdateLabelBackgroundForText(self, text)
     ebWidth = ebWidth or 350
     local maxAllowed = math.floor(ebWidth * 0.28)
     local basePad = (cfg.LabelPadding and tonumber(cfg.LabelPadding)) or 20
-    -- Temporarily set text to measure raw width using current font settings.
+    -- Measure raw width at the current font.
     self.ChannelLabel:SetText(text)
     local measuredWidth = self.ChannelLabel:GetStringWidth()
     local rawWidth = IsUsableNumber(measuredWidth) and measuredWidth or 0
-    -- pad label dynamically.
+    -- Shrink padding when the label is short so edit text hugs the box.
     local headroom = maxAllowed - rawWidth
-    -- allow the padding to shrink very small so the edit text is close
-    -- to the box when there's very little label text
     local padding  = math_max(2, math_min(basePad, headroom))
     local labelW   = math.ceil(rawWidth + padding)
-    -- cap by configuration and available space
     if labelW > maxAllowed then labelW = maxAllowed end
     if labelW > (ebWidth - 80) then labelW = ebWidth - 80 end
-    -- only a tiny floor so the bg doesn't fully disappear
+    -- Tiny floor so the bg doesn't fully disappear.
     if labelW < 8 then labelW = 8 end
     self.LabelBg:SetWidth(labelW)
 end
@@ -664,15 +651,14 @@ function EditBox:CreateOverlay()
     local cfg = YapperTable.Config.EditBox or {}
     local inputBg = cfg.InputBg or {}
 
-    -- Container frame — matches position/size of the original editbox.
+    -- Container frame: matches position/size of the original editbox.
     local frame = CreateFrame("Frame", "YapperOverlayFrame", UIParent, "BackdropTemplate")
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
     frame:Hide()
 
-    -- Border frame (separate element so themes can recolour it independently).
-    -- Hidden by default; shown/hidden in ApplyConfigToLiveOverlay when the active
-    -- theme opts into a border.
+    -- Separate border frame so themes can recolour it independently; shown
+    -- by ApplyConfigToLiveOverlay when the active theme opts in.
     local BORDER_PAD = 6
     local borderFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     borderFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
@@ -683,18 +669,18 @@ function EditBox:CreateOverlay()
         insets = { left = BORDER_PAD, right = BORDER_PAD, top = BORDER_PAD, bottom = BORDER_PAD },
     })
     borderFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
-    borderFrame:Hide()           -- hidden until ApplyConfigToLiveOverlay decides based on active theme
+    borderFrame:Hide()
     frame.Border    = borderFrame
-    frame.BorderPad = BORDER_PAD -- read by ApplyConfigToLiveOverlay for fill inset
+    frame.BorderPad = BORDER_PAD -- ApplyConfigToLiveOverlay reads this for fill inset
 
-    -- Container background fill — always on the outer frame so ApplyConfigToLiveOverlay
-    -- has a single predictable target.  Anchor is adjusted dynamically when the border
-    -- is active (inset) vs hidden (full bleed).
+    -- Fill lives on the outer frame so ApplyConfigToLiveOverlay has one
+    -- predictable target; the anchor adjusts when the border is active
+    -- (inset) vs hidden (full bleed).
     if SetFrameFillColour then
         SetFrameFillColour(frame, inputBg.r or 0.05, inputBg.g or 0.05, inputBg.b or 0.05, inputBg.a or 1.0)
     end
 
-    -- ── Label background (left portion) ──────────────────────────────
+    -- Label background (left portion)
     local labelBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     -- Initial anchors at zero inset; RefreshOverlayVisuals repositions on first show.
     labelBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
@@ -705,7 +691,7 @@ function EditBox:CreateOverlay()
     labelFs:SetPoint("CENTER", labelBg, "CENTER", 0, 0)
     labelFs:SetJustifyH("CENTER")
 
-    -- ── Input EditBox (right portion) ────────────────────────────────
+    -- Input EditBox (right portion)
     local edit = CreateFrame("EditBox", "YapperOverlayEditBox", frame)
     if edit.SetPropagateKeyboardInput then
         edit:SetPropagateKeyboardInput(false)
@@ -724,7 +710,6 @@ function EditBox:CreateOverlay()
     edit:SetPoint("TOPLEFT", labelBg, "TOPRIGHT", 0, 0)
     edit:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
 
-    -- Store references.
     self.Overlay       = frame
     self.OverlayEdit   = edit
     self.ChannelLabel  = labelFs
@@ -736,39 +721,37 @@ function EditBox:CreateOverlay()
         YapperTable.Core:RegisterFrame("Overlay", "Label", labelFs)
         YapperTable.Core:RegisterFrame("Overlay", "LabelBg", labelBg)
     end
-    -- Also attach to the frame so external theming APIs can find them via the frame object.
+    -- Also reachable via the frame for external theming APIs.
     frame.OverlayEdit  = edit
     frame.ChannelLabel = labelFs
     frame.LabelBg      = labelBg
 
-    -- make sure the overlay follows fullscreen-parent changes
+    -- Reparent when the active fullscreen panel changes (housing editor).
     if YapperTable.Utils then
         YapperTable.Utils:MakeFullscreenAware(frame)
     end
 
-
-    -- ── Wire up scripts ──────────────────────────────────────────────
+    -- Wire up scripts
     self:SetupOverlayScripts()
 
     if YapperTable.Spellcheck and type(YapperTable.Spellcheck.Bind) == "function" then
         YapperTable.Spellcheck:Bind(edit, frame)
     end
 
-    -- A direct overlay hide also occurs when entering multiline mode, so keep
-    -- the independent screen-space hint lifecycle tied to this frame.
+    -- Entering multiline hides the overlay directly, so the hint lifecycle
+    -- is tied to this frame's OnHide.
     frame:HookScript("OnHide", function()
         self:HideMultilineHint()
     end)
 
-    -- Hook into SendChatMessage so we can capture and propagate chatType, language and target
-    -- to Yapper for synchronisity.
+    -- Mirror Blizzard-side sends into our channel state during lockdown
+    -- (e.g. typing in the native box while handed off).
     if not self._cChatInfoSendHooked then
         self._cChatInfoSendHooked = true
         if C_ChatInfo and C_ChatInfo.SendChatMessage then
             hooksecurefunc(C_ChatInfo, "SendChatMessage", function(message, chatType, language, target)
                 if not chatType or chatType == "BN_WHISPER" then return end
                 if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
-                    -- Update the LastUsed vars
                     self.LastUsed.chatType = chatType
                     self.LastUsed.target = target
                     self.LastUsed.language = language

@@ -19,7 +19,6 @@ local PruneUnknown          = Interface.PruneUnknown
 local COLOUR_KEYS           = Interface._COLOUR_KEYS
 local FRIENDLY_LABELS       = Interface._FRIENDLY_LABELS
 
--- Re-localise Lua globals.
 local type     = type
 local tonumber = tonumber
 local math_rad = math.rad
@@ -236,10 +235,9 @@ function Interface:SetLocalPath(path, value)
         _G.YapperLocalConf = localConf
     end
 
-    -- Only manually update the live config if we aren't in Global Profile mode.
-    -- In Global mode, YapperTable.Config (the local table) already reflects
-    -- the change via metatable inheritance, so writing to it would create
-    -- an unwanted character-local override.
+    -- In Global mode, YapperTable.Config already reflects the change via
+    -- metatable inheritance; writing to it would create an unwanted
+    -- character-local override.
     if not isGlobal and type(YapperTable.Config) == "table" and YapperTable.Config ~= targetRoot then
         if syncedChatDelineator and syncedChatPrefix then
             SetPathValue(YapperTable.Config, { "Chat", "DELINEATOR" }, syncedChatDelineator)
@@ -249,8 +247,8 @@ function Interface:SetLocalPath(path, value)
         end
     end
     
-    -- Special case for Global Profile toggle itself: trigger a UI refresh notice
-    -- if it looks weird, but otherwise just update the live state.
+    -- The Global Profile toggle itself needs promotion/demotion plus a
+    -- UI rebuild.
     if fullPath == "System.UseGlobalProfile" then
         if normalizedValue == true and not wasGlobal
             and YapperTable.Core
@@ -300,8 +298,7 @@ function Interface:SetLocalPath(path, value)
         -- open reflects the change without needing an open/close cycle first.
         YapperTable.EditBox:PersistLastUsed()
     elseif JoinPath(path) == "EditBox.HideBlizzardEditbox" then
-        -- Immediately show/hide the Blizzard editbox when the toggle changes
-        -- Only applies when not in proxy mode
+        -- Live show/hide; only meaningful outside proxy mode.
         local cfg = localConf.EditBox or {}
         if cfg.UseBlizzardSkinProxy ~= true then
             local origEditBox = YapperTable.EditBox and YapperTable.EditBox.OrigEditBox
@@ -334,16 +331,16 @@ function Interface:SetLocalPath(path, value)
         local yapperIsOpen = eb.Overlay and eb.Overlay:IsShown()
         if origEditBox and yapperIsOpen then
             if normalizedValue == true then
-                -- Switching TO proxy: apply proxy state (show editbox, disable mouse, hide header, etc.)
+                -- Switching to proxy mode.
                 if eb.ApplyProxyMode then
                     eb:ApplyProxyMode(origEditBox)
                 end
             else
-                -- Switching FROM proxy: undo proxy state first
+                -- Leaving proxy mode: restore first, then honour
+                -- HideBlizzardEditbox.
                 if eb.RestoreProxyMode then
                     eb:RestoreProxyMode()
                 end
-                -- Then apply the HideBlizzardEditbox setting
                 local cfg = localConf.EditBox or {}
                 if cfg.HideBlizzardEditbox == true then
                     if origEditBox.Hide then
@@ -466,8 +463,8 @@ function Interface:ApplyMinimapButtonVisibility()
         else
             self.DBIcon:Hide(YapperName)
         end
-        -- Sync the internal hide flag to the DB table so it persists correctly.
-        -- We do this AFTER the Show/Hide call to avoid confusing the library.
+        -- Persist the hide flag AFTER Show/Hide so LibDBIcon doesn't
+        -- get confused.
         local minimapCfg = self:GetMinimapButtonSettings()
         minimapCfg.hide = not enabled
     end
@@ -513,9 +510,8 @@ function Interface:IsPathDisabledByTheme(path)
         return true
     end
 
-    -- Classic chat style inherently hides the editbox after sending
-    -- The HideBlizzardEditbox option only applies when Yapper is open, not post-send
-    -- Gray out the option to avoid confusion (don't fight Blizzard's design)
+    -- Classic chat style already hides the editbox after sending, so
+    -- HideBlizzardEditbox is meaningless there -- grey it out.
     if full == "EditBox.HideBlizzardEditbox" then
         local chatStyle = GetCVar("chatStyle")
         if chatStyle == "classic" then

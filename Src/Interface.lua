@@ -26,10 +26,6 @@ local tonumber                = tonumber
 local select                  = select
 
 -- ---------------------------------------------------------------------------
--- StaticPopups
--- ---------------------------------------------------------------------------
-
--- ---------------------------------------------------------------------------
 -- Layout constants
 -- ---------------------------------------------------------------------------
 local LAYOUT             = {
@@ -78,7 +74,7 @@ local LAYOUT             = {
     SCROLLBAR_BOTTOM_INSET = 44,
 }
 
--- Even-increment offsets from the Blizzard base size (used by sidebar +/–).
+-- Even-increment offsets from the Blizzard base size (used by sidebar +/-).
 local UI_FONT_STEP       = 2
 local UI_FONT_MIN_OFFSET = -4 -- smallest allowed offset (8 pt at base 12)
 local UI_FONT_MAX_OFFSET = 8  -- largest  allowed offset (20 pt at base 12)
@@ -446,7 +442,7 @@ function Interface:InitPopups()
 end
 
 -- ---------------------------------------------------------------------------
--- BuildConfigUI — master renderer
+-- BuildConfigUI -- master renderer
 -- (CATEGORIES and FRIENDLY_LABELS are loaded by Schema.lua after this file
 --  but used at runtime, so read from the module table.)
 -- ---------------------------------------------------------------------------
@@ -482,14 +478,14 @@ function Interface:BuildConfigUI()
     end
     if not activeCat then activeCat = ALL_CATEGORIES[1] end
 
-    -- Handle plugin categories with custom render callback
+    -- Plugin categories render via their own callback.
     if activeCat.render and type(activeCat.render) == "function" then
         local cursor = LayoutCursor.New(LAYOUT.CONTENT_START_Y - self:GetUIFontOffset())
         activeCat.render(frame.ContentFrame, cursor)
         return
     end
 
-    -- Handle internal categories (stored in _internal field)
+    -- Internal categories carry their definition in _internal.
     local internalCat = activeCat._internal or activeCat
 
     local schema    = self:GetRenderSchema()
@@ -688,7 +684,6 @@ function Interface:BuildConfigUI()
 
 
     if activeCat.id == "advanced" then
-        -- Reset all Yapper data to defaults (wipes SavedVariables and reloads UI).
         cursor:Pad(10)
         self:CreateLabel(
             frame.ContentFrame,
@@ -701,8 +696,8 @@ function Interface:BuildConfigUI()
         )
         cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
 
-        -- Lazy popup initialization here was causing crashes.
-        -- Moved to Interface:InitPopups() called at boot.
+        -- Popups are registered at boot in InitPopups(); lazy init here
+        -- used to crash.
 
         local resetBtn = self:AcquireWidget("ActionButton", frame.ContentFrame, "UIPanelButtonTemplate", "Button")
         resetBtn:SetSize(self._ScaleButtonWidth(160), 24)
@@ -727,7 +722,7 @@ function Interface:BuildConfigUI()
 
     cursor:Advance(0)
 
-    -- Finish layout and size the content child so the scroll range is correct.
+    -- Size the content child so the scroll range is correct.
     cursor:Pad(20)
     frame.ContentFrame:SetHeight(math_abs(cursor:Y()) + 20)
     frame.ScrollFrame:UpdateScrollChildRect()
@@ -909,9 +904,9 @@ function Interface:Init()
     Interface:SanitizeLocalConfig()
     Interface:CreateMainWindow()
 
-    -- Then we're gonna hook into Show() and Hide() to track visibility.
+    -- Track visibility via Show/Hide hooks.
     hooksecurefunc(Interface.MainWindowFrame, "Show", function()
-        Interface.IsVisible = true -- Set visibility to true.
+        Interface.IsVisible = true
     end)
     hooksecurefunc(Interface.MainWindowFrame, "Hide", function()
         Interface.IsVisible = false
@@ -970,7 +965,7 @@ function Interface:CreateLauncher()
         end
     end
 
-    -- Minimap button implement via LibStub if available.
+    -- Minimap button via LibDataBroker when available.
     local ldb = _G.LibStub and _G.LibStub("LibDataBroker-1.1", true)
     if ldb then
         if not self.MinimapLDBObject then

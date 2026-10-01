@@ -19,7 +19,7 @@ local type = type
 
 -- Dispatch SendText on Blizzard's editbox without letting a secret-value
 -- error inside Blizzard's slash handlers escape our tainted call (e.g.
--- /invite → GetUnitName compares a secret realm under active restrictions).
+-- /invite -> GetUnitName compares a secret realm under restrictions).
 local function SafeSendText(editBox)
     return pcall(editBox.SendText, editBox)
 end
@@ -41,11 +41,10 @@ function EditBox:ForwardSlashCommand(text)
         return
     end
 
-    -- If chat is locked down (combat/m+ lockdown), save draft and handoff.
-    -- Non-chat restrictions are deliberately NOT gated here: most commands
-    -- (ready check, countdown, emotes, ...) touch no unit data and forward
-    -- fine even while secrets exist. Handlers that do read restricted data
-    -- (e.g. /invite's GetUnitName) fail inside the pcall'd SendText below
+    -- Chat lockdown: save draft and handoff. Non-chat restrictions are
+    -- deliberately NOT gated here: most commands touch no unit data and
+    -- forward fine while secrets exist. Handlers that do read restricted
+    -- data (e.g. /invite's GetUnitName) fail inside the pcall'd SendText
     -- and fall back to the same handoff, so nothing errors out.
     if utils and utils:IsChatLockdown() then
         self:HandoffToBlizzard()
@@ -78,7 +77,8 @@ function EditBox:ForwardSlashCommand(text)
     if overrideCT == "WHISPER" or overrideCT == "BN_WHISPER" then
         if diffTell then
             if YapperTable.Utils and YapperTable.Utils:IsSecret(self.Target) then
-                -- Bypass SetAttribute taint by letting Blizzard cleanly parse the target.
+                -- Secret target: bypass SetAttribute taint by letting
+                -- Blizzard parse it via "/r <text>".
                 eb:SetAttribute("chatType", "SAY")
                 eb:SetAttribute("tellTarget", nil)
                 eb:SetAttribute("channelTarget", nil)
@@ -116,17 +116,17 @@ function EditBox:ForwardSlashCommand(text)
     self._ignoreSetText = false
     local sendOk = SafeSendText(eb)
 
-    -- Clean up in case SendText didn't close it.
+    -- SendText may not close the box; clean up if it didn't.
     if self.OrigEditBox:IsShown() then
         self.OrigEditBox:SetText("")
         self.OrigEditBox:Deactivate()
     end
 
     if not sendOk then
-        -- A restriction flipped between the checks above and dispatch, and a
-        -- Blizzard slash handler hit a secret value inside our tainted call.
-        -- The overlay still holds the command, so HandoffToBlizzard keeps it
-        -- as a draft instead of erroring out.
+        -- A restriction flipped between the checks and dispatch, so a
+        -- Blizzard slash handler hit a secret inside our tainted call. The
+        -- overlay still holds the command; HandoffToBlizzard keeps it as a
+        -- draft instead of erroring.
         if utils then
             utils:Print("warn", (command or "That command") .. " can't run while addon restrictions are active; the draft was saved.")
         end

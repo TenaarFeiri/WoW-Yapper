@@ -16,7 +16,7 @@ local function GetBypassBindingHint(skipName)
         -- Primary lookup: binding name as defined in Bindings.xml.
         key1, key2 = GetBindingKey("Bypass Yapper")
         if not key1 then
-            return "Bypass Yapper keybind (currently unbound; default Shift+Enter)" -- but how???
+            return "Bypass Yapper keybind (currently unbound; default Shift+Enter)"
         end
     end
 
@@ -44,7 +44,7 @@ local function GetBypassBindingHint(skipName)
 end
 
 -- ---------------------------------------------------------------------------
--- Sanity checks — abort early if anything critical failed to load.
+-- Sanity checks -- abort early if anything critical failed to load.
 -- ---------------------------------------------------------------------------
 local REQUIRED_MODULES = {
     "Utils", "Migrations", "Config",
@@ -124,14 +124,13 @@ SlashCmdList["YAPPER"] = function(msg)
     YapperTable.Utils:Print("info", "Usage: /yapper [toggle | open | close | whatsnew | help | ?]")
 end
 
--- 2. ADDON_LOADED — access SavedVariables.
+-- 2. ADDON_LOADED -- access SavedVariables.
 local function OnAddonLoaded(addonName)
     if addonName ~= YapperName then return end
 
-    -- Initialise all three SavedVariables (YapperDB, YapperLocalConf, YapperLocalHistory).
+    -- SavedVariables (YapperDB, YapperLocalConf, YapperLocalHistory).
     YapperTable.Core:InitSavedVars()
 
-    -- Initialise StaticPopup definitions.
     if YapperTable.Interface and YapperTable.Interface.InitPopups then
         YapperTable.Interface:InitPopups()
     end
@@ -161,7 +160,7 @@ local function OnAddonLoaded(addonName)
         end
     end
 
-    -- Register launcher at startup (Addon Compartment preferred, fallbacks inside Interface).
+    -- Launcher: Addon Compartment preferred, fallbacks inside Interface.
     if YapperTable.Interface and YapperTable.Interface.CreateLauncher then
         YapperTable.Interface:CreateLauncher()
     end
@@ -185,14 +184,14 @@ end
 
 YapperTable.Events:Register("PARENT_FRAME", "ADDON_LOADED", OnAddonLoaded)
 
--- 3. PLAYER_ENTERING_WORLD — hook chat frames and initialise pipeline.
+-- 3. PLAYER_ENTERING_WORLD -- hook chat frames and initialise pipeline.
 local function OnPlayerEnteringWorld()
     if not YapperTable.Interface.PurgeRenderCache then
         YapperTable.Error:Throw("MISSING_INTERFACE")
     end
     YapperTable.Interface:PurgeRenderCache()
 
-    -- Hook all Blizzard chat editboxes with our taint-free overlay.
+    -- Hook all Blizzard chat editboxes with the taint-free overlay.
     if YapperTable.EditBox then
         YapperTable.EditBox:HookAllChatFrames()
         if type(YapperTable.EditBox.SetChatCompatibilityEnabled) == "function" then
@@ -209,17 +208,16 @@ local function OnPlayerEnteringWorld()
         YapperTable.EditBox:InstallUnitPopupWhisperOverride()
     end
 
-    -- Register keybind overrides if enabled.
     if YapperTable.EditBox then
         YapperTable.EditBox:RegisterKeybindOverrides()
     end
 
-    -- Boot the chat pipeline (Chat → Router + Queue).
+    -- Boot the chat pipeline (Chat -> Router + Queue).
     if YapperTable.Chat then
         YapperTable.Chat:Init()
     end
 
-    -- Hook the overlay EditBox for undo/redo and persistent history.
+    -- Overlay EditBox hooks: undo/redo and persistent history.
     if YapperTable.History then
         YapperTable.History:HookOverlayEditBox()
     end
@@ -241,10 +239,9 @@ local function OnPlayerEnteringWorld()
 
     YapperTable.Events:Unregister("PARENT_FRAME", "PLAYER_ENTERING_WORLD")
 
-    -- After unregistering, build the language cache.
     YapperTable.Core:BuildLanguageCache()
 
-    -- Register for language change events to keep cache current
+    -- Rebuild the language cache when the client's language list changes.
     if YapperTable.Events then
         YapperTable.Events:Register("PARENT_FRAME", "LANGUAGE_LIST_CHANGED", function()
             YapperTable.Utils:DebugPrint("LANGUAGE_LIST_CHANGED: Rebuilding language cache")
@@ -257,7 +254,7 @@ local function OnPlayerEnteringWorld()
         end)
     end
 
-    -- Final transition to IDLE: Boot sequence complete.
+    -- Boot complete: settle into IDLE (or LOCKDOWN if already restricted).
     if YapperTable.State then
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             YapperTable.State:ToLockdown()
@@ -272,7 +269,7 @@ end
 
 YapperTable.Events:Register("PARENT_FRAME", "PLAYER_ENTERING_WORLD", OnPlayerEnteringWorld)
 
--- 4. PLAYER_LOGOUT — persist data.
+-- 4. PLAYER_LOGOUT -- persist data.
 YapperTable.Events:Register("PARENT_FRAME", "PLAYER_LOGOUT", function()
     if YapperTable.History then
         YapperTable.History:SaveDB()

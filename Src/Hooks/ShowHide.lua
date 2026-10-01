@@ -212,7 +212,7 @@ end
 --- Present the overlay in place of a Blizzard editbox.
 --- @param origEditBox table  The Blizzard ChatFrameNEditBox we're replacing.
 function EditBox:Show(origEditBox)
-    -- Never replace the queue's active delivery editor. Manual queue
+    -- Never replace the queue's active delivery editor; manual queue
     -- continuations are consumed by the hardware-event open paths before
     -- Show() is reached.
     local queue = YapperTable and YapperTable.Queue
@@ -220,9 +220,8 @@ function EditBox:Show(origEditBox)
         return
     end
 
-    -- Don't want to open the overlay while UI is hidden, *unless* we're
-    -- inside the housing editor; that mode purposely hides UIParent but we
-    -- still want the chat overlay available.
+    -- Don't open while the UI is hidden, except in the housing editor,
+    -- which purposely hides UIParent.
     if not UIParent:IsShown() then
         if C_HouseEditor and C_HouseEditor.IsHouseEditorActive
             and C_HouseEditor.IsHouseEditorActive() then
@@ -235,11 +234,9 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Suppress the single-line overlay while the multiline editor is open.
-    -- The game will try to re-open the overlay on every keypress that
-    -- triggers a chat-open event; this guard stops that.
-    -- If the multiline EditBox has lost focus (e.g. user clicked elsewhere),
-    -- reclaim it here so Enter reliably activates the expanded editor.
+    -- While the multiline editor is open, suppress the single-line overlay
+    -- (the game tries to re-open it on every chat-open keypress). Reclaim
+    -- multiline focus too so Enter activates the expanded editor.
     local ml = YapperTable and YapperTable.Multiline
     if ml and ml.Frame and ml.Frame:IsShown() then
         if origEditBox and origEditBox.Deactivate then
@@ -248,7 +245,7 @@ function EditBox:Show(origEditBox)
         if ml.EditBox and ml.EditBox.SetFocus then
             local mlb = ml.EditBox
             C_Timer.After(0, function()
-                -- If we are refocusing, ensure state is set back to MULTILINE
+                -- Restore MULTILINE state when refocusing.
                 if State and not State:IsMultiline() then
                     State:ToMultiline()
                 end
@@ -256,8 +253,8 @@ function EditBox:Show(origEditBox)
                     mlb:SetFocus()
                 end
             end)
-            -- Keep Blizzard's focus override aligned with the visible editor
-            -- when a chat-open event arrives during multiline mode.
+            -- Keep the focus override aligned with the visible editor when a
+            -- chat-open event arrives during multiline.
             if type(self.UpdateFocusOverride) == "function" then
                 self:UpdateFocusOverride()
             end
@@ -269,13 +266,13 @@ function EditBox:Show(origEditBox)
         self:SetChatCompatibilityEnabled(true)
     end
 
-    -- Reopening the overlay ends any lockdown handoff. Without this reset a
-    -- stale handedOff=true (e.g. lockdown outlasting the REGEN_ENABLED
-    -- recovery poll) would make UpdateFocusOverride drop the focus override
-    -- mid-typing at the next lockdown start.
+    -- Reopening ends any lockdown handoff. Without this reset a stale
+    -- handedOff=true (e.g. lockdown outlasting the REGEN_ENABLED recovery
+    -- poll) makes UpdateFocusOverride drop the override mid-typing at the
+    -- next lockdown start.
     self._lockdown.handedOff = false
 
-    -- Apply pending tab switch info if available (from FCF_Tab_OnClick hook)
+    -- Apply pending tab switch info (from the FCF_Tab_OnClick hook).
     local pendingTabSwitch = self._pendingTabSwitch
     if pendingTabSwitch then
         self._pendingTabSwitch = nil
@@ -291,7 +288,7 @@ function EditBox:Show(origEditBox)
 
     self.OrigEditBox                 = origEditBox
 
-    -- Satisfy Blizzard code that expects the editbox to belong to a specific chatFrame.
+    -- Blizzard code expects the editbox to know its chatFrame.
     if origEditBox and origEditBox.chatFrame then
         self.OverlayEdit.chatFrame = origEditBox.chatFrame
         if self.ChannelLabel then
@@ -299,21 +296,19 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Determine chat mode and target
-    -- Two paths exist in Blizzard's code:
-    --   • BNet whisper: SetAttribute fires BEFORE Show (cache is populated)
-    --   • WoW friend whisper: SendTellWithMessage → OpenChat → Show fires
-    --     first, then OnUpdate defers SetText + ParseText which sets
-    --     attributes one frame later.
-    -- For the deferred case our SetAttribute hook performs a live update
-    -- of the overlay when the attributes finally arrive (see
-    -- HookBlizzardEditBox).  Here we just read whatever is available now.
+    -- Resolve the chat mode and target. Blizzard has two paths:
+    --   - BNet whisper: SetAttribute fires BEFORE Show (cache is populated)
+    --   - WoW friend whisper: SendTellWithMessage -> OpenChat -> Show fires
+    --     first, then OnUpdate defers SetText + ParseText, so attributes
+    --     arrive one frame later. For that case our SetAttribute hook does
+    --     a live update when attributes arrive (see HookBlizzardEditBox);
+    --     here we just read whatever is available now.
     --
     -- Priority:
-    --   1. SetAttribute cache (chatType, tellTarget, channelTarget)
-    --      Only the cache is used — raw GetAttribute on the Blizzard box
-    --      returns stale values from previous opens (e.g. a right-click
-    --      whisper target that persists across show/hide cycles).
+    --   1. SetAttribute cache (chatType, tellTarget, channelTarget).
+    --      Only the cache: raw GetAttribute returns stale values from
+    --      previous opens (e.g. a right-click whisper target that persists
+    --      across show/hide).
     --   2. LastUsed sticky
     --   3. "SAY"
 
@@ -331,7 +326,7 @@ function EditBox:Show(origEditBox)
     if not blizzLang and origEditBox and type(origEditBox.GetLanguageID) == "function" then
         blizzLang = origEditBox:GetLanguageID()
     end
-    -- Normalise language to ensure we have a valid language ID
+    -- Normalise to a valid language ID.
     if blizzLang and type(blizzLang) == "string" then
         blizzLang = YapperTable.Core:GetCharacterLanguage(blizzLang)
     end
@@ -434,16 +429,17 @@ function EditBox:Show(origEditBox)
     end
 
     -- Priority for picking the channel on open:
-    --   0. Re-Whisper keybind — primed by our ReplyTell2 hook immediately before
-    --      this Show fires. Consumed once and cleared.
-    --   1. Blizzard explicitly provided a whisper/channel target (reply key,
-    --      name-click, Contacts list, etc.) — always honour it.
-    --   1b. Explicit channel selection (channel link / chat menu / typed slash) —
-    --      overrides the LastUsed sticky for this open only.
-    --   2. Lockdown draft — restore the channel the user was on mid-combat.
-    --   3. LastUsed sticky — remember the last channel the user chose.
-    --   4. Blizzard's editbox type (no specific target) or SAY as fallback.
-    -- REMOVED: Pending re-whisper priority (was #1) - ReplyTell2 hook removed
+    --   0. Re-Whisper keybind: primed by our ReplyTell2 hook immediately
+    --      before this Show fires. Consumed once and cleared.
+    --   1. Blizzard-provided whisper/channel target (reply key, name-click,
+    --      Contacts list, etc.): always honoured.
+    --   1b. Explicit channel selection (channel link / chat menu / typed
+    --      slash): overrides LastUsed sticky for this open only.
+    --   2. Lockdown draft: restore the channel used mid-combat.
+    --   3. LastUsed sticky: last channel the user chose.
+    --   4. Blizzard's editbox type (no specific target) or SAY fallback.
+    -- (Former #1 pending re-whisper priority was removed with the
+    -- ReplyTell2 hook.)
     local lockSavedDraft = type(self._lockdown) == "table" and self._lockdown.savedDraft == true
     local policy = YapperTable.ChannelPolicy
     local resolvedSelection
@@ -545,7 +541,7 @@ function EditBox:Show(origEditBox)
             if resolved then
                 self.ChannelName = resolved
             else
-                -- Channel gone — fall back to SAY.
+                -- Channel gone: fall back to SAY.
                 self.ChatType    = "SAY"
                 self.Target      = nil
                 self._secureReplySource = nil
@@ -554,19 +550,16 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Position & size
     -- Position the overlay with absolute coordinates in the parent's space
-    -- rather than anchoring directly to the original editbox. This mirrors
-    -- the multiline editor's approach and avoids coordinate-space drift when
-    -- ChatFrame1 or the chat editbox has a non-1 effective scale (e.g., 4K
-    -- UI scaling, chat-frame addons).
+    -- rather than anchoring to the original editbox. Avoids coordinate-space
+    -- drift when the chat frame/editbox has a non-1 effective scale (4K
+    -- scaling, chat addons).
     local overlay = self.Overlay
     local cfg = YapperTable.Config.EditBox or {}
     local wasShown = overlay:IsShown()
 
-    -- Track whether the overlay is currently anchored from its top edge
-    -- (tall-font mode) so fullscreen-aware parent changes can re-anchor
-    -- it correctly.
+    -- Track whether we're anchored from the top edge (tall-font mode) so
+    -- fullscreen-aware parent changes re-anchor correctly.
     local anchorTop = false
     overlay._yapperReposition = function()
         if self.Overlay and self.OrigEditBox then
@@ -584,26 +577,22 @@ function EditBox:Show(origEditBox)
     overlay:SetHeight(origHeight)
     overlay:Show()  -- ensure visible (CEBE may have hidden it on close)
 
-    -- Font
-    -- Config overrides Blizzard's font; otherwise inherit.
+    -- Font: config overrides Blizzard's; otherwise inherit.
     local cfgFace  = cfg.FontFace
     local cfgSize  = cfg.FontSize or 0
     local cfgFlags = cfg.FontFlags or ""
 
     if cfgFace or cfgSize > 0 then
-        -- Blend config values with Blizzard defaults.
         local baseFace, baseSize, baseFlags = origEditBox:GetFont()
         local face                          = cfgFace or baseFace
         local size                          = cfgSize > 0 and cfgSize or baseSize
         local flags                         = (cfgFlags ~= "") and cfgFlags or baseFlags
         Utils:SetFontIfChanged(self.OverlayEdit, face, size, flags)
     else
-        -- Inherit Blizzard's font exactly.
         local face, size, flags = origEditBox:GetFont()
         Utils:SetFontIfChanged(self.OverlayEdit, face, size, flags)
     end
 
-    -- Vertical scaling
     -- The overlay must be tall enough for the chosen font.
     local _, activeSize = self.OverlayEdit:GetFont()
     if not IsUsableGeometryValue(activeSize) then
@@ -627,12 +616,11 @@ function EditBox:Show(origEditBox)
     local origLevel = IsUsableGeometryValue(rawOrigLevel) and rawOrigLevel or 0
     overlay:SetFrameLevel(origLevel + 5)
 
-    -- Proxy mode handling
     if cfg.UseBlizzardSkinProxy == true then
-        -- Proxy mode: keep the original Blizzard editbox visible underneath.
+        -- Proxy mode: keep Blizzard's editbox visible underneath.
         pcall(function() self:ApplyProxyMode(origEditBox) end)
     else
-        -- Hide Blizzard's editbox when Yapper is open and not in proxy mode
+        -- Otherwise hide it when configured.
         if cfg.HideBlizzardEditbox == true then
             if origEditBox and origEditBox.Hide then
                 pcall(function() origEditBox:Hide() end)
@@ -640,7 +628,6 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Visual refresh.
     do
         local activeThemeOnShow = YapperTable.Theme and YapperTable.Theme:GetTheme()
         local borderOnShow      = activeThemeOnShow and activeThemeOnShow.border == true
@@ -650,8 +637,7 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Text
-    -- Restore draft if available, otherwise use Blizzard's text.
+    -- Text: restore draft if available, otherwise use Blizzard's text.
     local draftText
     local draftMultiline = false
     if (lockSavedDraft or not blizzHasTarget) and YapperTable.History then
@@ -672,8 +658,8 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Carry over any text Blizzard pre-populated on the native editbox
-    -- (e.g. chat links, whisper prefills from friend-list clicks).
+    -- Carry over text Blizzard pre-populated on the native editbox (chat
+    -- links, whisper prefills from friend-list clicks).
     local externalText
     if blizzText and blizzText ~= "" then
         if not (blizzHasTarget and IsWhisperSlashPrefill(blizzText)) then
@@ -711,9 +697,9 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Set the text: restore a draft if found, otherwise clear the box
-    -- ONLY if we are coming from a hidden state. This prevents wipes
-    -- when refocusing an already-visible overlay.
+    -- Restore a draft if found; otherwise only clear the box when coming
+    -- from a hidden state -- avoids wiping text when refocusing an
+    -- already-visible overlay.
     if not wasShown then
         self.OverlayEdit:SetText(finalText)
     elseif draftText and existingText == "" then
@@ -725,15 +711,15 @@ function EditBox:Show(origEditBox)
     end
     self:RefreshLabel()
 
-    -- If the recovered draft came from the multiline editor, transition
-    -- directly into multiline so hard newlines are preserved.
+    -- A recovered multiline draft goes straight back into multiline so
+    -- hard newlines are preserved.
     if draftMultiline and draftText and YapperTable.Multiline
         and type(YapperTable.Multiline.Enter) == "function" then
         YapperTable.Multiline:Enter(
             draftText, self.ChatType, nil, self.Target)
     end
 
-    -- Clear Blizzard's backing editbox to avoid stale carryover on next open.
+    -- Clear Blizzard's backing editbox so stale text doesn't carry over.
     if origEditBox and origEditBox.SetText then
         origEditBox:SetText("")
     end
@@ -745,8 +731,8 @@ function EditBox:Show(origEditBox)
         end
     end
 
-    -- Focus the overlay. If an external addon (e.g. Chattynator) aggressively
-    -- steals focus back via DeactivateChat hooks, reclaim it on the next frame.
+    -- Focus the overlay; addons like Chattynator can steal focus back via
+    -- DeactivateChat hooks, so we reclaim on the next frame below.
     if self.OverlayEdit and type(self.OverlayEdit.SetFocus) == "function" then
         self.OverlayEdit:SetFocus()
     end
@@ -757,9 +743,9 @@ function EditBox:Show(origEditBox)
     -- API callback: notify external addons that editbox is shown.
     FireAPIEvent("EDITBOX_SHOW", self.ChatType, self.Target)
 
-    -- The onboarding hint is session-only and only belongs to the single-line
-    -- overlay. A recovered multiline draft may transition immediately, so the
-    -- state check prevents the hint from appearing in that path.
+    -- The onboarding hint is session-only and belongs to the single-line
+    -- overlay; a recovered multiline draft transitions immediately, so gate
+    -- on state to skip it in that path.
     if not (State and State:IsMultiline())
         and type(self.ShowMultilineHint) == "function" then
         self:ShowMultilineHint()
@@ -786,8 +772,8 @@ function EditBox:Hide(isHandoff)
     local prevOrig = self.OrigEditBox
     self._overlayUnfocused = false
 
-    -- Restore Blizzard's native compatibility functions before any native
-    -- hide/deactivation lifecycle runs with the overlay no longer active.
+    -- Restore Blizzard's native compatibility functions before the hide/
+    -- deactivation lifecycle runs without our overlay active.
     if type(self.SetChatCompatibilityEnabled) == "function" then
         self:SetChatCompatibilityEnabled(false)
     end
@@ -799,29 +785,25 @@ function EditBox:Hide(isHandoff)
         pcall(function() self:RestoreProxyMode() end)
     end
 
-    -- Undo the chat attributes SyncAttributesToBlizzard pushed onto the Blizzard
-    -- proxy editbox. This MUST run before DeactivateChat (below) and before any
-    -- focus/visibility change that could trigger Blizzard's own event-driven
-    -- Deactivate/ClearChat/UpdateHeader chain. SyncAttributesToBlizzard writes
-    -- tellTarget from Yapper's tainted code; if the tainted attribute persists,
-    -- Blizzard's UpdateHeader later does arithmetic on the (secret) tellTarget
-    -- under tainted execution and errors (issue #57).
-    -- Skip during handoff (we're intentionally restoring the Blizzard box).
-    -- Only gate on combat lockdown (SetAttribute is protected during combat);
-    -- chat messaging lockdown does NOT block SetAttribute, and clearing the
-    -- tainted tellTarget during chat lockdown is exactly what we need.
+    -- Undo the attributes SyncAttributesToBlizzard pushed onto the Blizzard
+    -- box. MUST run before DeactivateChat (below) and any visibility change
+    -- that could trigger Blizzard's Deactivate/ClearChat/UpdateHeader chain:
+    -- a tainted tellTarget left behind makes UpdateHeader do arithmetic on
+    -- a (secret) value under tainted execution and error (issue #57).
+    -- Skip during handoff (we're restoring the Blizzard box). Gate only on
+    -- combat lockdown -- SetAttribute is protected then, but chat messaging
+    -- lockdown does NOT block it, and clearing the tainted target then is
+    -- exactly what we need.
     if not isHandoff
         and self.ResetSyncedAttributes
         and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsCombatLockdown()) then
         pcall(function() self:ResetSyncedAttributes() end)
     end
 
-    -- Deactivate the Blizzard editbox so it clears text and stops accepting input.
-    -- In IM mode this fades it out; in Classic mode this also hides it.
+    -- Deactivate the Blizzard editbox so it clears text and stops input.
     -- During handoff/lockdown, or when the native whisper target is secret,
-    -- DeactivateChat can enter Blizzard's UpdateHeader from tainted code and
-    -- perform arithmetic on secret header geometry. Leave native ownership to
-    -- Blizzard in those cases.
+    -- DeactivateChat can enter UpdateHeader from tainted code and do
+    -- arithmetic on secret geometry -- leave native ownership to Blizzard.
     local canDeactivate = not isHandoff
         and not (YapperTable and YapperTable.Utils and YapperTable.Utils:IsChatOrCombatLockdown())
     if canDeactivate and prevOrig and prevOrig.GetAttribute then
@@ -838,13 +820,11 @@ function EditBox:Hide(isHandoff)
         self.Overlay:Hide()
     end
 
-    -- Clear CHAT_FOCUS_OVERRIDE now that the overlay is hidden. Leaving a stale
-    -- override pointing at the hidden OverlayEdit makes ChatFrameUtil.OpenChat("")
-    -- short-circuit (focus override branch) without calling ActivateChat, so
-    -- ACTIVE_CHAT_EDIT_BOX is never set and ChatFrameUtil.GetActiveWindow() returns nil.
-    -- That breaks addons using the OpenChat -> GetActiveWindow -> SendText pattern
-    -- after Yapper closes. UpdateFocusOverride re-evaluates against
-    -- the now-hidden overlay and clears the override.
+    -- Clear CHAT_FOCUS_OVERRIDE now that the overlay is hidden. A stale
+    -- override pointing at the hidden OverlayEdit makes OpenChat("")
+    -- short-circuit without ActivateChat, so ACTIVE_CHAT_EDIT_BOX is never
+    -- set and GetActiveWindow() returns nil -- breaking addons using the
+    -- OpenChat -> GetActiveWindow -> SendText pattern after Yapper closes.
     if self.UpdateFocusOverride then
         self:UpdateFocusOverride()
     end
@@ -853,23 +833,21 @@ function EditBox:Hide(isHandoff)
         self.GhostFS:Hide()
     end
 
-    -- Save LastUsed for stickiness across show/hide.
-    -- PersistLastUsed applies StickyChannel/StickyGroupChannel rules while
-    -- still preserving per-tab channel memory via RecordTabChannel.
+    -- Persist LastUsed for stickiness; PersistLastUsed applies
+    -- StickyChannel/StickyGroupChannel rules and per-tab channel memory.
     if self.PersistLastUsed then
         self:PersistLastUsed()
     end
 
-    -- The external-whisper episode (unit-frame right-click) ends on close.
-    -- NOTE: self._externalWhisperTarget is intentionally NOT cleared here.
-    -- PersistLastUsed (above) already consumed it, but the draft-save block
-    -- below also needs it so an external whisper's channel binding isn't
-    -- persisted into a draft. It is cleared after that block instead.
+    -- NOTE: _externalWhisperTarget is intentionally NOT cleared here.
+    -- PersistLastUsed consumed it, but the draft-save block below also
+    -- needs it so an external whisper's binding isn't persisted into a
+    -- draft. Cleared after that block.
 
     -- Auto-save draft on clean close (no text, or user pressed Escape).
     local text = self.OverlayEdit and self.OverlayEdit:GetText() or ""
-    -- The overlay may carry display-only escapes (spellcheck recolouring);
-    -- strip before anything downstream (draft check, Blizzard handoff) sees it.
+    -- Strip display-only escapes (spellcheck recolouring) before anything
+    -- downstream (draft check, Blizzard handoff) sees it.
     if YapperTable.Utils then
         text = YapperTable.Utils:StripDisplayEscapes(text)
     end
@@ -884,25 +862,23 @@ function EditBox:Hide(isHandoff)
         history:MarkDirty(true)
     end
 
-    -- The external-whisper episode (unit-frame right-click) ends on close.
     -- Cleared after the draft-save block so the draft gate above can see it.
     self._externalWhisperTarget = nil
 
-    -- Clear lockdown draft flag on normal clean closes.
-    -- Handoff closes should preserve the flag so next open can recover.
+    -- Clear the lockdown draft flag on normal clean closes; handoff closes
+    -- preserve it so the next open can recover.
     if self._closedClean and not isHandoff and type(self._lockdown) == "table" then
         self._lockdown.savedDraft = nil
     end
 
     self._closedClean = false
 
-    -- NOTE: no draft restore/SetFocus here for handoff closes. Every
-    -- HandoffToBlizzard call site uses bypassOpen=true ("save draft,
-    -- press Enter after combat to resume"), and the not-bypassOpen case
-    -- is handled inside HandoffToBlizzard itself. An unconditional
-    -- SetFocus here re-activated Blizzard's editbox right after
-    -- DeactivateChat closed it, leaving the (proxy-mode) skin frame
-    -- open after every draft-save handoff.
+    -- NOTE: no draft restore/SetFocus for handoff closes. Every
+    -- HandoffToBlizzard call site uses bypassOpen=true ("save draft, press
+    -- Enter after combat"), and the not-bypassOpen case is handled inside
+    -- HandoffToBlizzard. An unconditional SetFocus here re-activated
+    -- Blizzard's editbox right after DeactivateChat closed it, leaving the
+    -- proxy-mode skin frame open after every draft-save handoff.
 
     -- EDITBOX_HIDE callback: notify external addons.
     FireAPIEvent("EDITBOX_HIDE")
@@ -935,12 +911,11 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
         pcall(function() self:SyncAttributesToBlizzard(true) end)
     end
 
-    -- Mark the handoff BEFORE UpdateFocusOverride: overlayActive must
-    -- evaluate false there so CHAT_FOCUS_OVERRIDE is cleared. A stale
-    -- override pointing at the hidden OverlayEdit makes Blizzard's
-    -- OpenChat (our lockdown Enter fallback) focus an invisible editbox
-    -- and silently eat the keypress. This flag also gates the
-    -- REGEN_ENABLED recovery ticker in Handlers.lua.
+    -- Mark handoff BEFORE UpdateFocusOverride so overlayActive evaluates
+    -- false and CHAT_FOCUS_OVERRIDE is cleared. A stale override pointing
+    -- at the hidden OverlayEdit makes Blizzard's OpenChat (the lockdown
+    -- Enter fallback) focus an invisible editbox and eat the keypress.
+    -- This flag also gates the REGEN_ENABLED recovery ticker in Handlers.
     self._lockdown.handedOff = true
 
     State:ToLockdown()
@@ -949,8 +924,8 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
     -- Centralised lockdown cleanup (cancels timers/tickers).
     self:ClearLockdownState()
 
-    -- Save as dirty draft for recovery on next open.
-    -- Skip if isMultiline=true (draft already saved by Multiline:Exit with full multiline text).
+    -- Save as dirty draft for recovery on next open; skip when isMultiline
+    -- (Multiline:Exit already saved the full text).
     local history = YapperTable and YapperTable.History
     local lockdown = type(self._lockdown) == "table" and self._lockdown or nil
     if text ~= "" and type(history) == "table" and not isMultiline
@@ -958,17 +933,16 @@ function EditBox:HandoffToBlizzard(silent, bypassOpen, isMultiline)
         and type(history.MarkDirty) == "function" then
         history:SaveDraft(self.OverlayEdit)
         history:MarkDirty(true)
-        -- Mark that this draft was saved due to lockdown so callers
-        -- can decide whether to restore it to Blizzard's editbox.
+        -- Mark it as a lockdown draft so callers can restore it to
+        -- Blizzard's editbox.
         if lockdown then
             lockdown.savedDraft = true
         end
     elseif isMultiline and lockdown then
-        -- Draft was already saved by multiline mode. Just mark it as a lockdown draft.
         lockdown.savedDraft = true
     end
 
-    -- OnHide won't double-save because _closedClean is true.
+    -- _closedClean stops OnHide from double-saving.
     self._closedClean = true
 
     -- Close overlay and mark the draft as handed off to Blizzard's flow.
@@ -1038,10 +1012,9 @@ function EditBox:RetargetOpenWhisper(target, blizzBox, chatType)
 
     if self:IsNativeChatEditBox(blizzBox) then
         self:_IMPushActive(blizzBox)
-        -- In Classic+IM tab mode SendTell can fire before the destination box
-        -- has stable geometry; re-anchoring there risks snapping to the wrong
-        -- host, so only reanchor outside IM mode.  Show() performs the
-        -- tab/proxy swap.
+        -- In Classic+IM tab mode SendTell can fire before the destination
+        -- box has stable geometry; re-anchoring risks snapping to the wrong
+        -- host, so only reanchor outside IM. Show() does the tab/proxy swap.
         if blizzBox ~= self.OrigEditBox and GetCVar("chatStyle") ~= "im" then
             self:Show(blizzBox)
         end
@@ -1051,7 +1024,7 @@ function EditBox:RetargetOpenWhisper(target, blizzBox, chatType)
     self.Target = target
     self._secureReplySource = nil
     self.ChannelName = nil
-    -- Transient external whisper: must not become the global LastUsed sticky.
+    -- Transient external whisper must not become the LastUsed sticky.
     self._externalWhisperTarget = target
     self:RefreshLabel()
 

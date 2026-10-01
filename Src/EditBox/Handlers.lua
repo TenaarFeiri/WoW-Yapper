@@ -45,7 +45,7 @@ function EditBox:SetupOverlayScripts()
     -- When true, we're changing text programmatically (skip OnTextChanged).
     local updatingText = false
 
-    -- ── OnTextChanged: slash-command channel switches ──────────────────
+    -- OnTextChanged: slash-command channel switches ----------------------
     edit:SetScript("OnTextChanged", function(box, isUserInput)
         if updatingText then return end
 
@@ -61,9 +61,8 @@ function EditBox:SetupOverlayScripts()
         elseif YapperTable.Spellcheck and type(YapperTable.Spellcheck.OnTextChanged) == "function" then
             YapperTable.Spellcheck:OnTextChanged(box, isUserInput)
         end
-        -- If a suggestion was just applied via numeric hotkey, the engine may
-        -- also inject the numeric character into the editbox. Remove it here
-        -- before further processing.
+        -- A suggestion applied via numeric hotkey may also inject the digit
+        -- into the editbox; strip it before further processing.
         if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
             local sc = YapperTable.Spellcheck
             local textNow = YapperTable.Recolour.CanonicalText(box)
@@ -88,7 +87,6 @@ function EditBox:SetupOverlayScripts()
 
         local text = YapperTable.Recolour.CanonicalText(box)
 
-        -- Update autocomplete ghost text on every user keystroke.
         if YapperTable.Emotes and YapperTable.Emotes:IsActive() then
             -- Skip autocomplete while emote viewer is active
         elseif YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
@@ -147,13 +145,13 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- "/cmd rest" — need a space before we act.
+        -- "/cmd rest": need a space before we act.
         local cmd, rest2 = strmatch(text, "^/([%w_]+)%s+([%s%S]*)")
         if not cmd then return end
         cmd = strlower(cmd)
 
-        -- /c, /channel — wait for a space after the channel ID too,
-        -- so we don't fire while the user is still typing it.
+        -- /c, /channel: wait for a space after the channel ID too, so we
+        -- don't fire while the user is still typing it.
         if cmd == "c" or cmd == "channel" then
             local ch, remainder = strmatch(rest2 or "", "^(%S+)%s+([%s%S]*)")
             if ch then
@@ -186,9 +184,9 @@ function EditBox:SetupOverlayScripts()
             if YapperTable.Utils and YapperTable.Utils.HasRegionalUniqueNames
                 and YapperTable.Utils:HasRegionalUniqueNames()
                 and EditBox.ExtractRegionalWhisperTarget then
-                -- Forever parity: a bare space cannot terminate the target —
-                -- wait until the surname boundary is in, mirroring
-                -- Blizzard's ExtractTellTarget.
+                -- Forever parity: a bare space cannot terminate the target;
+                -- wait for the surname boundary, mirroring Blizzard's
+                -- ExtractTellTarget.
                 target, remainder = EditBox.ExtractRegionalWhisperTarget(rest2)
             else
                 target, remainder = strmatch(rest2 or "", "^(%S+)%s+([%s%S]*)")
@@ -242,9 +240,9 @@ function EditBox:SetupOverlayScripts()
         if SLASH_MAP[cmd] then
             local ct = SLASH_MAP[cmd]
 
-            -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
+            -- Blizzard-style fallbacks: instance -> home raid/party;
+            -- party/raid -> instance group when the home group is missing.
             if ct == "INSTANCE_CHAT" then
-                -- Target Instance Chat: Fallback to Raid or Party if not in Instance Category.
                 if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
                     if IsInRaid(LE_PARTY_CATEGORY_HOME) then
                         ct = "RAID"
@@ -253,12 +251,10 @@ function EditBox:SetupOverlayScripts()
                     end
                 end
             elseif ct == "PARTY" or ct == "PARTY_LEADER" then
-                -- Target Party: Fallback to Instance if not in Home Party.
                 if not IsInGroup(LE_PARTY_CATEGORY_HOME) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
                     ct = "INSTANCE_CHAT"
                 end
             elseif ct == "RAID" or ct == "RAID_LEADER" then
-                -- Target Raid: Fallback to Instance if not in Home Raid.
                 if not IsInRaid(LE_PARTY_CATEGORY_HOME) and IsInRaid(LE_PARTY_CATEGORY_INSTANCE) then
                     ct = "INSTANCE_CHAT"
                 end
@@ -288,8 +284,6 @@ function EditBox:SetupOverlayScripts()
         -- Guard here too in case the key event fires OnEnterPressed anyway.
         if IsShiftKeyDown() then return end
 
-        -- Panic recovery: If state is MULTILINE but the multiline frame is not shown,
-        -- we are in a zombie state that blocks the single-line Enter key.
         -- Canonical read: display text may carry recolour escapes, which must
         -- not reach slash parsing, the send path, or Blizzard's history lines.
         local text = YapperTable.Recolour.CanonicalText(box)
@@ -311,9 +305,8 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- Slash commands: some (/w Name, /r) won't have been consumed by
-        -- OnTextChanged because it waits for a trailing space. Handle
-        -- those here before forwarding anything unrecognised to Blizzard.
+        -- Slash commands that OnTextChanged skipped (it waits for a trailing
+        -- space) are resolved here before unknowns forward to Blizzard.
         if strbyte(trimmed, 1) == 47 then -- '/'
             local enterCmd, enterRest = strmatch(trimmed, "^/([%w_]+)%s*([%s%S]*)")
             if enterCmd then
@@ -326,8 +319,8 @@ function EditBox:SetupOverlayScripts()
                     if YapperTable.Utils and YapperTable.Utils.HasRegionalUniqueNames
                         and YapperTable.Utils:HasRegionalUniqueNames()
                         and EditBox.ExtractRegionalWhisperTarget then
-                        -- Forever: Enter commits — pad a trailing space so the
-                        -- extractor's boundary rule can close the surname.
+                        -- Forever: Enter commits, so pad a trailing space to
+                        -- let the extractor's boundary rule close the surname.
                         target = EditBox.ExtractRegionalWhisperTarget((enterRest or "") .. " ")
                         if not target then
                             local whole = (enterRest or ""):match("^%s*(.-)%s*$")
@@ -341,8 +334,8 @@ function EditBox:SetupOverlayScripts()
                         self.Target   = target
                         self._secureReplySource = nil
                         self.Language = nil
-                        -- Fix: Use self.OrigEditBox (eb was undefined here).
-                        -- This suppresses the Blizzard UI 'ghost' when switching to whisper modes.
+                        -- Deactivating the native box suppresses Blizzard's
+                        -- ghost editbox when switching to whisper.
                         local eb      = self.OrigEditBox
                         if eb and eb.Deactivate and eb:IsShown() then
                             eb:Deactivate()
@@ -350,7 +343,7 @@ function EditBox:SetupOverlayScripts()
                         box:SetText("")
                         updatingText = false
                         self:RefreshLabel()
-                        -- Don't close — user now has an empty whisper box.
+                        -- Don't close: user now has an empty whisper box.
                         return
                     end
                 end
@@ -423,7 +416,7 @@ function EditBox:SetupOverlayScripts()
                 if SLASH_MAP[enterCmd] then
                     local ct = SLASH_MAP[enterCmd]
 
-                    -- Intelligent Fallbacks for group types (Mirror Blizzard behavior)
+                    -- Same Blizzard-style group fallbacks as OnTextChanged.
                     if ct == "INSTANCE_CHAT" then
                         if not IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
                             if IsInRaid(LE_PARTY_CATEGORY_HOME) then
@@ -454,7 +447,7 @@ function EditBox:SetupOverlayScripts()
                     if (enterRest or "") == "" then
                         return
                     end
-                    -- Text after the command — fall through to send.
+                    -- Text after the command: fall through to send.
                 end
             end
 
@@ -472,19 +465,15 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
-        -- If chat is locked down (combat/m+ lockdown), save draft and handoff
-        -- ALSO hand off to blizz if we are manually sidestepping.
-        -- note to self: if I am editing this, I am probably looking for
-        -- the lockdown check further down. This one handles the case where
-        -- we're already in lockdown, NOT when the lockdown initiates during
-        -- user input.
+        -- Already in lockdown before this send: save draft and hand off.
+        -- (A lockdown starting mid-typing is handled by the event path below.)
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             YapperTable.Utils:DebugPrint("OnEnterPressed: IsChatLockdown=true, calling HandoffToBlizzard")
             self:HandoffToBlizzard()
             return
         end
 
-        -- If user is manually bypassing Yapper, hand off to Blizzard
+        -- Manual bypass: hand off to Blizzard.
         if UserBypassingYapper() then
             YapperTable.Utils:DebugPrint("OnEnterPressed: UserBypassingYapper=true, calling HandoffToBlizzard")
             SetUserBypassingYapper(false)
@@ -492,11 +481,9 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- If a suggestion is open or was just applied, accept the
-        -- suggestion instead of sending. Spellcheck may apply the
-        -- suggestion in OnKeyDown, which hides the frame immediately;
-        -- we therefore also check the transient _justAppliedSuggestion
-        -- flag as a final safety guard.
+        -- Accept an open (or just-applied) suggestion instead of sending.
+        -- OnKeyDown may already have applied and hidden the panel, so also
+        -- check the transient _justAppliedSuggestion flag.
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function" then
             local sc = YapperTable.Spellcheck
             if sc:IsSuggestionOpen() or sc._justAppliedSuggestion then
@@ -538,9 +525,8 @@ function EditBox:SetupOverlayScripts()
             end
         end
 
-        -- The send path can veto delivery (e.g. lockdown flipped between
-        -- the early guard and the actual dispatch). In that case, keep the
-        -- current compose state; the send path has already handled handoff.
+        -- Vetoed send (e.g. lockdown flipped between the guard and dispatch):
+        -- keep the compose state; handoff was handled downstream.
         if not didSend then
             return
         end
@@ -558,7 +544,7 @@ function EditBox:SetupOverlayScripts()
                 end
             end
             -- Replace the Yapper-stored target with the secure one so
-            -- LastUsed/PersistLastUsed do not retain a tainted copy.
+            -- LastUsed doesn't retain a tainted copy.
             self.Target = target
         end
 
@@ -570,7 +556,7 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.History then
             YapperTable.History:ClearDraft(box)
         end
-        box:SetText("") -- Kill the zombie source immediately
+        box:SetText("") -- clear before Hide to prevent zombie drafts
         self:PersistLastUsed()
         self:Hide()
     end)
@@ -586,9 +572,7 @@ function EditBox:SetupOverlayScripts()
             YapperTable.Emotes:HideMenu()
             return
         end
-        -- If spell suggestions are open, close them only and keep the
-        -- overlay active. This prevents ESC from accidentally closing
-        -- the whole overlay when the user expected to dismiss hints.
+        -- Suggestions open: close only them so ESC doesn't nuke the overlay.
         if YapperTable.Spellcheck and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function"
             and YapperTable.Spellcheck:IsSuggestionOpen() then
             YapperTable.Spellcheck:HideSuggestions()
@@ -604,8 +588,7 @@ function EditBox:SetupOverlayScripts()
             end
         else
             if recoverOnEscape then
-                -- User bailed with text in the box
-                -- Draft is saved in OnHide below.
+                -- Bailed with text: keep it, OnHide saves the draft.
                 self._closedClean = false
             else
                 -- Save to history, but do not keep a draft.
@@ -626,9 +609,8 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    -- Intercept OnChar to remove numeric hotkey characters appended after
-    -- applying a suggestion. This ensures pressing '1'..'4' to select a
-    -- suggestion does not also insert the digit into the editbox.
+    -- OnChar: strip the digit hotkey char appended after applying a
+    -- suggestion, so pressing '1'..'4' doesn't type the digit too.
     edit:HookScript("OnChar", function(box, char)
         if YapperTable.IconGallery and YapperTable.IconGallery._suppressNextChar then
             local ig = YapperTable.IconGallery
@@ -647,7 +629,6 @@ function EditBox:SetupOverlayScripts()
         if YapperTable.Spellcheck and YapperTable.Spellcheck._suppressNextChar then
             local sc = YapperTable.Spellcheck
             if sc._suppressChar == char then
-                -- Immediately restore expected text/cursor and clear flags.
                 local expected = sc._expectedText or YapperTable.Recolour.CanonicalText(box)
                 local cursor = sc._expectedCursor
                 box:SetText(expected)
@@ -703,13 +684,11 @@ function EditBox:SetupOverlayScripts()
                 return
             end
         elseif key == "TAB" then
-            -- If ALT is held we should not cycle chat targets; spellcheck
-            -- already owns Alt+Tab behavior, so let it (or other handlers)
-            -- handle the key instead.
+            -- Spellcheck owns Alt+Tab; don't cycle chat targets.
             if IsAltKeyDown() then
                 return
             end
-            -- Try autocomplete acceptance first; fall through to channel cycling.
+            -- Autocomplete acceptance first; else fall through to channel cycling.
             if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTabPressed) == "function" then
                 if YapperTable.Autocomplete:OnTabPressed(edit) then
                     return
@@ -774,13 +753,13 @@ function EditBox:SetupOverlayScripts()
             YapperTable.Spellcheck:UpdateHint()
         end
 
-        -- When focus is lost (e.g. clicked game world), stop typing signals.
+        -- Focus lost: stop typing signals.
         if State and State:IsEditing() then
             State:ToIdle()
         end
 
-        -- In proxy mode, set the Blizzard editbox to deactivated opacity (0.35)
-        -- when Yapper loses focus, but only if the original alpha was a default value
+        -- Proxy mode: dim Blizzard's editbox to deactivated opacity, but only
+        -- when its original alpha was a default value.
         local cfg = YapperTable.Config and YapperTable.Config.EditBox
         if cfg and cfg.UseBlizzardSkinProxy == true then
             if self._proxyPrevState and self._proxyPrevState.alphaWasDefault then
@@ -803,8 +782,8 @@ function EditBox:SetupOverlayScripts()
             State:ToEditing()
         end
 
-        -- In proxy mode, ensure the Blizzard editbox stays at activated opacity (1.0)
-        -- when Yapper regains focus, but only if the original alpha was a default value
+        -- Proxy mode: restore Blizzard's editbox to activated opacity (same
+        -- alphaWasDefault guard as above).
         local cfg = YapperTable.Config and YapperTable.Config.EditBox
         if cfg and cfg.UseBlizzardSkinProxy == true then
             if self._proxyPrevState and self._proxyPrevState.alphaWasDefault then
@@ -816,19 +795,17 @@ function EditBox:SetupOverlayScripts()
         end
     end)
 
-    -- Combat lockdown detection
-    -- When InChatMessagingLockdown becomes true mid-typing, hand the
-    -- overlay state back to Blizzard's secure editbox.
-    -- Lockdown may activate slightly AFTER PLAYER_REGEN_DISABLED, so
-    -- we poll briefly via a ticker if the first check is negative.
+    -- Lockdown detection. When InChatMessagingLockdown flips mid-typing we
+    -- hand the overlay back to Blizzard's secure editbox. The flag can lag
+    -- PLAYER_REGEN_DISABLED, so a short ticker polls when the check fails.
     frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     frame:RegisterEvent("CHALLENGE_MODE_START")
     frame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
     frame:RegisterEvent("ENCOUNTER_STATE_CHANGED")
-    -- WoW 12.x restriction system: Activating dispatches BEFORE enforcement
-    -- (IsAddOnRestrictionActive still reads false), which is the sanctioned
-    -- cleanup window; Inactive fires after the lift.
+    -- WoW 12.x restrictions: Activating dispatches BEFORE enforcement
+    -- (IsAddOnRestrictionActive still reads false) -- the sanctioned
+    -- cleanup window. Inactive fires after the lift.
     if type(C_RestrictedActions) == "table"
         and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function" then
         frame:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
@@ -839,17 +816,16 @@ function EditBox:SetupOverlayScripts()
     -- Track Blizzard chat colour changes to refresh labels when using Blizzard mode.
     frame:RegisterEvent("UPDATE_CHAT_COLOR")
     -- Loading screens can swallow per-type Inactive dispatches; PEW resyncs
-    -- lockdown cleanup so handoff flags cannot stick across teleports.
+    -- cleanup so handoff flags can't stick across teleports.
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-    -- Also we want to watch for when the user shows or hides their UI, to close our editbox.
+    -- Close the overlay when the user hides their UI.
     UIParent:HookScript("OnHide", function()
-        -- housing editor hides UIParent; don't close if the editor is active.
+        -- The housing editor hides UIParent; don't close while it's active.
         if C_HouseEditor and C_HouseEditor.IsHouseEditorActive
             and C_HouseEditor.IsHouseEditorActive() then
             return
         end
-        -- Make sure we're hidden.
         if EditBox.Overlay and EditBox.Overlay:IsShown() then
             EditBox:Hide()
         end
@@ -874,10 +850,10 @@ function EditBox:SetupOverlayScripts()
             if rstates and (restrictionState == rstates.Activating
                 or restrictionState == rstates.Active) then
                 isLockdownStartEvent = true
-                -- Only the Chat restriction forces the handoff itself: other
-                -- types leave chat messaging usable, so they get the shared
-                -- wrapper/focus cleanup below plus the usual IsChatLockdown
-                -- poll. Chat's Activating is a reliable heads-up that
+                -- Only the Chat restriction forces the handoff: other types
+                -- leave messaging usable, so they get the wrapper/focus
+                -- cleanup below plus the IsChatLockdown poll. Chat's
+                -- Activating is a reliable heads-up that
                 -- InChatMessagingLockdown is about to flip.
                 restrictionEnforcing = (rtypes ~= nil
                     and restrictionType == rtypes.Chat)
@@ -885,10 +861,10 @@ function EditBox:SetupOverlayScripts()
                 isLockdownEndEvent = true
             end
         elseif event == "PLAYER_ENTERING_WORLD" then
-            -- Only synthesise an end event when there is stale lockdown state to
-            -- clean and the destination is genuinely unrestricted — otherwise a
-            -- plain zone change would stomp State mid-send or during restriction.
-            -- Pending timers self-resolve; the sticky flags are the real hazard.
+            -- Synthesise an end event only with stale lockdown state to clean
+            -- AND a genuinely unrestricted destination; otherwise a plain zone
+            -- change would stomp State mid-send. Pending timers self-resolve;
+            -- the sticky flags are the real hazard.
             local hasPendingLockdown = self._lockdown.eventRunning or self._lockdown.handedOff
                 or self._lockdown.showHandled
             local nothingRestricted = not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown())
@@ -903,8 +879,8 @@ function EditBox:SetupOverlayScripts()
         end
 
         if isLockdownStartEvent then
-            -- Remove Yapper's global active-window/focus wrappers before native
-            -- lockdown paths can inspect secret chat state.
+            -- Strip Yapper's global active-window/focus wrappers before
+            -- native lockdown paths can inspect secret chat state.
             if type(self.SetChatCompatibilityEnabled) == "function" then
                 self:SetChatCompatibilityEnabled(false)
             end
@@ -923,7 +899,7 @@ function EditBox:SetupOverlayScripts()
 
                 self:ResetLockdownIdleTimer()
 
-                -- Hook OnTextChanged to reset the idle timer while the user keeps typing.
+                -- Reset the idle timer while the user keeps typing.
                 if not self._lockdown.textHooked and self.OverlayEdit then
                     self._lockdown.textHooked = true
                     self.OverlayEdit:HookScript("OnTextChanged", function(box, isUserInput)
@@ -934,9 +910,9 @@ function EditBox:SetupOverlayScripts()
                 end
             end
 
-            -- Immediate check. A Chat-restriction Activating dispatch
-            -- counts even though IsChatLockdown still reads false during
-            -- the grace window — handoff now, before enforcement lands.
+            -- Immediate check. A Chat-restriction Activating dispatch counts
+            -- even though IsChatLockdown still reads false during the grace
+            -- window: hand off now, before enforcement lands.
             if restrictionEnforcing
                 or (YapperTable.Utils and YapperTable.Utils:IsChatLockdown())
                 or YapperTable.Config.System.DEBUG then
@@ -947,7 +923,7 @@ function EditBox:SetupOverlayScripts()
                 end
                 return
             end
-            -- Not in lockdown yet — poll briefly.
+            -- Not in lockdown yet: poll briefly.
             if self._lockdown.ticker then
                 self._lockdown.ticker:Cancel()
             end
@@ -971,12 +947,12 @@ function EditBox:SetupOverlayScripts()
                 end
             end)
         elseif isLockdownEndEvent then
-            -- Combat / M+ over — centralised cleanup.
+            -- Combat / M+ over: centralised cleanup.
             self:ClearLockdownState()
             local chatStillLocked = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
-            -- Per-type Inactive events can fire while another restriction
-            -- type is still enforced; only restore the compat wrappers once
-            -- nothing is restricted anymore.
+            -- A per-type Inactive event can fire while another restriction is
+            -- still enforced; only restore compat wrappers once nothing is
+            -- restricted.
             local stillRestricted = YapperTable.Utils
                 and type(YapperTable.Utils.IsAnyAddOnRestriction) == "function"
                 and YapperTable.Utils:IsAnyAddOnRestriction()
@@ -989,15 +965,15 @@ function EditBox:SetupOverlayScripts()
             end
             State:ToIdle()
             self:UpdateFocusOverride()
-            -- If we saved a draft during lockdown, poll until lockdown
-            -- is truly over (checks every 1s for up to 5s).
+            -- Handed off during lockdown: poll until it's truly over
+            -- (1s checks, up to 5).
             if self._lockdown.handedOff then
                 local checks = 0
                 C_Timer.NewTicker(1, function(ticker)
                     checks = checks + 1
                     if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                        -- Chat lifted, but another restriction type may still be
-                        -- enforced (e.g. Map for the rest of a dungeon); keep the
+                        -- Chat lifted, but another restriction may still be
+                        -- enforced (e.g. Map for the rest of a dungeon); keep
                         -- wrappers off until nothing is restricted.
                         if type(self.SetChatCompatibilityEnabled) == "function"
                             and not (YapperTable.Utils
@@ -1009,13 +985,13 @@ function EditBox:SetupOverlayScripts()
                             pcall(function() self:ResyncFromBlizzardAfterLockdown() end)
                         end
                         self._lockdown.handedOff = false
-                        -- If Blizzard sends during lockdown changed the channel,
-                        -- persist that sticky choice now.
+                        -- Blizzard-side sends during lockdown may have
+                        -- changed the channel; persist that choice now.
                         if self._lockdown.savedDuring then
                             self:PersistLastUsed()
                             self._lockdown.savedDuring = false
                         end
-                        -- Allow Show-hook lockdown logic to run again after lockdown.
+                        -- Allow Show-hook lockdown logic to run again.
                         self._lockdown.showHandled = false
                         self:UpdateFocusOverride()
                         YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
@@ -1056,11 +1032,11 @@ function EditBox:SetupOverlayScripts()
                     self:AddReplyTarget(sender, "WHISPER")
                 end
             elseif event == "CHAT_MSG_BN_WHISPER" then
-                -- Sender name is secret/unusable: fall back to the numeric
-                -- BN account ID (arg13), which is never secret and which
-                -- Router:Send accepts directly for BN_WHISPER.  Without this
-                -- the queue front goes stale and /r replies to the wrong
-                -- (older) whisperer.  Prefer a resolvable display name.
+                -- Sender name is secret/unusable: fall back to the BN account
+                -- ID (arg13), which is never secret and which Router:Send
+                -- accepts directly. Without this the queue front goes stale
+                -- and /r replies to the wrong whisperer. Prefer a resolvable
+                -- display name.
                 local bnSenderID = select(13, ...)
                 if type(bnSenderID) == "number" and bnSenderID > 0 then
                     local replyTarget = bnSenderID
@@ -1079,9 +1055,9 @@ function EditBox:SetupOverlayScripts()
                 if not HasComparableTarget(v) then return nil end
                 if whisperKind == "WHISPER"
                     and YapperTable.Utils and YapperTable.Utils.NormaliseCharName then
-                    -- Realm suffixes are transient across WoW whisper flows;
-                    -- NormaliseCharName also canonicalises Forever surname
-                    -- spellings ("First-Last" / "First Last").
+                    -- Realm suffixes are transient across whisper flows;
+                    -- NormaliseCharName also canonicalises Forever surnames
+                    -- ("First-Last" / "First Last").
                     return YapperTable.Utils:NormaliseCharName(v)
                 end
                 local s = v:lower()
@@ -1117,15 +1093,14 @@ function EditBox:SetupOverlayScripts()
                 }
             end
         elseif event == "UPDATE_CHAT_COLOR" then
-            -- Blizzard chat colour changed: refresh label if it matches our current channel.
+            -- Refresh the label if the changed colour matches our channel.
             local chatType = select(1, ...)
-            
-            -- Check if this event is relevant to our current channel
+
             local shouldRefresh = false
             if chatType == self.ChatType then
                 shouldRefresh = true
             elseif chatType:match("^CHANNEL%d+$") and self.ChatType == "CHANNEL" then
-                -- Event is for CHANNEL# and we're on CHANNEL - check if numbers match
+                -- CHANNEL# event: only refresh when the numbers match.
                 local eventNum = tonumber(chatType:match("CHANNEL(%d+)"))
                 local ourNum = tonumber(self.Target)
                 if eventNum and ourNum and eventNum == ourNum then
@@ -1158,8 +1133,7 @@ function EditBox:ResetLockdownIdleTimer(isMultiline)
     end
     YapperTable.Utils:DebugPrint("Lockdown handoff timer started/reset (1.5s idle wait)...")
     self._lockdown.idleTimer = C_Timer.NewTimer(1.5, function()
-        -- Sanity check: if the overlay was closed normally (sent or escaped)
-        -- in the meantime, do not execute the handoff.
+        -- Bail if the overlay was closed normally (sent/escaped) meanwhile.
         if not self.Overlay or not self.Overlay:IsShown() then
             YapperTable.Utils:DebugPrint("Timer fired but overlay was hidden - bailing handoff.")
             self._lockdown.idleTimer = nil

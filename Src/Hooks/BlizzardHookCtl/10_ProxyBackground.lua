@@ -2,7 +2,7 @@ local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
 --- In proxy mode the native editbox is the visible background. A channel link
 --- or chat-menu selection activates that editbox, and when focus returns to the
---- overlay Blizzard deactivates it on empty-text focus loss — which, in classic
+--- overlay Blizzard deactivates it on empty-text focus loss -- which, in classic
 --- chat style, also Hides it, wiping the background. Re-show it next frame so
 --- the proxy background survives. No-op outside proxy mode.
 function EditBox:EnsureProxyBackgroundShown()
@@ -12,7 +12,7 @@ function EditBox:EnsureProxyBackgroundShown()
     local eb = self.OrigEditBox
     if not eb or not eb.Show then return end
     C_Timer.After(0, function()
-        -- Don't resurrect the background if the user just closed Yapper —
+        -- Don't resurrect the background if the user just closed Yapper --
         -- Classic style relies on the natural Deactivate/Hide path then.
         if self._closing then return end
         if self.Overlay and self.Overlay:IsShown() and eb and not eb:IsShown() then

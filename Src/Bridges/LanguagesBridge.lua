@@ -5,8 +5,8 @@
     Does not register with or intercept LibChatFilter.
 
     Division of labour:
-      PRE_SEND  → rewrites the text (dialect + tag), per paragraph
-      PRE_CHUNK → supplies the continuation prefix for chunks 2+
+      PRE_SEND  -> rewrites the text (dialect + tag), per paragraph
+      PRE_CHUNK -> supplies the continuation prefix for chunks 2+
     Both decisions come from one resolver, so the head chunk and the
     continuation chunks can never disagree.
 
@@ -249,7 +249,7 @@ function LanguagesBridge:IsActive()
 end
 
 -- ---------------------------------------------------------------------------
--- Bootstrap (self-initialising — bridges are never wired into core)
+-- Bootstrap (self-initialising -- bridges are never wired into core)
 -- ---------------------------------------------------------------------------
 
 local frame = CreateFrame("Frame")

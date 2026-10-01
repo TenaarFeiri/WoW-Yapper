@@ -12,7 +12,6 @@ local JoinPath       = Interface.JoinPath
 local ClonePath      = Interface.ClonePath
 local IsColourTable  = Interface.IsColourTable
 
--- Re-localise Lua globals.
 local type       = type
 local ipairs     = ipairs
 local pairs      = pairs

@@ -1,10 +1,10 @@
 --[[
         Message send routing.
 
-        Resolves which WoW API to use for a given (chatType, target) pair:
-            1. C_ChatInfo.SendChatMessage  — SAY, EMOTE, YELL, PARTY, WHISPER, etc.
-            2. C_BattleNet.SendWhisper     — Battle.net whispers.
-            3. C_Club.SendMessage          — Communities / Guild / Officer chat.
+        Picks the WoW API for a (chatType, target) pair:
+            1. C_ChatInfo.SendChatMessage -- SAY, EMOTE, YELL, PARTY, WHISPER, etc.
+            2. C_BattleNet.SendWhisper    -- Battle.net whispers.
+            3. C_Club.SendMessage         -- Communities / Guild / Officer chat.
 ]]
 
 local _, YapperTable = ...
@@ -25,7 +25,7 @@ Router.ClubSendMessage = nil
 
 -- BNet friend lookup cache (60-second TTL).
 local _bnetCache     = {}   -- [normalised_needle] = { presenceID, bnetAccountID, expires }
-local _bnetCacheTTL  = 60   -- seconds
+local _bnetCacheTTL  = 60
 
 local function NormaliseBnetTarget(value)
     if not value then return nil end
@@ -64,7 +64,6 @@ function Router:ResolveBnetTarget(target)
     local needle = NormaliseBnetTarget(target)
     if not needle then return nil, nil end
 
-    -- Check cache first.
     local cached = _bnetCache[string_lower(needle)]
     if cached and cached.expires > GetTime() then
         return cached.presenceID, cached.bnetAccountID
@@ -72,7 +71,7 @@ function Router:ResolveBnetTarget(target)
 
     local presenceID, bnetAccountID = self:_ResolveBnetTargetUncached(needle)
 
-    -- Store result (even nil) to avoid repeated O(n) scans.
+    -- Cache misses too, so failed lookups don't rescan the friend list.
     _bnetCache[string_lower(needle)] = {
         presenceID   = presenceID,
         bnetAccountID = bnetAccountID,
@@ -81,7 +80,7 @@ function Router:ResolveBnetTarget(target)
     return presenceID, bnetAccountID
 end
 
---- Internal uncached BNet friend resolution.  Called by ResolveBnetTarget.
+--- Uncached friend-list scan used by ResolveBnetTarget.
 function Router:_ResolveBnetTargetUncached(needle)
     if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
         local count = BNGetNumFriends()
@@ -183,7 +182,6 @@ function Router:Init()
     self.SendChatMessage = C_ChatInfo.SendChatMessage
     self.ClubSendMessage = _G.C_Club and _G.C_Club.SendMessage or nil
 
-    -- Flush BNet cache when the friend list changes.
     if YapperTable.Events then
         YapperTable.Events:Register("PARENT_FRAME", "BN_FRIEND_INFO_CHANGED", function()
             self:FlushBnetCache()
@@ -223,9 +221,9 @@ function Router:Send(msg, chatType, language, target)
     if chatType == "BN_WHISPER" or chatType == "BNET" then
         local sendWhisper = C_BattleNet and C_BattleNet.SendWhisper or nil
 
-        -- Numeric targets are BNet account IDs supplied directly by friend-list
-        -- menu context or CHAT_MSG_BN_WHISPER. They must not be treated as
-        -- presence IDs: C_BattleNet.SendWhisper consumes the account ID.
+        -- Numeric targets are BNet account IDs from friend-list menus or
+        -- CHAT_MSG_BN_WHISPER. SendWhisper consumes the account ID, so never
+        -- treat these as presence IDs.
         local numericTarget = type(target) == "number" and target or nil
         if numericTarget then
             if sendWhisper then
@@ -236,9 +234,8 @@ function Router:Send(msg, chatType, language, target)
             return false
         end
 
-        -- Preserve the legacy string representation for callers that store a
-        -- presence ID as text. Numeric strings historically bypassed friend
-        -- lookup and went directly to the whisper send.
+        -- Legacy path: callers may pass a presence ID as a string. Numeric
+        -- strings skip friend lookup and go straight to the whisper send.
         local legacyPresenceID = type(target) == "string" and tonumber(target) or nil
         if legacyPresenceID then
             if sendWhisper then
@@ -290,7 +287,6 @@ function Router:Send(msg, chatType, language, target)
 
     -- Standard SendChatMessage for everything else
     if self.SendChatMessage then
-        -- Do nothing if whispering an empty target.
         if chatType == "WHISPER" then
             if not target or target == nil or target == "" then
                 return false

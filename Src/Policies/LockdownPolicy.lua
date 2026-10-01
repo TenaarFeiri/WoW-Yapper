@@ -36,7 +36,7 @@ end
 --- Returns true while ANY addon restriction type is enforced. Non-chat
 --- restrictions leave messaging usable but poison Blizzard-produced data
 --- (unit names, etc.) with secret values, so tainted calls into Blizzard
---- handlers — forwarded slash commands, unit-menu clicks — error on secret
+--- handlers -- forwarded slash commands, unit-menu clicks -- error on secret
 --- comparisons inside Blizzard code.
 --- @return boolean
 function LockdownPolicy:IsAnyAddOnRestrictionActive()
@@ -77,9 +77,9 @@ end
 -- Blizzard's secure command registry but still trip "Interface action
 -- blocked" when dispatched from tainted code during combat lockdown.
 local PROTECTED_COMMAND_KEYS = {
-    "MACRO",         -- /m, /macro → ShowMacroFrame → ShowUIPanel
-    "ACHIEVEMENTUI", -- /achieve, /achievements → ToggleAchievementFrame → ShowUIPanel
-    "RAIDFINDER",    -- /lfr, /df → PVEFrame_ToggleFrame → ShowUIPanel
+    "MACRO",         -- /m, /macro -> ShowMacroFrame -> ShowUIPanel
+    "ACHIEVEMENTUI", -- /achieve, /achievements -> ToggleAchievementFrame -> ShowUIPanel
+    "RAIDFINDER",    -- /lfr, /df -> PVEFrame_ToggleFrame -> ShowUIPanel
 }
 
 local ALWAYS_FORBIDDEN_COMMAND_KEYS = {

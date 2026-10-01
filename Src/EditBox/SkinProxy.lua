@@ -51,10 +51,9 @@ function EditBox:ApplyProxyMode(origEditBox)
         hidden          = {},
     }
 
-    -- Check if current alpha matches Blizzard's default values (1.0 activated, 0.35 deactivated).
-    -- Also include 0.0 as a default deactivated state (used by Prat/Chatter to hide editbox via alpha).
-    -- If so, we can safely change it to mimic the activated state (since Yapper is now open).
-    -- If not, assume an addon has overridden it and leave it alone.
+    -- Only touch alpha when it's a Blizzard default (1.0 active, 0.35
+    -- inactive; Prat/Chatter also use 0.0 to hide). Otherwise an addon has
+    -- overridden it -- leave it alone.
     local DEFAULT_ACTIVATED_ALPHA = 1.0
     local DEFAULT_DEACTIVATED_ALPHA = 0.35
     local ALPHA_TOLERANCE = 0.01
@@ -63,23 +62,21 @@ function EditBox:ApplyProxyMode(origEditBox)
         or math_abs(prev.alpha - 0.0) < ALPHA_TOLERANCE
     then
         prev.alphaWasDefault = true
-        -- Mimic Blizzard's activated state (set alpha to 1.0) since Yapper is open
+        -- Show activated (alpha 1.0) while Yapper is open.
         if origEditBox.SetAlpha then
             pcall(function() origEditBox:SetAlpha(DEFAULT_ACTIVATED_ALPHA) end)
         end
     end
 
-    -- Force-show the original so its skin (Blizzard / Prat / Chattynator / ElvUI) renders.
-    -- This must happen BEFORE hiding headers: OnShow triggers UpdateHeader which
-    -- re-shows header FontStrings, so we hide them after that side-effect runs.
-    -- In proxy mode the background MUST be visible, so always show it regardless
-    -- of the pre-state we will restore later.
+    -- Force-show so its skin (Blizzard / Prat / Chattynator / ElvUI)
+    -- renders regardless of the saved pre-state. Must run BEFORE hiding
+    -- headers: OnShow triggers UpdateHeader which re-shows them.
     if origEditBox.Show then
         pcall(function() origEditBox:Show() end)
     end
 
-    -- Record which header/prompt FontStrings are visible (post-Show, so UpdateHeader
-    -- has had a chance to run) and then hide them so our ChannelLabel is the only prefix.
+    -- Record + hide visible header FontStrings (post-Show, so UpdateHeader
+    -- has run) so our ChannelLabel is the only prefix.
     for _, key in ipairs(PROXY_HIDE_KEYS) do
         local part = origEditBox[key]
         if part and part.IsShown then
@@ -94,7 +91,7 @@ function EditBox:ApplyProxyMode(origEditBox)
         pcall(function() origEditBox:EnableMouse(false) end)
     end
 
-    -- Clear any stale text on the original; we don't want it ghost-rendering content.
+    -- Clear stale text so it doesn't ghost-render under the overlay.
     if origEditBox.SetText then
         pcall(function() origEditBox:SetText("") end)
     end
@@ -117,12 +114,10 @@ function EditBox:RestoreProxyMode()
     self._proxyOrigEditBox = nil
     if not prev or not origEditBox then return end
 
-    -- Re-enable mouse if it was on before.
     if prev.mouseEnabled and origEditBox.EnableMouse then
         pcall(function() origEditBox:EnableMouse(true) end)
     end
 
-    -- Restore header/prompt visibility.
     for key, wasShown in pairs(prev.hidden) do
         local part = origEditBox[key]
         if part and wasShown then
@@ -130,8 +125,8 @@ function EditBox:RestoreProxyMode()
         end
     end
 
-    -- Restore alpha only if it was a Blizzard default (1.0 or 0.35).
-    -- If an addon had overridden it, leave it alone.
+    -- Restore alpha only when it was a Blizzard default; leave addon
+    -- overrides alone.
     if prev.alphaWasDefault and prev.alpha and origEditBox.SetAlpha then
         pcall(function() origEditBox:SetAlpha(prev.alpha) end)
     end

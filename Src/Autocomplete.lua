@@ -3,10 +3,10 @@
 	Predictive word completion with ghost-text preview and Tab acceptance.
 
 	Data cascade:
-		Tier 1 — YAS personal lexicon  (freq table, ≤2000 entries)
+		Tier 1 - YAS personal lexicon (freq table)
 		         Prioritises the user's own vocabulary: character names,
 		         guild jargon, favourite descriptors.
-		Tier 2 — Spellcheck dictionary    (sorted array, binary search)
+		Tier 2 - Spellcheck dictionary (sorted array, binary search)
 		         Falls back to the full dictionary when YAS has no match.
 
 	Ghost text:
@@ -16,9 +16,8 @@
 		suggestion; any other key dismisses or refines it.
 
 	Performance:
-		YAS tier uses binary search over a sorted personal-frequency index.
-		Dictionary tier uses binary search on the alphabetically sorted
-		`dict.words` array — ~17 iterations for 130k words ($O(\log N)$).
+		Both tiers use binary search over sorted arrays - ~17 iterations
+		for a 130k-word dictionary.
 ]]
 
 local _, YapperTable     = ...
@@ -192,7 +191,7 @@ end
 
 --- Collect phonetic candidates from `dict` that share the same phonetic hash
 --- as `prefix`, but also start with `lowerPrefix` (prefix constraint still
---- applies — phonetics is a broadening tiebreaker, not a free match).
+--- applies -- phonetics is a broadening tiebreaker, not a free match).
 ---@param dict        table   Dictionary with .words and .phonetics.
 ---@param lowerPrefix string
 ---@param prefixLen   number
@@ -384,7 +383,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local yasDB = yas and yas:GetLocaleDB(locale)
 	local yasNeg = yasDB and yasDB.negBias or nil
 
-	-- Tier 1: personal lexicon (YAS) — exact prefix scan.
+	-- Tier 1: personal lexicon (YAS) -- exact prefix scan.
 	local yasFreq = yasDB and yasDB.freq or nil
 	local cleanPrefix = lowerPrefix:gsub("[%p%c%s]", "")
 
@@ -453,8 +452,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 		end
 	end
 
-	-- Tier 1b: user's custom dictionary (words added via "Add to dictionary").
-	-- This is a small array so linear scan is fine.
+	-- Tier 1b: user-added dictionary words (small array, linear scan).
 	local sc = YapperTable.Spellcheck
 	if sc and sc.GetUserDict and sc.GetLocale then
 		local userDict = sc:GetUserDict(sc:GetLocale())
@@ -565,7 +563,7 @@ end
 
 --- Position the ghost-text FontString immediately after the caret.
 --- Uses the x coordinate from OnCursorChanged, which is frame-relative
---- and already accounts for horizontal scroll — no measurement needed.
+--- and already accounts for horizontal scroll -- no measurement needed.
 --- In multiline mode, y is also used (the caret can be on any line).
 function Autocomplete:PositionGhost()
 	local fs = self.GhostFS
@@ -582,7 +580,7 @@ function Autocomplete:PositionGhost()
 	-- passed to SetPoint (which also uses UIParent-relative logical pixels).
 	local uiScale = UIParent and UIParent:GetEffectiveScale() or 1
 	local ebScale = editBox:GetEffectiveScale()
-	local toUI    = ebScale / uiScale    -- eb local → UIParent logical pixels
+	local toUI    = ebScale / uiScale    -- eb local -> UIParent logical pixels
 	local pad     = GHOST_CARET_PAD / toUI -- keep pad visually consistent
 
 	local offsetX = (self._caretX or 0) * toUI + pad + (self._offsetX or 0)
@@ -590,9 +588,7 @@ function Autocomplete:PositionGhost()
 
 	fs:ClearAllPoints()
 	
-	-- Automatic Multiline Detection: 
-	-- If Yapper's internal multiline is active, or if the bound EditBox is multiline-capable,
-	-- we must follow the caret vertically.
+	-- Follow the caret vertically when bound to a multiline EditBox.
 	local followVertical = self._isMultiline or (editBox.IsMultiLine and editBox:IsMultiLine())
 
 	if followVertical then
@@ -673,10 +669,10 @@ function Autocomplete:OnTextChanged(editBox)
 		return
 	end
 
-	-- Skip autocompletion for the first word if it starts with "/" and the emote picker is visible.
+	-- Don't autocomplete a first-word slash command while the emote picker
+	-- is visible (Tab belongs to the picker there).
 	local isSlashCommand = (text:match("^%s*/") ~= nil)
 	if isSlashCommand and startIdx then
-		-- Check if this is the first word (starts at the slash position)
 		local firstWordStart = text:find("/")
 		if startIdx == firstWordStart then
 			local emotePickerVisible = false
@@ -780,7 +776,7 @@ function Autocomplete:OnTabPressed(editBox)
 		YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
 	end
 
-	-- Record the acceptance in YAS: strong bias signal (prefix→suggestion)
+	-- Record the acceptance in YAS: strong bias signal (prefix -> suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
 	local sc = YapperTable.Spellcheck
 	local yas = sc and sc.YAS

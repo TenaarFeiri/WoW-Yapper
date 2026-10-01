@@ -27,7 +27,6 @@ local tostring = tostring
 local tonumber = tonumber
 local select = select
 
--- Debug flag helper
 local function IsDebugEnabled()
     return YapperTable and YapperTable.Config and YapperTable.Config.System and YapperTable.Config.System.DEBUG
 end
@@ -196,7 +195,6 @@ function Spellcheck:Init()
         self.YAS:Init()
     end
 
-    -- Apply initial state based on current config
     self:ApplyState()
 end
 
@@ -228,7 +226,7 @@ function Spellcheck:_RegisterLanguageEngine(familyId, engine)
     self.LanguageEngines = self.LanguageEngines or {}
     self.LanguageEngines[familyId] = engine
 
-    -- Invalidate any cached suggestions — phonetic rules may have changed.
+    -- Phonetic rules may have changed: invalidate cached suggestions.
     self:ClearSuggestionCache()
     return true
 end
@@ -263,9 +261,8 @@ local function BuildKBDistTable(layoutName)
                 if c2 then
                     local dx = c1[1] - c2[1]
                     local dy = c1[2] - c2[2]
-                    -- Euclidean distance (sqrt avoided at query time by
-                    -- comparing squared distances would be cheaper, but the
-                    -- table is built once so sqrt here is fine)
+                    -- Euclidean distance; table is built once so sqrt here
+                    -- is fine.
                     local d = (dx * dx + dy * dy) ^ 0.5
                     tbl[(ch1 - 97) * 26 + (ch2 - 97) + 1] = d
                 end
@@ -396,8 +393,8 @@ function Spellcheck:GetMeta(dict, word)
     local cached = cache[word]
     if cached then return cached end
 
-    -- build metadata (letter frequencies and bigrams)
-    -- Use byte keys for the bag to avoid per-character string allocation
+    -- Build metadata (letter bag + bigrams); byte keys avoid per-char
+    -- string allocation.
     local bag = {}
     for i = 1, #word do
         local ch = string_byte(word, i)
@@ -428,9 +425,9 @@ end
 function Spellcheck:EvictRandomMeta(dict, count)
     if type(dict) ~= "table" or type(dict._metaCache) ~= "table" then return end
 
-    -- Fast random-ish eviction: just purge the first 'count' entries we find
-    -- via pairs(). Since Lua's pairs() order is effectively random, this
-    -- serves as a cheap approximation of eviction without sorting 20,000 keys.
+    -- Cheap eviction: pairs() order is effectively random, so purging the
+    -- first `count` entries approximates random eviction without sorting
+    -- ~20k keys.
     local removed = 0
     local cache = dict._metaCache
     for w in pairs(cache) do
@@ -548,8 +545,7 @@ function Spellcheck:IsWordBlocked(word, locale, ignoreManual)
     if engineHashes and engineHashFn then
         if engineHashes[engineHashFn(w)] then return true end
         
-        -- Deleet is now on Utils — consolidated from 4 copies.
-        local dw = Utils.Deleet(w)
+        local dw = Utils.Deleet(w) -- leet-speak form, e.g. "h3ll0"
         if engineHashes[engineHashFn(dw)] then return true end
     end
     
@@ -716,7 +712,7 @@ function Spellcheck:_GetKBDistFromLayouts(layouts, layoutName)
     if not coords then
         return self:GetKBDistTable()
     end
-    -- Inline build (same logic as BuildKBDistTable but reading from coords directly).
+    -- Same build as BuildKBDistTable, but reading coords directly.
     local tbl = {}
     local string_char = string.char
     for i = 1, 676 do tbl[i] = 99 end

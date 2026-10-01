@@ -8,7 +8,7 @@
 local _, YapperTable = ...
 
 -- ---------------------------------------------------------------------------
--- What's New notes — keyed by addon version.
+-- What's New notes -- keyed by addon version.
 -- Each entry is an array of { title, body } pairs shown in order.
 -- ---------------------------------------------------------------------------
 local function note(title, body)

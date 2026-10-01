@@ -20,8 +20,7 @@ local string_sub   = string.sub
 local string_find  = string.find
 local string_format = string.format
 
--- Byte constants for '|', 'c', 'r', 'T', 'A'
-local PIPE = 124
+local PIPE = 124 -- '|'
 
 -- Return the end byte of a quality-coloured hyperlink, including its reset.
 -- The colour wrapper is semantic for WoW links, so it remains in canonical
@@ -84,9 +83,8 @@ function Recolour.CanonicalCursorFromText(text, displayPos)
     local n = #text
     while i <= displayPos and i <= n do
         if string_byte(text, i) == PIPE then
-            -- Unlike spellcheck colour runs, a link's quality colour is part
-            -- of the canonical text.  Count it rather than stripping it from
-            -- the cursor coordinate space.
+            -- A link's quality colour is part of the canonical text, so it
+            -- counts toward cursor coordinates instead of being stripped.
             local semanticEnd = SemanticLinkEnd(text, i)
             if semanticEnd then
                 local consumed = math.min(displayPos, semanticEnd) - i + 1
@@ -345,8 +343,8 @@ end
 
 --- Recolour misspelled words in the bound editbox. Detection results are
 --- cached by canonical text + dictionary identity; the display string is
---- rebuilt every call (cheap concat) and diffed against the widget text —
---- the diff is the recursion loop-breaker and caret-stability guarantee:
+--- rebuilt every call (cheap concat) and diffed against the widget text.
+--- That diff is the recursion loop-breaker and caret-stability guarantee:
 --- no SetText happens unless the rendered text would actually change.
 --- @param box table  EditBox (overlay or multiline, whichever is bound)
 function Recolour:Apply(box)

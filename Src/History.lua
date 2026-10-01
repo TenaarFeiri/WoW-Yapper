@@ -75,8 +75,7 @@ function History:InitDB()
         _G.YapperLocalHistory = {}
     end
 
-    -- History is now per-character only.
-    -- Ensure any legacy account-wide history payload stays removed.
+    -- History is per-character; strip any legacy account-wide payload.
     if type(_G.YapperDB) == "table" then
         _G.YapperDB.chatHistory = nil
         _G.YapperDB.draft = nil
@@ -138,9 +137,8 @@ function History:AddChatHistory(text, chatType, target)
 
     local h = _G.YapperLocalHistory.chatHistory
 
-    -- Check duplication against the most recent entry.
-    -- We only skip if the text AND channelcontext (type/target) match.
-    -- This allows identical text on say SAY vs WHISPER to be preserved.
+    -- Skip only if the text AND channel context (type/target) match, so
+    -- identical text sent to SAY vs WHISPER is preserved.
     local last = h[#h]
     if type(last) == "table" then
         if last.text == text and last.chatType == chatType and last.target == target then
@@ -224,9 +222,8 @@ function History:SaveDraft(editBox, isMultiline)
         local ct = eb and eb.ChatType
         local tgt = eb and YapperTable.Utils:SanitizeTarget(eb.Target)
         -- Don't bind a draft to a transient external whisper (unit-frame
-        -- right-click). Persisting the whisper chatType/target would re-open on
-        -- that whisper once on the next show, bleeding the target. Keep the typed
-        -- text but let the channel resolve normally.
+        -- right-click): persisting the target would bleed it into the next
+        -- show. Keep the text but let the channel resolve normally.
         local externalTarget = eb and YapperTable.Utils:SanitizeTarget(eb._externalWhisperTarget)
         if externalTarget
             and (ct == "WHISPER" or ct == "BN_WHISPER")
@@ -479,9 +476,8 @@ function History:HookOverlayEditBox()
     eb:HookScript("OnEditFocusLost", function(box)
         if YapperTable.YAPPER_DISABLED then return end
         
-        -- Don't re-save a draft if we are closing because the message was sent.
-        -- This prevents the "zombie draft" where a sent message reappears
-        -- due to focus-loss auto-saving it back into the DB during the hide animation.
+        -- Don't re-save a draft when closing after a send -- prevents the
+        -- "zombie draft" where a sent message reappears via focus-loss save.
         local editBox = YapperTable.EditBox
         if editBox and editBox._closedClean then
             return

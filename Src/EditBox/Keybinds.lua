@@ -8,11 +8,9 @@ local _, YapperTable = ...
 local EditBox = YapperTable.EditBox
 local Utils = YapperTable.Utils
 
--- Keybind module
 local Keybinds = {}
 EditBox.Keybinds = Keybinds
 
--- State tracking
 Keybinds._registered = false
 Keybinds._pendingRegistration = false
 Keybinds._overrideBindings = {
@@ -22,19 +20,17 @@ Keybinds._overrideBindings = {
     "REPLYTELL2"
 }
 
--- Lockdown state preservation (using Yapper's existing LastUsed system)
+-- LastUsed snapshot for restoring the sticky channel after lockdown.
 Keybinds._preLockdownLastUsed = nil
 
 -- Housing editor decor-selection state, tracked from the editor's
--- SELECTED_TARGET_CHANGED event payloads so yield checks don't have to poll
--- a C API whose return may be unusable (secret/erroring) in that context.
+-- SELECTED_TARGET_CHANGED payloads so yield checks don't have to poll a
+-- C API whose return may be secret/erroring in that context.
 Keybinds._decorSelected = false
 Keybinds._decorSelectionObserved = false
 
--- Secure buttons for each binding type
 Keybinds._secureButtons = {}
 
--- Safe verbose printing helper
 local function LogVerbose(msg)
     YapperTable.Utils:VerbosePrint(msg)
 end
@@ -51,9 +47,9 @@ end
 -- Secure Button Creation
 -- ---------------------------------------------------------------------------
 
---- Resolve a reply target through Yapper's secret-safe readers. Returns nil,
---- nil when no usable target exists — including when Blizzard's remembered-target
---- list holds a secret value.
+--- Resolve a reply target through Yapper's secret-safe readers. nil, nil
+--- when no usable target exists, including a secret in Blizzard's
+--- remembered-target list.
 local function ResolveSafeReplyTarget(rewhisper)
     local getInfo = EditBox and (rewhisper
         and EditBox.GetLastToldTargetInfo or EditBox.GetLastTellTargetInfo)
@@ -76,8 +72,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
 
-    -- If the post queue is stalled and waiting for Enter to continue,
-    -- progress the queue instead of opening Yapper.
+    -- A stalled queue waiting for Enter takes priority over opening.
     local Queue = YapperTable.Queue
     if Queue and Queue.TryContinue and Queue:TryContinue() then
         Queue:SendNext(true)
@@ -87,7 +82,6 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     local isRewhisper = (bindingName == "REPLYTELL2")
     local isReply = (bindingName == "REPLY" or isRewhisper)
 
-    -- Check for chat messaging lockdown before opening Yapper
     local inLockdown = Utils:IsChatLockdown()
     if isReply and inLockdown then
         -- Do not call Blizzard's ReplyTell from this tainted click path. Its
@@ -97,7 +91,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
     if inLockdown then
-        -- Save Yapper's LastUsed state for restoration after lockdown
+        -- Snapshot LastUsed for restoration after lockdown.
         if not Keybinds._preLockdownLastUsed and EditBox.LastUsed then
             Keybinds._preLockdownLastUsed = {
                 chatType = EditBox.LastUsed.chatType,
@@ -115,8 +109,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
 
         if ChatFrameUtil and ChatFrameUtil.OpenChat then
-            -- Preserve OPENCHATSLASH semantics in fallback mode while still
-            -- using Blizzard as the authority during lockdown.
+            -- Keep OPENCHATSLASH's "/" prefill while Blizzard owns the open.
             if prefillText and prefillText ~= "" then
                 ChatFrameUtil.OpenChat(prefillText)
             else
@@ -126,18 +119,13 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
     
-    -- Lockdown ended: restore the pre-lockdown LastUsed sticky so the next
-    -- open recovers the channel the user was on before combat, instead of
-    -- falling back to SAY (Blizzard's Deactivate reverts chatType to
-    -- stickyType, which Yapper keeps in sync via SyncAttributesToBlizzard,
-    -- but the keybind path bypasses Show()'s draft/affinity resolution and
-    -- needs LastUsed populated). Only LastUsed is restored — transient
-    -- ChatType/Target/Language are re-resolved by Show()'s
-    -- ResolveOpenSelection, so we don't risk thrashing overlay state. This
-    -- touches only Yapper-side tables (no secure attributes), so there is
-    -- no taint surface. Restores a safety net removed in 1ec4628 that was
-    -- never replaced (the comment referenced a ResyncFromBlizzardAfterLockdown
-    -- function that was never implemented).
+    -- Lockdown ended: restore the pre-lockdown LastUsed so the next open
+    -- recovers the pre-combat channel instead of falling back to SAY. Only
+    -- LastUsed is restored; transient ChatType/Target/Language are
+    -- re-resolved by Show()'s ResolveOpenSelection. This touches only
+    -- Yapper-side tables, so there is no taint surface. Restores a safety
+    -- net removed in 1ec4628 (its comment referenced a resync function
+    -- that was never implemented).
     if Keybinds._preLockdownLastUsed and not inLockdown then
         if EditBox.LastUsed then
             EditBox.LastUsed.chatType = Keybinds._preLockdownLastUsed.chatType
@@ -147,10 +135,10 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         Keybinds._preLockdownLastUsed = nil
     end
 
-    -- REPLY: resolve the last incoming whisper through Yapper's secret-safe
-    -- reader before any open. Without a usable target the key is a no-op —
-    -- matching Blizzard's native behaviour with an empty remembered list, and
-    -- deliberately giving up secret targets rather than erroring.
+    -- REPLY: resolve the last incoming whisper via Yapper's secret-safe
+    -- reader before any open. No usable target -> no-op, matching Blizzard's
+    -- empty-list behaviour and deliberately giving up secret targets rather
+    -- than erroring.
     local replyType, replyTarget
     if isReply then
         replyType, replyTarget = ResolveSafeReplyTarget(isRewhisper)
@@ -164,8 +152,8 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         if not isReply or not replyTarget then return end
         EditBox.ChatType = replyType or "WHISPER"
         EditBox.Target = replyTarget
-        -- Mark that this target came from a secure reply source so
-        -- ResolveWhisperTarget can re-source it from Blizzard at send time.
+        -- Mark the target as secure-sourced so ResolveWhisperTarget can
+        -- re-source it from Blizzard at send time.
         EditBox._secureReplySource = isRewhisper and "told" or "tell"
         EditBox.ChannelName = nil
         EditBox.Language = nil
@@ -190,7 +178,7 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
     end
 
-    -- Don't show if already shown to prevent state thrashing
+    -- Already shown: don't re-show (state thrash); just apply the target.
     if EditBox.Overlay and EditBox.Overlay:IsShown() then
         ApplyReplyTarget()
         if EditBox.OverlayEdit then
@@ -200,9 +188,8 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         return
     end
     
-    -- Fire PRE_EDITBOX_SHOW filter so external addons (CEBE, WIMBridge, etc.)
-    -- can inspect and react before the overlay opens.  This mirrors the filter
-    -- call in HookBlizzardEditBox so addons see a consistent activation path.
+    -- PRE_EDITBOX_SHOW mirrors the hook path so external addons see the same
+    -- activation flow.
     if YapperTable.API then
         local filterCT = (EditBox.LastUsed and EditBox.LastUsed.chatType) or "SAY"
         local filterTarget = EditBox.LastUsed
@@ -216,8 +203,8 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end
     end
 
-    -- Prefer the currently active native chat editbox first; IM history can lag
-    -- behind during whisper retarget/close sequences and reopen stale contexts.
+    -- Prefer the active native editbox; IM history can lag behind during
+    -- whisper retarget/close and reopen stale contexts.
     local activeWindow = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
         and ChatFrameUtil.GetActiveWindow()
     local targetEditBox = IsNativeChatEditBox(activeWindow) and activeWindow or nil
@@ -233,7 +220,6 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         EditBox:Show(targetEditBox)
     end)
     if not ok then
-        -- Error in Show - print to chat so user can see it
         DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Yapper Error:|r " .. tostring(err))
         return
     end
@@ -244,15 +230,12 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     ApplyReplyTarget()
     SuppressReplyKeyCharacter()
 
-    -- NOTE: We intentionally do NOT apply prefillText here. Show() has already
-    -- focused the overlay synchronously inside the key-DOWN event, so the
-    -- physical char event (e.g. "/" for OPENCHATSLASH) fires on the focused
-    -- overlay immediately after all Lua returns.  Manually SetText("/") here
-    -- would double-fill: our "/" plus the physical char's "/" → "//".
-    -- The prefillText parameter is still used by the lockdown fallback above,
-    -- where Blizzard's OpenChat handles the char itself.
+    -- NOTE: prefillText is intentionally NOT applied here. Show() focused
+    -- the overlay synchronously inside the key-down event, so the physical
+    -- char event ("/" for OPENCHATSLASH) lands on it right after Lua returns.
+    -- SetText("/") here would double-fill to "//". The lockdown fallback
+    -- above still uses prefillText because Blizzard's OpenChat owns the char.
 
-    -- Use the proper Blizzard function to set focus override
     if EditBox.UpdateFocusOverride then
         EditBox:UpdateFocusOverride()
     end
@@ -265,25 +248,23 @@ end
 local function CreateSecureButtonForBinding(bindingName, prefillText, syncAttributes)
     local button = CreateFrame("Button", "YapperKeybindButton_" .. bindingName, nil, "SecureActionButtonTemplate")
     button:SetAttribute("type", "click")
-    button:Hide() -- Hide the button, we only use it for keybind routing
+    button:Hide() -- routing only; never shown
 
-    -- Fire on key DOWN, like Blizzard's native OPENCHAT binding. A plain
-    -- Button defaults to LeftButtonUp, so the override CLICK binding would
-    -- only run PostClick on key RELEASE: the overlay opened a keypress-length
-    -- late, and any keys rolled between Enter-down and Enter-up had no
-    -- focused editbox to land in (hence action-bar bleed-through for fast
-    -- typists). With down-clicks the whole open path, including the final
-    -- OverlayEdit:SetFocus(), completes synchronously inside the Enter-down
-    -- event, so every subsequent key event already has a focused editbox.
+    -- AnyDown: fire on key DOWN, matching Blizzard's OPENCHAT timing. With
+    -- the default up-click, PostClick would run on key RELEASE and the
+    -- overlay would open a keypress late -- keys rolled between Enter-down
+    -- and Enter-up would land on the action bars (bleed-through). Down-clicks
+    -- finish the open (incl. OverlayEdit:SetFocus) inside the Enter-down
+    -- event. Do not remove.
     button:RegisterForClicks("AnyDown")
-    
-    -- Use PostClick to run our insecure code after the secure click
+
+    -- PostClick runs our insecure code after the secure click.
     button:SetScript("PostClick", function()
         local ok, err = pcall(function()
             HandleKeybindClick(bindingName, prefillText, syncAttributes)
         end)
         if not ok then
-            -- The click silently did nothing otherwise; leave a trace for diagnosis.
+            -- A swallowed click is silent otherwise; leave a trace.
             Utils:DebugPrint("Keybind PostClick failed for " .. tostring(bindingName)
                 .. ": " .. tostring(err))
         end
@@ -299,25 +280,25 @@ end
 --- way to clear it (override bindings persist on the old frame object).
 function Keybinds:CreateSecureButtons()
     if not self._secureButtons["OPENCHAT"] then
-        -- OPENCHAT - standard chat open, sync attributes for lockdown
         self._secureButtons["OPENCHAT"] = CreateSecureButtonForBinding("OPENCHAT", nil, true)
     end
 
     if not self._secureButtons["OPENCHATSLASH"] then
-        -- OPENCHATSLASH - chat open with "/" pre-filled, sync attributes for lockdown
+        -- "/" prefill; sync attributes for lockdown.
         self._secureButtons["OPENCHATSLASH"] = CreateSecureButtonForBinding("OPENCHATSLASH", "/", true)
     end
 
     if not self._secureButtons["REPLY"] then
-        -- REPLY - reply to last incoming whisper via Yapper's secret-safe reader.
-        -- Overridden because the native binding runs Blizzard's ReplyTell inside
-        -- execution tainted by Yapper's ChatFrameUtil wrappers; a secret entry in
-        -- Blizzard's remembered-target list then errors and eats the keypress.
+        -- REPLY: last incoming whisper via Yapper's secret-safe reader.
+        -- Overridden because the native binding runs Blizzard's ReplyTell
+        -- inside execution tainted by Yapper's ChatFrameUtil wrappers; a
+        -- secret entry in the remembered-target list then errors and eats
+        -- the keypress.
         self._secureButtons["REPLY"] = CreateSecureButtonForBinding("REPLY", nil, false)
     end
 
     if not self._secureButtons["REPLYTELL2"] then
-        -- REPLYTELL2 - re-whisper the last outgoing target via Yapper's safe reader.
+        -- REPLYTELL2: re-whisper the last outgoing target.
         self._secureButtons["REPLYTELL2"] = CreateSecureButtonForBinding("REPLYTELL2", nil, false)
     end
 end
@@ -339,12 +320,11 @@ local function IsSelectionGatedBindingInert(binding)
     if not SELECTION_GATED_CONTEXT_BINDINGS[binding] then
         return false
     end
-    -- Selection state is tracked from the editor's target-selection event
-    -- payloads (see Init). Before the first observed event this session we
-    -- fall back to the C API — inside pcall, since its return may be a secret
-    -- value that errors on comparison. If we cannot prove the binding is
-    -- inert we treat it as live and yield: a swallowed context key (dead
-    -- remove-decor) is a worse failure than a yielded reply key.
+    -- Selection state comes from the editor's selection-event payloads (see
+    -- Init). Before the first event this session we fall back to the C API
+    -- inside pcall (its return may be secret and error on comparison).
+    -- When we can't prove the binding is inert we yield: a dead remove-decor
+    -- key is a worse failure than a yielded reply key.
     if Keybinds._decorSelectionObserved then
         return Keybinds._decorSelected ~= true
     end
@@ -355,15 +335,13 @@ local function IsSelectionGatedBindingInert(binding)
     return ok and inert == true
 end
 
---- Return the name of a binding that claims `key` inside a currently active
---- non-default binding context, or nil when the key is unclaimed.
---- Binding contexts (Enum.BindingContext) let the client bind a key that is
---- already bound in the default context — e.g. the housing editor's decor
---- modes claim R for HOUSING_REMOVEDECOR while R is also REPLY. Our override
---- bindings outrank context bindings in the engine's key dispatch, so an
---- overridden chat key becomes a dead key inside the editor (the click
---- handler resolves no reply target and silently returns). When a context
---- claims the key we must yield it.
+--- Return the binding claiming `key` inside an active non-default binding
+--- context, or nil. Contexts (Enum.BindingContext) can bind a key that's
+--- already bound in the default context -- e.g. housing decor modes claim R
+--- for HOUSING_REMOVEDECOR while R is also REPLY. Override bindings outrank
+--- context bindings, so our overridden chat key becomes a dead key inside
+--- the editor (the click handler resolves no reply target and returns).
+--- When a context claims the key we must yield it.
 local function GetConflictingContextBinding(key)
     if not (C_KeyBindings and Enum and Enum.BindingContext) then
         return nil
@@ -375,8 +353,7 @@ local function GetConflictingContextBinding(key)
     end
     for _, context in pairs(Enum.BindingContext) do
         if context ~= Enum.BindingContext.None then
-            -- Restricted-adjacent C calls: a runtime error here must not
-            -- abort override registration mid-loop.
+            -- A runtime error here must not abort registration mid-loop.
             local ok, binding = pcall(function()
                 if isActive(context) == true then
                     local found = getByKey(key, context)
@@ -393,12 +370,10 @@ local function GetConflictingContextBinding(key)
     return nil
 end
 
---- Clear a button's overrides and re-apply only the keys not claimed by an
---- active binding context. SetOverrideBindingClick/ClearOverrideBindings are
---- not protected calls, so this is safe under combat and chat-messaging
---- lockdown — which matters, because deferring a yield until regen would
---- leave the context's key dead for an entire session (e.g. the whole time
---- the housing editor is open).
+--- Clear a button's overrides, then re-apply only keys not claimed by an
+--- active binding context. These are not protected calls, so this is safe
+--- under combat/chat lockdown -- which matters, because deferring a yield
+--- until regen would leave the context's key dead for the whole session.
 local function ApplyButtonOverrides(button, bindingName)
     pcall(ClearOverrideBindings, button)
     local key1, key2 = GetBindingKey(bindingName)
@@ -433,10 +408,8 @@ function Keybinds:RegisterOverrides()
         return
     end
 
-    -- Ensure secure buttons exist for all bindings
     self:CreateSecureButtons()
 
-    -- Check if we can set overrides (not in combat/lockdown)
     if InCombatLockdown and InCombatLockdown() then
         self._pendingRegistration = true
         LogVerbose("Keybinds:RegisterOverrides deferred - in combat")
@@ -449,7 +422,6 @@ function Keybinds:RegisterOverrides()
         return
     end
 
-    -- Register overrides for each binding
     for _, bindingName in ipairs(self._overrideBindings) do
         if type(bindingName) == "string" and GetBindingKey then
             local button = self._secureButtons[bindingName]
@@ -475,7 +447,6 @@ function Keybinds:UnregisterOverrides()
         return
     end
 
-    -- Check if we can clear overrides (not in combat/lockdown)
     if InCombatLockdown and InCombatLockdown() then
         LogVerbose("Keybinds:UnregisterOverrides deferred - in combat")
         return
@@ -486,7 +457,6 @@ function Keybinds:UnregisterOverrides()
         return
     end
 
-    -- Clear all overrides from all secure buttons
     for bindingName, button in pairs(self._secureButtons) do
         if button then
             local success, err = pcall(function()
@@ -569,9 +539,8 @@ end
 --- Initialize keybind event listeners.
 --- Called during addon boot.
 function Keybinds:Init()
-    -- Create the secure buttons
     self:CreateSecureButtons()
-    -- Listen for keybind changes to refresh overrides
+    -- Refresh overrides when keybinds change.
     if YapperTable.Events and YapperTable.Events.Register then
         YapperTable.Events:Register("PARENT_FRAME", "UPDATE_BINDINGS", function()
             if self._registered then
@@ -580,11 +549,9 @@ function Keybinds:Init()
             end
         end)
 
-        -- Re-evaluate yields on events that can change which keys an active
-        -- context claims. Selection state for selection-gated context
-        -- bindings (HOUSING_REMOVEDECOR) is tracked from the selection
-        -- events' own payloads so the yield gate never has to rely on a
-        -- potentially restricted C API inside the editor.
+        -- Re-evaluate yields on events that change which keys a context
+        -- claims. Decor selection is tracked from event payloads so the
+        -- yield gate never needs a restricted C API inside the editor.
         for _, event in ipairs({
             "HOUSE_EDITOR_MODE_CHANGED",
             "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED",
@@ -594,8 +561,8 @@ function Keybinds:Init()
             YapperTable.Events:Register("PARENT_FRAME", event, function(...)
                 if event == "HOUSING_BASIC_MODE_SELECTED_TARGET_CHANGED"
                     or event == "HOUSING_EXPERT_MODE_SELECTED_TARGET_CHANGED" then
-                    -- Payload: selected, targetType, isPreview — only a Decor
-                    -- target makes a selection-gated binding live.
+                    -- Payload: selected, targetType, isPreview -- only a
+                    -- Decor target makes a selection-gated binding live.
                     local ok, isDecor = pcall(function(...)
                         local selected, targetType = ...
                         local decorType = (Enum.HousingBasicModeTargetType
@@ -630,9 +597,9 @@ function Keybinds:Init()
         end
     end
 
-    -- Binding contexts (housing editor modes, etc.) claim keys while active.
-    -- Re-sync yields on every context change so claimed keys are yielded to
-    -- the context action instead of being swallowed by our secure button.
+    -- Binding contexts (housing editor modes, etc.) claim keys while active;
+    -- re-sync yields on every context change so a claimed key reaches the
+    -- context action instead of being swallowed by our secure button.
     -- Deferred one frame so back-to-back (de)activations settle in one pass.
     if C_KeyBindings and type(C_KeyBindings.ActivateBindingContext) == "function" then
         local function OnBindingContextChanged()
@@ -646,7 +613,7 @@ function Keybinds:Init()
         hooksecurefunc(C_KeyBindings, "DeactivateBindingContext", OnBindingContextChanged)
     end
 
-    -- Listen for combat/lockdown end to complete pending registration
+    -- Complete pending registration when combat/lockdown ends.
     if YapperTable.Events and YapperTable.Events.Register then
         YapperTable.Events:Register("PARENT_FRAME", "PLAYER_REGEN_ENABLED", function()
             self:CompletePendingRegistration()

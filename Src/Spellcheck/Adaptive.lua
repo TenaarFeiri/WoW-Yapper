@@ -5,7 +5,7 @@
 
 local _, YapperTable = ...
 local YAS = {}
-YapperTable.Spellcheck.YAS = YAS -- Hook into internal table
+YapperTable.Spellcheck.YAS = YAS
 local Utils = YapperTable.Utils
 local IsDebugEnabled = YapperTable.Spellcheck.IsDebugEnabled
 
@@ -16,12 +16,11 @@ local AUTO_CAP = 500       -- Max auto-learn tracking entries
 local MAX_BIAS_PAIRS = 500 -- Max Typo -> Selection pairs to track
 local WEIGHTS = {
     freqBonus = -2.5,      -- High usage = lower score (better)
-    biasBonus = -8.0,      -- Past selection = significantly lower score (Increased from -5.0)
-    phBonus = -4.0,        -- Phonetic pattern match = moderate score bonus (Increased from -3.0)
-    negBias = 3.0,         -- Twice rejected (More...) = penalty (higher score)
+    biasBonus = -8.0,      -- Past selection = significantly lower score
+    phBonus = -4.0,        -- Phonetic pattern match = moderate score bonus
+    negBias = 3.0,         -- Rejected via "More..." = penalty (higher score)
 }
 
--- Localise globals
 local time = time
 local pairs = pairs
 local ipairs = ipairs
@@ -124,7 +123,7 @@ function YAS:GetFreqCap()
     return math_max(100, math_min(v, 10000))
 end
 
---- Returns the maximum number of typo→correction bias pairs to track.
+--- Returns the maximum number of typo->correction bias pairs to track.
 function YAS:GetBiasCap()
     local cfg = YapperTable.Config and YapperTable.Config.Spellcheck
     local v = tonumber(cfg and cfg.YASBiasCap) or MAX_BIAS_PAIRS
@@ -260,32 +259,26 @@ end
 ---@return boolean isSane True if the word is safe to learn.
 function YAS:IsSaneWord(w, locale)
     if not w then return false end
-    -- Note: We expect 'w' to already be cleaned (lowercase, no punctuation)
-    -- to avoid redundant allocations in RecordUsage.
-    -- Length bounds check
+    -- Caller passes pre-cleaned input (lowercase, no punctuation).
     if #w < 2 or #w > 40 then return false end
 
-    -- 1. Linguistic Cluster Check (7+ consecutive consonants)
-    -- Lua patterns don't support {n,} quantifiers, so we use repetition.
+    -- 1. Reject 7+ consecutive consonants. Lua patterns have no {n,}
+    -- quantifier, so the class is repeated literally.
     if w:match("[^aeiouy][^aeiouy][^aeiouy][^aeiouy][^aeiouy][^aeiouy][^aeiouy]") then return false end
 
-    -- 2. Keyboard Smash Check (3+ identical consecutive characters)
+    -- 2. Reject keyboard smash (3+ identical consecutive characters).
     if w:match("(.)%1%1") then return false end
 
-    -- 3. N-Gram Anchor (Sanity Verification)
-    -- Note: the base dictionary loads asynchronously over several frames after
-    -- login, so ngramIndex2 may not be populated yet when RecordUsage first fires.
-    -- This is intentionally safe: the guard below simply skips the check when the
-    -- index isn't ready, causing valid words to pass on the first few messages.
-    -- False-negatives here are harmless (a word is silently not recorded once);
-    -- false-positives from the other two checks above are the real concern.
+    -- 3. N-gram anchor: a real word should share at least one vowel-neutral
+    -- bigram with the dictionary. The base dictionary loads asynchronously
+    -- after login, so the index may be absent for the first few messages;
+    -- in that case this check is skipped (harmless false-negatives, while
+    -- the false-positives from checks 1-2 are the real concern).
     local sc = YapperTable.Spellcheck
     local dict = sc and sc:GetDictionary()
     if dict and dict.ngramIndex2 then
         local norm = w:gsub("[aeiouy]", "*")
         local foundValidBigram = false
-        -- Use a sliding window to check bigrams without creating many small strings
-        -- when possible, though table lookups eventually need the string key.
         for i = 1, #norm - 1 do
             local g = string_sub(norm, i, i + 1)
             if dict.ngramIndex2[g] then
@@ -324,7 +317,7 @@ function YAS:RecordUsage(text, locale)
 
         if not skip and not isBlocked and self:IsSaneWord(w, locale) then
             if not db.freq[w] then
-                -- Handle Capacity (Weighted LRU Eviction)
+                -- Capacity: prune least-useful entries before inserting.
                 if db.total >= self:GetFreqCap() then
                     self:Prune("freq", self:GetFreqCap(), locale)
                 end
@@ -354,10 +347,9 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
     local c = Clean(correction)
     local t = Clean(typo)
 
-    -- Data Scrubbing: Don't learn from empty symbols or punctuation-only corrections.
+    -- Don't learn from empty/punctuation-only corrections or blocked words.
     if c == "" or t == "" then return end
 
-    -- Don't learn blocked words.
     local sc = YapperTable.Spellcheck
     if sc and sc.IsWordBlocked and sc:IsWordBlocked(c, locale, true) then return end
 
@@ -377,10 +369,9 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
 
     local now = time()
 
-    -- 1. Exact Bias
+    -- 1. Exact bias
     local key = t .. ":" .. c
     if not db.bias[key] then
-        -- Handle Capacity
         db.biasCount = (db.biasCount or 0) + 1
         if db.biasCount >= self:GetBiasCap() then
             self:Prune("bias", self:GetBiasCap(), locale)
@@ -400,14 +391,14 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
     -- Bump revision so the suggestion cache knows to recompute scores.
     db._rev = (db._rev or 0) + 1
 
-    -- 2. Phonetic Pattern Bias (Generalized Learning)
+    -- 2. Phonetic pattern bias: generalise the correction to other typos
+    -- that produce the same phonetic hash. Shares the bias cap.
     local sc = YapperTable.Spellcheck
     if sc and sc.GetPhoneticHash then
         local ph = sc.GetPhoneticHash(t)
         if ph and ph ~= "" then
             local phKey = ph .. ":" .. c
             if not db.phBias[phKey] then
-                -- Handle Capacity (Shared cap with bias for now)
                 db.phBiasCount = (db.phBiasCount or 0) + 1
                 if db.phBiasCount >= self:GetBiasCap() then
                     self:Prune("phBias", self:GetBiasCap(), locale)
@@ -457,13 +448,12 @@ function YAS:RecordImplicitCorrection(typo, correction, candidates, locale)
     local utilityGain
 
     if inCandidates then
-        -- The user typed out a word that was already our suggestion: treat as a
-        -- full explicit selection — strongest signal.
+        -- Retyped a shown suggestion: treat as a full explicit selection
+        -- (strongest signal).
         utilityGain = 0.5
     else
-        -- Not a candidate.  Gate by phonetic and edit-distance similarity so that
-        -- completely unrelated corrections (e.g. the user deleted the word and
-        -- started a new sentence) don't pollute the bias table.
+        -- Gate by similarity so unrelated retypes (e.g. user deleted the
+        -- word and started a new sentence) don't pollute the bias table.
         local sc = YapperTable.Spellcheck
         local typoHash = sc and sc.GetPhoneticHash and sc.GetPhoneticHash(t) or ""
         local corrHash = sc and sc.GetPhoneticHash and sc.GetPhoneticHash(c) or ""
@@ -472,32 +462,28 @@ function YAS:RecordImplicitCorrection(typo, correction, candidates, locale)
             -- Same phonetic fingerprint despite different spelling: clear correction.
             utilityGain = 0.3
         else
-            -- Fall back to similarity heuristics.
-            -- Use a slightly higher maxDist for learning (3) so we capture more manual corrections.
+            -- Fall back to similarity heuristics; a looser maxDist (3)
+            -- captures more manual corrections than suggestion scoring.
             local sc = YapperTable.Spellcheck
             local dist = (sc and type(sc.EditDistance) == "function") and sc:EditDistance(t, c, 3) or 4
             
             if dist <= 1 then
-                -- Direct transposition or single char edit: very strong signal.
+                -- Single-char edit or transposition: very strong signal.
                 utilityGain = 0.5
             elseif dist <= 2 then
-                -- Close edit: strong signal.
                 utilityGain = 0.35
             elseif dist <= 3 then
-                -- Moderate edit.
                 utilityGain = 0.2
             else
                 -- Not a close edit, check shared prefix/suffix as a last resort.
                 local maxLen = math_max(#t, #c)
                 local shared = 0
-                -- Shared Prefix
-                for i = 1, math_min(#t, #c) do
+                for i = 1, math_min(#t, #c) do -- shared prefix
                     if t:sub(i, i) ~= c:sub(i, i) then break end
                     shared = shared + 1
                 end
-                -- Shared Suffix
-                for i = 0, math_min(#t, #c) - 1 do
-                    if i >= shared then -- Don't double count if they overlap
+                for i = 0, math_min(#t, #c) - 1 do -- shared suffix
+                    if i >= shared then -- stop before double-counting overlap
                         if t:sub(#t - i, #t - i) ~= c:sub(#c - i, #c - i) then break end
                         shared = shared + 1
                     end
@@ -536,10 +522,8 @@ function YAS:RecordRejection(typo, candidates, locale)
     for _, candObj in ipairs(candidates) do
         local word = type(candObj) == "table" and (candObj.word or candObj.value) or candObj
         if word then
-            -- Clean the candidate word before key construction to ensure consistent matching
             local key = t .. ":" .. Clean(word)
             if not db.negBias[key] then
-                -- Handle Capacity
                 db.negBiasCount = (db.negBiasCount or 0) + 1
                 if db.negBiasCount >= self:GetNegBiasCap() then
                     self:Prune("negBias", self:GetNegBiasCap(), locale)
@@ -615,12 +599,9 @@ function YAS:GetBonus(cand, typo, typoPhHash, locale)
     local t = Clean(typo)
     local bonus = 0
 
-    -- 1. Frequency Bonus
-    -- If cand comes from dictionary, it is already clean. If from user word, it might not be.
-    -- However, most callers provide a normalised candidate.
+    -- 1. Frequency bonus (log-scaled, capped)
     local freqEntry = db.freq[cand] or db.freq[c]
     if freqEntry and freqEntry.c > 2 then
-        -- Use logarithmic scaling so common words get a better proportional boost
         local logBonus = math_min(math.log(freqEntry.c) / 2, 3.0)
         bonus = bonus + (WEIGHTS.freqBonus * logBonus)
     end
@@ -629,31 +610,30 @@ function YAS:GetBonus(cand, typo, typoPhHash, locale)
     local key = t .. ":" .. c
     local biasEntry = db.bias[key]
     if biasEntry then
-        -- Factor in the utility (certainty) of the correction.
-        -- If the user explicitly chose this, the utility is higher (up to 5.0).
+        -- Utility is the certainty of the correction: explicit selections
+        -- push it higher (cap 5.0).
         local utility = math_max(biasEntry.u or 1.0, 1.0)
-        local cappedBias = math_min(biasEntry.c, 3) -- Slightly higher cap for count
+        local cappedBias = math_min(biasEntry.c, 3)
         bonus = bonus + (WEIGHTS.biasBonus * cappedBias * utility)
     end
     
-    -- 3. Phonetic Pattern Bonus (Optimized: use passed-down hash)
+    -- 3. Phonetic pattern bonus
     if typoPhHash and db.phBias then
         local phKey = typoPhHash .. ":" .. c
         local phEntry = db.phBias[phKey]
         if phEntry then
-            -- Generalized phonetic learning
             local utility = math_max(phEntry.u or 1.0, 1.0)
             local cappedPh = math_min(phEntry.c, 2)
             bonus = bonus + (WEIGHTS.phBonus * cappedPh * utility)
         end
     end
 
-    -- 4. Rejection Penalty (with time-based forgiveness decay)
+    -- 4. Rejection penalty, decaying with age (halves every ~30 days)
     if db.negBias then
         local negEntry = db.negBias[key]
         if negEntry then
             local ageDays = math_max(0, (time() - (negEntry.t or 0)) / 86400)
-            local decay = 1.0 / (ageDays / 30 + 1)  -- halves every ~30 days
+            local decay = 1.0 / (ageDays / 30 + 1)
             bonus = bonus + (WEIGHTS.negBias * math_min(negEntry.c, 5) * decay)
         end
     end
@@ -670,8 +650,8 @@ function YAS:GetBiasTargets(typo, locale)
     if t == "" then return nil end
 
     local targets = {}
-    -- Pattern match for "typo:*" in the bias table.
-    -- While iterating the whole bias table is O(N), N is capped at 500, so it's very fast.
+    -- Scan for "typo:*" keys; the bias table is capped at 500 so a full
+    -- scan is cheap.
     local prefix = t .. ":"
     local prefixLen = #prefix
     for key, _ in pairs(db.bias) do
@@ -684,7 +664,7 @@ function YAS:GetBiasTargets(typo, locale)
         end
     end
 
-    -- Also check phonetic bias targets
+    -- Phonetic bias targets too (same typo sound, different spelling).
     local sc = YapperTable.Spellcheck
     local ph = sc and sc.GetPhoneticHash and sc.GetPhoneticHash(t)
     if ph and ph ~= "" and db.phBias then
@@ -718,19 +698,15 @@ function YAS:Prune(tableName, limit, locale)
     for k in pairs(tbl) do table_insert(keys, k) end
     if #keys < limit then return end
 
-    -- Sort by relevance: Score = Count * Utility * RecencyFactor
-    -- Items used a long time ago have lower recency factors.
+    -- Sort by relevance: score = (count * utility) / (daysOld + 1).
     local now = time()
     table_sort(keys, function(a, b)
         local ea = tbl[a]
         local eb = tbl[b]
 
-        -- Utility weighting (defaults to 1 if missing)
         local ua = ea.u or 1
         local ub = eb.u or 1
 
-        -- Recency weighting (days-based linear decay).
-        -- Score = (Count * Utility) / (DaysOld + 1)
         local ageA_days = math_max(0, (now - (ea.t or 0)) / 86400)
         local ageB_days = math_max(0, (now - (eb.t or 0)) / 86400)
 

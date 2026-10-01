@@ -21,7 +21,6 @@ local LAYOUT            = Interface._LAYOUT
 local SETTING_TOOLTIPS  = Interface._SETTING_TOOLTIPS
 local FONT_OUTLINE_OPTIONS = Interface._FONT_OUTLINE_OPTIONS
 
--- Re-localise Lua globals.
 local type       = type
 local pairs      = pairs
 local ipairs     = ipairs
@@ -59,7 +58,7 @@ function Interface:AddControl(widget)
 end
 
 -- ---------------------------------------------------------------------------
--- WidgetShownState pooling to efficiently create frames and prevent memory leaks
+-- Widget pooling: recycle hidden frames instead of leaking new ones.
 -- ---------------------------------------------------------------------------
 
 Interface.WidgetPool = {
@@ -81,7 +80,6 @@ function Interface:AcquireWidget(widgetType, parent, template, frameType)
     local widget = table.remove(pool)
 
     if not widget then
-        -- Create new if pool is empty.
         if frameType == "FontString" then
             widget = parent:CreateFontString(nil, "OVERLAY", template)
         else
@@ -90,7 +88,6 @@ function Interface:AcquireWidget(widgetType, parent, template, frameType)
         widget.widgetType = widgetType
         widget:Show()
     else
-        -- Recycle existing.
         widget:SetParent(parent)
         widget:ClearAllPoints()
         widget:Show()
@@ -101,7 +98,7 @@ function Interface:AcquireWidget(widgetType, parent, template, frameType)
     widget._yButtonTooltip = nil
     widget._yButtonTooltipAttached = nil
 
-    -- Ensure visibility above parent (fixes vanishing buttons behind backgrounds)
+    -- Sit above the parent; otherwise buttons vanish behind backgrounds.
     if widget.SetFrameLevel then
         widget:SetFrameLevel(parent:GetFrameLevel() + 5)
     end
@@ -124,9 +121,8 @@ function Interface:ReleaseWidget(widget)
     widget:Hide()
     widget:ClearAllPoints()
     
-    -- Template sub-components (e.g. an EditBox owned by InputScrollFrameTemplate) must
-    -- never be passed to ReleaseWidget; they are cleaned up by their parent's release path
-    -- in the scroll-frame block below. Only top-level acquired widgets reach this point.
+    -- Template-owned children (e.g. a scroll frame's EditBox) must not be
+    -- pooled; only top-level acquired widgets reach this point.
     widget:SetParent(nil)
 
     -- Clear script handlers to prevent ghost callbacks from previous lifecycle.
@@ -162,13 +158,11 @@ function Interface:ReleaseWidget(widget)
         if widget.SetMaxLines then widget:SetMaxLines(100) end
     end
 
-    -- ScrollFrame: reset scroll position and scrub EditBox scripts to prevent
-    -- ghost callbacks. We do NOT hide or pool the EditBox — it is owned by the
-    -- template and must stay attached.
+    -- ScrollFrame: reset scroll and scrub the template-owned child EditBox's
+    -- scripts so they can't fire after the page is torn down. The EditBox
+    -- itself is NOT pooled -- it belongs to the template.
     if widget.widgetType and widget.widgetType:find("Scroll") and widget.SetVerticalScroll then
         widget:SetVerticalScroll(0)
-        -- If this scroll frame has a template EditBox child, clear its scripts
-        -- here so they don't fire after the page has been torn down.
         local innerEdit = rawget(widget, "EditBox")
         if innerEdit and innerEdit.SetScript and innerEdit.HasScript then
             local editScripts = {
@@ -205,8 +199,8 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
     end
 
     local function onEnter(selfFrame)
-        -- Restore any leftover inflated fonts from a prior hover before
-        -- measuring base sizes, so the offset never compounds.
+        -- Restore any inflated fonts left by a prior hover before measuring
+        -- base sizes, or the offset compounds.
         if GameTooltip._yFontBackup then
             for _, bk in ipairs(GameTooltip._yFontBackup) do
                 if bk.fs and bk.file then
@@ -233,7 +227,7 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
             local screenW = GetScreenWidth() or 1920
             local maxTipW = screenW * 0.45 -- allow up to 45% of screen
 
-            -- Snapshot base sizes BEFORE any modification.
+            -- Snapshot base sizes before modification.
             local regions = {}
             for _, region in pairs({ GameTooltip:GetRegions() }) do
                 if region:IsObjectType("FontString") then
@@ -279,8 +273,8 @@ function Interface:AttachTooltip(region, tooltipText, titleText)
     end
 
     local function onLeave()
-        -- Restore original font sizes before hiding so the next tooltip
-        -- starts from genuine base sizes, not our inflated ones.
+        -- Restore base font sizes before hiding so the next tooltip
+        -- measures genuine sizes, not inflated ones.
         if GameTooltip._yFontBackup then
             for _, bk in ipairs(GameTooltip._yFontBackup) do
                 if bk.fs and bk.file then
@@ -317,8 +311,7 @@ function Interface:CreateResetButton(parent, x, y, onClick)
 end
 
 function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj, skipTooltip)
-    -- Labels are tracked like controls so rebuild cleanup is consistent.
-    -- Default to White (GameFontHighlight) for option labels.
+        -- Labels are pooled like controls so rebuild cleanup is consistent.
     local font = fontObj or "GameFontHighlight"
 
     local fs = self:AcquireWidget("Label", parent, font, "FontString")
@@ -337,15 +330,12 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj, 
     fs:SetText(text)
     self:AddControl(fs)
 
-    -- Detect truncation: if the natural text width exceeds the label width,
-    -- the label is being ellipsized.  In that case, show the full text as a
-    -- title line above the description tooltip.
+    -- Truncated labels get their full text as a tooltip title line.
     local isTruncated = (fs.IsTruncated and fs:IsTruncated())
         or ((fs:GetStringWidth() or 0) > width)
     local titleLine = isTruncated and text or nil
 
-    -- Build a combined tooltip: if no explicit description was provided but
-    -- the label IS truncated, still show a tooltip with just the full text.
+    -- No explicit tooltip but the label is truncated: show the full text.
     local effectiveTooltip = tooltipText
     if not effectiveTooltip or effectiveTooltip == "" then
         if isTruncated then
@@ -354,8 +344,8 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj, 
         end
     end
 
-    -- For tooltips, spawn an invisible hit-frame sized to the actual rendered
-    -- text so the tooltip appears next to the label, not out in space.
+    -- An invisible hit-frame sized to the rendered text keeps the tooltip
+    -- anchored next to the label instead of the full row width.
     if not skipTooltip and type(effectiveTooltip) == "string" and effectiveTooltip ~= "" then
         self:AttachTooltip(fs, effectiveTooltip, titleLine)
         local hitFrame = self:AcquireWidget("LabelHitFrame", parent, nil, "Frame")
@@ -373,13 +363,13 @@ function Interface:CreateLabel(parent, text, x, y, width, tooltipText, fontObj, 
 end
 
 -- ---------------------------------------------------------------------------
--- Unified ColorPicker helper — used by both channel and config pickers.
+-- Unified ColorPicker helper -- used by both channel and config pickers.
 -- ---------------------------------------------------------------------------
 -- opts = {
---   color       : {r,g,b,a}   — starting colour
---   hasOpacity  : boolean      — show alpha slider?
---   onApply     : function(newColor)   — called on confirm / live tick
---   onCancel    : function(prevColor)  — called on cancel
+--   color       : {r,g,b,a}   -- starting colour
+--   hasOpacity  : boolean      -- show alpha slider?
+--   onApply     : function(newColor)   -- called on confirm / live tick
+--   onCancel    : function(prevColor)  -- called on cancel
 -- }
 local function OpenColorPicker(opts)
     local color       = opts.color
@@ -398,7 +388,7 @@ local function OpenColorPicker(opts)
         end
     end
 
-    -- Read current state from whichever picker API is available.
+    -- Read state from whichever picker API this client exposes.
     local function readPickerColor(callbackData)
         local r, g, b = color.r or 1, color.g or 1, color.b or 1
         local a = color.a or 1
@@ -440,7 +430,7 @@ local function OpenColorPicker(opts)
                     if alpha then a, hasAlpha = alpha, true end
                 end
             end
-            -- Last resort: legacy property check.
+            -- Last resort: legacy opacity property (inverted: opacity = 1 - a).
             if not hasAlpha and type(ColorPickerFrame.opacity) == "number" then
                 a = 1 - ColorPickerFrame.opacity
             end
@@ -577,7 +567,7 @@ function Interface:CreateTextInput(parent, label, path, cursor)
 
     local current = self:GetConfigPath(path)
     if current ~= nil then
-        -- For chat marker fields, show the trimmed marker (no added spacing)
+        -- Marker fields display trimmed (the stored value adds spacing).
         if JoinPath(path) == "Chat.DELINEATOR" or JoinPath(path) == "Chat.PREFIX" then
             edit:SetText(TrimString(current))
         else
@@ -611,7 +601,7 @@ function Interface:CreateTextInput(parent, label, path, cursor)
         else
             local stored = Interface:SetLocalPath(path, raw)
             if type(stored) == "string" then
-                -- For marker fields, display the trimmed marker to the user
+                -- Show the trimmed marker to the user.
                 if JoinPath(path) == "Chat.DELINEATOR" or JoinPath(path) == "Chat.PREFIX" then
                     edit:SetText(TrimString(stored))
                 else

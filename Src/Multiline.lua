@@ -59,7 +59,7 @@ Multiline.Frame                      = nil -- main container frame
 Multiline.ScrollFrame                = nil -- scroll wrapper (ScrollFrame)
 Multiline.EditBox                    = nil -- the actual multi-line EditBox widget
 Multiline.LabelFS                    = nil -- channel label FontString
-Multiline.ChatType                   = nil -- current channel type (SAY, YELL, …)
+Multiline.ChatType                   = nil -- current channel type (SAY, YELL, ...)
 Multiline.Language                   = nil -- language index
 Multiline.Target                     = nil -- whisper / channel target
 Multiline._autoScrollSuppressedUntil = 0
@@ -97,7 +97,6 @@ local function RefreshMLLabel(ml)
 	local masterKey = cfg.ChannelColorMaster
 	local modeResolved = false
 
-	-- Check channel colour mode
 	if type(colorMode) == "table" and type(colorMode[chatType]) == "string" then
 		local mode = colorMode[chatType]
 
@@ -190,7 +189,6 @@ function Multiline:CreateFrame()
 
 	local cfg = GetConfig()
 
-	-- Container
 	local f = CreateFrame("Frame", "YapperMultilineFrame", UIParent, "BackdropTemplate")
 	f:SetSize(cfg.defaultWidth, cfg.defaultHeight)
 	f:SetFrameStrata("HIGH") -- above DIALOG overlay and chat messages
@@ -209,21 +207,20 @@ function Multiline:CreateFrame()
 	f:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
 	f:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
 
-	-- Channel label — capped at a readable size so it never clips the
+	-- Channel label -- capped at a readable size so it never clips the
 	-- fixed vertical slot even when the text-field font is scaled up.
 	local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	label:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -8)
 	label:SetText("")
 	self.LabelFS = label
 
-	-- Scroll wrapper — top anchor is updated in UpdateLabelGap() after
+	-- Scroll wrapper -- top anchor is updated in UpdateLabelGap() after
 	-- the label font is known so the text area doesn't overlap the label.
 	local sf = CreateFrame("ScrollFrame", "YapperMultilineScroll", f, "UIPanelScrollFrameTemplate")
 	sf:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -28)
 	sf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -28, 8)
 	self.ScrollFrame = sf
 
-	-- Editable region
 	local edit = CreateFrame("EditBox", "YapperMultilineEdit", sf)
 	edit:SetMultiLine(true)
 	edit:SetAutoFocus(false)
@@ -311,11 +308,9 @@ function Multiline:CreateFrame()
 
 	-- Enter sends; Shift+Enter inserts a literal newline (multi-line default).
 	edit:SetScript("OnEnterPressed", function(box)
-		-- If a suggestion was just applied (HandleKeyDown fired ENTER, called
-		-- ApplySuggestion, and HideSuggestions ran before we get here), the
-		-- transient _justAppliedSuggestion flag tells us not to send.
+		-- If a suggestion was just applied, _justAppliedSuggestion tells us
+		-- not to send. Ignore the flag if it's older than 100ms (stale).
 		if YapperTable.Spellcheck and YapperTable.Spellcheck._justAppliedSuggestion then
-			-- Safety: If the flag is older than 100ms, it's stale and should not block input.
 			local appliedTime = YapperTable.Spellcheck._justAppliedSuggestion
 			if type(appliedTime) == "number" and GetTime() > (appliedTime + 0.1) then
 				YapperTable.Spellcheck._justAppliedSuggestion = nil
@@ -338,9 +333,8 @@ function Multiline:CreateFrame()
 		Multiline:Submit()
 	end)
 
-	-- Route spellcheck key actions (Shift+Tab for suggestions, number keys,
-	-- arrow navigation) through the spellcheck handler.
-	-- Plain Tab is routed to autocomplete for ghost-text acceptance.
+	-- Key routing: icon gallery first, then spellcheck (Shift+Tab, number
+	-- keys, arrows); plain Tab goes to autocomplete ghost-text acceptance.
 	edit:HookScript("OnKeyDown", function(box, key)
 		-- Let icon gallery consume ESC/numbers/Enter/Tab first.
 		if YapperTable.IconGallery and YapperTable.IconGallery:HandleKeyDown(key) then
@@ -350,7 +344,7 @@ function Multiline:CreateFrame()
 			YapperTable.Spellcheck:HandleKeyDown(key)
 		end
 
-		-- Tab → accept autocomplete ghost text; if not consumed, cycle channel.
+		-- Tab -> accept ghost text; if not consumed, cycle channel.
 		if key == "TAB" and not IsShiftKeyDown() and not IsAltKeyDown() then
 			local scOpen = YapperTable.Spellcheck
 				and type(YapperTable.Spellcheck.IsSuggestionOpen) == "function"
@@ -364,10 +358,9 @@ function Multiline:CreateFrame()
 				acConsumed = YapperTable.Autocomplete:OnTabPressed(box)
 			end
 
-			-- If autocomplete didn't consume Tab, cycle the chat channel.
-			-- We mirror the multiline state into EditBox, delegate to its
-			-- CycleChatType (which handles availability checks and API events),
-			-- then read the result back into the multiline module.
+			-- Tab not consumed: cycle channel via EditBox.CycleChatType
+			-- (it owns availability checks + API events); mirror state in,
+			-- read result back.
 			if not acConsumed then
 				local eb = YapperTable.EditBox
 				if eb and type(eb.CycleChatType) == "function" then
@@ -386,7 +379,7 @@ function Multiline:CreateFrame()
 			end
 		end
 
-		-- Ctrl+Z / Ctrl+Y → undo/redo.
+		-- Ctrl+Z / Ctrl+Y -> undo/redo.
 		if IsControlKeyDown() and YapperTable.History then
 			if key == "Z" then
 				YapperTable.History:Undo(box)
@@ -422,9 +415,8 @@ function Multiline:CreateFrame()
 	end)
 
 	-- Mirror the overlay's OnChar suppression: after a suggestion hotkey
-	-- (1–6) is pressed, the digit must be stripped before it reaches the
-	-- EditBox text.  HandleKeyDown sets _suppressNextChar/_suppressChar;
-	-- this hook clears them and restores the post-correction text.
+	-- (1-6), the digit must not reach the EditBox text. HandleKeyDown sets
+	-- _suppressNextChar/_suppressChar; this hook restores the pre-key text.
 	edit:HookScript("OnChar", function(box, char)
 		if YapperTable.IconGallery and YapperTable.IconGallery._suppressNextChar then
 			local ig = YapperTable.IconGallery
@@ -470,7 +462,6 @@ function Multiline:CreateFrame()
 			YapperTable.Spellcheck:OnTextChanged(box, isUserInput)
 		end
 
-		-- Autocomplete ghost text.
 		if YapperTable.Autocomplete and type(YapperTable.Autocomplete.OnTextChanged) == "function" then
 			YapperTable.Autocomplete:OnTextChanged(box)
 		end
@@ -480,8 +471,8 @@ function Multiline:CreateFrame()
 			YapperTable.IconGallery:OnTextChanged(box, Multiline.Frame)
 		end
 
-		-- Draft auto-save (crash recovery) — mirrors the overlay's word-
-		-- boundary + idle-timer approach from History:HookOverlayEditBox.
+		-- Draft auto-save (crash recovery): mirrors the overlay's
+		-- word-boundary + idle-timer approach in History:HookOverlayEditBox.
 		local History = YapperTable.History
 		if History then
 			-- Canonical read: snapshots and drafts replay with plain-text
@@ -534,7 +525,7 @@ function Multiline:CreateFrame()
 		end
 	end)
 
-		-- Register combat lockdown events
+		-- Combat lockdown + colour-change events.
 		f:RegisterEvent("PLAYER_REGEN_DISABLED")
 		f:RegisterEvent("PLAYER_REGEN_ENABLED")
 		f:RegisterEvent("UPDATE_CHAT_COLOR")
@@ -600,7 +591,7 @@ local function AnchorAbsolute(frame, overlay, chatFrame)
 	chatTop = chatTop or overlay:GetTop() or 200
 	chatBot = chatBot or overlay:GetBottom() or 60
 
-	-- Quadrant: chat centre in bottom half → frame grows upward.
+	-- Quadrant: chat centre in bottom half -> frame grows upward.
 	local chatMidY = (chatTop + chatBot) / 2
 	local popUp    = (chatMidY < screenH / 2)
 
@@ -628,7 +619,7 @@ end
 
 --- Transition from the single-line overlay into the expanded editor.
 ---@param text      string   Current text from the single-line overlay.
----@param chatType  string   Chat type (SAY, YELL, PARTY, …).
+---@param chatType  string   Chat type (SAY, YELL, PARTY, ...).
 ---@param language  number?  Language index.
 ---@param target    string?  Whisper / channel target.
 function Multiline:Enter(text, chatType, language, target)
@@ -673,12 +664,10 @@ function Multiline:Enter(text, chatType, language, target)
 	self.Language      = language
 	self.Target        = target
 
-	-- Populate the editor.  If a multiline draft was stashed when the user
-	-- previously exited back to the overlay (Exit(true)), restore it in full
-	-- so hard newlines are preserved — but ONLY when the overlay text still
-	-- matches the collapsed fingerprint we stored.  If the user has cleared
-	-- or edited the overlay in the meantime, treat that as an intentional
-	-- discard and use whatever the overlay now contains.
+	-- Restore the stashed multiline draft (preserving hard newlines) ONLY
+	-- when the overlay text still matches the collapsed fingerprint stored
+	-- by Exit(true). If the user edited/cleared the overlay meanwhile, treat
+	-- that as an intentional discard and use the overlay's text.
 	local incomingText = text or ""
 	local editorText
 	if self._mlDraft and self._mlDraft ~= ""
@@ -692,16 +681,14 @@ function Multiline:Enter(text, chatType, language, target)
 	self.EditBox:SetText(editorText)
 	self.EditBox:SetCursorPosition(#editorText)
 
-	-- Refresh the channel label and edit-text colour.
 	RefreshMLLabel(self)
 
 	local eb = YapperTable.EditBox
 	local overlay = eb and eb.Overlay
 
-	-- Clear the overlay's text so it doesn't show as a draft on re-open.
-	-- Also mark the close as clean and wipe any saved draft so History's
-	-- OnHide handler doesn't MarkDirty(true) and surface a stale draft
-	-- the next time the overlay is opened.
+	-- Clear the overlay's text, mark close clean, and wipe its saved draft
+	-- so History's OnHide doesn't MarkDirty and surface a stale draft on
+	-- the next open.
 	if eb and eb.OverlayEdit then
 		eb.OverlayEdit:SetText("")
 	end
@@ -721,13 +708,11 @@ function Multiline:Enter(text, chatType, language, target)
 		end
 	end
 
-	-- Transition machine to MULTILINE state.
 	State:ToMultiline()
 
-	-- Position the frame using absolute UIParent coordinates captured
-	-- from the overlay and the active chat frame before the overlay is hidden.
-	-- Derive the specific chat frame from OrigEditBox so undocked windows
-	-- anchor multiline to the correct frame, not always ChatFrame1.
+	-- Position using absolute UIParent coordinates before the overlay is
+	-- hidden; derive the chat frame from OrigEditBox so undocked windows
+	-- anchor correctly instead of always ChatFrame1.
 	local activeChatFrame
 	do
 		local origEB = eb and eb.OrigEditBox
@@ -759,10 +744,8 @@ function Multiline:Enter(text, chatType, language, target)
 	end
 
 	self.Frame:Show()
-	-- Recalculate the label gap now that the frame is visible and the layout
-	-- has been committed.  On first open GetStringHeight() returns 0 for a
-	-- hidden frame, so the earlier calls above produce a wrong anchor; this
-	-- call corrects it once the geometry is actually resolved.
+	-- Recalculate the label gap now that the frame is shown: while hidden
+	-- GetStringHeight() returns 0, so the earlier call anchored wrong.
 	self:UpdateLabelGap()
 	self.EditBox:SetFocus()
 	-- Move Blizzard's focus override to the editor that is now visible.
@@ -793,12 +776,11 @@ function Multiline:Exit(restoreText, suppressOverlay)
 		YapperTable.IconGallery:Hide()
 	end
 
-	-- Restore spellcheck to the single-line overlay before we re-show it.
+	-- Re-bind spellcheck/autocomplete to the overlay before re-showing it.
 	if YapperTable.Spellcheck and type(YapperTable.Spellcheck.UnbindMultiline) == "function" then
 		YapperTable.Spellcheck:UnbindMultiline()
 	end
 
-	-- Restore autocomplete to the single-line overlay.
 	if YapperTable.Autocomplete and type(YapperTable.Autocomplete.UnbindMultiline) == "function" then
 		YapperTable.Autocomplete:UnbindMultiline()
 	end
@@ -827,18 +809,15 @@ function Multiline:Exit(restoreText, suppressOverlay)
 	local eb = YapperTable.EditBox
 	if eb then
 		if restoreText and eb.OverlayEdit and text ~= "" then
-			-- If the draft contains hard newlines, stash the original so it
-			-- can be fully restored when the user re-opens multiline.  Push a
-			-- collapsed (single-line) version to the overlay so it doesn't show
-			-- raw control characters in the narrow input box.
+			-- Hard newlines: stash the full draft for re-expansion and push
+			-- a collapsed version to the overlay so the narrow box doesn't
+			-- show raw control characters.
 			if text:find("\n", 1, true) then
 				self._mlDraft = text
 				text = text:gsub("\n+", " "):match("^%s*(.-)%s*$") or text
-				-- Remember the exact collapsed string we put in the overlay.
-				-- Enter() uses this as a fingerprint to detect whether the
-				-- user has edited or cleared the overlay before re-entering
-				-- multiline mode.  If the text has changed, the stash is
-				-- discarded rather than silently overwriting what they typed.
+				-- Enter() uses this collapsed string as a fingerprint: if the
+				-- overlay text changed, the stash is discarded instead of
+				-- overwriting what the user typed.
 				self._mlDraftCollapsed = text
 			end
 			eb.OverlayEdit:SetText(text)
@@ -877,11 +856,11 @@ end
 
 --- Collapse raw multi-line text into an ordered list of chat posts.
 --- Rules:
----   • A blank line (containing only whitespace) ends a paragraph.  One or
+---   - A blank line (containing only whitespace) ends a paragraph.  One or
 ---     more consecutive blank lines count as a single paragraph separator.
----   • Single newlines within a paragraph are collapsed into a space.
----   • Leading/trailing whitespace on each post is stripped.
----   • Empty posts (all-whitespace paragraphs) are discarded.
+---   - Single newlines within a paragraph are collapsed into a space.
+---   - Leading/trailing whitespace on each post is stripped.
+---   - Empty posts (all-whitespace paragraphs) are discarded.
 ---@param rawText string
 ---@return string[]  Ordered list of non-empty post strings.
 local function CollapseText(rawText)
@@ -1013,7 +992,7 @@ function Multiline:Submit()
 	if eb then eb:Hide() end
 end
 
---- Cancel editing — return to the single-line overlay with the draft intact.
+--- Cancel editing: return to the single-line overlay with the draft intact.
 function Multiline:Cancel()
 	self:Exit(true)
 end
@@ -1032,13 +1011,12 @@ function Multiline:ResetLockdownIdleTimer()
 		self._lockdownIdleTimer = nil
 		if not (self.Frame and self.Frame:IsShown()) then return end
 
-		-- Collapse to single-line overlay. This saves the full multiline draft
-		-- (with multiline=true flag) via History:SaveDraft(self.EditBox, true).
+		-- Collapse to the overlay; Exit saves the full multiline draft.
 		self:Exit(true, false)
 
-		-- Immediately handoff to Blizzard lockdown flow (skip overlay timer).
-		-- Pass isMultiline=true so HandoffToBlizzard skips re-saving the draft.
-		-- Pass bypassOpen=true so Blizzard's editbox is not opened automatically.
+		-- Hand off to Blizzard's lockdown flow immediately (skip overlay
+		-- timer). isMultiline=true skips re-saving the draft; bypassOpen=true
+		-- stops Blizzard's editbox from opening.
 		local eb = YapperTable.EditBox
 		if eb and type(eb.HandoffToBlizzard) == "function" then
 			eb:HandoffToBlizzard(false, true, true)
@@ -1172,18 +1150,15 @@ function Multiline:ApplyTheme()
 		YapperTable.Autocomplete:SyncGhostFont()
 	end
 
-	-- Visual appearance: read the fill colour the overlay is actually rendering.
-	-- SetFrameFillColour now caches the last colour set on any overlay frame as
-	-- _yapperFillColor, so we don't need GetVertexColor / GetBackdropColor (both
-	-- have API quirks).  However, the Blizzard skin proxy renders the overlay
-	-- background transparently, and multiline should not inherit that proxy
-	-- transparency.  Fall back to config/theme when the proxy is active.
+	-- Fill colour: reuse the overlay's rendered fill, cached on the frame by
+	-- SetFrameFillColour as _yapperFillColor (avoids GetVertexColor/
+	-- GetBackdropColor quirks). The skin proxy renders the overlay
+	-- transparent though, so in proxy mode fall back to config/theme.
 	local eb                         = YapperTable.EditBox
 	local overlay                    = eb and eb.Overlay
 
 	local fillR, fillG, fillB, fillA = 0.05, 0.05, 0.05, 0.95
 	local rounded                    = false
-	-- Proxy mode keeps the Blizzard editbox visible underneath the overlay.
 	local proxyActive = cfg.UseBlizzardSkinProxy == true
 
 	local activeTheme = YapperTable.Theme and YapperTable.Theme:GetTheme()
@@ -1192,10 +1167,9 @@ function Multiline:ApplyTheme()
 		fillR, fillG, fillB, fillA = c.r, c.g, c.b, c.a
 		rounded = overlay._yapperFillRounded == true
 	else
-		-- Always read the configured colour in proxy mode. The proxy intentionally
-		-- makes the single-line overlay transparent, so its cached fill is not a
-		-- valid source for multiline; theme colours have already been resolved into
-		-- config and must not overwrite a live reset here.
+		-- Proxy mode makes the overlay transparent, so its cached fill isn't
+		-- valid for multiline. Theme colours are already resolved into config;
+		-- reading them here must not overwrite a live reset.
 		local inputBg = cfg.InputBg or {}
 		fillR = inputBg.r or 0.05
 		fillG = inputBg.g or 0.05
@@ -1212,8 +1186,8 @@ function Multiline:ApplyTheme()
 	local bA = borderCfg.a or 0.8
 	if rounded then bR, bG, bB, bA = fillR, fillG, fillB, fillA end
 
-	-- Switch the backdrop edgeFile to match the rounded setting, so the border
-	-- shape matches the horizontal overlay exactly.
+	-- edgeFile switches with the rounded setting so the border shape matches
+	-- the overlay.
 	local f = self.Frame
 	f:SetBackdrop({
 		bgFile   = "Interface/ChatFrame/ChatFrameBackground",
@@ -1232,7 +1206,6 @@ function Multiline:ApplyTheme()
 	if activeThemeForShadow and activeThemeForShadow.allowDropShadow == false then shadow = false end
 	local shadCol = cfg.ShadowColor or { r = 0, g = 0, b = 0, a = 0.5 }
 	local shadSz  = cfg.ShadowSize or 4
-	-- f is already set above (the multiline Frame)
 	if shadow then
 		if not f._yapperShadowLayer then
 			f._yapperShadowLayer = CreateFrame("Frame", nil, f)

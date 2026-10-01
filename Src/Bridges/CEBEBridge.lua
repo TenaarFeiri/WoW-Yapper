@@ -27,9 +27,8 @@ Bridge._initialised = false
 -- Configuration
 -- ---------------------------------------------------------------------------
 
--- Toggle between active hiding (forced Hide) and passive suppression (skip Show/Alpha)
--- Set to true to actively force origEditBox:Hide() when Yapper tries to show it
--- Set to false to only skip Yapper's Show/SetAlpha calls, letting CEBE manage
+-- true  = actively Hide() the native box when Yapper tries to show it
+-- false = only skip Yapper's Show/SetAlpha calls, letting CEBE manage it
 local CEBE_ACTIVE_HIDE = true
 
 -- ---------------------------------------------------------------------------
@@ -80,16 +79,13 @@ local function wrapEditBoxShow(editBox)
     editBox.Show = function(self, ...)
         if Bridge:IsLoaded() then
             if CEBE_ACTIVE_HIDE then
-                -- Active suppression: force hide instead of show
                 if self.Hide then
                     pcall(function() self:Hide() end)
                 end
             else
-                -- Passive suppression: skip the show call entirely
                 return
             end
         else
-            -- CEBE not loaded, call original normally
             return originalShow(self, ...)
         end
     end
@@ -110,10 +106,8 @@ local function wrapEditBoxSetAlpha(editBox)
 
     editBox.SetAlpha = function(self, alpha, ...)
         if Bridge:IsLoaded() then
-            -- Suppress alpha changes when CEBE is active
             return
         else
-            -- CEBE not loaded, call original normally
             return originalSetAlpha(self, alpha, ...)
         end
     end
@@ -146,12 +140,10 @@ local function hookApplyProxyMode()
     local originalApplyProxyMode = YapperTable.EditBox.ApplyProxyMode
 
     YapperTable.EditBox.ApplyProxyMode = function(self, origEditBox, ...)
-        -- Wrap the editbox's methods before Yapper's proxy logic runs
+        -- Wrap the editbox before Yapper's proxy logic runs.
         if origEditBox then
             wrapEditBoxMethods(origEditBox)
         end
-
-        -- Call the original Yapper function
         return originalApplyProxyMode(self, origEditBox, ...)
     end
 end
@@ -218,7 +210,6 @@ local function registerConfigCallback()
             return
         end
 
-        -- Check if this is an editbox visibility setting
         if path == "EditBox.HideBlizzardEditbox" or path == "EditBox.UseBlizzardSkinProxy" then
             -- Force the config to hide and rehide all editboxes.
             reconcileYapperProxyState()
@@ -262,7 +253,6 @@ function Bridge:Init()
     end
     self._initialised = true
 
-    -- Communicate with CEBE
     communicateWithCEBE()
 
     -- CEBE owns typing indicators while its Yapper compatibility mode is active.
@@ -274,17 +264,13 @@ function Bridge:Init()
     -- Reconcile any saved proxy state before CEBE takes over the native box.
     reconcileYapperProxyState()
 
-    -- Hide all Blizzard editboxes immediately
     hideAllBlizzardEditBoxes()
 
-    -- Hook Yapper's normal Show path and exceptional proxy path.
+    -- Hook Yapper's normal Show path and the proxy path.
     hookEditBoxShow()
     hookApplyProxyMode()
 
-    -- Register config change callback to override editbox visibility settings
     registerConfigCallback()
-
-    -- Hook tab clicks to hide editboxes
     hookTabClick()
 
     if YapperTable.Utils and YapperTable.Utils.DebugPrint then

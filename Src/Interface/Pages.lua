@@ -21,7 +21,6 @@ local CREDITS_DICTIONARIES_OPTIONAL = Interface._CREDITS_OPTIONAL
 -- OpenColorPicker is defined in Widgets.lua which loads before us.
 local OpenColorPicker = Interface._OpenColorPicker
 
--- Re-localise Lua globals.
 local type       = type
 local pairs      = pairs
 local ipairs     = ipairs
@@ -187,16 +186,13 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         local resetBtn = self:CreateResetButton(parent, resetX, y + 1, function()
             local key = option.key
 
-            -- Restore the active theme's default value into local config so
-            -- "Def" reflects the theme currently in use. This makes the
-            -- reset behaviour predictable regardless of which theme is
-            -- active (including the proxy/'Yapper Default' skin).
+            -- "Def" restores the ACTIVE theme's colour so reset behaviour
+            -- is predictable regardless of which theme is in use.
             local root = self:GetLocalConfigRoot()
             root.EditBox = Utils:EnsureTable(root.EditBox)
             root.EditBox.ChannelTextColors = Utils:EnsureTable(root.EditBox.ChannelTextColors)
 
-            -- Prefer the active theme's channel colour if available, else
-            -- fall back to the global defaults from Core.
+            -- Active theme colour first, global defaults as fallback.
             local applied = nil
             if YapperTable and YapperTable.Theme and type(YapperTable.Theme.GetTheme) == "function" then
                 local th = YapperTable.Theme:GetTheme()
@@ -209,44 +205,40 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 if type(d) == "table" then applied = CopyColour(d) end
             end
             if type(applied) == "table" then
-                -- Use SetLocalPath to ensure proper normalisation and hooks.
+                -- SetLocalPath applies normalisation and live hooks.
                 self:SetLocalPath({ "EditBox", "ChannelTextColors", key }, applied)
             else
-                -- Remove explicit local value so config falls back to global.
+                -- Remove the local value so config falls back to defaults.
                 local troot = self:GetLocalConfigRoot()
                 if type(troot.EditBox) == "table" and type(troot.EditBox.ChannelTextColors) == "table" then
                     troot.EditBox.ChannelTextColors[option.key] = nil
                     _G.YapperLocalConf = troot
                 end
             end
-            -- Ensure we don't mark this as a user theme override so future
-            -- theme changes can still apply when appropriate.
+            -- Clear the theme-override flag so future theme changes apply.
             local clearRoot = self:GetLocalConfigRoot()
             if type(clearRoot._themeOverrides) == "table" then
                 clearRoot._themeOverrides[key] = nil
             end
             _G.YapperLocalConf = clearRoot
-            -- Debug: raw stored value in local config for verification.
+            -- Read back the stored value for the ColorPicker sync below.
             local rawStored = (type(clearRoot.EditBox) == "table" and type(clearRoot.EditBox.ChannelTextColors) == "table") and
                 clearRoot.EditBox.ChannelTextColors[key] or nil
 
-            -- If the Blizzard ColorPickerFrame is present, update its cached
-            -- colour so the next OpenColorPicker shows the correct default
-            -- immediately rather than an older cached value.
+            -- Sync Blizzard's ColorPickerFrame cache so the next picker
+            -- opens on the reset value, not a stale one.
             if ColorPickerFrame then
                 local appliedColor = rawStored or self:GetDefaultPath({ "EditBox", "ChannelTextColors", key })
                 if type(appliedColor) == "table" then
-                    -- Try direct API first.
                     if ColorPickerFrame.SetColorRGB then
                         ColorPickerFrame:SetColorRGB(appliedColor.r or 1, appliedColor.g or 1,
                             appliedColor.b or 1)
                     end
-                    -- Modern frame content path.
                     if ColorPickerFrame.Content and ColorPickerFrame.Content.ColorPicker and ColorPickerFrame.Content.ColorPicker.SetColorRGB then
                         ColorPickerFrame.Content.ColorPicker:SetColorRGB(appliedColor.r or 1,
                             appliedColor.g or 1, appliedColor.b or 1)
                     end
-                    -- Update previousValues so the 'previous' swatch matches.
+                    -- Keep the 'previous' swatch in sync too.
                     ColorPickerFrame.previousValues = {
                         r = appliedColor.r or 1,
                         g = appliedColor.g or 1,
@@ -256,7 +248,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
                 end
             end
 
-            -- Reset mode to custom
+            -- Reset mode back to custom.
             root.EditBox.ChannelColorMode = Utils:EnsureTable(root.EditBox.ChannelColorMode)
             root.EditBox.ChannelColorMode[option.key] = "custom"
             root._themeOverrides = Utils:EnsureTable(root._themeOverrides)
@@ -360,7 +352,7 @@ function Interface:CreateGlobalSyncControls(parent, cursor)
     else
         local fs = self:CreateLabel(parent, "Using Global Profile: Settings changed here affect all characters.",
             LAYOUT.WINDOW_PADDING, y, 400, nil, "GameFontNormalSmall")
-        fs:SetTextColor(0.4, 1.0, 0.4, 1) -- Greenish
+        fs:SetTextColor(0.4, 1.0, 0.4, 1)
         cursor:Advance(20)
     end
 end
@@ -406,7 +398,6 @@ function Interface:CreateYASLearningPage(parent, cursor)
     local data = yas:GetDataSummary(locale)
     if not data then return end
 
-    -- Title: Adaptive Learning (YAS) - in yellow
     local titleFs = self:CreateLabel(
         parent,
         string_format("Adaptive Learning (YAS) - %s", locale or "Global"),
@@ -416,7 +407,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
         "Personalized typing patterns and correction biases stored by the YAS engine.",
         "GameFontNormal"
     )
-    titleFs:SetTextColor(1, 0.82, 0) -- Yellow
+    titleFs:SetTextColor(1, 0.82, 0)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
 
     -- 1. Top Vocabulary Trends
@@ -563,9 +554,8 @@ function Interface:CreateYASLearningPage(parent, cursor)
         if not useScroll then cursor:Pad(10) end
     end
 
-    -- Full Correction Bias Table
-    -- Utility > 1.0 means the user implicitly confirmed the correction was useful
-    -- (YAS promoted a lower-ranked candidate above the natural #1 and the user accepted it).
+    -- Utility > 1.0 means the user implicitly confirmed the correction was
+    -- useful (YAS promoted a lower-ranked candidate and the user accepted it).
     self:CreateLabel(parent, "Correction Bias (Full)", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(15))
     self:CreateLabel(parent, "|cffaaaaaa[Utility > 1.0 = implicitly learned — user accepted a YAS-promoted candidate]|r",
@@ -579,10 +569,8 @@ function Interface:CreateYASLearningPage(parent, cursor)
         { label = "Last Seen",  width = 110, key = "last" },
     }, "No correction patterns learned yet.", 120)
 
-    -- Phonetic Bias Table
-    -- These are generalised patterns learned by sound: if the user consistently
-    -- corrects words with the same phonetic shape to the same word, YAS applies
-    -- that generalised bias even to typos it has never seen before.
+    -- Phonetic bias: patterns learned by sound, applied even to typos YAS
+    -- has never seen before.
     self:CreateLabel(parent, "Phonetic Pattern Bias", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(15))
     self:CreateLabel(parent, "|cffaaaaaa[Generalised corrections by sound — hash is the phonetic fingerprint of the typo]|r",
@@ -595,10 +583,8 @@ function Interface:CreateYASLearningPage(parent, cursor)
         { label = "Last Seen",    width = 110, key = "last" },
     }, "No phonetic patterns learned yet.", 120)
 
-    -- Rejection (Implicit Backtrack) Table
-    -- Populated when the user clicks \"More...\" (explicit rejection), OR when
-    -- ResolveImplicitTrace detects the user backtracked and manually retyped a word
-    -- that YAS had suggested — i.e. the user silently disagreed with the suggestion.
+    -- Rejections: explicit ("More..." click) or implicit (ResolveImplicitTrace
+    -- saw the user retype over a YAS suggestion).
     self:CreateLabel(parent, "Rejected Suggestions / Implicit Backtracks", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
     cursor:Advance(self:ScaledRow(15))
     self:CreateLabel(parent, "|cffaaaaaa[Populated when user clicks \"More...\" or manually retypes over a YAS suggestion]|r",
@@ -623,11 +609,10 @@ function Interface:CreateYASLearningPage(parent, cursor)
 
     cursor:Advance(self:ScaledRow(20))
 
-    -- 5. Management Section
+    -- 5. Management
     self:CreateLabel(parent, "Management", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
     cursor:Advance(self:ScaledRow(20))
 
-    -- Reset Button
     local resetAllBtn = self:AcquireWidget("YASResetAll", parent, "UIPanelButtonTemplate", "Button")
     resetAllBtn:SetSize(Interface._ScaleButtonWidth(180), 24)
     resetAllBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 10, cursor:Y() - 2)
@@ -778,9 +763,8 @@ function Interface:CreateTutorialPage(parent, cursor)
 
     local function sep()
         cursor:Pad(8)
-        -- Use a poolable Frame as a 1px-high separator so it gets hidden by
-        -- ClearConfigControls when switching pages.  A bare CreateTexture
-        -- call produces a permanent child that can never be hidden/pooled.
+        -- Use a poolable Frame as separator so ClearConfigControls can hide
+        -- it on page switch; a bare CreateTexture child is never pooled.
         local f = self:AcquireWidget("TutSep", parent, nil, "Frame")
         f:SetSize(W, 1)
         f:SetPoint("TOPLEFT", parent, "TOPLEFT", P.WINDOW_PADDING, cursor:Y())
@@ -1018,9 +1002,8 @@ function Interface:CreateSpellcheckLocaleDropdown(parent, label, path, cursor)
                 Interface:SetLocalPath(path, locale)
                 UIDropDownMenu_SetText(frame, locale)
 
-                -- Only prompt for a reload if spellcheck is actually enabled AND a
-                -- previous dictionary is resident in memory that would benefit from
-                -- being purged. Otherwise, silently accept the new locale.
+                -- Only prompt for a reload if spellcheck is enabled and a
+                -- dictionary is resident that would benefit from a purge.
                 local shouldPrompt =
                     spell and spell.IsEnabled and spell:IsEnabled()
                     and spell.Dictionaries and next(spell.Dictionaries) ~= nil

@@ -1,7 +1,6 @@
 --[[
     State.lua
-    Centralised state machine for Yapper.
-    Manages the lifecycle and transitions between different operational modes.
+    State machine for the addon's operational modes.
 ]]
 
 local _, YapperTable = ...
@@ -27,7 +26,6 @@ State.STATES = {
     CONFIG       = "CONFIG",       -- Settings/Interface window is open.
 }
 
--- Current active state.
 State._current = State.STATES.INITIALISING
 
 -- ---------------------------------------------------------------------------
@@ -52,12 +50,11 @@ end
 --- @param default any
 --- @return any
 function State:GetFlag(name, default)
-    -- Check session flags first.
+    -- Session flags win over persisted config flags.
     if self._flags[name] ~= nil then
         return self._flags[name]
     end
 
-    -- Check persistent flags in config if available.
     local config = YapperTable.Config
     if config and config.System and config.System.StateFlags then
         if config.System.StateFlags[name] ~= nil then
@@ -103,8 +100,8 @@ function State:Transition(newState, ...)
     local oldState = self._current
     self._current = newState
 
-    -- Stack inspection for 'blame' attribution (only in DEBUG mode).
-    -- We skip 2 levels: Transition -> ToIdle/etc -> [Real Source]
+    -- 'Blame' attribution via stack inspection (DEBUG only).
+    -- Skip 2 levels: Transition -> ToIdle/etc -> [Real Source]
     local file, line, func
     local config = YapperTable.Config
     if config and config.System and config.System.DEBUG then
@@ -112,7 +109,7 @@ function State:Transition(newState, ...)
             local level = 3 -- Skip Transition -> semantic helper -> real source
             local info = debug.getinfo(level, "nSl")
             
-            -- Check if we're inside a semantic helper and skip it
+            -- Skip an extra level if the caller was a semantic helper
             if info then
                 local name = (info.name or ""):lower()
                 if name:find("idle") or name:find("editing") or name:find("multiline") or
@@ -129,10 +126,9 @@ function State:Transition(newState, ...)
         end
     end
 
-    -- Always record the transition in our local history buffer.
     self:_PushLog(oldState, newState, file, func, line)
 
-    -- Deferred save to YapperDB when we return to a resting state.
+    -- IDLE is a resting state: persist the log.
     if newState == self.STATES.IDLE then
         self:_ScheduleSave()
     end
@@ -142,7 +138,6 @@ function State:Transition(newState, ...)
     if config and config.System and config.System.VERBOSE then
         local utils = YapperTable.Utils
         if utils and type(utils.VerbosePrint) == "function" then
-            -- Fetch the latest log directly from the state machine.
             local last = self:GetLog(self:GetLogCount())
             if last then
                 local blame
@@ -157,7 +152,6 @@ function State:Transition(newState, ...)
         end
     end
 
-    -- Emit state change event via API if available.
     if YapperTable.API and type(YapperTable.API.Fire) == "function" then
         YapperTable.API:Fire("STATE_CHANGED", newState, oldState, ...)
     end
@@ -172,67 +166,59 @@ end
 -- Semantic Helpers (Readable State Checks)
 -- ---------------------------------------------------------------------------
 
---- Is the machine in INITIALISING state?
 --- @return boolean
 function State:IsInitialising()
     return self._current == self.STATES.INITIALISING
 end
 
---- Has the machine completed initialisation (i.e. not in INITIALISING state)?
+--- True once boot has finished (anything but INITIALISING).
 --- @return boolean
 function State:IsInitialised()
     return self._current ~= self.STATES.INITIALISING
 end
 
---- Is the machine in IDLE state?
 --- @return boolean
 function State:IsIdle()
     return self._current == self.STATES.IDLE
 end
 
---- Is the user typing in the single-line overlay?
 --- @return boolean
 function State:IsEditing()
     return self._current == self.STATES.EDITING
 end
 
---- Is the user typing in the expanded multiline editor?
 --- @return boolean
 function State:IsMultiline()
     return self._current == self.STATES.MULTILINE
 end
 
---- Is a message currently being delivered?
 --- @return boolean
 function State:IsSending()
     return self._current == self.STATES.SENDING
 end
 
---- Is the queue stalled awaiting hardware input?
 --- @return boolean
 function State:IsStalled()
     return self._current == self.STATES.STALLED
 end
 
---- Is the addon suppressed by combat or manual lockdown?
 --- @return boolean
 function State:IsLockdown()
     return self._current == self.STATES.LOCKDOWN
 end
 
---- Is the settings/interface window open?
 --- @return boolean
 function State:IsConfig()
     return self._current == self.STATES.CONFIG
 end
 
---- Helper: is the user currently typing (either overlay or multiline)?
+--- True while typing in either the overlay or the multiline editor.
 --- @return boolean
 function State:IsInputActive()
     return self:IsEditing() or self:IsMultiline()
 end
 
---- Helper: is the addon busy (sending, stalled, or in lockdown)?
+--- True while sending, stalled, or in lockdown.
 --- @return boolean
 function State:IsBusy()
     return self:IsSending() or self:IsStalled() or self:IsLockdown()
@@ -242,37 +228,30 @@ end
 -- Semantic Transitions
 -- ---------------------------------------------------------------------------
 
---- Transition to IDLE state.
 function State:ToIdle(...)
     self:Transition(self.STATES.IDLE, ...)
 end
 
---- Transition to EDITING state.
 function State:ToEditing(...)
     self:Transition(self.STATES.EDITING, ...)
 end
 
---- Transition to MULTILINE state.
 function State:ToMultiline(...)
     self:Transition(self.STATES.MULTILINE, ...)
 end
 
---- Transition to SENDING state.
 function State:ToSending(...)
     self:Transition(self.STATES.SENDING, ...)
 end
 
---- Transition to STALLED state.
 function State:ToStalled(...)
     self:Transition(self.STATES.STALLED, ...)
 end
 
---- Transition to LOCKDOWN state.
 function State:ToLockdown()
     self:Transition(self.STATES.LOCKDOWN)
 end
 
---- Transition to CONFIG (settings) state.
 function State:ToConfig()
     self:Transition(self.STATES.CONFIG)
 end
@@ -313,13 +292,9 @@ function State:_ScheduleSave()
         self._saveScheduled = false
         local config = YapperTable.Config
         if config and config.System then
-            -- Initialise StateLogs table if missing
+            -- Mirror the buffer into the DB: wipe + refill keeps only the
+            -- latest MAX_LOGS entries instead of appending forever.
             config.System.StateLogs = config.System.StateLogs or {}
-            
-            -- We don't want to just append infinitely in the DB.
-            -- We'll mirror our local buffer to the DB.
-            -- This ensures the DB always has the LATEST 200 changes.
-            -- We wipe and re-fill to keep it clean.
             wipe(config.System.StateLogs)
             for i, entry in ipairs(self._logBuffer) do
                 config.System.StateLogs[i] = entry
@@ -350,5 +325,3 @@ end
 function State:GetLogs()
     return self._logBuffer
 end
-
--- ---------------------------------------------------------------------------

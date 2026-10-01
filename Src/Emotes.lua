@@ -31,7 +31,7 @@ function Emotes:InitEmoteList()
 
     self.EmoteList = {}
     
-    -- Loop through MAXEMOTEINDEX (defined by Blizzard in ChatEmoteConstants.lua)
+    -- MAXEMOTEINDEX is defined by Blizzard in ChatEmoteConstants.lua.
     if MAXEMOTEINDEX then
         for i = 1, MAXEMOTEINDEX do
             local token = _G["EMOTE" .. i .. "_TOKEN"]
@@ -46,7 +46,6 @@ function Emotes:InitEmoteList()
                 })
             end
         end
-        -- Sort alphabetically by command
         table_sort(self.EmoteList, function(a, b) return a.cmdLower < b.cmdLower end)
     end
 end
@@ -57,7 +56,7 @@ function Emotes:EnsureMenuUI()
     
     local parent = YapperTable.EditBox and YapperTable.EditBox.Overlay or UIParent
     
-    -- Catcher to hide menu when clicking outside
+    -- Click-outside catcher hides the menu.
     local catcher = CreateFrame("Button", nil, UIParent)
     catcher:SetFrameStrata("TOOLTIP")
     catcher:SetFrameLevel(1)
@@ -68,7 +67,6 @@ function Emotes:EnsureMenuUI()
     catcher:Hide()
     self.ClickCatcher = catcher
 
-    -- Menu Frame
     local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     frame:SetFrameStrata("TOOLTIP")
     frame:SetFrameLevel(200)
@@ -89,12 +87,11 @@ function Emotes:EnsureMenuUI()
         local btn = CreateFrame("Button", nil, frame)
         btn:EnableMouse(true)
 
-        -- Selection highlight
         local hl = btn:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
         hl:SetColorTexture(1, 1, 1, 0.15)
         
-        -- Active selection highlight (keyboard)
+        -- Keyboard-selection highlight (distinct from mouse hover).
         local activeHl = btn:CreateTexture(nil, "ARTWORK")
         activeHl:SetAllPoints()
         activeHl:SetColorTexture(1, 1, 1, 0.08)
@@ -155,7 +152,7 @@ function Emotes:EnsureMenuUI()
     
     local function RefocusEditBox()
         if self._anchorBox then
-            -- Use timer to ensure WoW's native slider focus grab is finished
+            -- Defer so WoW's native slider focus grab finishes first.
             C_Timer.After(0, function()
                 if self._anchorBox then self._anchorBox:SetFocus() end
             end)
@@ -217,7 +214,7 @@ function Emotes:ShowHint(editBox)
     
     self._anchorBox = editBox
     
-    -- Apply overlay font to match current editbox font size
+    -- Match the hint font size to the overlay's.
     if YapperTable.Spellcheck and type(YapperTable.Spellcheck.ApplyOverlayFont) == "function" then
         local fontSize = YapperTable.Spellcheck:ApplyOverlayFont(self.HintFrame._fs, 22)
         local hintHeight = math_max(20, fontSize + 8)

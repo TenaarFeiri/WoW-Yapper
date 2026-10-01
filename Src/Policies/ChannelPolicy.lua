@@ -37,7 +37,7 @@ local function NormaliseWhisperTarget(v, whisperKind)
     if whisperKind == "WHISPER" then
         -- WoW targets can oscillate between Name and Name-Realm; on Forever
         -- the same character can be "First-Last" or "First Last".
-        -- NormaliseCharName handles both clients (resolves lazily — Utils
+        -- NormaliseCharName handles both clients (resolves lazily -- Utils
         -- loads after this file).
         local utils = YapperTable and YapperTable.Utils
         if utils and type(utils.NormaliseCharName) == "function" then
@@ -113,19 +113,16 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
     local stickyGroup = (editCfg.StickyGroupChannel ~= false)
     local stickyWhisper = (editCfg.StickyWhisper == true)
 
-    -- Whispers are conversation-specific and, by default, must never become the
-    -- GLOBAL sticky. A whisper stored in LastUsed bleeds onto the
-    -- general/non-whisper tab and can be restored days later (stale week-old /w
-    -- report), because LastUsed is persisted per-character in YapperLocalConf.
-    -- Dedicated whisper tabs/windows restore their target from Blizzard's
-    -- chatTarget / frame context (blizzHasTarget), not from LastUsed, so demoting
-    -- here does not affect them. A whisper typed or opened (incl. right-click
-    -- menu) from a non-whisper tab is therefore a one-shot: revert the sticky to
-    -- the previous non-whisper channel, or SAY. This also self-heals any stale
-    -- whisper a prior version wrote into LastUsed.
+    -- Whispers are conversation-specific and must never become the global
+    -- sticky by default: a whisper stored in LastUsed bleeds onto the
+    -- general tab and can resurface days later (LastUsed is persisted
+    -- per-character). Whisper tabs restore their target from Blizzard's
+    -- frame context, not LastUsed, so demoting here is safe. A whisper
+    -- opened from a non-whisper tab is a one-shot: revert to the previous
+    -- non-whisper channel or SAY. This also self-heals stale whispers a
+    -- prior version wrote into LastUsed.
     --
-    -- Opt-out: when EditBox.StickyWhisper is enabled, whispers are treated like
-    -- any other channel and fall through to the normal sticky logic below.
+    -- Opt-out: EditBox.StickyWhisper treats whispers like any other channel.
     if IsWhisperType(ct) and not stickyWhisper then
         local prevType = previous and previous.chatType
         if prevType and not IsWhisperType(prevType) then
@@ -161,9 +158,8 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
     }
 end
 
---- Normalize a runtime selection before persistence/commit.
---- This is intentionally thin and reuses open-selection invariants so the
---- sanitizer stays easy to remove or adjust.
+--- Normalize a runtime selection before persistence/commit. Intentionally
+--- thin -- reuses open-selection invariants.
 ---@param current table|nil { chatType, target, language, channelName }
 ---@return table|nil
 function ChannelPolicy:SanitizeCommittedSelection(current)

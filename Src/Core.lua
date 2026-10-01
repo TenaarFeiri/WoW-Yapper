@@ -9,25 +9,21 @@ YapperTable.Core = YapperTable.Core or {}
 YapperTable.Core.UI = YapperTable.Core.UI or {}
 YapperTable.Core.UI.Frames = YapperTable.Core.UI.Frames or {}
 local State = YapperTable.State
--- Note: Core.lua loads before Utils.lua, so use full path YapperTable.Utils
+-- Core loads before Utils: reference YapperTable.Utils, never a local.
 
 -- ---------------------------------------------------------------------------
 -- Centralised configuration (hardcoded defaults)
 -- ---------------------------------------------------------------------------
 local DEFAULTS = {
     System = {
-        -- Schema version for SavedVariables migration; bump only when data structure changes.
+        -- SavedVariables schema version; bump only when the structure changes.
         VERSION                   = 2.3,
         WELCOME_VERSION           = 1,
 
-        -- VERBOSE and DEBUG are largely for debugging.
-        -- VERBOSE is for general debugging messages, or just declaring certain actions.
-        -- DEBUG is for more detailed debugging messages.
+        -- VERBOSE: general action chatter. DEBUG: detailed debugging.
         VERBOSE                   = false,
         DEBUG                     = false,
 
-        -- The name we give to the parent frame. CAN be anything but...
-        -- I'm not very original...
         FRAME_ID_PARENT           = "PARENT_FRAME",
 
         -- If settings have changed, reparse and recache our interface schema.
@@ -39,25 +35,20 @@ local DEFAULTS = {
         -- Default active theme name (registered by `Src/Theme.lua`).
         ActiveTheme               = "Yapper Default",
 
-        -- Global Settings: when true, changes are saved to the account-wide YapperDB
-        -- instead of character-specific YapperLocalConf.
+        -- true: save to account-wide YapperDB instead of per-character YapperLocalConf.
         UseGlobalProfile          = false,
 
         -- Storyteller animation duration
         StorytellerSlideSpeed     = 0.3,
 
-        -- Tracks whether the welcome/appearance-choice popup has been shown.
-        -- Set to the VERSION at which it was last displayed; 0 means never.
+        -- VERSION at which the welcome popup was last shown; 0 = never.
         _welcomeShown             = 0,
 
-        -- Tracks the addon version string last seen at login.
-        -- Used to trigger the What's New frame on version bumps.
+        -- Last-seen addon version; triggers the What's New frame on bumps.
         _lastSeenVersion          = "",
     },
 
-    -- Obviously this holds settings for our interface frames.
-    -- Don't worry about these unless you know what you're doing. They're
-    -- for things like scrolling and moving the window.
+    -- Interface window settings (scroll rate, window position, etc.).
     ["FrameSettings"] = {
         ["MouseWheelStepRate"] = 30,
         ["UIFontOffset"] = 0,
@@ -79,18 +70,16 @@ local DEFAULTS = {
         -- Anything above the character limit gets chunked.
         CHARACTER_LIMIT   = 255,
 
-        -- How many lines to keep in memory.
-        MAX_HISTORY_LINES = 50, -- 50 by default.
+        MAX_HISTORY_LINES = 50,
 
-        -- The delineator used to split posts.
-        -- Posting system normalises this by prepending/appending a whitespace to the delineator
-        -- at the end and beginning of a split post. You can always assume this to be the case.
-        DELINEATOR        = "»", -- We never rename or move this specific var out of here (other addons use it)
+        -- Post boundary marker. The poster normalises it by wrapping it in
+        -- whitespace at both ends of a split post.
+        DELINEATOR        = "»", -- never rename/move: other addons read this key
 
         -- Always synced to DELINEATOR.
         PREFIX            = "»",
 
-        -- How long to wait before giving up.
+        -- Ack wait before a queued chunk stalls.
         STALL_TIMEOUT     = 1.0,
     },
 
@@ -168,15 +157,13 @@ local DEFAULTS = {
         StickyChannel         = true,
         StickyGroupChannel    = true,
 
-        -- When true, whisper targets are also remembered as the sticky channel
-        -- on non-whisper tabs (like any other channel). When false (default), a
-        -- whisper sent from a non-whisper tab is a one-shot and the tab reverts
-        -- to its previous non-whisper channel. Dedicated whisper tabs always
-        -- restore their target regardless of this setting.
+        -- true: whisper targets stick on non-whisper tabs like other channels.
+        -- false: a whisper from a non-whisper tab is one-shot and the tab
+        -- reverts. Dedicated whisper tabs always restore their target anyway.
         StickyWhisper         = false,
 
-        -- When true, ESC will store the current text as a recoverable draft.
-        -- When false, ESC adds to text history but does not save drafts.
+        -- true: ESC stores text as a recoverable draft; false: ESC only adds
+        -- to text history.
         RecoverOnEscape       = false,
 
         -- Storyteller manual dimensions
@@ -222,7 +209,7 @@ local DEFAULTS = {
         YASEnabled          = true,
         -- YAS adaptive learning data caps
         YASFreqCap          = 2000, -- Max unique vocabulary words tracked
-        YASBiasCap          = 500,  -- Max typo→correction pairs stored
+        YASBiasCap          = 500,  -- Max typo->correction pairs stored
         YASNegBiasCap       = 500,  -- Max rejected suggestion pairs tracked (decays over time)
         YASAutoThreshold    = 10,   -- Times a word must be sent before auto-adding to dictionary
         YASAutoCap          = 500,  -- Max pending auto-learn tracking entries
@@ -280,15 +267,13 @@ local HISTORY_PARITY_SCHEMA = {
     },
 }
 
--- Pre-ADDON_LOADED fallback — modules that read Config at load time get defaults.
+-- Pre-ADDON_LOADED fallback: modules that read Config at load time get defaults.
 YapperTable.Config = DEFAULTS
 
--- Add a cache for player languages.
 YapperTable.SpokenLanguages = {}
 YapperTable._languageCacheHash = nil
 
 function YapperTable.Core:BuildLanguageCache()
-    -- Wipe the cache so we can repopulate.
     YapperTable.SpokenLanguages = {}
     YapperTable._languageCacheHash = nil
 
@@ -314,26 +299,23 @@ function YapperTable.Core:BuildLanguageCache()
     YapperTable.Utils:DebugPrint("BuildLanguageCache: Cached " .. count .. " languages (hash: " .. hash .. ")")
 end
 
---- Check if the language cache is still valid for the current character.
---- Returns true if cache matches current languages, false if it needs rebuilding.
---- @return boolean isValid
+--- Is the language cache still valid for the current character?
+--- @return boolean
 function YapperTable.Core:IsLanguageCacheValid()
     local currentCount = GetNumLanguages()
     if not currentCount or currentCount == 0 then
         return false
     end
 
-    -- Quick count check first
+    -- We store each language twice (original + uppercase), so expect 2x.
     local cachedCount = 0
     for _ in pairs(YapperTable.SpokenLanguages) do
         cachedCount = cachedCount + 1
     end
-    -- Since we store both original and uppercase, cachedCount should be 2x currentCount
     if cachedCount ~= (currentCount * 2) then
         return false
     end
 
-    -- Hash comparison for efficient validation
     local currentHash = 0
     for i = 1, currentCount do
         local _, langId = GetLanguageByIndex(i)
@@ -355,21 +337,17 @@ function YapperTable.Core:GetCharacterLanguage(lang)
         end
     end
 
-    -- Ensure cache is valid before lookup
     if not self:IsLanguageCacheValid() then
         self:BuildLanguageCache()
     end
 
-    -- Find language in cache (case-insensitive via uppercase fallback)
     if YapperTable.SpokenLanguages[lang] then
         return YapperTable.SpokenLanguages[lang]
     end
-    -- Try uppercase version for case-insensitive match
     if lang and YapperTable.SpokenLanguages[lang:upper()] then
         return YapperTable.SpokenLanguages[lang:upper()]
     end
 
-    -- If not present, use default.
     local _, langId = GetDefaultLanguage()
     if lang and lang ~= "" then
         YapperTable.Utils:DebugPrint("GetCharacterLanguage: '" .. lang .. "' not found, using default")
@@ -378,9 +356,9 @@ function YapperTable.Core:GetCharacterLanguage(lang)
 end
 
 --- Register a frame in the central UI registry for external access.
---- @param category string  The functional category (e.g. "Overlay", "Spellcheck")
---- @param key      string  Unique identifier within that category
---- @param frame    table   The WoW frame object
+--- @param category string  e.g. "Overlay", "Spellcheck"
+--- @param key      string  unique within the category
+--- @param frame    table   WoW frame object
 function YapperTable.Core:RegisterFrame(category, key, frame)
     if type(category) ~= "string" or type(key) ~= "string" or not frame then return end
     self.UI.Frames[category] = self.UI.Frames[category] or {}
@@ -439,31 +417,30 @@ local function SyncParity(dest, schema)
         return
     end
 
-    -- First pass: ensure all schema keys exist in dest with correct types
+    -- Pass 1: ensure all schema keys exist in dest with correct types.
     for key, schemaVal in pairs(schema) do
         local currentVal = dest[key]
 
         if schemaVal == KEEP_TABLE_CONTENTS then
-            -- Preserve user's table contents, just ensure it's a table
+            -- Sentinel: keep user contents, just ensure it's a table.
             if type(currentVal) ~= "table" then
                 dest[key] = {}
             end
         elseif type(schemaVal) == "table" then
-            -- Recursively sync nested tables
             if type(currentVal) ~= "table" then
                 dest[key] = DeepCopy(schemaVal)
             else
                 SyncParity(currentVal, schemaVal)
             end
         else
-            -- Primitive values: overwrite if missing or wrong type
+            -- Primitives: overwrite if missing or wrong type.
             if currentVal == nil or type(currentVal) ~= type(schemaVal) then
                 dest[key] = schemaVal
             end
         end
     end
 
-    -- Second pass: remove keys that no longer exist in schema (unless protected)
+    -- Pass 2: remove keys dropped from the schema (unless protected).
     for key in pairs(dest) do
         if schema[key] == nil and not PROTECTED_KEYS[key] then
             dest[key] = nil
@@ -486,7 +463,7 @@ end
 --- Strips any stale metatable on `child` before recursing and uses raw access
 --- while walking, to avoid accidental self-referential __index chains.
 local function InheritDefaults(child, parent)
-    -- Defensive no-op for invalid inputs and accidental self-link attempts.
+    -- Guard against invalid input and self-link loops.
     if type(child) ~= "table" or type(parent) ~= "table" then return end
     if child == parent then return end
 
@@ -538,7 +515,7 @@ function YapperTable.Core:InitSavedVars()
     _G.YapperLocalConf.System.VERSION = currentVersion
     _G.YapperLocalHistory.VERSION = currentVersion
 
-    -- 1. YapperDB — account-wide defaults / settings.
+    -- 1. YapperDB: account-wide defaults / settings.
     ApplyDefaults(_G.YapperDB, DEFAULTS)
 
     if dbVersion and currentVersion > dbVersion then
@@ -550,9 +527,8 @@ function YapperTable.Core:InitSavedVars()
         YapperTable.Migrations:RunMigrations(_G.YapperDB, "DB")
     end
 
-    -- Migration: older saved DBs may carry an incorrect WHISPER/BN_WHISPER
-    -- colour from prior versions. Force-correct BN_WHISPER to the new
-    -- default when the saved DB version predates this change.
+    -- Migration: older DBs may carry a wrong BN_WHISPER colour. Force the
+    -- new default when the saved version predates the fix.
     if dbVersion and dbVersion < 1.2 then
         local teal = DEFAULTS.EditBox and DEFAULTS.EditBox.ChannelTextColors and
             DEFAULTS.EditBox.ChannelTextColors.BN_WHISPER
@@ -571,9 +547,9 @@ function YapperTable.Core:InitSavedVars()
     _G.YapperDB.chatHistory = nil
     _G.YapperDB.draft = nil
 
-    -- 2. YapperLocalConf — per-character config.
-    -- We no longer call ApplyDefaults here, as it "flattens" the table and
-    -- blocks metatable inheritance from the Global Profile.
+    -- 2. YapperLocalConf: per-character config.
+    -- No ApplyDefaults here: it "flattens" the table and blocks metatable
+    -- inheritance from the Global Profile.
     if type(_G.YapperLocalConf.System) ~= "table" then
         _G.YapperLocalConf.System = {}
     end
@@ -607,7 +583,7 @@ function YapperTable.Core:InitSavedVars()
     _G.YapperDB.InterfaceUI.VERSION = currentVersion
     _G.YapperDB.InterfaceUI.dirty = false
 
-    -- 3. YapperLocalHistory — per-character history / drafts.
+    -- 3. YapperLocalHistory: per-character history / drafts.
     ApplyDefaults(_G.YapperLocalHistory, HISTORY_DEFAULTS)
 
     if histVersion and currentVersion ~= histVersion then
@@ -633,10 +609,8 @@ function YapperTable.Core:RefreshInheritance()
     end
 end
 
--- Remove duplicate entries from common SavedVariables lists (user-invoked maintenance).
--- NOTE: The RemoveSavedDuplicates maintenance routine was intentionally removed.
--- If maintenance functionality is desired in future, reintroduce here with
--- careful validation and user confirmation flows.
+-- NOTE: a RemoveSavedDuplicates maintenance routine was removed intentionally.
+-- Reintroduce only with validation and a user confirmation flow.
 
 -- ---------------------------------------------------------------------------
 -- API
@@ -675,21 +649,20 @@ function YapperTable.Core:SaveSetting(category, key, value)
     if not localConf or not globalDB then return end
 
     if localConf.System and localConf.System.UseGlobalProfile == true then
-        -- Writing to Global Profile
+        -- Global profile: write there, then clear the local override so the
+        -- character falls back to the global value.
         if not globalDB[category] then globalDB[category] = {} end
         globalDB[category][key] = value
 
-        -- Nil out the local override so the character falls back to the global value.
         if localConf[category] then
             localConf[category][key] = nil
         end
     else
-        -- Writing to Character Local
         if not localConf[category] then localConf[category] = {} end
         localConf[category][key] = value
     end
 
-    -- Trigger a refresh for components listening for setting changes.
+    -- Flag the change so listeners reparse their settings.
     if YapperTable.Config and YapperTable.Config.System then
         YapperTable.Config.System.SettingsHaveChanged = true
     end
@@ -863,8 +836,7 @@ function YapperTable.Core:PushToGlobal()
 
         for k, v in pairs(settings) do
             if not (skipKeys and skipKeys[k]) then
-                -- Only push if it's a scalar or a table with actual data.
-                -- Empty tables are just inheritance proxies and should be skipped.
+                -- Skip empty tables: they're just inheritance proxies.
                 if type(v) ~= "table" or next(v) ~= nil then
                     globalDB[category][k] = DeepCopy(v)
                 end

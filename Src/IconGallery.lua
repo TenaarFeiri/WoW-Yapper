@@ -15,7 +15,6 @@ local RAID_ICONS = {
 
 local ICON_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
 
--- Core Widget Management
 function IconGallery:Init()
     local State = YapperTable.State
     if State and State:GetFlag("ICON_GALLERY_INITIALISED") then return end
@@ -58,7 +57,7 @@ function IconGallery:Init()
         label:SetText(tostring(i))
         cell.Label = label
 
-        -- Calculate Grid Position (4 columns, 2 rows)
+        -- 4 columns x 2 rows.
         local col = (i - 1) % 4
         local row = math.floor((i - 1) / 4)
         cell:SetPoint("TOPLEFT", frame, "TOPLEFT", 6 + (col * 28), -6 - (row * 30))
@@ -76,8 +75,7 @@ function IconGallery:Init()
 end
 
 function IconGallery:Show(rawEditBox, anchorFrame, query)
-    -- anchorFrame is the frame to anchor the popup below/above.
-    -- rawEditBox is the actual EditBox widget whose text we modify.
+    -- anchorFrame anchors the popup; rawEditBox is the widget being edited.
     if YapperTable.API then
         local payload = YapperTable.API:RunFilter("PRE_ICON_GALLERY_SHOW", {
             rawEditBox = rawEditBox,

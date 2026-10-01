@@ -12,7 +12,7 @@ local _, YapperTable = ...
 local Queue = {}
 YapperTable.Queue = Queue
 
--- Re-localise state machine for internal guards
+-- Local module upvalues
 local State = YapperTable.State
 local Utils = YapperTable.Utils
 
@@ -29,6 +29,7 @@ local select   = select
 local GetTime  = GetTime
 local tonumber = tonumber
 
+-- CHAT_MSG_* arg positions that may arrive as secret values
 local ACK_SECRET_ARG_INDICES = { 1, 2, 5, 12, 13, 18 }
 
 local function NormaliseName(name)
@@ -180,7 +181,6 @@ local ALL_CONFIRM_EVENTS = {
     CHAT_MSG_GUILD_DISCORD = true,
 }
 
--- State.
 Queue.Entries       = {}
 Queue.PlayerGUID    = nil
 
@@ -400,7 +400,6 @@ end
 function Queue:Flush(inHardwareEvent)
     if #self.Entries == 0 then return end
     if State:IsSending() then return end
-    -- Transition to SENDING state.
     State:ToSending()
 
     local policy = self:GetPolicy(self.Entries[1])
@@ -449,9 +448,8 @@ function Queue:SendNext(inHardwareEvent)
         return
     end
 
-    -- If the game is in a messaging lockdown (Encounter, PvP, etc.),
-    -- stall and wait for it to clear rather than attempting a send
-    -- that Blizzard will likely block.
+    -- Messaging lockdown (Encounter, PvP, etc.): stall instead of sending
+    -- into a block Blizzard will reject anyway.
     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
         self:ShowContinuePrompt()
         return
@@ -465,8 +463,8 @@ function Queue:BeginEntry(entry)
     self.PendingEntry = entry
     self:TrackPendingAck(entry)
 
-    -- Last-chance guard: lockdown can flip between SendNext() checks and
-    -- actual dispatch. Requeue instead of attempting a blocked send.
+    -- Lockdown can still flip between SendNext() and dispatch; requeue
+    -- rather than attempt a blocked send.
     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
         self.PendingEntry = nil
         self:ClearPendingAck()
@@ -530,8 +528,8 @@ function Queue:RawSend(entry)
 
 
     if not ok then
-        -- A hard error occurred during send (e.g., Message Too Long, or invalid target).
-        -- Retrying will just fail again, so we cancel the sequence to prevent an infinite prompt loop.
+        -- Hard send failures (too long, bad target) won't succeed on retry;
+        -- cancel the sequence to avoid an infinite prompt loop.
         self:Cancel()
         YapperTable.Utils:Print("Yapper: Message delivery failed (API error). The text might be too long or contain an invalid link.")
         return
@@ -550,15 +548,15 @@ end
 -- Confirmation event handler
 -- ===========================================================================
 
---- Check if a received chat event is an acceptable acknowledgement for an expected event.
---- Handles sibling events (e.g., SAY ↔ YELL) and RP addon conversions (SAY → EMOTE).
----@param expected string The expected event type (e.g., "CHAT_MSG_SAY").
----@param received string The actual received event type.
----@return boolean isAcceptable True if the received event is an acceptable ack.
+--- Is `received` an acceptable ack for `expected`? Handles _LEADER sibling
+--- events and RP addon conversions (SAY/YELL -> EMOTE mid-flight).
+---@param expected string e.g. "CHAT_MSG_SAY"
+---@param received string
+---@return boolean
 function Queue:IsAcceptableAck(expected, received)
     if expected == received then return true end
     if ACK_SIBLING[expected] == received then return true end
-    -- Fallbacks for RP addons (like TRP3) that convert says/yells to emotes mid-flight
+    -- RP addons (TRP3) may convert says/yells to emotes mid-flight
     if expected == "CHAT_MSG_SAY" and received == "CHAT_MSG_EMOTE" then return true end
     if expected == "CHAT_MSG_YELL" and received == "CHAT_MSG_EMOTE" then return true end
     if expected == "CHAT_MSG_EMOTE" and received == "CHAT_MSG_SAY" then return true end
@@ -566,9 +564,9 @@ function Queue:IsAcceptableAck(expected, received)
 end
 
 function Queue:OnChatEvent(event, ...)
-    -- PendingEntry is the queue's ownership signal. UI state can change when
-    -- another addon opens or focuses an editbox, but a valid pending entry
-    -- must still be allowed to consume its acknowledgement.
+    -- PendingEntry is the queue's ownership signal. UI state may change when
+    -- another addon opens an editbox, but a pending entry must still be
+    -- allowed to consume its ack.
     if not self.PendingEntry then return end
 
     local msgText = select(1, ...)
@@ -596,10 +594,9 @@ function Queue:OnChatEvent(event, ...)
         return
     end
 
-    -- First match the echoed text and expected event. Some chat events
-    -- (notably whispers) may not provide a sender GUID in the usual arg
-    -- position, so treat GUID as optional: only reject if present and
-    -- it doesn't match the player GUID.
+    -- Strict mode also requires the echoed text to match. Some events
+    -- (notably whispers) lack a sender GUID in the usual arg slot, so the
+    -- GUID check below only rejects on a present-but-different value.
     if self.StrictAckMatching and self.PendingAckText
         and msgText ~= self.PendingAckText then
         Utils:DebugPrint("  REJECTED: StrictAckMatching",
@@ -630,10 +627,9 @@ function Queue:OnChatEvent(event, ...)
         end
     end
 
-    -- arg12 = sender GUID when available.
-    -- notably, whisper inform events may provide the target's GUID (or no GUID)
-    -- in this slot rather than the player's. Since we already matched the
-    -- recipient name/ID above, we exempt them from the sender-match check.
+    -- arg12 = sender GUID when present. Whisper inform events may carry the
+    -- target's GUID (or none) here, and the recipient match above already
+    -- covers them, so they're exempt from the sender check.
     local guid = select(12, ...)
     local isWhisperInform = (event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM")
 
@@ -671,9 +667,8 @@ function Queue:TryContinue()
         return true
     end
 
-    -- Any pending entry is an extended-message delivery still awaiting its
-    -- acknowledgement. Single-chunk sends bypass Queue entirely, so there is
-    -- no normal-send case that needs the overlay to open here.
+    -- A pending entry is a delivery awaiting its ack. Single-chunk sends
+    -- bypass Queue, so no normal-send case needs the overlay to open here.
     if self.PendingEntry then
         return true
     end
@@ -688,7 +683,7 @@ end
 function Queue:ResetStallTimer(entry)
     self:CancelStallTimer()
 
-    -- Community channels have higher latency; use policy multiplier.
+    -- Some policies scale the timeout (community servers are slow).
     local timeout = self.StallTimeout
     if entry then
         local policy = self:GetPolicy(entry)
@@ -738,8 +733,8 @@ function Queue:CreateContinueFrame()
     f:SetFrameStrata("DIALOG")
     f:Hide()
 
-    -- On each Show, anchor to the Yapper overlay (or Blizzard editbox
-    -- fallback) so the prompt sits in the input-box slot.
+    -- On each Show, anchor to the overlay (or Blizzard editbox fallback)
+    -- so the prompt sits in the input-box slot.
     f:SetScript("OnShow", function(self)
         local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
         if self:GetParent() ~= parent then
@@ -783,7 +778,7 @@ function Queue:CreateContinueFrame()
 
     self.ContinueFrame = f
 
-    -- follow fullscreen-parent so the prompt isn’t hidden by the housing editor
+    -- follow fullscreen-parent so the prompt isn't hidden by the housing editor
     if YapperTable.Utils then
         YapperTable.Utils:MakeFullscreenAware(f)
     end
@@ -792,9 +787,8 @@ end
 function Queue:ShowContinuePrompt()
     self:CreateContinueFrame()
 
-    -- Reparent before Show so the frame is on a visible parent.
-    -- When UIParent is hidden (housing editor) OnShow won't fire if the
-    -- frame is still parented to UIParent, so we must do this up-front.
+    -- Reparent before Show: when UIParent is hidden (housing editor),
+    -- OnShow won't fire for a UIParent child, so do this up-front.
     local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
     local f = self.ContinueFrame
     if f:GetParent() ~= parent then
@@ -805,7 +799,7 @@ function Queue:ShowContinuePrompt()
         end
     end
 
-    -- Total remaining = queued + in-flight (batch pending or current).
+    -- Remaining = queued + in-flight.
     local remaining = #self.Entries + (self.PendingEntry and 1 or 0)
 
     -- Apply the user's EditBox font config so the prompt matches the overlay.
@@ -851,10 +845,9 @@ function Queue:EnableEscapeCancel()
         if key == "ESCAPE" then
             local now = GetTime()
             if (now - self._lastEscTime) <= DOUBLE_ESC_WINDOW then
-                -- Double-tap: cancel.  Block propagation first, then cancel
-                -- on the next frame so DisableEscapeCancel's re-enable of
-                -- propagation doesn't undo our block before this handler
-                -- returns (WoW evaluates SetPropagateKeyboardInput on return).
+                -- Double-tap: cancel. WoW applies SetPropagateKeyboardInput
+                -- only after this handler returns, so block now and cancel
+                -- on the next frame or DisableEscapeCancel undoes the block.
                 frame:SetPropagateKeyboardInput(false)
                 C_Timer.After(0, function() self:Cancel() end)
             else
@@ -893,7 +886,7 @@ function Queue:Cancel()
     end
 end
 
--- Register callback to hide overlay after queue completion (when user had to press Enter to continue chunks)
+-- Hide the overlay when a queued send completes (user pressed Enter to continue chunks)
 if _G.YapperAPI and type(_G.YapperAPI.RegisterCallback) == "function" then
     _G.YapperAPI:RegisterCallback("QUEUE_COMPLETE", function()
         if YapperTable.EditBox and YapperTable.EditBox.Overlay and YapperTable.EditBox.Overlay:IsShown() then

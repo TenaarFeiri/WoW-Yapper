@@ -91,10 +91,10 @@ function EditBox:HookAllChatFrames()
         YapperTable.Utils:VerbosePrint("EditBox overlays hooked for " .. maxChatWindows .. " chat frames.")
     end
 
-    -- Record sends made through Blizzard's native editbox (lockdown / bypass /
-    -- handoff fallback) into Yapper's history.  Registered once; the overlay is
-    -- not a ChatFrameEditBoxMixin and never fires this event, so normal Yapper
-    -- sends are not double-recorded.
+    -- Record sends made through Blizzard's native editbox (lockdown /
+    -- bypass / handoff) into Yapper's history. The overlay isn't a
+    -- ChatFrameEditBoxMixin and never fires this event, so Yapper sends
+    -- aren't double-recorded.
     if EventRegistry and not self._fallbackHistoryRegistered then
         EventRegistry:RegisterCallback("ChatFrame.OnEditBoxPreSendText", function(_, editBox)
             self:RecordFallbackSend(editBox)
@@ -234,41 +234,38 @@ function EditBox:HookAllChatFrames()
                 return
             end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
-                -- Hands-off in lockdown: let Blizzard own OpenChat/ActivateChat/ParseText
-                -- end-to-end to minimize taint spread into HandleChatType/UpdateHeader.
+                -- Hands-off in lockdown: Blizzard owns OpenChat/ActivateChat/
+                -- ParseText end-to-end to minimize taint spread.
                 TriggerTrace("ChatFrameUtil.OpenChat.PassToBlizzard", "reason=lockdown")
                 return
             end
 
-            -- When CHAT_FOCUS_OVERRIDE points at our overlay, Blizzard's OpenChat
-            -- body has already called SetFocus()+SetText() on the overlay directly.
-            -- SetFocus() is synchronous, so the triggering keybind's character event
-            -- fires on the overlay after all Lua returns (e.g. Shift-R -> "R" in box).
-            -- Fix: clear focus now (still sync, before the char event) and re-apply
-            -- it next frame so the char finds no focused editbox and is discarded.
+            -- When CHAT_FOCUS_OVERRIDE points at our overlay, OpenChat's
+            -- body already ran SetFocus()+SetText() on it. SetFocus is
+            -- synchronous, so the triggering keybind's char event lands on
+            -- the overlay after Lua returns (Shift-R -> "R" in the box).
+            -- Fix: clear focus now (still sync, before the char event) and
+            -- re-apply next frame so the char is discarded.
             local focusOverrideIntercepted = (_G.CHAT_FOCUS_OVERRIDE == self.OverlayEdit)
                 and (chatFrame == nil)
 
-            -- Also intercept if overlay is already shown (e.g., TRP3 calling OpenChat after send).
-            -- In this case, reclaim focus immediately instead of deferring through watchdog.
-            -- Also treat channel link clicks (slash prefills) as overlay-already-shown when Yapper is open.
+            -- Also intercept when the overlay is already shown (e.g. TRP3
+            -- calling OpenChat after send), or on channel-link clicks
+            -- (slash prefills) while Yapper is open.
             local overlayAlreadyShown = (self.Overlay and self.Overlay:IsShown())
                 and (chatFrame == nil or (text and text ~= "" and Core.IsChannelSlashPrefill(text)))
 
-            -- If user is bypassing Yapper:
-            -- - NOT in lockdown: kick back to Yapper (clear bypass, force intercept)
-            -- - IN lockdown: stay in Blizzard's box (return early)
+            -- Bypassing Yapper: outside lockdown, clear bypass and force
+            -- the intercept; in lockdown, stay in Blizzard's box.
             if UserBypassingYapper() then
                 local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
                 if inLockdown then
-                    -- Stay in Blizzard's box during lockdown
                     return
                 else
-                    -- Kick back to Yapper when not in lockdown
+                    -- Kick back to Yapper; force the intercept to run.
                     SetUserBypassingYapper(false)
                     SetBypassEditBox(nil)
                     self:UpdateFocusOverride()
-                    -- Force the intercept to run so Yapper actually opens
                     focusOverrideIntercepted = true
                 end
             end
@@ -276,9 +273,8 @@ function EditBox:HookAllChatFrames()
             if focusOverrideIntercepted or overlayAlreadyShown then
 
                 if overlayAlreadyShown then
-                    -- Overlay already shown: apply slash-prefill channel/target
-                    -- immediately so link-click channel switching works without
-                    -- requiring a full Show() cycle.
+                    -- Apply slash-prefill channel/target immediately so
+                    -- link-click switching works without a Show() cycle.
                     if text and text ~= "" and self.OverlayEdit then
                         if Core.IsChannelSlashPrefill(text) then
                             local ct, tgt, remainder = Core.ParseChannelSlash(text)
@@ -331,7 +327,7 @@ function EditBox:HookAllChatFrames()
                         end
                     end
 
-                    -- Overlay already shown (TRP3 case): just reclaim focus immediately
+                    -- TRP3 case: just reclaim focus.
                     if self.OverlayEdit then
                         self.OverlayEdit:SetFocus()
                     end
@@ -342,7 +338,8 @@ function EditBox:HookAllChatFrames()
                     return
                 end
 
-                -- Focus override case: need to clear and re-apply to prevent char event capture
+                -- Focus-override case: clear + re-apply so the char event
+                -- isn't captured by the overlay.
                 if not (self.Overlay and self.Overlay:IsShown()) then
                     self:Show(DEFAULT_CHAT_FRAME.editBox)
                 end
@@ -357,12 +354,13 @@ function EditBox:HookAllChatFrames()
                 return
             end
 
-            -- Capture explicit channel-selection intent from any slash command
-            -- routed through OpenChat: channel links ([Guild], [General], etc.
-            -- via ItemRef handlers call OpenChat("/GUILD", frame); typing "/g"
-            -- does the same. This is consumed once by Show()/the live-update so
-            -- the selection overrides the LastUsed sticky — without it, non-target
-            -- chat types (GUILD/PARTY/...) never beat the remembered channel.
+            -- Capture explicit channel-selection intent from slash commands
+            -- routed through OpenChat: channel links ([Guild], [General])
+            -- call OpenChat("/GUILD", frame) via ItemRef handlers; typing
+            -- "/g" does the same. Consumed once by Show()/the live-update so
+            -- the selection beats the LastUsed sticky -- without it,
+            -- non-target chat types (GUILD/PARTY/...) lose to the
+            -- remembered channel.
             if text and text ~= "" then
                 if Core.IsChannelSlashPrefill(text) then
                     local ct, tgt = Core.ParseChannelSlash(text)
@@ -392,12 +390,12 @@ function EditBox:HookAllChatFrames()
                 end
             end
 
-            -- Tab clicks / chat-area clicks (chatFrame ~= nil with empty/nil text):
-            -- in Classic mode, suppress the spurious overlay open on tab navigation
-            -- while Yapper is closed. (IM mode is handled by the ActivateChat hook.)
-            -- Normal Enter-to-chat needs no early-capture flag here: the blizzard
-            -- editbox Show() hook opens the overlay on the next frame, by which point
-            -- the physical key char has already been consumed by the blizzard editbox.
+            -- Tab clicks / chat-area clicks (chatFrame ~= nil, empty text):
+            -- suppress the spurious overlay open on tab navigation while
+            -- Yapper is closed (IM mode is handled by the ActivateChat
+            -- hook). Normal Enter-to-chat needs no flag: the Show() hook
+            -- opens the overlay next frame, after the blizzard editbox has
+            -- consumed the physical char.
             if chatFrame ~= nil and (text == nil or text == "")
                 and not (self.Overlay and self.Overlay:IsShown()) then
                 local eb = chatFrame.editBox
@@ -411,11 +409,10 @@ function EditBox:HookAllChatFrames()
                 end
             end
         end)
-        -- NOTE: Do NOT replace ChatFrameUtil.OpenChat with a tainted wrapper.
-        -- Doing so taints the arguments passed to Blizzard's secure code,
-        -- causing strlenutf8 / UpdateHeader failures post-combat.
-        -- The UIParent guard is already applied in EditBox:Show() and the
-        -- UIParent OnHide hook in SetupOverlayScripts.
+        -- NOTE: do NOT wrap OpenChat -- a tainted wrapper taints the
+        -- arguments passed to Blizzard's secure code, causing
+        -- strlenutf8/UpdateHeader failures post-combat. The UIParent guard
+        -- lives in EditBox:Show() and the UIParent OnHide hook.
         self._openChatHooked = true
     end
 
@@ -437,15 +434,15 @@ function EditBox:HookAllChatFrames()
             description.responder = function(data, menuInputData, menuProxy)
                 local hadOverride = _G.CHAT_FOCUS_OVERRIDE
                 _G.CHAT_FOCUS_OVERRIDE = nil
-                -- Suppress OpenChat hook while menu responder runs to avoid
-                -- triggering the watchdog/Show path when Yapper is already open
+                -- Suppress our OpenChat hook while the menu responder runs
+                -- so it doesn't trigger the Show path while Yapper is open.
                 self._suppressOpenChatHook = true
                 local ok, result = pcall(orig, data, menuInputData, menuProxy)
                 self._suppressOpenChatHook = nil
 
-                -- Record/adopt the channel the menu applied to the active editbox.
-                -- Apply twice (now + next frame) to cover responders that finalize
-                -- chatType/target on deferred updates.
+                -- Adopt the channel the menu applied; capture twice (now +
+                -- next frame) because some responders finalize chatType/
+                -- target on deferred updates.
                 local function CaptureMenuSelection()
                     local active = (ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
                         or (ChatFrameUtil.GetLastActiveWindow and ChatFrameUtil.GetLastActiveWindow())
@@ -485,7 +482,7 @@ function EditBox:HookAllChatFrames()
                         t           = GetTime(),
                     }
 
-                    -- If Yapper is already open, adopt immediately while preserving text.
+                    -- Already open: adopt immediately, preserving text.
                     if self.Overlay and self.Overlay:IsShown() then
                         local ct = selection.chatType
                         local tgt = selection.target
@@ -512,7 +509,7 @@ function EditBox:HookAllChatFrames()
                     end
                 end
 
-                -- Capture while override is still cleared, then restore it.
+                -- Capture while the override is still cleared, then restore.
                 local immediateSelection = CaptureMenuSelection()
                 _G.CHAT_FOCUS_OVERRIDE = hadOverride
 
@@ -543,10 +540,10 @@ function EditBox:HookAllChatFrames()
         self._chatMenuResponderHooked = true
     end
 
-    -- Hook DeactivateChat so that when Yapper's overlay steals focus, Blizzard's
-    -- Deactivate doesn't leave the proxy background hidden in Classic style.
-    -- RestoreProxyMode still hides it on Yapper close, so the Classic lifecycle
-    -- is preserved.
+    -- DeactivateChat hook: in Classic style, Blizzard's Deactivate on the
+    -- orig editbox would leave the proxy background hidden while the
+    -- overlay is shown; re-show it. RestoreProxyMode still hides it on
+    -- Yapper close, so the Classic lifecycle is preserved.
     if ChatFrameUtil and ChatFrameUtil.DeactivateChat and not self._deactivateChatHooked then
         hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
             if self._closing then return end
@@ -557,11 +554,10 @@ function EditBox:HookAllChatFrames()
         self._deactivateChatHooked = true
     end
 
-    -- Hook ActivateChat to intercept direct activation calls (e.g., from EditBox:SetFocus)
-    -- This complements the OpenChat hook and ensures Yapper catches all show paths.
+    -- ActivateChat hook: complements OpenChat so Yapper catches all show
+    -- paths (e.g. direct EditBox:SetFocus).
     if ChatFrameUtil and ChatFrameUtil.ActivateChat and not self._activateChatHooked then
         hooksecurefunc(ChatFrameUtil, "ActivateChat", function(editBox)
-            -- Only intercept if this is a chat frame editbox we're managing
             if not editBox or not editBox.GetName then return end
             local name = editBox:GetName()
             if not name or not name:match("ChatFrame%d+EditBox") then return end
@@ -573,10 +569,9 @@ function EditBox:HookAllChatFrames()
             if self._suppressActivateChatHook then return end
             if self.Overlay and self.Overlay:IsShown() then return end
 
-            -- In IM mode, the editbox is always shown, so our hooksecurefunc on
-            -- editBox:Show never fires for a user-initiated open. Instead,
-            -- ActivateChat is called, Show() fires (but IsShown() was already true
-            -- so our Show hook blocked it). Handle the open here instead.
+            -- IM mode: the editbox is always shown, so our Show hook never
+            -- fires for a user open (IsShown was already true). ActivateChat
+            -- is the real entry point; handle the open here.
             local chatStyle = GetCVar("chatStyle")
             if chatStyle == "im" then
                 self:_IMPushActive(editBox)
@@ -584,14 +579,14 @@ function EditBox:HookAllChatFrames()
                     if self.Overlay and self.Overlay:IsShown() then return end
                     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
                     if UserBypassingYapper() then return end
-                    -- Re-check focus override was cleared by ActivateChat; restore it.
+                    -- ActivateChat cleared the focus override; restore it.
                     self:UpdateFocusOverride()
                     self:Show(editBox)
                 end)
                 return
             end
 
-            -- Non-IM: let the editbox Show() hook handle presentation.
+            -- Non-IM: the editbox Show() hook handles presentation.
             self._activateChatTriggered = true
             C_Timer.After(0, function()
                 self._activateChatTriggered = nil
@@ -600,21 +595,20 @@ function EditBox:HookAllChatFrames()
         self._activateChatHooked = true
     end
 
-    -- Intercept whispers initiated OUTSIDE the unit-popup menu: chat name
-    -- left-click, LFG, Professions, Communities, ItemRef.  Menu whispers are
-    -- handled earlier by the Menu.ModifyMenu responder in Hooks/UnitPopup.lua,
-    -- which never calls SendTell (except during lockdown, where this hook
-    -- early-returns anyway), so the two paths do not overlap.  Fires AFTER
-    -- Blizzard's editbox opens, so we snapshot its whisper state and reopen
-    -- as Yapper.
+    -- Intercept whispers initiated OUTSIDE the unit-popup menu (chat name
+    -- left-click, LFG, Professions, Communities, ItemRef). Menu whispers go
+    -- through the responder in Hooks/UnitPopup.lua and never call SendTell
+    -- (except during lockdown, where this hook early-returns anyway), so
+    -- the paths don't overlap. Fires AFTER Blizzard's box opens, so we
+    -- snapshot its whisper state and reopen as Yapper.
     if ChatFrameUtil and ChatFrameUtil.SendTell and not self._sendTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendTell", function(target, chatFrame)
-            -- Sanitize before ANY comparison/format: a secret target must be
-            -- treated as unusable input (Blizzard's own path still runs).
+            -- Sanitize before ANY comparison: a secret target is unusable
+            -- input (Blizzard's own path still runs).
             target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
             TriggerTrace("ChatFrameUtil.SendTell", string.format("target=%s frame=%s",
                 SafeToString(target), SafeToString(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
-            -- Fail fast on unusable input or lockdown: leave Blizzard's box as-is.
+            -- Unusable input or lockdown: leave Blizzard's box as-is.
             if type(target) ~= "string" or target == "" then return end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
@@ -630,8 +624,8 @@ function EditBox:HookAllChatFrames()
                 blizzBox = self:IsNativeChatEditBox(fallback) and fallback or nil
             end
 
-            -- Yapper already open: retarget in place via the shared helper
-            -- (prevents SendTell reentrancy races).
+            -- Already open: retarget in place via the shared helper
+            -- (avoids SendTell reentrancy races).
             if self.Overlay and self.Overlay:IsShown() then
                 self:RetargetOpenWhisper(target, blizzBox)
                 return
@@ -653,12 +647,12 @@ function EditBox:HookAllChatFrames()
                 end
             end
 
-            -- Show Yapper - Show() reads _attrCache and picks up the whisper
-            -- context set by Blizzard's ParseText (SetAttribute chatType/tellTarget).
+            -- Show() reads _attrCache and picks up the whisper context
+            -- Blizzard's ParseText set via SetAttribute.
             self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
 
-            -- Force whisper context AFTER Show() as the final authority, in case
-            -- the cache was stale or a race overwrote it.
+            -- Force whisper context AFTER Show() as the final authority in
+            -- case the cache was stale or a race overwrote it.
             self.ChatType = "WHISPER"
             self.Target = target
             self.ChannelName = nil
@@ -673,13 +667,11 @@ function EditBox:HookAllChatFrames()
         self._sendTellHooked = true
     end
 
-    -- Intercept BNet whispers started from non-menu sources (hyperlink
-    -- handlers, social UI).  Menu BNet whispers (BN_FRIEND* right-click) are
-    -- now handled by the Menu.ModifyMenu responder in Hooks/UnitPopup.lua,
-    -- which bypasses SendBNetTell entirely to avoid the OpenChat("") →
-    -- CHAT_FOCUS_OVERRIDE race.  This hook still catches the remaining
-    -- non-menu paths and mirrors SendTell handling while preserving
-    -- BN_WHISPER routing.
+    -- Intercept BNet whispers from non-menu sources (hyperlink handlers,
+    -- social UI). Menu BNet whispers (BN_FRIEND* right-click) go through
+    -- the responder in Hooks/UnitPopup.lua, which bypasses SendBNetTell to
+    -- avoid the OpenChat("") -> CHAT_FOCUS_OVERRIDE race. This hook covers
+    -- the remaining paths and mirrors SendTell handling with BN_WHISPER.
     if ChatFrameUtil and ChatFrameUtil.SendBNetTell and not self._sendBNetTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendBNetTell", function(target)
             -- Same secret quarantine as the SendTell hook above.
@@ -731,23 +723,19 @@ function EditBox:HookAllChatFrames()
         self._sendBNetTellHooked = true
     end
 
-    -- REMOVED: ChatFrameUtil.ReplyTell2 hook (lines 1800-1817)
-    -- Originally intercepted Re-Whisper keybind to open Yapper instead of Blizzard's editbox.
-    -- Functionality now handled by keybind system (REPLYTELL2 override in Keybinds.lua).
-    -- Removed as part of hook reduction effort - keybind system provides primary path.
-    -- Potential impact: Addons that call ReplyTell2 programmatically may not trigger Yapper overlay.
+    -- REMOVED: ChatFrameUtil.ReplyTell2 hook. Re-Whisper is handled by the
+    -- REPLYTELL2 keybind override in Keybinds.lua now. Impact: addons that
+    -- call ReplyTell2 programmatically won't trigger the overlay.
 
-    -- Handle Native InsertLink Bypass
-    -- TRP3 shift-clicking links calls ChatFrameUtil.InsertLink (or the
-    -- deprecated ChatEdit_InsertLink alias when Blizzard's fallbacks are
-    -- loaded). If Yapper is closed, this bypasses ChatFrameUtil.OpenChat
-    -- entirely, inserting text into the hidden YapperOverlayEditBox and
-    -- failing SetFocus.
+    -- InsertLink: TRP3 shift-clicking links calls ChatFrameUtil.InsertLink
+    -- (or the deprecated ChatEdit_InsertLink alias). With Yapper closed this
+    -- bypasses OpenChat entirely, inserting text into the hidden
+    -- YapperOverlayEditBox and failing SetFocus.
     if not self._insertLinkHooked then
         local function OnInsertLink(text)
-            -- Keep the editor that Blizzard just routed to focused.  This is
-            -- especially important for multiline, whose frame replaces the
-            -- hidden single-line overlay while the link API is running.
+            -- Keep the editor Blizzard routed to focused -- important for
+            -- multiline, whose frame replaces the hidden overlay while the
+            -- link API runs.
             local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
             local routedEditor = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
                 and ChatFrameUtil.GetActiveWindow()
@@ -765,8 +753,8 @@ function EditBox:HookAllChatFrames()
                 end
             end
         end
-        -- The deprecated alias is a separate reference to the original
-        -- function, so both entry points need their own wrapper.
+        -- The deprecated alias is a separate function reference, so both
+        -- entry points need their own hook.
         if ChatFrameUtil and ChatFrameUtil.InsertLink then
             hooksecurefunc(ChatFrameUtil, "InsertLink", OnInsertLink)
         end
@@ -776,22 +764,20 @@ function EditBox:HookAllChatFrames()
         self._insertLinkHooked = true
     end
 
-    -- Hook FCF_Tab_OnClick to detect tab switches while Yapper is open or about
-    -- to open. Tab clicks don't trigger the editbox Show() hook, so we hook the
-    -- tab UI directly. Whisper tabs use Blizzard's chatType/chatTarget; other
-    -- tabs use Yapper's session-only per-tab channel memory.
+    -- Tab clicks don't trigger the editbox Show() hook, so hook the tab UI.
+    -- Whisper tabs use Blizzard's chatType/chatTarget; other tabs use
+    -- Yapper's session-only per-tab channel memory.
     if FCF_Tab_OnClick and not self._tabClickHooked then
         local editBox = self
 
-        -- Apply a resolved switch immediately (Yapper open) or stash it for the
-        -- next open (Yapper closed).
+        -- Yapper open: apply the switch now. Yapper closed: stash for the
+        -- next open.
         local function ApplyOrStashSwitch(chatFrame, switch)
             if editBox.Overlay and editBox.Overlay:IsShown() then
-                -- Prime the pending switch so Show()'s priority logic picks it up,
-                -- then delegate to Show() which handles re-parent, re-anchor, re-scale,
-                -- proxy swap, font/height recalculation, and focus.
-                -- Show()'s text guard (only sets text when coming from hidden) preserves
-                -- any in-progress text the user has typed.
+                -- Prime the pending switch so Show()'s priority logic picks
+                -- it up, then delegate: Show() handles re-parent, re-anchor,
+                -- re-scale, proxy swap, font recalc, and focus. Its text
+                -- guard preserves in-progress text.
                 editBox._pendingTabSwitch = {
                     chatType    = switch.chatType,
                     target      = switch.target,
@@ -817,23 +803,22 @@ function EditBox:HookAllChatFrames()
         end
 
         hooksecurefunc("FCF_Tab_OnClick", function(tab, button)
-            -- Only process left-clicks
             if button ~= "LeftButton" then return end
 
             local chatFrame = FCF_GetChatFrameByID(tab:GetID())
             if not chatFrame then return end
             EnsureEditBoxHooked(chatFrame.editBox)
 
-            -- Save the outgoing frame's state before we switch context.
-            -- When Yapper is OPEN, the blizzEditBox Show hook already recorded the
-            -- outgoing frame (before OverlayEdit.chatFrame was swapped), so we must
-            -- NOT record again here: OverlayEdit.chatFrame now points at the INCOMING
-            -- frame, and recording would write the old channel onto the new frame.
+            -- Save outgoing state before switching. When Yapper is OPEN the
+            -- Show hook already recorded the outgoing frame (before
+            -- OverlayEdit.chatFrame was swapped), so do NOT record again:
+            -- chatFrame now points at the INCOMING frame and we'd write the
+            -- old channel onto the new frame.
             if not (editBox.Overlay and editBox.Overlay:IsShown())
                     and editBox._pendingTabSwitch and editBox._pendingTabSwitch.chatFrame then
-                -- Yapper is closed: a previous tab click already stashed a switch.
-                -- Flush that stash into _tabChannelMemory under the correct key
-                -- before we overwrite it, so rapid tab clicks don't lose state.
+                -- Yapper closed: flush a previously stashed switch into
+                -- _tabChannelMemory under the correct key before
+                -- overwriting, so rapid tab clicks don't lose state.
                 local prev = editBox._pendingTabSwitch
                 local prevKey = prev.chatFrame.GetName and prev.chatFrame:GetName()
                 if prevKey and prev.chatType
@@ -848,18 +833,18 @@ function EditBox:HookAllChatFrames()
                 end
             end
 
-            -- Track active window for IM mode so keybind opens on the right frame.
+            -- Track the active window so keybinds open on the right frame.
             if chatFrame.editBox then
                 editBox:_IMPushActive(chatFrame.editBox)
             end
 
-            -- If a close just happened, _IMPopActive already restored the right
-            -- memory via _IMApplyWindowMemory. Don't overwrite it.
+            -- If a close just happened, _IMPopActive already restored the
+            -- right memory via _IMApplyWindowMemory; don't overwrite it.
             if editBox._suppressTabSwitchMemory then return end
 
             local cfType = chatFrame.chatType
-            -- SanitizeTarget: whisper-tab chatTarget can be secret under
-            -- forced addon restrictions; treat as targetless below.
+            -- chatTarget can be secret under forced restrictions; treat a
+            -- secret as targetless below.
             local cfTarget = YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget)
             YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..SafeToString(cfType).." chatTarget="..SafeToString(cfTarget))
 
@@ -886,9 +871,9 @@ function EditBox:HookAllChatFrames()
         self._tabClickHooked = true
     end
 
-    -- Hook FCF_MaximizeFrame to detect when a minimized undocked window is restored.
-    -- The chat frame's OnShow fires but the editbox Show() hook doesn't (child visibility).
-    -- Update _lastActiveIMEditBox so the keybind opens on the restored frame.
+    -- FCF_MaximizeFrame: restoring a minimized undocked window fires the
+    -- frame's OnShow but not the editbox Show() hook (child visibility), so
+    -- update _lastActiveIMEditBox here so keybinds open on it.
     if FCF_MaximizeFrame and not self._maximizeHooked then
         local editBox = self
         hooksecurefunc("FCF_MaximizeFrame", function(chatFrame)
@@ -901,8 +886,8 @@ function EditBox:HookAllChatFrames()
         self._maximizeHooked = true
     end
 
-    -- Hook FCF_MinimizeFrame: close Yapper if open on this frame, then pop the history.
-    -- After popping, activate the restored editbox so Blizzard shows it properly.
+    -- FCF_MinimizeFrame: close Yapper if open on this frame, pop the IM
+    -- history, then reactivate the restored editbox.
     if FCF_MinimizeFrame and not self._minimizeHooked then
         local editBox = self
         hooksecurefunc("FCF_MinimizeFrame", function(chatFrame)
@@ -921,7 +906,7 @@ function EditBox:HookAllChatFrames()
             if restoredEB and ChatFrameUtil and ChatFrameUtil.ActivateChat then
                 editBox._suppressActivateChatHook = true
                 pcall(function() ChatFrameUtil.ActivateChat(restoredEB) end)
-                -- Immediately deactivate so it fades to idle (not focused).
+                -- Then deactivate so it fades to idle, not focused.
                 pcall(function() ChatFrameUtil.DeactivateChat(restoredEB) end)
                 editBox._suppressActivateChatHook = false
             end
@@ -929,14 +914,15 @@ function EditBox:HookAllChatFrames()
         self._minimizeHooked = true
     end
 
-    -- Hook FCF_Close (window fully closed): pop history, fall back to ChatFrame1.
+    -- FCF_Close (window fully closed): pop history, fall back to
+    -- ChatFrame1.
     if FCF_Close and not self._closeHooked then
         local editBox = self
         hooksecurefunc("FCF_Close", function(frame)
             if not frame or not frame.editBox then return end
-            -- Suppress the tab-click hook's ApplyOrStashSwitch: FCF_UnDockFrame
-            -- (called inside FCF_Close) triggers FCF_Tab_OnClick on the newly
-            -- selected tab, which would overwrite our restored memory.
+            -- FCF_UnDockFrame inside FCF_Close fires FCF_Tab_OnClick on the
+            -- newly selected tab; suppress the tab hook's memory write so
+            -- it can't overwrite the memory we restore here.
             editBox._suppressTabSwitchMemory = true
             editBox:_IMPopActive(frame.editBox)
             -- Apply the restored window's channel memory.

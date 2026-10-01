@@ -35,8 +35,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- WoW whisper:  attributes arrive one frame AFTER Show (deferred).
     -- The live-update path below handles the deferred case.
     hooksecurefunc(blizzEditBox, "SetAttribute", function(eb, key, value)
-        -- Skip if we're syncing attributes from Yapper to Blizzard
-        -- to avoid RefreshLabel → SyncAttributesToBlizzard → SetAttribute → RefreshLabel loop
+        -- Skip while syncing Yapper -> Blizzard to avoid a
+        -- RefreshLabel -> SyncAttributesToBlizzard -> SetAttribute loop.
         if self._syncingAttributes then return end
 
         local c = self._attrCache[eb]
@@ -46,11 +46,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end
         if key == "chatType" or key == "tellTarget"
             or key == "channelTarget" or key == "language" then
-            -- Secret quarantine: never absorb a secret target into the cache.
-            -- Downstream consumers (Show(), the live-update below, LastUsed)
-            -- compare and normalise these values from tainted code, which is
-            -- an immediate Lua error on secrets. A secret target is treated
-            -- as "no target".
+            -- Secret quarantine: never absorb a secret target. Downstream
+            -- consumers compare/normalise these from tainted code, which is
+            -- an immediate Lua error on secrets; a secret target reads as
+            -- "no target".
             if (key == "tellTarget" or key == "channelTarget")
                 and value ~= nil
                 and YapperTable.Utils and YapperTable.Utils:IsSecret(value) then
@@ -100,10 +99,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end
         end
 
-        -- ── BNet → non-BNet transition ───────────────────────────────
-        -- If Blizzard's box was showing for a BNet whisper and the user
-        -- typed a slash command that changed chatType, reclaim it.
-        -- Skip if we are in lockdown or the user explicitly bypassed Yapper.
+        -- BNet -> non-BNet transition: if Blizzard's box was showing for a
+        -- BNet whisper and a slash command changed chatType, reclaim it.
+        -- Skipped in lockdown or after an explicit user bypass.
         if key == "chatType" and value ~= "BN_WHISPER"
             and (not self.Overlay or not self.Overlay:IsShown())
             and eb:IsShown()
@@ -116,8 +114,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 -- Defer to next frame; overlay creation needs to be
                 -- outside the SetAttribute hook context.
                 C_Timer.After(0, function()
-                    -- If the editbox was dismissed (Escape) rather than
-                    -- channel-switched, it will be hidden by now — bail out.
+                    -- If the box was dismissed (Escape) rather than
+                    -- channel-switched, it's hidden by now -- bail.
                     if not savedEB or not savedEB:IsShown() then
                         self._bnetEditBox = nil
                         return
@@ -149,8 +147,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                             target   = filterTarget,
                         })
                         if result == false then
-                            -- If we are suppressing the overlay open (e.g. WIM taking focus),
-                            -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                            -- Suppressing the open (e.g. WIM taking focus):
+                            -- return to IDLE so bridges stop typing signals.
                             if State and not State:IsIdle() then
                                 State:ToIdle()
                             end
@@ -261,16 +259,12 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             targetBox = ml.EditBox
         elseif self.Overlay and self.OverlayEdit
             and (self.Overlay:IsShown() or self._inBlizzShowHook) then
-            -- Only mirror native-box text into the overlay when the overlay is
-            -- actually shown, or is mid-Show (the _inBlizzShowHook window). We
-            -- deliberately do NOT capture text before the overlay exists. That
-            -- early-open capture (the former `_openingWatchdog`) stole the
-            -- SetText from the standard external-addon contract
-            -- OpenChat("") -> GetActiveWindow -> SetText -> SendText (e.g.
-            -- PasteNG's "Default" target sets text on the native box then
-            -- immediately sends on that same native box), blanking the native
-            -- box so the send dispatched an empty string. Genuine slash-prefill
-            -- capture during a real open still runs via IsShown()/_inBlizzShowHook.
+            -- Mirror only when the overlay is shown or mid-Show
+            -- (_inBlizzShowHook); do NOT capture before the overlay exists.
+            -- Early capture (the old `_openingWatchdog`) stole the SetText
+            -- in the OpenChat("") -> GetActiveWindow -> SetText -> SendText
+            -- addon contract (e.g. PasteNG writes the native box then sends
+            -- on it), blanking the box so the send went out empty.
             targetBox = self.OverlayEdit
         end
 
@@ -305,15 +299,16 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 return Matches(self._explicitChannel) or Matches(self._recentOpenChatIntent)
             end
 
-            -- Avoid recursive loops by ignoring the subsequent SetText("") on the source
+            -- Ignore the matching SetText("") we write to the source below.
             self._ignoreSetText = true
             if isInsert then
                 targetBox:Insert(text)
             else
-                -- If Blizzard's deferred OnUpdate writes a whisper/channel slash prefill
-                -- (e.g. "/cw charname " from a friend-list click), parse and strip it
-                -- here rather than displaying the raw command in the overlay.
-                -- OnTextChanged won't do this because isUserInput=false skips slash handling.
+                -- Blizzard's deferred OnUpdate writes slash prefills (e.g.
+                -- "/cw charname " from a friend-list click); parse and strip
+                -- rather than showing the raw command in the overlay.
+                -- OnTextChanged can't help: isUserInput=false skips slash
+                -- handling there.
                 if not isInsert and Core.IsWhisperSlashPrefill(text) then
                     local preTarget, preRemainder = Core.ParseWhisperSlash(text)
                     if preTarget then
@@ -350,11 +345,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     end
                 end
 
-                -- Same for channel/built-in slash prefills (e.g. "/1", "/g") that
-                -- a channel-link click or the chat menu writes into the native box.
-                -- The channel itself is already adopted via the explicit-channel
-                -- capture; here we just strip the raw slash so it never appears in
-                -- the overlay. Without this, numbered channels prefill "/n".
+                -- Same for channel/built-in slash prefills ("/1", "/g")
+                -- written by a channel-link click or the chat menu. The
+                -- channel itself was already adopted via explicit-channel
+                -- capture; here we strip the raw slash (otherwise numbered
+                -- channels prefill "/n").
                 if not isInsert and Core.IsChannelSlashPrefill(text) then
                     local chanType, chanTarget, chanRemainder = Core.ParseChannelSlash(text)
                     if chanType then
@@ -401,9 +396,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
 
                 local cur = targetBox:GetText() or ""
-                -- When overlay is already active, preserve user text against
-                -- stale native SetText payloads (common on refocus in proxy mode).
-                -- Explicit slash-prefill paths are handled above and still allowed.
+                -- With the overlay active, preserve user text against stale
+                -- native SetText payloads (common on refocus in proxy mode);
+                -- explicit slash-prefill paths above still pass.
                 if not isInsert and targetBox == self.OverlayEdit
                     and self.Overlay and self.Overlay:IsShown()
                     and cur ~= "" and text ~= cur then
@@ -418,7 +413,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     targetBox:SetText(text)
                 end
             end
-            -- Wipe the Blizzard source box so it doesn't hold stale data
+            -- Wipe the source box so it doesn't hold stale data.
             eb:SetText("")
             self:EnsureProxyBackgroundShown()
             self._ignoreSetText = nil
@@ -435,9 +430,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         end)
     end
 
-    -- Mirror language changes made via the chat menu button.
-    -- Character language is treated as character-global; if changed on one
-    -- editbox, apply it to the sticky LastUsed state for all future opens.
+    -- Mirror language changes from the chat menu. Language is
+    -- character-global: apply it to LastUsed for all future opens.
     if blizzEditBox.SetGameLanguage then
         hooksecurefunc(blizzEditBox, "SetGameLanguage", function(eb, language, languageId)
             -- Normalise to ensure we store a valid language ID
@@ -473,10 +467,9 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
-        -- Skip IM-mode tab reattachments (editbox already shown)
-        -- In popout/popout_and_inline modes, Blizzard reattaches the editbox to different tabs
-        -- which triggers Show() calls even though the editbox was already visible.
-        -- These are not user-initiated opens, just internal reattachments.
+        -- Skip IM-mode tab reattachments: in popout modes Blizzard
+        -- reattaches the already-visible editbox to different tabs, firing
+        -- Show() without a user-initiated open.
         local whisperMode = GetCVar("whisperMode")
         if (whisperMode == "popout" or whisperMode == "popout_and_inline") then
             if blizzEditBox:IsShown() then
@@ -484,22 +477,22 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             end
         end
 
-        -- Skip IM-style tab switching (chatStyle == "im")
-        -- In IM mode, clicking tabs triggers Show() then Deactivate() via SetLastActiveWindow.
-        -- If the editbox is already shown and Yapper is NOT shown, this is a tab switch that should not open Yapper.
-        -- If Yapper IS shown, we need to handle the tab switch to update context.
+        -- chatStyle "im" tab clicks fire Show() then Deactivate() via
+        -- SetLastActiveWindow. Editbox shown + Yapper not shown = tab
+        -- switch, not an open. (Yapper shown falls through to the tab-switch
+        -- handling below.)
         local chatStyle = GetCVar("chatStyle")
         if chatStyle == "im" and blizzEditBox:IsShown() and not (self.Overlay and self.Overlay:IsShown()) then
             return
         end
 
-        -- If Yapper is already shown and a different editbox is showing (tab switch),
-        -- update OrigEditBox and refresh the label to adapt to the new tab's context.
+        -- Yapper shown + a different editbox showing = tab switch: update
+        -- OrigEditBox and refresh the label for the new tab's context.
         if self.Overlay and self.Overlay:IsShown() then
             if blizzEditBox ~= self.OrigEditBox then
-                -- Save the outgoing frame's channel state exactly once, before any proxy
-                -- swapping changes OverlayEdit.chatFrame. Use a guard so re-entrant Show()
-                -- calls from RestoreProxyMode/ApplyProxyMode don't fire this again.
+                -- Save the outgoing frame's channel once, before proxy
+                -- swapping changes OverlayEdit.chatFrame. The guard blocks
+                -- re-entrant Show() calls from Restore/ApplyProxyMode.
                 if not self._recordingTabSwitch then
                     self._recordingTabSwitch = true
                     if self.ChatType and self.ChatType ~= "" then
@@ -508,7 +501,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     self._recordingTabSwitch = nil
                 end
                 self:_IMPushActive(blizzEditBox)
-                -- Swap proxy target if in proxy mode
+                -- Proxy mode: swap which editbox stays visible.
                 local cfg = YapperTable.Config and YapperTable.Config.EditBox
                 local isProxy = cfg and cfg.UseBlizzardSkinProxy == true
 
@@ -522,14 +515,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     pcall(function() self:ApplyProxyMode(blizzEditBox) end)
                 end
 
-                -- Satisfy Blizzard code that expects the editbox to belong to a specific chatFrame.
+                -- Blizzard code expects the editbox to know its chatFrame.
                 if blizzEditBox and blizzEditBox.chatFrame then
                     self.OverlayEdit.chatFrame = blizzEditBox.chatFrame
                     if self.ChannelLabel then
                         self.ChannelLabel.chatFrame = blizzEditBox.chatFrame
                     end
                 end
-                -- Re-read attributes from chatFrame and refresh label
                 local chatFrame = blizzEditBox:GetParent() or blizzEditBox.chatFrame
                 if chatFrame then
                     local cfType = chatFrame.chatType
@@ -585,10 +577,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 return
             end
 
-            -- If Blizzard hid its editbox during the defer (e.g. proxy Deactivate fired,
-            -- or rapid open/close), fall back to the last known active editbox rather
-            -- than silently aborting.  The one-frame defer was for attribute timing on
-            -- friend-list whispers; attributes were still written before the Hide().
+            -- If Blizzard hid its editbox during the defer (proxy
+            -- Deactivate, rapid open/close), fall back to the last active
+            -- editbox instead of aborting; attributes were still written
+            -- before the Hide().
             local targetEB = blizzEditBox:IsShown() and blizzEditBox
                 or self._lastActiveIMEditBox
                 or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
@@ -611,8 +603,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                     target   = filterTarget,
                 })
                 if result == false then
-                    -- If we are suppressing the overlay open (e.g. WIM taking focus),
-                    -- ensure we return to IDLE so bridges (TypingTracker, etc) stop.
+                    -- Suppressing the open (e.g. WIM taking focus): return
+                    -- to IDLE so bridges stop typing signals.
                     if State and not State:IsIdle() then
                         State:ToIdle()
                     end
@@ -620,9 +612,8 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                 end
             end
 
-            -- Track this as the last active window (Classic mode equivalent of IM's ActivateChat hook).
+            -- Classic-mode equivalent of IM's ActivateChat tracking.
             self:_IMPushActive(targetEB)
-            -- Open Yapper's overlay
             self:Show(targetEB)
         end)
     end)

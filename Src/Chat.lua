@@ -111,14 +111,13 @@ function Chat:SendPosts(posts, chatType, language, target)
         return false
     end
 
-    -- Normalize to one post per non-blank line.
     posts = SplitPosts(table.concat(posts, "\n"))
     if #posts == 0 then return false end
 
-    -- Strip display-only escapes (spellcheck recolouring injects colour codes
-    -- into the editbox; users may also paste them). Done before anything else
-    -- sees the text: history stays clean, PRE_SEND filters match on canonical
-    -- text, and chunk byte budgets are not inflated. Hyperlinks are preserved.
+    -- Strip display-only escapes (colour codes from spellcheck recolouring or
+    -- pastes) before anything else sees the text: keeps history clean, PRE_SEND
+    -- filters match canonical text, and chunk byte budgets aren't inflated.
+    -- Hyperlinks are preserved.
     if YapperTable.Utils then
         for i, post in ipairs(posts) do
             posts[i] = YapperTable.Utils:StripDisplayEscapes(post)
@@ -166,8 +165,8 @@ function Chat:SendPosts(posts, chatType, language, target)
     local cfg   = YapperTable.Config and YapperTable.Config.Chat or {}
     local limit = cfg.CHARACTER_LIMIT or 255
 
-    -- Chunk every post into one flat delivery list.  Chunking:Split fires
-    -- PRE_CHUNK once per post and is link-aware, so hyperlinks stay atomic.
+    -- Chunk every post into one flat list. Chunking:Split fires PRE_CHUNK
+    -- once per post and is link-aware, so hyperlinks stay atomic.
     local allChunks = {}
     for _, post in ipairs(posts) do
         if #post > limit and not SPLITTABLE[chatType] then
@@ -188,7 +187,6 @@ function Chat:SendPosts(posts, chatType, language, target)
 
     if #allChunks == 0 then return false end
 
-    -- Deliver the flat chunk list as a single ordered sequence.
     local ok
     if #allChunks == 1 then
         ok = self:DirectSend(allChunks[1], chatType, language, target)
@@ -199,7 +197,7 @@ function Chat:SendPosts(posts, chatType, language, target)
             Q:Flush(true)
             ok = true
         else
-            -- No queue — fire all at once.
+            -- No queue: fire all at once.
             ok = true
             for _, chunk in ipairs(allChunks) do
                 if self:DirectSend(chunk, chatType, language, target) == false then
@@ -263,8 +261,7 @@ function Chat:DirectSend(msg, chatType, language, target)
                 end
             end
 
-            -- Also record correctly affixed words so YAS can auto-learn them
-            -- into the user's personal dictionary over time.
+            -- Correctly affixed words too, so YAS can auto-learn them.
             local affixMatches = sc:CollectAffixMatches(msg, dict)
             if affixMatches then
                 for _, item in ipairs(affixMatches) do
@@ -292,7 +289,6 @@ function Chat:DirectSend(msg, chatType, language, target)
             end
             return false
         end
-        -- Allow the filter to modify fields.
         msg      = deliverPayload.text or msg
         chatType = deliverPayload.chatType or chatType
         language = deliverPayload.language or language
@@ -311,7 +307,6 @@ function Chat:DirectSend(msg, chatType, language, target)
         end
     end
 
-    -- POST_SEND callback: notify external addons.
     if API then
         API:Fire("POST_SEND", msg, chatType, language, target)
     end

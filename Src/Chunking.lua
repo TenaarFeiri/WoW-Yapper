@@ -35,16 +35,14 @@ local function Tokenise(text)
     local pos = 1
     local len = #text
 
-    -- The registered atomic-pattern list is constant for the duration of a single
-    -- tokenise pass, so fetch it once instead of per-token (was called twice each
-    -- iteration of the loop below).
+    -- The atomic-pattern list is constant per tokenise pass; fetch once.
     local atomicPatterns = (YapperAPI and YapperAPI.GetRegisteredAtomicPatterns
         and YapperAPI:GetRegisteredAtomicPatterns()) or nil
 
     while pos <= len do
         local b1 = string_byte(text, pos)
 
-        -- ── WoW escape: starts with | (124) ──────────────────────────
+        -- WoW escape: starts with | (124)
         if b1 == 124 then
             local char2 = string_sub(text, pos + 1, pos + 1):lower()
 
@@ -115,12 +113,12 @@ local function Tokenise(text)
                 end
 
             else
-                -- Unknown escape — emit just the pipe.
+                -- Unknown escape -- emit just the pipe.
                 tokens[#tokens + 1] = string_sub(text, pos, pos)
                 pos = pos + 1
             end
 
-        -- ── Atlas shorthand: {atlas} (123) ───────────────────────────
+        -- Atlas shorthand: {atlas} (123)
         elseif b1 == 123 then
             local closePos = string_find(text, "}", pos + 1, true)
             if closePos then
@@ -131,7 +129,7 @@ local function Tokenise(text)
                 pos = pos + 1
             end
 
-        -- ── Custom Atomic Patterns ─────────────────────────────────────
+        -- Custom atomic patterns
         else
             local matchedCustom = false
             if atomicPatterns then
@@ -147,7 +145,7 @@ local function Tokenise(text)
                 end
             end
 
-            -- ── Plain text: consume up to the next special character ─────
+            -- Plain text: consume up to the next special character.
             if not matchedCustom then
                 local nextSpecial = string_find(text, "[|{]", pos + 1)
                 -- Also check if a custom pattern might start before nextSpecial
@@ -202,10 +200,8 @@ local CONTINUATION_PAIRS = {
 }
 
 -- Returns the first unclosed pair found in text, or nil.
--- Symmetric pairs (same open/close char) use parity counting.  To avoid
--- introducing new behaviour for users who don't run TotalRP3, the logic
--- is gated behind a one‑time AddOn check; if TotalRP3 isn't loaded we
--- simply act as though no pairs exist.
+-- Symmetric pairs (same open/close char) use parity counting.  Gated behind
+-- a one-time TotalRP3 check so non-TRP3 users see no behaviour change.
 local TRP3_DETECTED
 local function EnsureTRP3()
     if TRP3_DETECTED == nil then
@@ -257,8 +253,7 @@ local function FindUnclosedPair(text)
 end
 
 --- Returns true when `close` appears at least once in tokens[fromIndex..#tokens].
---- We only look for the literal close string — good enough for a "does it exist?"
---- check without re-running the full heuristics.
+--- Literal substring check only -- good enough for "does it exist?"
 local function CloseExistsAhead(tokens, fromIndex, close)
     for i = fromIndex, #tokens do
         if string_find(tokens[i], close, 1, true) then
@@ -271,7 +266,7 @@ end
 --- Look for an unclosed delimiter pair in the accumulated `parts`.
 --- Only injects a close (and returns the matching open for the next chunk)
 --- when the closing delimiter actually appears somewhere in the remaining
---- tokens — i.e. the user *does* intend to close it eventually.  If there
+--- tokens -- i.e. the user *does* intend to close it eventually.  If there
 --- is no closer anywhere ahead, assume mistake or intentional open.
 local function InjectContClose(parts, tokens, fromIndex)
     local pair = FindUnclosedPair(table_concat(parts))
@@ -302,7 +297,7 @@ local function SafeUTF8Cut(s, maxBytes)
     local pos = maxBytes
     while pos > 0 do
         local b = string_byte(s, pos)
-        -- ASCII or UTF-8 leading byte — safe to cut here.
+        -- ASCII or UTF-8 leading byte -- safe to cut here.
         if b < 128 or b >= 192 then
             -- Leading byte of multi-byte char: cut before it.
             if b >= 192 then
@@ -364,8 +359,8 @@ end
 
 --- Split text into chunks that each fit within the byte limit.
 ---
---- Fires the `PRE_CHUNK` filter once per contiguous run of text — after
---- paragraph isolation, before any chunking decision — so every caller and
+--- Fires the `PRE_CHUNK` filter once per contiguous run of text -- after
+--- paragraph isolation, before any chunking decision -- so every caller and
 --- every paragraph is treated consistently.  Filters may adjust the text and
 --- the byte limit, and may supply a `continuationPrefix` that is prepended to
 --- chunks 2+ (never to the head chunk).
@@ -378,14 +373,11 @@ end
 function Chunking:Split(text, limit, opts)
     opts = opts or {}
 
-    -- Paragraph isolation for "Send All": keep each paragraph as a standalone chunk
+    -- "Send All": keep each paragraph as a standalone chunk.
     if opts.ignoreParagraphMerging and string_find(text, "\n") then
         local allChunks = {}
-        -- Iterate over every line, splitting by \n
         for paragraph in string_gmatch(text .. "\n", "(.-)\n") do
-            -- Only process non-empty lines (skip blank lines)
             if paragraph ~= "" then
-                -- Recurse into the standard splitting logic for this paragraph alone
                 local pChunks = self:Split(paragraph, limit, {
                     ignoreParagraphMerging = false,
                     useDelineators         = opts.useDelineators,
@@ -406,8 +398,8 @@ function Chunking:Split(text, limit, opts)
 
     limit = limit or cfg.CHARACTER_LIMIT or 255
 
-    -- PRE_CHUNK filter: external addons can adjust the text or the limit, cancel
-    -- the send, or register a prefix for continuation chunks.
+    -- PRE_CHUNK filter: addons can adjust text/limit, cancel the send, or
+    -- supply a prefix for continuation chunks.
     local continuationPrefix = nil
     local continuationFirst  = false
     local API = YapperTable.API
@@ -428,11 +420,8 @@ function Chunking:Split(text, limit, opts)
     local useDelineators = (opts.useDelineators ~= nil) and opts.useDelineators
                            or (cfg.USE_DELINEATORS ~= false)
 
-    -- Normalize markers: accept explicit args or config values (which
-    -- may already include or omit spacing).  Treat the marker as an
-    -- opaque UTF-8 string and add spacing here to ensure consistent
-    -- behaviour when building chunks.
-    -- Use the public API to fetch the marker (eat our own dogfood).
+    -- Normalize markers: treat the marker as opaque UTF-8 and add spacing
+    -- here so explicit args and config values behave the same.
     local markerSource = opts.delineator or (YapperAPI and YapperAPI:GetDelineator()) or ""
     local marker = NormaliseMarker(markerSource)
     local delineator, prefix
@@ -453,7 +442,7 @@ function Chunking:Split(text, limit, opts)
         return { text }
     end
 
-    -- ── Tokenise ─────────────────────────────────────────────────────
+    -- Tokenise
     local tokens = Tokenise(text)
 
     local chunks = {}
@@ -481,12 +470,12 @@ function Chunking:Split(text, limit, opts)
         local suffixCost = #delineator + (colour and 2 or 0)
         local effective  = limit - suffixCost
 
-        -- ── Token fits ───────────────────────────────────────────────
+        -- Token fits
         if size + #token <= effective then
             parts[#parts + 1] = token
             size = size + #token
 
-        -- ── Escape sequence that doesn't fit — keep it atomic ────────
+        -- Escape sequence that doesn't fit -- keep it atomic
         elseif isEscape then
             -- Prevent orphaned link parts across chunks.  WoW silently
             -- drops a message whose hyperlink structure is incomplete.
@@ -549,7 +538,7 @@ function Chunking:Split(text, limit, opts)
             parts[#parts + 1] = token
             size = size + #token
 
-        -- ── Plain text too large — word-level split ──────────────────
+        -- Plain text too large -- word-level split
         else
             local remaining = token
 
@@ -559,7 +548,7 @@ function Chunking:Split(text, limit, opts)
                 local space = effective - size
 
                 if #remaining <= space then
-                    -- Leftover fits — append and stop.
+                    -- Leftover fits -- append and stop.
                     if #remaining > 0 then
                         parts[#parts + 1] = remaining
                         size = size + #remaining
@@ -590,7 +579,7 @@ function Chunking:Split(text, limit, opts)
                         size = size + (split - 1)
                         remaining = string_sub(remaining, split + 1)
                     else
-                        -- No space found — force-cut (UTF-8 safe).
+                        -- No space found -- force-cut (UTF-8 safe).
                         local cut = SafeUTF8Cut(remaining, space)
                         if cut <= 0 then cut = 1 end
                         parts[#parts + 1] = string_sub(remaining, 1, cut)

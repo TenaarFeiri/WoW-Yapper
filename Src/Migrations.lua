@@ -1,15 +1,7 @@
 --[[
     Migrations.lua
-    Detached module for handling configuration key migrations and data structure changes.
-
-    This module provides a centralized place for migrating old configuration keys
-    to new ones without losing user data. Each migration function should:
-    1. Check if the old key exists
-    2. Copy the value to the new key
-    3. Clear the old key
-    4. Log the migration for user awareness
-
-    Migrations are versioned and should only run once per version bump.
+    Configuration key migrations: copy old key to new key, clear the old one,
+    log the change. Each migration runs once per version bump.
 ]]
 
 local _, YapperTable = ...
@@ -30,12 +22,11 @@ local math_abs = math.abs
 local _completedMigrations = {}
 
 -- ---------------------------------------------------------------------------
--- YALLM → YAS Migration (Version 2.2)
--- -----------------------------------------------------------------
+-- YALLM -> YAS Migration (Version 2.2)
+-- ---------------------------------------------------------------------------
 
---- Migrate YALLM configuration keys to YAS equivalents.
---- This handles the renaming from "Yapper Adaptive Language Learning Model" 
---- to the more accurate "Yapper Adaptive Spellcheck" naming.
+--- Migrate YALLM config keys to YAS (rename from "Yapper Adaptive Language
+--- Learning Model" to "Yapper Adaptive Spellcheck").
 function Migrations:MigrateYALLMToYAS(configTable, configType)
     if not configTable or type(configTable) ~= "table" then return end
     if not configTable.Spellcheck or type(configTable.Spellcheck) ~= "table" then return end
@@ -61,9 +52,7 @@ function Migrations:MigrateYALLMToYAS(configTable, configType)
     
     for oldKey, newKey in pairs(keyMap) do
         if sc[oldKey] ~= nil then
-            -- Copy value to new key
             sc[newKey] = sc[oldKey]
-            -- Clear old key
             sc[oldKey] = nil
             migrated = true
             changes[#changes + 1] = oldKey .. " → " .. newKey
@@ -79,7 +68,7 @@ function Migrations:MigrateYALLMToYAS(configTable, configType)
 end
 
 -- ---------------------------------------------------------------------------
--- Channel Color Overrides → Channel Color Mode Migration (Version 2.3)
+-- Channel Color Overrides -> Channel Color Mode Migration (Version 2.3)
 -- ---------------------------------------------------------------------------
 
 --- Migrate ChannelColorOverrides to ChannelColorMode.
@@ -93,7 +82,7 @@ function Migrations:MigrateChannelColorMode(configTable, configType)
     local eb = configTable.EditBox
     local migrationKey = "CHANNEL_COLOR_MODE_" .. (configType or "UNKNOWN")
 
-    -- Skip if already migrated (ChannelColorMode exists and has entries)
+    -- Skip if already migrated or a populated ChannelColorMode exists.
     if _completedMigrations[migrationKey] then return end
     if type(eb.ChannelColorMode) == "table" and next(eb.ChannelColorMode) then
         _completedMigrations[migrationKey] = true
@@ -119,11 +108,11 @@ function Migrations:MigrateChannelColorMode(configTable, configType)
     for _, key in ipairs(channelKeys) do
         local mode = "blizzard" -- default to blizzard for new installations
 
-        -- If old override was true, they were following master
+        -- Old override=true meant "follow master".
         if oldOverrides and oldOverrides[key] == true then
             mode = "master"
             migrated = true
-        -- If the user has a custom colour that differs from defaults, keep it as custom
+        -- A stored colour that differs from defaults stays custom.
         elseif oldColors and type(oldColors[key]) == "table" and defColors and type(defColors[key]) == "table" then
             local userCol = oldColors[key]
             local defCol = defColors[key]
@@ -139,7 +128,6 @@ function Migrations:MigrateChannelColorMode(configTable, configType)
         eb.ChannelColorMode[key] = mode
     end
 
-    -- Clean up old ChannelColorOverrides table
     if oldOverrides then
         eb.ChannelColorOverrides = nil
     end
@@ -152,13 +140,12 @@ function Migrations:MigrateChannelColorMode(configTable, configType)
 end
 
 -- ---------------------------------------------------------------------------
--- Underline colour/style → MisspellingColour Migration (Version 2.4)
+-- Underline colour/style -> MisspellingColour Migration (Version 2.4)
 -- ---------------------------------------------------------------------------
 
---- Migrate the removed underline-style spellcheck rendering settings to the
---- single MisspellingColour key used by the recolour engine. UnderlineColor
---- carries over (alpha forced to 1.0 — it is text colour now); UnderlineStyle
---- and HighlightColor are dropped.
+--- Migrate the removed underline-style rendering settings to the single
+--- MisspellingColour key. UnderlineColor carries over (alpha forced to 1.0 --
+--- it is text colour now); UnderlineStyle and HighlightColor are dropped.
 function Migrations:MigrateMisspellingColour(configTable, configType)
     if not configTable or type(configTable) ~= "table" then return end
     if not configTable.Spellcheck or type(configTable.Spellcheck) ~= "table" then return end
@@ -216,13 +203,8 @@ function Migrations:RunMigrations(configTable, configType)
         end
     end
 
-    -- Always run YALLM → YAS migration if needed
     run("YALLM_TO_YAS", self.MigrateYALLMToYAS)
-
-    -- Run ChannelColorMode migration
     run("CHANNEL_COLOR_MODE", self.MigrateChannelColorMode)
-
-    -- Run MisspellingColour migration
     run("MISSPELLING_COLOUR", self.MigrateMisspellingColour)
 end
 

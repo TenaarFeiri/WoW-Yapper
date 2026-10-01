@@ -46,9 +46,7 @@ function Theme:SetTheme(name)
     if type(name) ~= "string" or not self._registry[name] then return false end
     self._current = name
     Utils:VerbosePrint("Theme:SetTheme -> " .. tostring(name))
-    -- Attempt to apply the theme immediately to any live overlay.
-    -- Also reflect theme colours into local per-character config unless the
-    -- user has explicitly overridden those values via the UI.
+    -- Reflect theme colours into config unless the user overrode them via the UI.
     pcall(function()
         local localConf = Utils:EnsureTable(_G.YapperLocalConf)
         local useGlobal = localConf.System and localConf.System.UseGlobalProfile == true and type(_G.YapperDB) == "table"
@@ -94,7 +92,6 @@ function Theme:SetTheme(name)
                 end
             end
 
-            -- Remember which theme we last applied programmatically.
             targetRoot._appliedTheme = name
             if useGlobal then
                 localConf._appliedTheme = nil
@@ -107,7 +104,6 @@ function Theme:SetTheme(name)
         YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
     end
 
-    -- THEME_CHANGED callback: notify external addons.
     if YapperTable.API then
         YapperTable.API:Fire("THEME_CHANGED", name)
     end
@@ -115,23 +111,17 @@ function Theme:SetTheme(name)
     return true
 end
 
---- Apply a theme to a frame.
--- This attempts only non-invasive visual calls and wraps them in pcall
--- to avoid hard failures. Returns true on success.
+--- Apply a theme to a frame. Non-invasive only; pcall-wrapped.
 function Theme:ApplyToFrame(frame, name)
     if type(frame) ~= "table" then return false end
     local theme = self:GetTheme(name)
     if not theme then return false end
 
-    -- Diagnostic: verbose only, not spammy.
     Utils:VerbosePrint("Theme:ApplyToFrame '" .. tostring(name or self._current) .. "'")
 
-    -- NOTE: inputBg / labelBg / textColor / borderColor are intentionally NOT
-    -- applied here.  ApplyConfigToLiveOverlay is the single place that reads
-    -- those from config and writes them to the frame, so there is no fighting.
-    -- ApplyToFrame handles only font overrides and the optional OnApply hook.
-
-    -- Font application helper: apply to known sub-elements if possible.
+    -- inputBg / labelBg / textColor / borderColor are NOT applied here:
+    -- ApplyConfigToLiveOverlay is the single writer for those so there is
+    -- no fighting. ApplyToFrame handles fonts and the optional OnApply hook.
     if type(theme.font) == "table" then
         local f = theme.font
         if type(frame.OverlayEdit) == "table" and type(frame.OverlayEdit.SetFont) == "function" then
@@ -150,7 +140,7 @@ function Theme:ApplyToFrame(frame, name)
         end
     end
 
-    -- Call optional OnApply hook provided by theme authors.
+    -- Optional theme-author hook.
     if type(theme.OnApply) == "function" then
         pcall(function() theme.OnApply(frame) end)
     end
@@ -224,12 +214,11 @@ function Theme:SetLiveTheme(name)
         _G.YapperLocalConf = localConf
     end)
 
-    -- Apply to the live overlay.
     if YapperTable.EditBox and type(YapperTable.EditBox.ApplyConfigToLiveOverlay) == "function" then
         YapperTable.EditBox:ApplyConfigToLiveOverlay(true)
     end
 
-    -- Refresh multiline frame if it is currently open.
+    -- Refresh the multiline frame if it is currently open.
     if YapperTable.Multiline and State and State:IsMultiline()
             and type(YapperTable.Multiline.ApplyTheme) == "function" then
         YapperTable.Multiline:ApplyTheme()
@@ -248,7 +237,6 @@ function YapperTable:SetTheme(name) return Theme:SetTheme(name) end
 function YapperTable:GetRegisteredThemes() return Theme:GetRegisteredNames() end
 
 -- Register a sane default so the system is immediately usable.
--- Derive defaults from existing EditBox/Interface config values.
 local function GetChatTypeColor(chatType, fallback)
     local info = ChatTypeInfo and chatType and ChatTypeInfo[chatType]
     if not info then
@@ -287,7 +275,7 @@ local defaultTheme = {
     },
     allowRoundedCorners = true,
     allowDropShadow = true,
-    font = { path = nil, flags = "" }, -- Use neutral font baseline (inherited from config)
+    font = { path = nil, flags = "" }, -- nil path = inherit font from config
 }
 Theme:RegisterTheme(defaultTheme.name, defaultTheme)
 Theme._current = defaultTheme.name

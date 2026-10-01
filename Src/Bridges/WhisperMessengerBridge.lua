@@ -171,10 +171,9 @@ function Bridge:Init()
 
     self._initialised = true
 
-    -- Register PRE_EDITBOX_SHOW filter: suppress Yapper's overlay only while
-    -- keyboard focus belongs to WM.  A visible but defocused WM window must not
-    -- prevent Enter from opening Yapper.
-    -- Priority 5 (runs early) so default-priority filters see the decision.
+    -- Suppress Yapper's overlay only while keyboard focus belongs to WM -- a
+    -- visible but defocused WM window must not block Enter. Priority 5 runs
+    -- early so default-priority filters see the decision.
     if _G.YapperAPI and type(_G.YapperAPI.RegisterFilter) == "function" then
         _G.YapperAPI:RegisterFilter("PRE_EDITBOX_SHOW", function(payload)
             if Bridge:IsFocusActive() then
@@ -187,9 +186,8 @@ function Bridge:Init()
         end, 5)
     end
 
-    -- Guard the final Show entry point as well.  PRE_EDITBOX_SHOW is advisory
-    -- and not every internal path reaches it; this prevents Yapper from stealing
-    -- focus back while WM owns keyboard focus.
+    -- Guard the final Show entry point too: PRE_EDITBOX_SHOW is advisory and
+    -- not every internal path reaches it.
     local EditBox = YapperTable.EditBox
     if EditBox and EditBox.Show and not EditBox._wmShowWrapped then
         EditBox._wmShowWrapped = true
@@ -202,11 +200,8 @@ function Bridge:Init()
         end
     end
 
-    -- Hook button creation so we stay wrapped across keybind refreshes.
+    -- Stay wrapped across keybind refreshes, then wrap the existing button.
     self:HookSecureButtonCreation()
-
-    -- Wrap the existing REPLYTELL2 button (buttons may already exist if
-    -- Keybinds:Init() has run).
     self:WrapReplyKeybind()
 
     if YapperTable.Utils and YapperTable.Utils.DebugPrint then

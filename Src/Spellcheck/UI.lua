@@ -14,7 +14,6 @@ local MAX_SUGGESTION_ROWS = Spellcheck._MAX_SUGGESTION_ROWS
 local IsDebugEnabled      = Spellcheck.IsDebugEnabled
 
 
--- Re-localise Lua globals.
 local type                = type
 local pairs               = pairs
 local ipairs              = ipairs
@@ -75,10 +74,8 @@ function Spellcheck:BindMultiline(editBox, containerFrame, scrollFrame)
     self.Overlay       = containerFrame
     self.MLScrollFrame = scrollFrame
 
-    -- Hook OnCursorChanged and OnMouseUp on the multiline EditBox so
-    -- ActiveWord stays current as the cursor moves and right-click works.
-    -- Both handlers guard on box == self.EditBox so they silently no-op
-    -- after UnbindMultiline reassigns self.EditBox back to the overlay.
+    -- Handlers guard on box == self.EditBox so they no-op after
+    -- UnbindMultiline rebinds self.EditBox back to the overlay.
     if editBox and editBox.HookScript then
         editBox:HookScript("OnCursorChanged", function(box, x, y, w, h)
             if box ~= self.EditBox then return end
@@ -103,9 +100,9 @@ function Spellcheck:BindMultiline(editBox, containerFrame, scrollFrame)
         end
     end
     reparent(self.SuggestionFrame)
-    -- SetParent() resets the frame's strata to the new parent's strata (HIGH).
-    -- Re-assert TOOLTIP so suggestion rows stay above the catcher (also TOOLTIP
-    -- but at frame level 1, far below the buttons at 200+).
+    -- SetParent() resets strata to the parent's (HIGH); re-assert TOOLTIP so
+    -- suggestion rows stay above the catcher (TOOLTIP but level 1, while
+    -- the rows sit at 200+).
     if self.SuggestionFrame then
         self.SuggestionFrame:SetFrameStrata("TOOLTIP")
         self.SuggestionFrame:SetFrameLevel(200)
@@ -177,16 +174,13 @@ function Spellcheck:UnloadAllDictionaries(purgeNow)
         end
     end
 
-    -- Clear caches
     self:ClearSuggestionCache()
     self.UserDictCache = {}
 
-    -- Hidden internal suggestion state
     self._lastSuggestionsText = nil
     self._lastSuggestionsLocale = nil
     self.ActiveSuggestions = nil
 
-    -- Cleanup UI state
     YapperTable.Recolour:Clear(self.EditBox)
     if self.SuggestionFrame then self.SuggestionFrame:Hide() end
     if self.HintFrame then self.HintFrame:Hide() end
@@ -218,8 +212,8 @@ function Spellcheck:ApplyState(enabled, locale)
             return false
         end
     else
-        -- When disabled, we don't automatically unload (user might just be toggling).
-        -- The explicit "Unload" is handled by the UI popup or manual call.
+        -- Disabling doesn't unload dictionaries (user may toggle back on);
+        -- explicit unload is handled by the UI popup.
         YapperTable.Recolour:Clear(self.EditBox)
         if self.SuggestionFrame then self.SuggestionFrame:Hide() end
     end
@@ -237,10 +231,9 @@ function Spellcheck:OnTextChanged(editBox, isUserInput)
         self._textChangedFlag = true
         self._lastTypingTime = GetTime()
 
-        -- Peek at the last character to detect word boundaries.
-        -- If the user just hit space or punctuation, we fire immediately.
-        -- Read canonical text: display text may end in a "|r" reset, which
-        -- would hide the real last character from this check.
+        -- Word-boundary chars (space/punctuation) refresh immediately.
+        -- Read canonical text: the display text may end in a "|r" reset,
+        -- which would hide the real last character from this check.
         local text = YapperTable.Recolour.CanonicalText(editBox)
         local lastChar = string_sub(text, -1)
         if lastChar:match("[%s%.%,%!%?%:%;]") then
@@ -259,15 +252,14 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
         return
     end
 
-    -- Capture the visual cursor X that Blizzard gives us.
-    -- We use this to derive the editbox's internal horizontal scroll.
+    -- Visual cursor X is used to derive the box's horizontal scroll.
     if type(x) == "number" then
         self._lastCursorVisX = x
     end
 
-    -- Capture cursor height (= line height ≈ font size) and visual Y for
-    -- multiline suggestion/hint anchoring (immune to overlay resizing done
-    -- by addons like ElvUI).
+    -- Cursor height (line height) and visual Y anchor the multiline
+    -- suggestion/hint frames; these are immune to overlay resizing by
+    -- addons like ElvUI.
     if type(y) == "number" then
         self._lastCursorVisY = y
     end
@@ -275,11 +267,9 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
         self._lastCursorH = h
     end
 
-    -- Early-exit guard: if neither the cursor position nor the text has changed
-    -- since the last call, skip all work. This prevents redundant processing
-    -- during rapid OnCursorChanged fires (e.g. holding an arrow key).
-    -- Compared in canonical space so our own recolour injection doesn't
-    -- register as a change.
+    -- Early-out when neither cursor nor text changed (arrow-key repeat
+    -- fires this rapidly). Compared in canonical space so our own recolour
+    -- injection doesn't register as a change.
     local curText, curPos = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
     if curPos == self._lastOnCursorPos and curText == self._lastOnCursorText then
         return
@@ -290,9 +280,8 @@ function Spellcheck:OnCursorChanged(editBox, x, y, w, h)
     self:UpdateActiveWord()
     self:UpdateHint()
 
-    -- No rendering work here: injected colour does not move with the caret,
-    -- so cursor-only changes need no recolour pass. (The large-text scan
-    -- window recenters on the next text-driven Apply.)
+    -- No recolour pass needed: injected colour doesn't move with the caret.
+    -- (The large-text scan window recenters on the next text-driven Apply.)
 end
 
 function Spellcheck:OnOverlayHide()
@@ -314,7 +303,7 @@ function Spellcheck:ScheduleRefresh(delay)
     end
 
     if C_Timer and C_Timer.NewTimer then
-        -- Default to 0.3s if no specific delay is requested (e.g. initial bind)
+        -- Default 0.3s debounce when no delay is requested.
         self._debounceTimer = C_Timer.NewTimer(delay or 0.30, function()
             self:Rebuild()
             self._debounceTimer = nil
@@ -356,10 +345,9 @@ end
 function Spellcheck:EnsureSuggestionFrame()
     if self.SuggestionFrame or not self.Overlay then return end
 
-    -- The catcher sits at a deliberately LOW frame level so suggestion row
-    -- buttons (which are set to a much higher level) always receive clicks
-    -- first.  Without this, the catcher intercepts clicks that should go to
-    -- the rows, silently swallowing them instead of letting them fire.
+    -- The catcher must stay at a LOW frame level so the suggestion row
+    -- buttons (much higher level) get clicks first; otherwise it silently
+    -- swallows clicks meant for the rows.
     local catcher = CreateFrame("Button", nil, UIParent)
     catcher:SetFrameStrata("TOOLTIP")
     catcher:SetFrameLevel(1) -- must stay below the suggestion frame
@@ -790,9 +778,10 @@ function Spellcheck:ShowSuggestions()
     if not self.SuggestionFrame then return end
     if not self.ActiveSuggestions then return end
 
-    -- Snapshot ActiveSuggestions so ResolveImplicitTrace can record rejections
-    -- if the user bypasses all suggestions and manually retypes the word.
-    -- Only snapshot once per word — don't overwrite mid-edit or the original typo is lost.
+    -- Snapshot ActiveSuggestions so ResolveImplicitTrace can record
+    -- rejections when the user bypasses all suggestions and retypes.
+    -- Snapshot only once per word -- overwriting mid-edit loses the
+    -- original typo.
     if self.ActiveWord and self.ActiveRange and not self._implicitTrace then
         self._implicitTrace = {
             word        = self.ActiveWord,
@@ -805,18 +794,16 @@ function Spellcheck:ShowSuggestions()
     local total = #self.ActiveSuggestions
     local offset = self._suggestionOffset or 0
 
-    -- Smart Pagination: If we have room to fit exactly 6 items without
-    -- needing a "More" row, do so.
-    local pageRows = MAX_SUGGESTION_ROWS - 1 -- Default: save row 6 for pagination
+    -- Reserve the last row for pagination unless everything fits.
+    local pageRows = MAX_SUGGESTION_ROWS - 1
     if total <= MAX_SUGGESTION_ROWS and offset == 0 then
         pageRows = MAX_SUGGESTION_ROWS
     end
 
     local hasMore = total > (offset + pageRows)
 
-    -- If the suggestion frame is already visible and the suggestions
-    -- haven't changed, skip updating to avoid per-frame work and debug spam.
-    -- Bypassed when offset changed so pagination refreshes.
+    -- Skip the rebuild when the same suggestions are already visible;
+    -- an offset change (pagination) always forces a refresh.
     if self.SuggestionFrame:IsShown() and self._lastShownSuggestions and
         self:SuggestionsEqual(self.ActiveSuggestions, self._lastShownSuggestions) and
         self._lastShownOffset == offset then
@@ -859,7 +846,6 @@ function Spellcheck:ShowSuggestions()
         row:SetPoint("TOPLEFT", self.SuggestionFrame, "TOPLEFT", 6, -6 - ((i - 1) * rowHeight))
 
         if i <= pageRows then
-            -- Regular Suggestion
             local sugIndex = offset + i
             local entry = self.ActiveSuggestions[sugIndex]
             if entry then
@@ -874,7 +860,7 @@ function Spellcheck:ShowSuggestions()
                 row:Hide()
             end
         elseif i == MAX_SUGGESTION_ROWS then
-            -- Pagination Row (Row 6)
+            -- Pagination row (More Suggestions / Back to Top)
             if hasMore or offset > 0 then
                 row._isPagination = true
                 row:Show()
@@ -921,7 +907,7 @@ end
 function Spellcheck:NextSuggestionsPage()
     if not self.ActiveSuggestions then return end
 
-    -- Record that the current suggestion page was skipped
+    -- Skipping a page counts as rejecting the currently shown suggestions.
     if self.YAS and self.YAS.RecordRejection and self.ActiveWord then
         local offset = self._suggestionOffset or 0
         local rejected = {}
@@ -935,7 +921,7 @@ function Spellcheck:NextSuggestionsPage()
     local total = #self.ActiveSuggestions
     local newOffset = (self._suggestionOffset or 0) + 5
     if newOffset >= total then
-        newOffset = 0 -- Wrap around
+        newOffset = 0
     end
     self._suggestionOffset = newOffset
     self.ActiveIndex = newOffset + 1
@@ -959,9 +945,9 @@ function Spellcheck:HideSuggestions()
     self.ActiveIndex = 1
     self._lastShownSuggestions = nil
 
-    -- Prune old learning data when the suggestion UI closes
+    -- Prune learning data when the suggestion UI closes; deferred so it
+    -- runs after the frame has hidden.
     if self.YAS and self.YAS.Prune then
-        -- Deferred so the prune runs after the frame has hidden
         C_Timer.After(0, function()
             self.YAS:Prune("freq", self.YAS:GetFreqCap())
             self.YAS:Prune("bias", self.YAS:GetBiasCap())
@@ -972,7 +958,8 @@ end
 function Spellcheck:ApplySuggestion(index)
     if not self.ActiveSuggestions or not self.ActiveRange then return end
 
-    -- Ignore applications in the same frame as a page turn (prevents keyboard double-trigger)
+    -- Ignore applications in the same frame as a page turn (prevents a
+    -- double-trigger on keyboard page turns).
     if self._lastPageTurnFrame and GetTime() == self._lastPageTurnFrame then
         return
     end
@@ -991,11 +978,11 @@ function Spellcheck:ApplySuggestion(index)
     local entry = self.ActiveSuggestions[sugIndex]
     if not entry then return end
 
-    -- Was YAS actually helpful here?
+    -- YAS usefulness: did learning push the pick ahead of the natural #1?
     local isUseful = false
     if self.ActiveSuggestions[1] then
-        -- Find the "Natural" #1 candidate by looking for the best baseScore.
-        -- We ignore entries without a baseScore (like "Ignore word").
+        -- Natural #1 = best baseScore; entries without one (Ignore etc.)
+        -- don't count.
         local naturalRank1 = nil
         for i = 1, #self.ActiveSuggestions do
             local cand = self.ActiveSuggestions[i]
@@ -1012,16 +999,15 @@ function Spellcheck:ApplySuggestion(index)
             local naturalVal = naturalRank1.value or naturalRank1.word
 
             if selectedVal == naturalVal then
-                -- This was already the natural #1 or at least no worse.
                 isUseful = false
             elseif entry.baseScore and entry.baseScore > naturalRank1.baseScore then
-                -- This was worse than #1 naturally, but YAS saved it.
+                -- Naturally worse than #1, but YAS surfaced it anyway.
                 isUseful = true
             end
         end
     end
 
-    -- Selection Bias Tracking
+    -- Selection bias tracking
     if self.YAS and self.YAS.RecordSelection then
         local locale = self:GetLocale()
         local selectedVal = entry.value or entry.word
@@ -1046,7 +1032,7 @@ function Spellcheck:ApplySuggestion(index)
         end
         self:HideSuggestions()
         self._textChangedFlag = true
-        -- Invalidate the detection cache — user sets changed, not the text.
+        -- User sets changed, not the text -- invalidate detection cache.
         YapperTable.Recolour:Invalidate()
         self:ScheduleRefresh()
         return
@@ -1059,16 +1045,15 @@ function Spellcheck:ApplySuggestion(index)
         end
         self:HideSuggestions()
         self._textChangedFlag = true
-        -- Invalidate the detection cache — user sets changed, not the text.
+        -- User sets changed, not the text -- invalidate detection cache.
         YapperTable.Recolour:Invalidate()
         self:ScheduleRefresh()
         return
     elseif type(entry) == "table" and entry.kind == "split" then
-        -- Apply compound split as a direct text replacement.
-        -- YAS recording is intentionally skipped: both halves are already
-        -- valid dictionary words, so there is nothing for the learner to store.
-        -- (The first RecordSelection call above receives entry.word = nil and
-        -- safely no-ops via YAS's own empty-string guard.)
+        -- Compound split applies as a plain text replacement. YAS recording
+        -- is skipped: both halves are already valid dictionary words, so
+        -- there is nothing to learn. (The RecordSelection call above gets
+        -- entry.word = nil and no-ops via YAS's empty-string guard.)
         local splitReplacement = entry.value
         if not splitReplacement then return end
         local splitText  = self.EditBox and YapperTable.Recolour.CanonicalText(self.EditBox) or ""
@@ -1126,15 +1111,14 @@ function Spellcheck:ApplySuggestion(index)
     if YapperTable.API then
         YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, self.EditBox)
     end
-    -- Restore focus after one frame so all click-event processing finishes
-    -- before the focus claim fires.  Without deferral the claim can be
-    -- immediately stolen back by another frame's focus handler.
+    -- Restore focus after one frame so click-event processing finishes
+    -- first; otherwise another frame's focus handler can steal it back.
     local editBoxRef = self.EditBox
     C_Timer.After(0, function()
         if editBoxRef and editBoxRef.SetFocus then editBoxRef:SetFocus() end
     end)
-    -- Prevent the following character insertion (numeric hotkey) from
-    -- being appended to the editbox; EditBox.OnTextChanged will remove it.
+    -- Stop the numeric hotkey's character from being appended to the
+    -- editbox; EditBox.OnTextChanged removes it via _expectedText.
     self._suppressNextChar = true
     self._suppressChar = tostring(index)
     self._expectedText = newText
@@ -1176,8 +1160,8 @@ function Spellcheck:GetCaretXOffset()
 
     local x = leftInset + width - scroll
 
-    -- Clamp to the visible text area of the EditBox to prevent the tooltip
-    -- from flying off-screen or detaching during heavy horizontal scrolling.
+    -- Clamp to the visible text area so the tooltip can't fly off-screen
+    -- during heavy horizontal scrolling.
     local boxWidth = editBox:GetWidth() or 200
     return math_max(leftInset, math_min(x, boxWidth - 10))
 end

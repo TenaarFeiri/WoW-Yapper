@@ -14,7 +14,6 @@ local NormaliseVowels = Spellcheck.NormaliseVowels
 local IsWordStartByte = Spellcheck.IsWordStartByte
 local IsDebugEnabled  = Spellcheck.IsDebugEnabled
 
--- Re-localise Lua globals.
 local type            = type
 local pairs           = pairs
 local ipairs          = ipairs
@@ -36,13 +35,13 @@ function Spellcheck:LoadDictionary(locale)
     if self._pendingBuilders and self._pendingBuilders[locale] then return end
 
     if self.DictionaryBuilders and self.DictionaryBuilders[locale] then
-        -- Mark as pending immediately so recursive/repeated calls don't double-fire.
+        -- Mark pending immediately so recursive/repeated calls don't double-fire.
         self._pendingBuilders = self._pendingBuilders or {}
         self._pendingBuilders[locale] = true
 
         local builder = self.DictionaryBuilders[locale]
-        -- The builder only assembles raw word/phonetic tables — this is cheap.
-        -- The heavy per-word indexing is handled asynchronously inside RegisterDictionary.
+        -- The builder only assembles raw word/phonetic tables (cheap); the
+        -- heavy per-word indexing happens async inside RegisterDictionary.
         local success, data = pcall(builder)
         self._pendingBuilders[locale] = nil
 
@@ -99,7 +98,7 @@ function Spellcheck:RegisterDictionary(locale, data)
         end
     end
 
-    -- Cancel any previous load for THIS locale too (shouldn't happen with guards, but for safety)
+    -- Same-locale reloads shouldn't reach here, but cancel defensively.
     if self._asyncLoaders and self._asyncLoaders[locale] then
         self._asyncLoaders[locale].cancelled = true
         self._asyncLoaders[locale] = nil
@@ -117,7 +116,7 @@ function Spellcheck:RegisterDictionary(locale, data)
     local ngramIndex2 = existing and existing["ngramIndex" .. n2] or {}
     local ngramIndex3 = existing and existing["ngramIndex" .. n3] or {}
 
-    -- Handle Inheritance (Base + Delta)
+    -- Inheritance (base + delta)
     if data.extends then
         local base = self.Dictionaries[data.extends]
         if not base then
@@ -134,10 +133,9 @@ function Spellcheck:RegisterDictionary(locale, data)
             setmetatable(phonetics, { __index = base.phonetics })
             setmetatable(outWords, { __index = base.words })
 
-            -- Inherit N-Gram Indices: This allows deltas to see base patterns
-            -- without duplicating the massive base index tables in memory.
-            -- Note: If a pattern exists in both, the delta shadows the base;
-            -- we handle merging these during the suggestion search.
+            -- Inherit n-gram indices too, so deltas see base patterns without
+            -- duplicating the massive index tables. A pattern present in both
+            -- is shadowed by the delta; merging happens at suggestion time.
             setmetatable(ngramIndex2, { __index = base["ngramIndex" .. n2] })
             setmetatable(ngramIndex3, { __index = base["ngramIndex" .. n3] })
 
@@ -149,9 +147,8 @@ function Spellcheck:RegisterDictionary(locale, data)
         end
     end
 
-    -- Security Validation: Every dictionary must be associated with a valid language engine
-    -- that provides BlockedHashes for sanitization. Dictionaries without a family
-    -- default to 'en', which must also be registered and secure.
+    -- Security: every dictionary must resolve to a language engine providing
+    -- BlockedHashes. No family means "en", which must also be registered.
     local familyId = data.languageFamily or "en"
     local engine = self:GetEngine(familyId)
     if not engine or type(engine.BlockedHashes) ~= "table" then
@@ -226,9 +223,8 @@ function Spellcheck:RegisterDictionary(locale, data)
         set[w] = true
         indexedCount = indexedCount + 1
 
-        -- Only append to outWords if the builder didn't already pre-fill it.
-        -- This prevents the "Doubling Dictionary" bug where memory usage
-        -- could balloon to 2x the required size during reload.
+        -- Only append when the builder didn't pre-fill outWords, otherwise
+        -- a reload doubles the words array in memory.
         local finalId = originalId
         if outWords ~= words then
             outWords[#outWords + 1] = word
@@ -280,17 +276,16 @@ function Spellcheck:RegisterDictionary(locale, data)
 
     local totalWords = #words
 
-    -- If dict is pre-processed or extends another, outWords might not match words.
-    -- But if words matches outWords (synchronous load), we can skip ONLY IF the index is already populated.
+    -- Synchronous loads where the builder pre-filled outWords can skip
+    -- processing entirely, but only if the index is already populated.
     local hasIndex = next(index) ~= nil
 
     if words == outWords and #outWords > 0 and not data.isDelta and hasIndex then
-        -- Already populated via builder/cache
         self:_OnDictRegistrationComplete(locale)
         return
     end
 
-    -- For small dictionaries, process synchronously (no overhead)
+    -- Small dictionaries: process synchronously.
     if totalWords <= DICT_CHUNK_SIZE then
         for i, word in ipairs(words) do
             processWord(word, i)
@@ -315,8 +310,8 @@ function Spellcheck:RegisterDictionary(locale, data)
     end
 
     local function processChunk()
-        -- On cancellation: nil all large upvalue references so this closure
-        -- doesn't pin the old tables for an extra GC cycle after cancel.
+        -- On cancel, nil the big upvalue refs so this closure doesn't pin
+        -- the old tables for extra GC cycles.
         if loader.cancelled then
             words       = nil
             outWords    = nil
@@ -336,19 +331,19 @@ function Spellcheck:RegisterDictionary(locale, data)
         loader.cursor = endIdx + 1
 
         if loader.cursor > totalWords then
-            -- Finished: release the raw builder words array — the processed
-            -- data lives in outWords/ngramIndex/set; the flat array is now waste.
+            -- Finished: release the raw builder array; the processed data
+            -- now lives in outWords/ngramIndex/set.
             data.words = nil
             if self._asyncLoaders then
                 self._asyncLoaders[locale] = nil
             end
             self:_OnDictRegistrationComplete(locale)
         else
-            -- Schedule next chunk on the next frame
+            -- Next chunk on the next frame.
             if C_Timer and C_Timer.After then
                 C_Timer.After(0, processChunk)
             else
-                -- Fallback: process remaining synchronously
+                -- No C_Timer: finish synchronously.
                 for i = loader.cursor, totalWords do
                     processWord(words[i])
                 end
@@ -370,12 +365,11 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
     local count = dict and dict.words and #dict.words or 0
     local totalCount = count
 
-    -- Only notify the user about their active locale. Base dictionaries load
-    -- silently in the background; the user doesn't need to know about them.
+    -- Base dictionaries load silently; only the active locale notifies.
     local cfg = self:GetConfig()
     local isActiveLocale = cfg and cfg.Locale == locale
     if isActiveLocale then
-        -- Handle Metatable inheritance for count (show the user the unified total)
+        -- Show the unified total (delta + inherited base words).
         if dict and dict.extends then
             local base = self.Dictionaries[dict.extends]
             if base and base.words then
@@ -389,9 +383,8 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
     end
 
     if isActiveLocale and self:IsEnabled() then
-        -- Coalesce multiple rapid registrations for the same locale
-        -- (chunked dictionaries) so we don't schedule a rebuild for
-        -- every chunk. Schedule a single short-timer refresh instead.
+        -- Chunked dictionaries re-register per chunk; coalesce into a
+        -- single short-timer refresh.
         self._pendingLocaleRefreshTimers = self._pendingLocaleRefreshTimers or {}
         if C_Timer and C_Timer.NewTimer then
             if not self._pendingLocaleRefreshTimers[locale] then
@@ -436,9 +429,8 @@ function Spellcheck:HasLocaleAddon(locale)
         if reason == "MISSING" or reason == "MISSING_DEPENDENCY" then
             return false
         end
-        -- DISABLED / INSECURE / DEMAND_LOADED / BANNED / INTERFACE_VERSION
-        -- all still mean the addon is on disk; treat them as "present"
-        -- except BANNED (which the client will refuse to load).
+        -- DISABLED / INSECURE / DEMAND_LOADED still mean the addon is on
+        -- disk; BANNED means the client will refuse to load it.
         if reason == "BANNED" then return false end
         return loadable == true
             or reason == "DISABLED"
@@ -490,7 +482,7 @@ function Spellcheck:CanLoadLocale(locale)
         return true
     end
 
-    -- If it's not loaded, we can still load it if the addon exists on disk.
+    -- Not loaded, but loadable if the addon exists on disk.
     return self:HasLocaleAddon(locale)
 end
 
@@ -538,17 +530,16 @@ function Spellcheck:EnsureLocale(locale, force)
 
             if loaded == false then
                 self._failedLocaleLoads[locale] = reason or "FAILED"
-                -- Only notify on real failures (corrupt, banned, etc.).
-                -- MISSING is handled by the early-return above.
-                -- DISABLED and MISSING_DEPENDENCY are user configuration/state, not real failures.
+                -- Only notify on real failures. MISSING is handled by the
+                -- early return above; DISABLED / MISSING_DEPENDENCY are user
+                -- configuration, not errors.
                 if reason ~= "MISSING" and reason ~= "DISABLED" and reason ~= "MISSING_DEPENDENCY" and self.Notify then
                     self:Notify("Yapper: failed to load " .. addon .. " (" .. tostring(reason) .. ").")
                 end
                 return false
             elseif (isLoaded or loaded) and not self:IsLocaleAvailable(locale) then
-                -- Addon is loaded but dictionary not registered. Could be purged,
-                -- or could be that registration failed previously (e.g. inheritance
-                -- race). Try one last load.
+                -- Loaded but unregistered: purged, or a previous registration
+                -- failed (e.g. inheritance race). One last attempt.
                 self:LoadDictionary(locale)
                 if not self:IsLocaleAvailable(locale) then
                     self._failedLocaleLoads[locale] = "NOT_REGISTERED"
@@ -558,8 +549,8 @@ function Spellcheck:EnsureLocale(locale, force)
         end
     end
 
-    -- If the addon exists and load was attempted, allow the locale
-    -- to remain selected and rely on dictionary registration to follow.
+    -- Addon exists and load was attempted: keep the locale selected and
+    -- poll for the registration to land.
     if addon then
         self:ScheduleLocaleRefresh(locale)
         return true

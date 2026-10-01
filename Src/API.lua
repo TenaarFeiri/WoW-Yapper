@@ -24,22 +24,20 @@ YapperTable.API               = API
 local filters                 = {} -- [hookPoint] = sorted array of {cb, priority, handle}
 local callbacks               = {} -- [event]     = array of {cb, handle}
 local handleSeq               = 0  -- monotonic handle counter
--- Canonical filter hook points.  Registration is rejected if the name is not
--- found here or in FILTER_ALIASES.
+-- Canonical filter hook points; unknown names are rejected (aliases resolve first).
 local VALID_FILTERS = {
-    PRE_EDITBOX_SHOW        = true, -- {chatType, target} → payload|false; suppress overlay open
-    PRE_EDITBOX_LABEL       = true, -- {chatType, target, channelName, label, unit} → payload|false; mutate label text
-    PRE_MULTILINE_SHOW      = true, -- {text, chatType, language, target} → payload|false; block/modify multiline open
-    PRE_SEND                = true, -- {text, chatType, language, target} → payload|false; rewrite or block send
+    PRE_EDITBOX_SHOW        = true, -- {chatType, target} -> payload|false; suppress overlay open
+    PRE_EDITBOX_LABEL       = true, -- {chatType, target, channelName, label, unit} -> payload|false; mutate label text
+    PRE_MULTILINE_SHOW      = true, -- {text, chatType, language, target} -> payload|false; block/modify multiline open
+    PRE_SEND                = true, -- {text, chatType, language, target} -> payload|false; rewrite or block send
     PRE_CHUNK               = true, -- {text, limit, chatType, language}; may set continuationPrefix[First]
-    PRE_SPELLCHECK          = true, -- {text} → payload|false; skip spellcheck for this text
-    PRE_SPELLCHECK_SUGGESTIONS = true, -- {word, suggestions, locale} → payload|false; reorder/filter suggestions
-    PRE_DELIVER             = true, -- {text, chatType, language, target} → payload|false; claim message (delegation)
-    PRE_ICON_GALLERY_SHOW   = true, -- {rawEditBox, query} → payload|false; suppress or alter gallery open
+    PRE_SPELLCHECK          = true, -- {text} -> payload|false; skip spellcheck for this text
+    PRE_SPELLCHECK_SUGGESTIONS = true, -- {word, suggestions, locale} -> payload|false; reorder/filter suggestions
+    PRE_DELIVER             = true, -- {text, chatType, language, target} -> payload|false; claim message (delegation)
+    PRE_ICON_GALLERY_SHOW   = true, -- {rawEditBox, query} -> payload|false; suppress or alter gallery open
 }
 
--- Canonical callback event names.  Registration is rejected if the name is not
--- found here or in EVENT_ALIASES.
+-- Canonical callback event names; unknown names are rejected (aliases resolve first).
 local VALID_CALLBACKS = {
     POST_SEND                       = true, -- (text, chatType, language, target) after message sent
     POST_CLAIMED                    = true, -- (handle, text, chatType, language, target) PRE_DELIVER claimed a msg
@@ -66,16 +64,14 @@ local VALID_CALLBACKS = {
     API_ERROR                       = true, -- (kind, hook, handler_info, errorMessage, data, ...) handler faulted
 }
 
--- Deprecated filter name aliases (maps old name → canonical name).
+-- Deprecated aliases: old name -> canonical name.
 local FILTER_ALIASES = {}
 
--- Deprecated event name aliases for backward compatibility (maps old → canonical).
 local EVENT_ALIASES = {
     ["YALLM_WORD_LEARNED"] = "YAS_WORD_LEARNED",
 }
 
--- Deprecated config dot-path aliases for backward compatibility (maps old →
--- canonical), resolved by YapperAPI:GetConfig with a deprecation warning.
+-- Deprecated config dot-paths resolved by GetConfig (with a warning).
 local CONFIG_KEY_ALIASES = {
     ["Spellcheck.UnderlineColor"] = "Spellcheck.MisspellingColour",
 }
@@ -114,9 +110,8 @@ local function _is_secret_value(value)
     return type(value) == "string" and value:find("|K", 1, true) ~= nil
 end
 
--- Copy API-owned data before returning it to callers or retaining caller data
--- in a registry.  Functions and scalar values remain shared; nested tables do
--- not.
+-- Deep-copy data crossing the API boundary. Functions and scalars stay
+-- shared; nested tables don't.
 local function _copy_value(value, seen)
     if type(value) ~= "table" then return value end
 
@@ -131,9 +126,8 @@ local function _copy_value(value, seen)
     return copy
 end
 
--- Produce a bounded, redacted snapshot for API_ERROR handlers.  In
--- particular, do not pass live WoW frames or secret-bearing tables through the
--- error channel just because a handler happened to fail while processing one.
+-- Bounded, redacted snapshot for API_ERROR handlers: never pass live frames
+-- or secret-bearing tables through the error channel.
 local function _sanitize_error_value(value, depth, seen)
     if _is_secret_value(value) then return "<secret>" end
 
@@ -214,18 +208,14 @@ local function _format_args(...)
     return table.concat(parts, ", ")
 end
 
--- Emit an `API_ERROR` event to registered handlers.  We call handlers
--- directly here (not via `API:Fire`) to avoid recursive error reporting
--- loops: errors raised by API_ERROR handlers are caught and logged but
--- do not trigger another API_ERROR emission.
+-- Emit `API_ERROR` directly (not via API:Fire) so a failing API_ERROR
+-- handler can't trigger recursive error emissions.
 local function _emit_error_event(kind, hook, failing_entry, err, payload_or_result, ...)
     local list = callbacks["API_ERROR"]
     if not list or #list == 0 then return false end
 
-    -- Prefer delivering to handlers registered by the same owner as the
-    -- failing handler (to avoid confusing unrelated addons).  If no owner-
-    -- specific API_ERROR handlers exist, fall back to broadcasting to all
-    -- API_ERROR handlers.
+    -- Prefer handlers from the same owner as the failing handler, so
+    -- unrelated addons aren't confused; fall back to all handlers.
     local targetOwner = failing_entry and failing_entry.owner or nil
     local candidates = {}
     if targetOwner then
@@ -269,9 +259,8 @@ local function _emit_error_event(kind, hook, failing_entry, err, payload_or_resu
 end
 
 local function _report_api_error(kind, hook, entry, err, payload_or_result, ...)
-    -- Prefer to publish the structured event so addon authors can respond
-    -- programmatically. If no handlers are registered, fall back to a
-    -- concise debug print so failures are still visible during development.
+    -- Prefer the structured API_ERROR event; fall back to a debug print when
+    -- no handlers are registered so failures stay visible during development.
     local handled = _emit_error_event(kind, hook, entry, err, payload_or_result, ...)
     if handled then return end
 
@@ -321,9 +310,9 @@ local function _target_is_valid(value)
     return value == nil or valueType == "string" or valueType == "number"
 end
 
--- Filter callbacks run in pcall, but their returned payload is consumed by
--- Yapper after the pcall.  Validate the fields that each consumer relies on so
--- malformed addon output cannot escape the sandbox and break the send/UI path.
+-- Filter callbacks run in pcall, but their returned payload is consumed
+-- afterwards. Validate the fields each consumer relies on so malformed addon
+-- output can't escape the sandbox and break the send/UI path.
 local FILTER_VALIDATORS = {
     PRE_EDITBOX_SHOW = function(payload)
         return type(payload) == "table"
@@ -385,9 +374,9 @@ local function _is_valid_filter_payload(hookPoint, payload)
     return not validator or validator(payload)
 end
 
--- Most payloads contain only scalar routing fields.  Preserve frame identity
--- for the icon-gallery payload while copying nested suggestion data so an
--- erroring filter cannot leave the active suggestion list half-mutated.
+-- Most payloads are scalar routing fields. Frame identity is preserved, but
+-- nested suggestion data is copied so an erroring filter can't leave the
+-- active suggestion list half-mutated.
 local function _snapshot_filter_payload(hookPoint, payload)
     local snapshot = {}
     for key, value in pairs(payload) do
@@ -412,17 +401,14 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
         return nil
     end
 
-    -- Validate hook point name against canonical list and aliases.
     if not VALID_FILTERS[hookPoint] then
         local aliasTarget = FILTER_ALIASES[hookPoint]
         if aliasTarget then
-            -- Deprecated alias: allow but warn.
             if YapperTable.Utils and YapperTable.Utils.Print then
                 YapperTable.Utils:Print("warn", "RegisterFilter: \"" .. hookPoint .. "\" is deprecated, use \"" .. aliasTarget .. "\" instead.")
             end
             hookPoint = aliasTarget
         else
-            -- Unknown hook point: reject.
             if YapperTable.Utils and YapperTable.Utils.Print then
                 YapperTable.Utils:Print("error", "RegisterFilter: unknown hook point \"" .. hookPoint .. "\". Registration rejected.")
             end
@@ -442,12 +428,11 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
     priority = type(priority) == "number" and priority or 10
     local handle = NextHandle()
 
-    -- Capture registration origin so we can attribute errors to the
-    -- registering addon/module.  Best-effort: extract an AddOn folder
-    -- name from the source path when available, else store the short_src.
+    -- Best-effort owner capture for error attribution: extract the AddOn
+    -- folder name from the caller's source path, else store short_src.
     local owner = nil
     if type(debug) == "table" and type(debug.getinfo) == "function" then
-        -- Level 3: pcall(1) → RegisterFilter(2) → caller(3)
+        -- Level 3: pcall(1) -> RegisterFilter(2) -> caller(3)
         local ok, reginfo = pcall(debug.getinfo, 3, "S")
         if ok and reginfo then
             local src = reginfo.source or reginfo.short_src
@@ -465,7 +450,7 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
         owner    = owner,
     })
 
-    -- Sort: lower priority fires first; ties broken by registration order.
+    -- Lower priority fires first; ties break on registration order.
     table_sort(filters[hookPoint], function(a, b)
         if a.priority ~= b.priority then
             return a.priority < b.priority
@@ -501,18 +486,15 @@ function YapperAPI:RegisterCallback(event, callback)
         return nil
     end
 
-    -- Validate event name against canonical list and aliases.
     local resolvedEvent = event
     if not VALID_CALLBACKS[event] then
         local aliasTarget = EVENT_ALIASES[event]
         if aliasTarget then
-            -- Deprecated alias: allow but warn.
             if YapperTable.Utils and YapperTable.Utils.Print then
                 YapperTable.Utils:Print("warn", "RegisterCallback: \"" .. event .. "\" is deprecated, use \"" .. aliasTarget .. "\" instead.")
             end
             resolvedEvent = aliasTarget
         else
-            -- Unknown event: reject.
             if YapperTable.Utils and YapperTable.Utils.Print then
                 YapperTable.Utils:Print("error", "RegisterCallback: unknown event \"" .. event .. "\". Registration rejected.")
             end
@@ -531,10 +513,10 @@ function YapperAPI:RegisterCallback(event, callback)
 
     local handle = NextHandle()
 
-    -- Capture registration origin for callbacks as well.
+    -- Same owner capture as RegisterFilter.
     local owner = nil
     if type(debug) == "table" and type(debug.getinfo) == "function" then
-        -- Level 3: pcall(1) → RegisterCallback(2) → caller(3)
+        -- Level 3: pcall(1) -> RegisterCallback(2) -> caller(3)
         local ok, reginfo = pcall(debug.getinfo, 3, "S")
         if ok and reginfo then
             local src = reginfo.source or reginfo.short_src
@@ -613,7 +595,7 @@ function YapperAPI:GetConfig(path)
     if type(path) ~= "string" then return nil end
     local aliasTarget = CONFIG_KEY_ALIASES[path]
     if aliasTarget then
-        -- Deprecated alias: allow but warn (same pattern as EVENT_ALIASES).
+        -- Deprecated alias: allow with a warning (same as EVENT_ALIASES).
         if YapperTable.Utils and YapperTable.Utils.Print then
             YapperTable.Utils:Print("warn", "GetConfig: \"" .. path .. "\" is deprecated, use \"" .. aliasTarget .. "\" instead.")
         end
@@ -627,8 +609,7 @@ function YapperAPI:GetConfig(path)
         cfg = cfg[key]
     end
 
-    -- Deep-copy tables so callers cannot mutate live config, including nested
-    -- color/schema tables.
+    -- Deep-copy so callers can't mutate live config (incl. nested tables).
     if type(cfg) == "table" then
         return _copy_value(cfg)
     end
@@ -636,10 +617,8 @@ function YapperAPI:GetConfig(path)
     return cfg
 end
 
---- SPECIFICALLY for chat-tracking addons like Eavesdropper,
---- get the delineator from the config.
---- We also use this API in-program so we will know quickly
---- if we move it and break it.
+--- Delineator accessor for chat-tracking addons (e.g. Eavesdropper).
+--- Used internally too, so a break here gets noticed fast.
 function YapperAPI:GetDelineator()
     local chat = YapperTable.Config and YapperTable.Config.Chat
     if type(chat) ~= "table" then return nil end
@@ -773,7 +752,7 @@ function YapperAPI:ListFrames()
         out.MultilineScroll = registry.Multiline.ScrollFrame
     end
 
-    -- Also return the full categorized registry as a sub-table for advanced usage.
+    -- Full categorized registry for advanced usage.
     out.All = registry
 
     return out
@@ -905,8 +884,8 @@ function YapperAPI:FindMisspellings(text)
 end
 
 --- Register a dictionary via the public API.
---- `locale` — the locale key, e.g. "enBase", "enGB", "enUS".
---- `data`   — dictionary table or lazy builder function. Tables accept the
+--- `locale` -- locale key, e.g. "enBase", "enGB", "enUS".
+--- `data`   -- dictionary table or lazy builder function. Tables accept the
 ---             fields used by RegisterDictionary (words, phonetics, extends,
 ---             languageFamily, affixRules, and optional engine data).
 --- Returns true when dispatch completes without a Lua error. Internal
@@ -925,8 +904,8 @@ function YapperAPI:RegisterDictionary(locale, data)
 end
 
 --- Register a language engine for a locale family.
---- `familyId` — short string id, e.g. "en", "de", "fr".
---- `engine`   — table; GetPhoneticHash, BlockedHashes, and HashWord are
+--- `familyId` -- short string id, e.g. "en", "de", "fr".
+--- `engine`   -- table; GetPhoneticHash, BlockedHashes, and HashWord are
 ---             required for phonetic lookup and security validation.
 --- Returns true on success, false on invalid arguments or failed validation.
 function YapperAPI:RegisterLanguageEngine(familyId, engine)
@@ -959,10 +938,9 @@ function YapperAPI:GetLanguageEngine(familyId)
     return _copy_value(sc.LanguageEngines[familyId])
 end
 
---- Map a Load-On-Demand addon to a specific locale so Yapper knows what to load
---- when tracking dictionaries for that region.
---- `locale` — e.g. "ptBR", "esES"
---- `addonName` — e.g. "Yapper_Dict_pt"
+--- Map a Load-On-Demand addon to a locale so Yapper knows what to load.
+--- `locale`    -- e.g. "ptBR", "esES"
+--- `addonName` -- e.g. "Yapper_Dict_pt"
 function YapperAPI:RegisterLocaleAddon(locale, addonName)
     if type(locale) ~= "string" or locale == "" then return false end
     if type(addonName) ~= "string" or addonName == "" then return false end
@@ -973,8 +951,8 @@ function YapperAPI:RegisterLocaleAddon(locale, addonName)
     sc.LocaleAddons = sc.LocaleAddons or {}
     sc.LocaleAddons[locale] = addonName
 
-    -- If a dictionary for this locale was requested before the mapping existed,
-    -- or if the user is currently using this locale, try to ensure it again.
+    -- Re-ensure if this locale was requested before the mapping existed or
+    -- is currently active.
     if sc.GetLocale and sc:GetLocale() == locale then
         sc:EnsureLocale(locale)
     end
@@ -1014,7 +992,6 @@ function YapperAPI:InsertText(text)
         return true
     end
 
-    -- Fall back to the single-line overlay.
     local eb = YapperTable.EditBox
     if eb and eb.Overlay and eb.Overlay:IsShown() and eb.OverlayEdit then
         eb.OverlayEdit:Insert(text)
@@ -1150,7 +1127,7 @@ end
 
 local DELEGATION_TIMEOUT = 5 -- seconds
 
--- Active claims: claimHandle → { text, chatType, language, target, owner, timer }
+-- claimHandle -> { text, chatType, language, target, owner, timer }
 local activeClaims       = {}
 local claimSeq           = 0
 
@@ -1167,17 +1144,15 @@ local function _create_claim(text, chatType, language, target, owner)
             if not claim then return end
             activeClaims[handle] = nil
 
-            -- Timeout: send the message ourselves and blame the addon.
+            -- Timeout: send it ourselves, then blame the addon.
             if YapperTable.Router then
                 YapperTable.Router:Send(claim.text, claim.chatType, claim.language, claim.target)
             elseif C_ChatInfo and C_ChatInfo.SendChatMessage then
                 C_ChatInfo.SendChatMessage(claim.text, claim.chatType, claim.language, claim.target)
             end
 
-            -- Fire POST_SEND since we sent the message.
             API:Fire("POST_SEND", claim.text, claim.chatType, claim.language, claim.target)
 
-            -- Blame the addon that failed to resolve.
             local blame = claim.owner or "unknown addon"
             local msg = "|cffff6666Yapper:|r Post delegation timed out — " ..
                 "\"" .. blame .. "\" claimed a message but did not resolve within " ..
@@ -1220,7 +1195,6 @@ function YapperAPI:ResolvePost(handle)
     local claim = activeClaims[handle]
     if not claim then return false end
 
-    -- Cancel the timeout timer.
     if claim.timer and claim.timer.Cancel then
         claim.timer:Cancel()
     end
@@ -1234,9 +1208,9 @@ end
 -- ===== ICON GALLERY ========================================================
 
 --- Show the raid-icon gallery anchored to an external EditBox widget.
---- editBox    — the raw WoW EditBox whose text the gallery writes into.
---- anchorFrame — frame the popup anchors to (defaults to editBox when nil).
---- query       — optional pre-filter string (the word typed after "{").
+--- editBox     -- the raw WoW EditBox the gallery writes into.
+--- anchorFrame -- popup anchor (defaults to editBox when nil).
+--- query       -- optional pre-filter (the word typed after "{").
 function YapperAPI:ShowIconGallery(editBox, anchorFrame, query)
     local ig = YapperTable.IconGallery
     if not ig then return end
@@ -1257,7 +1231,7 @@ function YapperAPI:IsIconGalleryShown()
 end
 
 --- Returns a copy of the raid-icon metadata table.
---- Each entry has: index (1-8), text (name), code ("rt1"…"rt8").
+--- Each entry has: index (1-8), text (name), code ("rt1"..."rt8").
 function YapperAPI:GetRaidIconData()
     local ig = YapperTable.IconGallery
     if not ig or not ig._GetIconMeta then return {} end
@@ -1316,12 +1290,11 @@ function YapperAPI:ShowGhostText(text, editBox, prefix, textUpToCursor)
     local ac = YapperTable.Autocomplete
     if not ac or not ac.ShowGhost then return end
 
-    -- Temporarily bind to this EditBox if it's different from current.
+    -- Temporarily bind this EditBox if it differs from the current one.
     local prevEB = ac._activeEditBox
     ac._activeEditBox = editBox
 
-    -- In manual mode, if no prefix is provided, we treat the entire text
-    -- as the ghost suffix.
+    -- No prefix: treat the entire text as the ghost suffix.
     ac:ShowGhost(text, prefix or "", textUpToCursor or prefix or "")
 
     ac._activeEditBox = prevEB
@@ -1392,13 +1365,12 @@ function API:RunFilter(hookPoint, payload)
         local snapshot = _snapshot_filter_payload(hookPoint, payload)
         local ok, result = pcall(entry.cb, payload)
         if not ok then
-            -- External code errored — restore the pre-handler payload, report
-            -- details, and continue with the remaining filters.
+            -- Handler errored: restore the pre-handler payload, report, and
+            -- continue with remaining filters.
             payload = snapshot
             _report_api_error("filter", hookPoint, entry, result, payload)
         elseif result == false then
-            -- Filter explicitly cancelled the operation.
-            -- Store cancelling entry's owner for delegation tracking.
+            -- Explicit cancel; remember the owner for delegation tracking.
             self._lastCancelOwner = entry.owner
             return false
         elseif type(result) == "table" then
@@ -1410,12 +1382,12 @@ function API:RunFilter(hookPoint, payload)
                     "invalid payload returned by filter", result, payload)
             end
         elseif result ~= nil then
-            -- Unexpected non-table non-false return; restore any in-place
-            -- mutation and report it without breaking the filter chain.
+            -- Unexpected non-table return: restore in-place mutations and
+            -- report without breaking the filter chain.
             payload = snapshot
             _report_api_error("filter-return", hookPoint, entry, "unexpected return value", result, payload)
         end
-        -- nil return = "I didn't change anything", continue with current payload.
+        -- nil return = "no change"; continue with the current payload.
     end
 
     self._lastCancelOwner = nil
@@ -1428,7 +1400,6 @@ end
 --- @param event string
 --- @param ... any
 function API:Fire(event, ...)
-    -- Resolve event aliases for backward compatibility
     local resolvedEvent = EVENT_ALIASES[event] or event
     local list = callbacks[resolvedEvent]
     if not list or #list == 0 then
@@ -1438,7 +1409,7 @@ function API:Fire(event, ...)
     for _, entry in ipairs(list) do
         local ok, err = pcall(entry.cb, ...)
         if not ok then
-            -- Callback errors shouldn't propagate. Report with argument snapshot.
+            -- Handler errors must not propagate into Yapper.
             _report_api_error("callback", event, entry, err, nil, ...)
         end
     end
@@ -1462,17 +1433,14 @@ function YapperAPI:RegisterSettingsCategory(id, label, options)
     if type(label) ~= "string" or label == "" then return false end
     if type(options) ~= "table" then return false end
 
-    -- Check for duplicate IDs
     for _, cat in ipairs(settingsCategories) do
         if cat.id == id then return false end
     end
 
-    -- Cap total categories
     if #settingsCategories >= MAX_SETTINGS_CATEGORIES then
         _report_api_error("SETTINGS", "RegisterSettingsCategory", nil, "category cap reached (" .. MAX_SETTINGS_CATEGORIES .. ")")
         return false end
 
-    -- Validate options
     if options.render and type(options.render) ~= "function" then return false end
     if options.schema and type(options.schema) ~= "table" then return false end
     if not options.render and not options.schema and not options._internal then return false end
@@ -1486,7 +1454,7 @@ function YapperAPI:RegisterSettingsCategory(id, label, options)
         _internal = options._internal,
     })
 
-    -- Sync to Interface module
+    -- Interface shares this same table.
     local Interface = YapperTable.Interface
     if Interface then
         Interface._ALL_CATEGORIES = settingsCategories
@@ -1503,7 +1471,6 @@ function YapperAPI:UnregisterSettingsCategory(id)
     for i, cat in ipairs(settingsCategories) do
         if cat.id == id then
             table_remove(settingsCategories, i)
-            -- Sync to Interface module
             local Interface = YapperTable.Interface
             if Interface then
                 Interface._ALL_CATEGORIES = settingsCategories
@@ -1539,9 +1506,8 @@ function YapperAPI:OpenSettingsCategory(id)
 end
 
 -- ===== GROUPED ALIASES =====================================================
--- These tables are feature-detection-friendly aliases to the original flat
--- methods.  They intentionally reference the existing functions instead of
--- wrapping or reimplementing them.
+-- Feature-detection-friendly aliases to the flat methods above. They share
+-- the same function references rather than wrapping them.
 YapperAPI.Filters = {
     RegisterFilter   = YapperAPI.RegisterFilter,
     UnregisterFilter = YapperAPI.UnregisterFilter,

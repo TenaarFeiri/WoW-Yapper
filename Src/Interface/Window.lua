@@ -12,7 +12,6 @@ local IsAnchorPoint           = Interface.IsAnchorPoint
 local LAYOUT                  = Interface._LAYOUT
 local CATEGORIES              = Interface._CATEGORIES
 
--- Re-localise Lua globals.
 local type                    = type
 local ipairs                  = ipairs
 local math_floor              = math.floor
@@ -103,7 +102,6 @@ local function CreateScrollableContent(parent)
     UpdateContentWidth()
     scrollFrame:SetScrollChild(content)
 
-    -- Mouse wheel support.
     scrollFrame:EnableMouse(true)
     scrollFrame:EnableMouseWheel(true)
     scrollFrame:SetScript("OnMouseWheel", function(self, delta)
@@ -169,14 +167,14 @@ local function CreateScrollBarForFrame(parent, scrollFrame)
     return scrollBar
 end
 
--- Active sidebar category — persists for the session.
+-- Active sidebar category; persists for the session.
 Interface._activeCategory = "general"
 
 -- ---------------------------------------------------------------------------
 -- Version-gated popups: Welcome (first-run / schema change) & What's New
 -- ---------------------------------------------------------------------------
--- _welcomeShown   — schema VERSION at which the full welcome was last shown.
--- _lastSeenVersion — addon version string last seen at login ("2.0.1" etc.).
+-- _welcomeShown    -- schema VERSION at which the full welcome was last shown.
+-- _lastSeenVersion -- addon version string last seen at login ("2.0.1" etc.).
 --
 -- Full welcome:   triggers when _welcomeShown == 0 or < current schema VERSION.
 -- What's New:     triggers when _lastSeenVersion ~= addon version AND welcome
@@ -305,12 +303,9 @@ function Interface:CheckForChangelogUpdate()
 
     if last == current then return end
 
-    -- SILENT ACKNOWLEDGMENT:
-    -- Update our record immediately so we don't process this same bump again.
+    -- Record the bump immediately so it isn't processed twice, and only
+    -- show the popup when this version actually has notes.
     self:MarkVersionSeen()
-
-    -- REACTIVE POPUP:
-    -- Only show if we have notes for this specific version.
     local WHATS_NEW = YapperTable.WHATS_NEW or {}
     if WHATS_NEW[current] then
         self:CreateWhatsNewFrame()
@@ -389,10 +384,8 @@ function Interface:CreateWelcomeChoiceFrame()
     local BTN_H     = 36
     local PAD       = 20
 
-    -- Fullscreen darkener.
     local dimmer = self:CreateFullscreenDimmer(0.55)
 
-    -- Main container.
     local frame = CreateFrame("Frame", "YapperWelcomeChoice", dimmer, "BackdropTemplate")
     frame:SetSize(FRAME_W, FRAME_H)
     frame:SetPoint("CENTER")
@@ -407,13 +400,11 @@ function Interface:CreateWelcomeChoiceFrame()
     frame:SetBackdropColor(0.08, 0.08, 0.08, 0.97)
     frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
 
-    -- Title.
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", frame, "TOP", 0, -PAD)
     title:SetText("Welcome to Yapper!")
     title:SetTextColor(1, 0.82, 0, 1)
 
-    -- Subtitle.
     local sub = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     sub:SetPoint("TOP", title, "BOTTOM", 0, -6)
     sub:SetWidth(FRAME_W - 60)
@@ -425,14 +416,12 @@ function Interface:CreateWelcomeChoiceFrame()
 
     -- Helper: build one column (button + preview area).
     local function BuildColumn(anchorX, labelText, descText, onClick)
-        -- Button first (at top of column).
         local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         btn:SetSize(BTN_W, BTN_H)
         btn:SetPoint("TOP", frame, "TOP", anchorX, contentTop)
         btn:SetText(labelText)
         btn:SetScript("OnClick", onClick)
 
-        -- Short description under button.
         local desc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         desc:SetPoint("TOP", btn, "BOTTOM", 0, -6)
         desc:SetWidth(COL_W - 20)
@@ -453,7 +442,7 @@ function Interface:CreateWelcomeChoiceFrame()
         preview:SetBackdropColor(0.04, 0.04, 0.04, 1)
         preview:SetBackdropBorderColor(0.25, 0.25, 0.25, 0.6)
 
-        -- Preview image texture (filled in per-column after BuildColumn).
+        -- Texture is filled in per-column after BuildColumn returns.
         local tex = preview:CreateTexture(nil, "ARTWORK")
         tex:SetPoint("TOPLEFT", preview, "TOPLEFT", 3, -3)
         tex:SetPoint("BOTTOMRIGHT", preview, "BOTTOMRIGHT", -3, 3)
@@ -501,7 +490,7 @@ function Interface:CreateWelcomeChoiceFrame()
     yapperPreview.Texture:SetTexture(addonPath .. "YapperTheme")
     yapperPreview.Texture:SetTexCoord(0, 1, 0, 1)
 
-    -- ── Feature opt-in toggles below the columns ──────────────────────
+    -- Feature opt-in toggles below the columns
     local toggleY = contentTop - BTN_H - 44 - PREVIEW_H - 24
 
     local featureLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -553,9 +542,8 @@ function Interface:CreateWelcomeChoiceFrame()
     end
 
     spellToggle.OnToggle = updateSubToggles
-    updateSubToggles() -- Initial state
+    updateSubToggles()
 
-    -- Store references.
     frame.BlizzPreview  = blizzPreview
     frame.YapperPreview = yapperPreview
     frame.Dimmer        = dimmer
@@ -581,10 +569,8 @@ function Interface:CreateWhatsNewFrame()
     local FRAME_H = 540
     local PAD     = 20
 
-    -- Fullscreen darkener.
     local dimmer = self:CreateFullscreenDimmer(0.45)
 
-    -- Main container.
     local frame = CreateFrame("Frame", "YapperWhatsNew", dimmer, "BackdropTemplate")
     frame:SetSize(FRAME_W, FRAME_H)
     frame:SetPoint("CENTER")
@@ -599,13 +585,11 @@ function Interface:CreateWhatsNewFrame()
     frame:SetBackdropColor(0.08, 0.08, 0.08, 0.97)
     frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
 
-    -- Title.
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", frame, "TOP", 0, -PAD)
     title:SetText("Yapper Changelog")
     title:SetTextColor(1, 0.82, 0, 1)
 
-    -- Scroll Area.
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -PAD - 32)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD - 26, PAD + 100)
@@ -622,7 +606,7 @@ function Interface:CreateWhatsNewFrame()
     self.WhatsNewScroll = scrollFrame
     dimmer:Show()
 
-    -- ── Feature opt-in toggles ────────────────────────────────────────
+    -- Feature opt-in toggles
     local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
     local yasEnabled = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" })
@@ -709,12 +693,11 @@ function Interface:CreateWhatsNewFrame()
         update()
     end
 
-    -- "Got it" button.
     local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btn:SetSize(120, 32)
     btn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, PAD)
     btn:SetText("Got it")
-    btn.GotItButton = btn -- for easier access
+    btn.GotItButton = btn
     frame.GotItButton = btn
     btn:SetScript("OnClick", function()
         Interface:MarkVersionSeen()
@@ -733,7 +716,6 @@ function Interface:PopulateWhatsNewContent(content, textW, limitToOne)
     local cfgSize = YapperTable.Config.FrameSettings.WhatsNewFontSize or 12
 
     self:ForEachWhatsNewVersion(limitToOne, function(version, notes)
-        -- Version Header
         local vHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         local vFont, _, vFlags = vHeader:GetFont()
         vHeader:SetFont(vFont, cfgSize + 4, vFlags)
@@ -806,7 +788,7 @@ end
 
 -- Create the main settings window.
 function Interface:CreateMainWindow()
-    -- Prevent duplicate creation.
+    -- Bail if the window already exists.
     if Interface.MainWindowFrame
         and Interface.MainWindowFrame.IsObjectType
         and Interface.MainWindowFrame:IsObjectType("Frame") then
@@ -868,7 +850,7 @@ function Interface:CreateMainWindow()
     divider:SetPoint("BOTTOMRIGHT", sidebar, "BOTTOMRIGHT", 0, 0)
 
     -- -----------------------------------------------------------------------
-    -- Font-size +/– control at the top of the sidebar.
+    -- Font-size +/- control at the top of the sidebar.
     -- -----------------------------------------------------------------------
     local fontRow = CreateFrame("Frame", nil, sidebar)
     fontRow:SetSize(P.SIDEBAR_WIDTH - 8, 24)
@@ -878,11 +860,9 @@ function Interface:CreateMainWindow()
     fontLabel:SetText("Font:")
     fontLabel:SetTextColor(0.7, 0.7, 0.7, 1)
 
-    -- Current size readout.
     local sizeLabel = fontRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     frame.FontScaleLabel = sizeLabel
 
-    -- Minus button.
     local minusBtn = CreateFrame("Button", nil, fontRow)
     minusBtn:SetSize(20, 20)
     minusBtn:SetPoint("RIGHT", sizeLabel, "LEFT", -4, 0)
@@ -899,7 +879,6 @@ function Interface:CreateMainWindow()
     fontLabel:SetWordWrap(false)
     fontLabel:SetMaxLines(1)
 
-    -- Plus button.
     local plusBtn = CreateFrame("Button", nil, fontRow)
     plusBtn:SetSize(20, 20)
     plusBtn:SetPoint("RIGHT", fontRow, "RIGHT", -4, 0)
@@ -955,7 +934,6 @@ function Interface:CreateMainWindow()
         btn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, -btnY)
         btnY = btnY + P.SIDEBAR_BTN_HEIGHT + P.SIDEBAR_BTN_PAD
 
-        -- Label
         local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("LEFT", btn, "LEFT", 8, 0)
         label:SetPoint("RIGHT", btn, "RIGHT", -8, 0)
@@ -965,7 +943,6 @@ function Interface:CreateMainWindow()
         label._yCategoryLabel = cat.label
         btn.Label = label
 
-        -- Highlight texture
         local hl = btn:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
         hl:SetColorTexture(1, 1, 1, 0.08)
@@ -979,7 +956,6 @@ function Interface:CreateMainWindow()
         sel:Hide()
         btn.SelectedBar = sel
 
-        -- Background for selected state
         local selBg = btn:CreateTexture(nil, "BACKGROUND")
         selBg:SetAllPoints()
         selBg:SetColorTexture(1, 1, 1, 0.05)
@@ -996,11 +972,9 @@ function Interface:CreateMainWindow()
         frame.SidebarButtons[cat.id] = btn
     end
 
-    -- Delegate scrolling to focused helpers.
     local scrollFrame = CreateScrollableContent(frame)
     CreateScrollBarForFrame(frame, scrollFrame)
 
-    -- Bottom close button.
     local bottomClose = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     bottomClose:SetSize(LAYOUT.CLOSE_BTN_WIDTH, LAYOUT.CLOSE_BTN_HEIGHT)
     bottomClose:SetPoint("BOTTOM", frame, "BOTTOM", 0, LAYOUT.CLOSE_BTN_OFFSET_Y)

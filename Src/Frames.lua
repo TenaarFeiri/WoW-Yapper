@@ -6,8 +6,8 @@
 local YapperName, YapperTable = ...
 
 local Frame = {
-    defined = true, -- Marker to prevent nil indexing when the module fails to load.
-} -- Container for methods.
+    defined = true, -- marker so a failed load doesn't nil-index
+}
 local EventFrames    = {}
 
 local Container = {
@@ -16,7 +16,7 @@ local Container = {
 
 YapperTable.Frame = Frame
 YapperTable.EventFrames           = EventFrames
-YapperTable.EventFrames.Container = Container.Events -- Expose event frames externally
+YapperTable.EventFrames.Container = Container.Events
 
 --- Create the main hidden event-listening frame.
 function EventFrames:Init()
