@@ -45,6 +45,22 @@ local math_huge          = math.huge
 local Utils = YapperTable.Utils
 
 --- Capitalise the first letter of `s`, leaving the rest unchanged.
+-- Resolve the active spellcheck locale; falls back through the configured
+-- fallback chain, then "enUS". Never "enBASE"/"enBase" — those are addon
+-- keys, not locale partitions, so partitions under them are unreachable.
+local function ActiveLocale()
+    local sc = YapperTable.Spellcheck
+    if sc and sc.GetLocale then
+        local l = sc:GetLocale()
+        if l then return l end
+    end
+    if sc and sc.GetFallbackLocale then
+        local l = sc:GetFallbackLocale()
+        if l then return l end
+    end
+    return "enUS"
+end
+
 local function CapFirst(s)
 	if not s or s == "" then return s end
 	return string_upper(string_sub(s, 1, 1)) .. string_sub(s, 2)
@@ -288,6 +304,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg
 									   engineHashes, engineHashFn)
 	if not words or #words == 0 then return nil end
 
+	local sc = YapperTable.Spellcheck
 	local lowerPrefix = string_lower(prefix)
 	local prefixLen   = string_len(lowerPrefix)
 
@@ -378,9 +395,9 @@ function Autocomplete:GetSuggestion(prefix, broad)
 
 	-- Fetch negBias once for use by ScoreCandidate across all tiers.
 	local sc = YapperTable.Spellcheck
-	local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
+	local locale = ActiveLocale()
 	local yas = sc and sc.YAS
-	local yasDB = yas and yas:GetLocaleDB(locale)
+	local yasDB = yas and yas:GetLocaleDB(locale, true)
 	local yasNeg = yasDB and yasDB.negBias or nil
 
 	-- Tier 1: personal lexicon (YAS) -- exact prefix scan.
@@ -707,8 +724,7 @@ function Autocomplete:OnTextChanged(editBox)
 		if yas and yas.RecordRejection then
 			-- RecordRejection expects a typo and a list of candidate objects.
 			-- Use the prefix as the "typo" and the suggestion as the only candidate.
-			local sc = YapperTable.Spellcheck
-			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
+			local locale = ActiveLocale()
 			yas:RecordRejection(self.CurrentPrefix, { self.CurrentSugg }, locale)
 		end
 	end
@@ -723,8 +739,7 @@ function Autocomplete:OnTextChanged(editBox)
 	then
 		local yas = YapperTable.Spellcheck and YapperTable.Spellcheck.YAS
 		if yas then
-			local sc = YapperTable.Spellcheck
-			local locale = sc and sc.GetLocale and sc:GetLocale() or "enBASE"
+			local locale = ActiveLocale()
 			if yas.RecordUsage then yas:RecordUsage(self.CurrentSugg, locale) end
 			-- Moderate bias: the user preferred this exact spelling.
 			if yas.RecordSelection then
@@ -781,7 +796,7 @@ function Autocomplete:OnTabPressed(editBox)
 	local sc = YapperTable.Spellcheck
 	local yas = sc and sc.YAS
 	if yas then
-		local locale = sc.GetLocale and sc:GetLocale() or "enBASE"
+		local locale = ActiveLocale()
 		if yas.RecordUsage then yas:RecordUsage(self.CurrentSugg, locale) end
 		if yas.RecordSelection then
 			yas:RecordSelection(self.CurrentPrefix, self.CurrentSugg, 0.5, locale)

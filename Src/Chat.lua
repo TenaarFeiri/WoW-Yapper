@@ -243,29 +243,33 @@ function Chat:DirectSend(msg, chatType, language, target)
         return false
     end
 
-    -- Record outgoing message for adaptive learning
+    -- Record outgoing message for adaptive learning. The whole block is
+    -- gated on IsEnabled: when YAS is off it must not observe anything,
+    -- including the CollectMisspellings scan that feeds RecordIgnored.
     if YapperTable.Spellcheck and YapperTable.Spellcheck.YAS then
         local sc = YapperTable.Spellcheck
         local YAS = sc.YAS
-        local locale = sc:GetLocale()
-        YAS:RecordUsage(msg, locale)
+        if YAS:IsEnabled() then
+            local locale = sc:GetLocale()
+            YAS:RecordUsage(msg, locale)
 
-        -- Check for "ignored" misspellings in the outgoing message
-        local dict = sc:GetDictionary()
-        if dict then
-            local typos = sc:CollectMisspellings(msg, dict)
-            if typos then
-                for _, item in ipairs(typos) do
-                    local word = msg:sub(item.startPos, item.endPos)
-                    YAS:RecordIgnored(word, locale)
+            -- Check for "ignored" misspellings in the outgoing message
+            local dict = sc:GetDictionary()
+            if dict then
+                local typos = sc:CollectMisspellings(msg, dict)
+                if typos then
+                    for _, item in ipairs(typos) do
+                        local word = msg:sub(item.startPos, item.endPos)
+                        YAS:RecordIgnored(word, locale)
+                    end
                 end
-            end
 
-            -- Correctly affixed words too, so YAS can auto-learn them.
-            local affixMatches = sc:CollectAffixMatches(msg, dict)
-            if affixMatches then
-                for _, item in ipairs(affixMatches) do
-                    YAS:RecordIgnored(item.word, locale)
+                -- Correctly affixed words too, so YAS can auto-learn them.
+                local affixMatches = sc:CollectAffixMatches(msg, dict)
+                if affixMatches then
+                    for _, item in ipairs(affixMatches) do
+                        YAS:RecordIgnored(item.word, locale)
+                    end
                 end
             end
         end
