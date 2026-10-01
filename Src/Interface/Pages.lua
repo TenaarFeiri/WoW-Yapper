@@ -1050,7 +1050,23 @@ function Interface:CreateSpellcheckKeyboardLayoutDropdown(parent, label, path, c
     UIDropDownMenu_SetText(dd, current)
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
-        local layouts = { "QWERTY", "QWERTZ", "AZERTY" }
+        -- Layouts are owned by the active language engine (KBLayouts); when
+        -- no engine is loaded the dropdown offers just the current value.
+        local spell = YapperTable and YapperTable.Spellcheck
+        local layouts = (spell and spell.GetKeyboardLayoutNames and spell:GetKeyboardLayoutNames()) or {}
+        if #layouts == 0 then
+            layouts = { current }
+        else
+            -- Keep a saved-but-unknown layout selectable (engine may load later).
+            local found = false
+            for _, l in ipairs(layouts) do
+                if l == current then found = true break end
+            end
+            if not found and type(current) == "string" and current ~= "" then
+                layouts[#layouts + 1] = current
+                table.sort(layouts)
+            end
+        end
         for _, layout in ipairs(layouts) do
             local info = UIDropDownMenu_CreateInfo()
             info.text = layout

@@ -78,7 +78,7 @@ local SETTING_TOOLTIPS              = {
     ["Spellcheck.Locale"] =
     "Select the dictionary locale to use for spellchecking. Warning: some locales (for example German) include very large word lists and may take many seconds to load or increase /reload time and memory usage.",
     ["Spellcheck.KeyboardLayout"] =
-    "Specify your physical keyboard layout (QWERTY, QWERTZ, or AZERTY) to improve suggestion accuracy by accounting for physical key proximity.",
+    "Specify your physical keyboard layout to improve suggestion accuracy by accounting for physical key proximity. Available layouts are provided by the active language engine.",
     ["Spellcheck.MinWordLength"] = "Ignore words shorter than this length.",
     ["Spellcheck.MisspellingColour"] = "Change the colour used to highlight misspelled words.",
     ["Spellcheck.MaxCandidates"] = "Limit how many candidate words are checked (higher = more accurate, slower).",
