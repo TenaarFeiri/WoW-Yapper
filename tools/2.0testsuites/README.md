@@ -38,6 +38,7 @@ and exit non-zero on failure.
 | test_lockdown_fsm | Lockdown handoff FSM, focus-override lifecycle | repo root |
 | test_sticky_sync | Blizzard stickyType sync + post-lockdown LastUsed restore | repo root |
 | test_recolour | Recolour canonical/display translation + Apply/Clear engine | repo root |
+| test_engine_contract | Language-engine contract: validation, owner lock, purge, dictionary family binding | repo root |
 | test_sendposts_strip | SendPosts display-escape stripping (history + delivery) | repo root |
 | test_api_error | Error API | suite dir |
 | test_api_features | Public API surface | suite dir |
@@ -76,7 +77,7 @@ Spellcheck hub/Engine/Dictionary LOD split and the `YAS.lua` →
   — crash in `Engine.lua` (`GetMaxCandidates` missing from their env).
 - `test_spam_cannon`, `test_cache_stress`
   — load the deleted `Src/Spellcheck/YAS.lua` (now `Adaptive.lua`).
-- `test_spellcheck_en_variant_inheritance`, `test_gc_dictionary_lifecycle`
+- `test_gc_dictionary_lifecycle`
   — `Dictionary.lua` now requires `GetEngine` (Engine LOD split).
 - `test_autocomplete_sim` — `GetPhoneticHash` moved/renamed.
 - `test_german_harness` — dictionary registry drift; also a diagnostic

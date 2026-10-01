@@ -39,6 +39,7 @@ GATING_FROM_ROOT=(
     test_sticky_sync
     test_forever_names
     test_recolour
+    test_engine_contract
     test_sendposts_strip
     test_shadow_tint
     test_help_content
@@ -46,12 +47,14 @@ GATING_FROM_ROOT=(
 
 # Gating suites executed from the suite directory (they loadfile "../../Src/...").
 GATING_FROM_SUITEDIR=(
+    test_strings
     test_api_error
     test_api_features
     test_yallm_logic
     test_yallm_extended
     test_yallm_pruning_decay_pipeline
     test_autocomplete_api
+    test_spellcheck_en_variant_inheritance
 )
 
 PASSED=0
@@ -98,6 +101,22 @@ if command -v python3 > /dev/null 2>&1; then
         FAILED_NAMES+=("doc-refs")
         echo "  [FAIL] documentation line references drifted"
         echo "         run: python3 tools/check_doc_refs.py --fix"
+    fi
+else
+    echo "  [SKIP] python3 not available"
+fi
+
+# ---------------------------------------------------------------------------
+# Phase 1c: UI string-key coverage.
+# ---------------------------------------------------------------------------
+section "String-key coverage (check_string_refs.py)"
+if command -v python3 > /dev/null 2>&1; then
+    if python3 "$ROOT/tools/check_string_refs.py"; then
+        echo "  [PASS] string-key coverage"
+    else
+        FAILED=$((FAILED + 1))
+        FAILED_NAMES+=("string-refs")
+        echo "  [FAIL] unknown string keys referenced"
     fi
 else
     echo "  [SKIP] python3 not available"

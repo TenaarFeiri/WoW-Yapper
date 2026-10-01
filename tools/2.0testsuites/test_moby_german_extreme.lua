@@ -49,7 +49,6 @@ local YapperName, YapperTable = "Yapper", {
         GetKeyboardLayout = function() return "QWERTZ" end,
         GetSuggestionCacheSize = function() return 5000 end,
         _GetKBDistFromLayouts = function() return setmetatable({}, {__index = function() return 2.0 end}) end,
-        _KB_LAYOUTS = {},
         GetUserDict = function() return { AddedWords = {}, IgnoredWords = {} } end,
         GetUserSets = function() return { added = {}, _rev = 0 }, {} end,
         Dictionaries = {}, Engines = {},
