@@ -21,6 +21,8 @@
 - All YAS learned data is strictly bounded and periodically consolidated in small per-tick chunks, so it can't grow memory unbounded or stall frames.
 - Autocorrect scaffolding is in place — confidence tiers, vetoes, a bounded shadow decision log, and an undo ring — plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like German compound splitting). Nothing is auto-applied yet.
 - Test-suite fix: one YAS suite was silently passing without exercising anything (missing stub meant the feature read as disabled); it now genuinely gates, which caught and fixed a saturation-check assumption.
+- Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
+- Audited the dictionary tooling against the new contract: the phonetic generator, Hunspell importer, sanitizer, and blocklist generator all had drifted — deltas emitted wrong indices, the sanitizer produced unregistrable output, and the blocklist missed half the surfaces the engine actually hashes. All fixed, and the previously-quarantined dictionary-inheritance test suite was modernised, extended, and promoted back into the gating set.
 
 ### Bug Fixes
 - Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary — the setting toggle now stops all observation, learning, and dictionary writes.
@@ -28,6 +30,12 @@
 - Suggestion cache now correctly refreshes when YAS learns (frequency, rejections, and clears now invalidate cached scores) — previously a candidate you rejected could immediately reappear.
 - YAS word-sanity checks now respect the configured n-gram size instead of silently disabling themselves.
 - Learned words are now keyed through the same normaliser as everything else, and word-count caps stay accurate when entries are promoted or cleared.
+- Regional phonetic suggestions were completely broken: the English locale dictionaries (enUS/enGB/enAU) shipped phonetic indices pointing past their own word lists, so phonetic candidate gathering found nothing (or the wrong word). All three dictionaries were regenerated and verified.
+- Phonetic matches that existed in both the base and a regional dictionary only ever showed the regional ones — a shared phonetic key shadowed the base list. Candidate gathering now walks the whole inheritance chain and unions both.
+- The German dictionary never actually worked — it registered under the wrong key and bound itself to the English engine, and shipped with no phonetic index at all. It now registers as `deDE` under the German engine with phonetics generated for all 355k words.
+- Fixed phonetic divergences between the shipped engines and the dictionary generators: repeated-letter runs collapsed differently (zzz → S, not SS), and the German engine stripped lowercase umlauts entirely (öffnen → FNN instead of OFNN) because Lua's `string.upper` is ASCII-only.
+- The blocklist generator only hashed one word form — anything with apostrophes, digits, or non-ASCII characters hashed differently at runtime and slipped through. It now emits every surface the engine checks, including leetspeak-folded variants.
+- A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
 
 # 2.4.5
 
