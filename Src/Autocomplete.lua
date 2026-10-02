@@ -5,9 +5,11 @@
 	Data cascade:
 		Tier 1 - YAS personal lexicon (freq table)
 		         Prioritises the user's own vocabulary: character names,
-		         guild jargon, favourite descriptors.
+		         guild jargon, favourite descriptors.  A YAS bigram bonus
+		         (what follows the previous word) boosts contextual picks.
 		Tier 2 - Spellcheck dictionary (sorted array, binary search)
-		         Falls back to the full dictionary when YAS has no match.
+		         Falls back to the full dictionary when YAS has no match;
+		         the same bigram bonus applies inside ScoreCandidate.
 
 	Ghost text:
 		A non-interactive FontString overlaid on the EditBox, rendered in a
@@ -92,6 +94,12 @@ local MIN_PREFIX_LEN        = 2
 local SCAN_SHORT            = 12 -- wider net when prefix is short
 local SCAN_MEDIUM           = 8
 local SCAN_LONG             = 4
+
+-- Score units per observed prev->next transition (YAS bigram).  Context is
+-- the strongest "what word comes next" signal, so a handful of observed
+-- transitions outweighs a large raw-frequency gap.
+local BIGRAM_WEIGHT         = 5
+local BIGRAM_BONUS_CAP      = 60 -- cap so ancient mass context can't bury everything
 
 -- Pixel gap between the caret and the first character of ghost text.
 -- Prevents the caret from visually swallowing the first ghost letter.
@@ -253,7 +261,7 @@ end
 ---@param yasFreq   table|nil  yas.db.freq table, or nil.
 ---@param yasNeg    table|nil  yas.db.negBias table, or nil.
 ---@return number
-local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg)
+local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg, yasCtx)
 	local score = prefixLen * 10
 
 	-- Penalise length: shorter completions are preferred.
@@ -284,6 +292,16 @@ local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg)
 		end
 	end
 
+	-- Bigram context: words the user habitually types after the previous
+	-- word.  yasCtx is the resolved bigram bucket for the previous word.
+	if yasCtx then
+		local e = yasCtx[lword:gsub("[%p%c%s]", "")]
+		local c = type(e) == "table" and (e.c or 0) or (type(e) == "number" and e or 0)
+		if c > 0 then
+			score = score + math_min(c * BIGRAM_WEIGHT, BIGRAM_BONUS_CAP)
+		end
+	end
+
 	return score
 end
 
@@ -299,9 +317,10 @@ end
 ---@param userBlockedSet table|nil  Optional set of user-blocked words.
 ---@param engineHashes table|nil  Optional set of engine-blocked hashes.
 ---@param engineHashFn function|nil  Optional hashing function.
+---@param yasCtx    table|nil  Resolved bigram bucket for the previous word.
 ---@return string?
 function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg, broad, addedSet, userBlockedSet,
-									   engineHashes, engineHashFn)
+									   engineHashes, engineHashFn, yasCtx)
 	if not words or #words == 0 then return nil end
 
 	local sc = YapperTable.Spellcheck
@@ -362,7 +381,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg
 			end
 
 			if not isBlocked then
-				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yasFreq, yasNeg)
+				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yasFreq, yasNeg, yasCtx)
 				if s > bestScore then
 					bestScore = s
 					bestWord  = w
@@ -380,10 +399,13 @@ end
 
 --- Run the full tiered lookup: YAS first, then dictionary with
 --- confidence-narrowing based on prefix length.
----@param prefix string        The partial word the user is typing.
----@param broad  boolean|nil   When true, force widest scan + phonetics (direction-change retry).
----@return string?             The best completion, or nil.
-function Autocomplete:GetSuggestion(prefix, broad)
+---@param prefix   string        The partial word the user is typing.
+---@param broad    boolean|nil   When true, force widest scan + phonetics (direction-change retry).
+---@param prevWord string|nil    The completed word before the prefix; feeds
+---                              the YAS bigram context bonus.  nil resolves
+---                              to the "<s>" sentence-initial bucket.
+---@return string?               The best completion, or nil.
+function Autocomplete:GetSuggestion(prefix, broad, prevWord)
 	if not prefix or string_len(prefix) < MIN_PREFIX_LEN then return nil end
 
 	-- Mirror the capitalisation of the first letter back onto the suggestion.
@@ -399,6 +421,19 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local yas = sc and sc.YAS
 	local yasDB = yas and yas:GetLocaleDB(locale, true)
 	local yasNeg = yasDB and yasDB.negBias or nil
+
+	-- Bigram context: the bucket for the completed word before the prefix.
+	-- No preceding word resolves to "<s>" (sentence-initial transitions).
+	local yasCtx
+	if yasDB and type(yasDB.bigram) == "table" then
+		local ctxKey
+		if type(prevWord) == "string" and prevWord ~= "" then
+			local pw = (sc and sc.NormaliseWord and sc.NormaliseWord(prevWord))
+				or string_lower(prevWord)
+			ctxKey = pw:gsub("[%p%c%s]", "")
+		end
+		yasCtx = yasDB.bigram[(ctxKey and ctxKey ~= "") and ctxKey or "<s>"]
+	end
 
 	-- Tier 1: personal lexicon (YAS) -- exact prefix scan.
 	local yasFreq = yasDB and yasDB.freq or nil
@@ -457,9 +492,13 @@ function Autocomplete:GetSuggestion(prefix, broad)
 				if not isBlocked then
 					local entry = yasFreq[word]
 					local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
-					if freq > bestScore then
-						bestScore = freq
-						bestWord = word
+					local ctxE  = yasCtx and yasCtx[word]
+					local ctxC  = type(ctxE) == "table" and (ctxE.c or 0)
+						or (type(ctxE) == "number" and ctxE or 0)
+					local score = freq + ctxC * BIGRAM_WEIGHT
+					if score > bestScore then
+						bestScore = score
+						bestWord  = word
 					end
 				end
 			end
@@ -491,7 +530,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	if not dict then return nil end
 
 	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yasFreq, yasNeg, broad, addedSet,
-		userBlockedSet, engineHashes, engineHashFn)
+		userBlockedSet, engineHashes, engineHashFn, yasCtx)
 	if hit then
 		return prefixIsCapital and CapFirst(hit) or hit
 	end
@@ -501,7 +540,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 		local base = sc.Dictionaries[dict.extends]
 		if base and type(base.words) == "table" then
 			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yasFreq, yasNeg, broad, addedSet,
-				userBlockedSet, engineHashes, engineHashFn)
+				userBlockedSet, engineHashes, engineHashFn, yasCtx)
 		end
 	end
 
@@ -790,9 +829,23 @@ function Autocomplete:OnTextChanged(editBox)
 		end
 	end
 
-	local suggestion = YapperAPI:GetAutocompleteSuggestion(word)
+	-- Bigram context: the last completed word before the prefix feeds the
+	-- YAS next-word bonus.  IterWords finds it regardless of the punctuation
+	-- between; absent (text start) resolves to the "<s>" bucket downstream.
+	local prevWord
+	if startIdx and startIdx > 1 then
+		local sc = YapperTable.Spellcheck
+		if sc and sc.IterWords then
+			for s0, _, w in sc.IterWords(text) do
+				if s0 >= startIdx then break end
+				prevWord = w
+			end
+		end
+	end
+
+	local suggestion = YapperAPI:GetAutocompleteSuggestion(word, prevWord)
 	if not suggestion and isDirChange then
-		suggestion = self:GetSuggestion(word, true) -- broad retry (internal method for now)
+		suggestion = self:GetSuggestion(word, true, prevWord) -- broad retry (internal method for now)
 	end
 
 	if suggestion then

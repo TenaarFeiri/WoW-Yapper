@@ -1289,11 +1289,13 @@ end
 
 --- Returns the best autocomplete suggestion for the given partial word.
 ---@param word string
+---@param prevWord string|nil  The completed word before the caret; enables
+---       the YAS bigram context bonus (nil = sentence-initial context).
 ---@return string|nil
-function YapperAPI:GetAutocompleteSuggestion(word)
+function YapperAPI:GetAutocompleteSuggestion(word, prevWord)
     local ac = YapperTable.Autocomplete
     if not ac or not ac.GetSuggestion then return nil end
-    return ac:GetSuggestion(word)
+    return ac:GetSuggestion(word, nil, prevWord)
 end
 
 --- Returns the current pixel offset of the cursor/caret within an EditBox.

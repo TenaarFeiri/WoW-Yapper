@@ -480,10 +480,12 @@
 8. AUTOCOMPLETE AND GHOST TEXT
 ---------------------------------------------------------------------------
 
-    YapperAPI:GetAutocompleteSuggestion(word) → string|nil
+    YapperAPI:GetAutocompleteSuggestion(word, prevWord) → string|nil
       Returns the best autocomplete result for a partial word, or nil when no
       result is available.  The autocomplete engine may require a minimum
-      prefix length.
+      prefix length.  prevWord is optional: when given, learned bigram
+      transitions (what the user habitually types after that word) weight the
+      ranking; omitted, the sentence-initial context applies.
 
     YapperAPI:GetCaretOffset(editBox) → x, y, height
       Returns the caret position and height in logical pixels for a Yapper-
