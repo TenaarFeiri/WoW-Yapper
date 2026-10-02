@@ -12,9 +12,10 @@
 - YAS now has basic context-awareness and learns which words you actually write after other words and favours candidates that fit your habits.
 - YAS now has error-profile learning; your habitual slip pattern (such as transposing letters, dropping doubles, specific letter confusions) now generalises and learned corrections help beyond the exact typo you made.
 - YAS now implements learned scoring. The suggestion weights adapt to how *you* pick corrections, with a self-evaluation circuit breaker that regresses the model if YAS-surfaced picks keep getting re-corrected.
-- Autocorrect (opt-in): when you finish a word with a space or closing punctuation, corrections YAS is highly confident about are applied as you type. Undo instantly with Backspace, Ctrl+Z, the Undo toast, or "Restore" in the suggestion popup. A reverted correction is never re-applied that session.
+- Autocorrect (opt-in): fixes obvious mechanical typos (transposed, missing, or extra letters -- like "tihs") the moment you finish a word, plus anything YAS has learned to be confident about. Undo instantly with Backspace, Ctrl+Z, the Undo toast, or "Restore" in the suggestion popup. A reverted correction is not re-applied automatically, but if you make the same correction yourself YAS takes the hint and it can autocorrect again.
 - New toast notifications: a small card appears when YAS learns a word into your dictionary (Keep / Unlearn / Ignore) and after each autocorrection (Undo). It positions itself clear of the chat frame, edit box, multiline editor, and suggestion popup, and pauses its timer while hovered.
 - Autocomplete quality-of-life: accepting a suggestion only adds a trailing space when the next character can start a word; if you immediately type `.`, `,`, `!`, `?`, `;`, `:` or a closing `"`, the space snaps after the punctuation like on a phone keyboard. Ghost text no longer appears mid-word.
+- Autocomplete now weighs context: YAS remembers which words you usually type after a given word, so the completion for "the quick br" prefers your habits over raw frequency.
 - The What's New and welcome popups now offer spellcheck, autocomplete, adaptive learning, and autocorrect toggles. Enabling spellcheck asks which dictionary language to load first. Autocorrect stays greyed out until spellcheck and adaptive learning are both on, in settings too.
 
 ### Technical Changes
@@ -25,6 +26,9 @@
 - Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
 
 ### Bug Fixes
+- Notification toasts no longer jump to the bottom-right corner when the chat window sits near the top of the screen; the placement solver can now also settle below or beside the chat frame.
+- Mechanical-typo candidates (transposed or dropped letters) were starved by the suggestion budget on large dictionaries -- "doign" never produced "doing" until you had already taught YAS the correction. Autocorrect also weighs keyboard distance now, so a far-apart letter swap like "deign" no longer wins on confidence alone.
+- Phonetic matches now keep their score boost no matter which suggestion path surfaced them, so "tihs" ranks "this" first instead of behind looser sound-alikes like "thus".
 - Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary. The setting toggle now stops all observation, learning, and dictionary writes.
 - Restored lost learned data: legacy learned vocabulary and personal dictionaries were being migrated into an orphaned `enBASE` partition that nothing ever read; existing users' migrated data is recovered and merged into the correct language partition.
 - Suggestion cache now correctly refreshes when YAS learns (frequency, rejections, and clears now invalidate cached scores); previously a candidate you rejected could immediately reappear.
@@ -36,7 +40,7 @@
 - The blocklist generator only hashed one word form. Anything with apostrophes, digits, or non-ASCII characters hashed differently at runtime and slipped through. It now emits every surface the engine checks, including leetspeak-folded variants.
 - A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
 - Forwarded `/join`, `/channel`, and `/chan` no longer run Blizzard's slash handler, which writes the channel name into the chat frame's channel list -- doing that write inside Yapper's tainted execution caused "secret value" chat errors in delves and other restricted content. Yapper now joins via the client API directly; joining works the same, and a freshly-joined custom channel may not display messages until the chat config next refreshes (reload or zone change).
-- Arrow-key history recall no longer eats your draft: pressing Up with text already in the box stashes it, and pressing Down past the newest entry restores it with the cursor at the end.
+- Arrow-key history recall no longer eats your draft: pressing Up with text already in the box stashes it, and pressing Down past the newest entry restores it -- text, cursor, and the channel or whisper target it was being written in.
 
 # 2.4.5
 

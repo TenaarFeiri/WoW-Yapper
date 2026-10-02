@@ -107,8 +107,8 @@ Loaded before all integration hooks.
   - `_lastCancelOwner: string|nil` *private by convention; do not rely on* ([`../Src/API.lua#L1217`](../Src/API.lua#L1217)).
 - Methods:
   - `API:_createClaim(text, chatType, language, target, owner) → number` ([`../Src/API.lua#L1229`](../Src/API.lua#L1229))
-  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1401`](../Src/API.lua#L1401))
-  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1445`](../Src/API.lua#L1445))
+  - `API:RunFilter(hookPoint, payload) → table|false` ([`../Src/API.lua#L1403`](../Src/API.lua#L1403))
+  - `API:Fire(event, ...) → nil` ([`../Src/API.lua#L1447`](../Src/API.lua#L1447))
 - Side effects:
   - Catches external addon errors and emits/targets `API_ERROR`.
 
@@ -255,9 +255,9 @@ Runs during suggestion/recolour rebuild.
   - `ResolveImplicitTrace` [`../Src/Spellcheck/Engine.lua#L293`](../Src/Spellcheck/Engine.lua#L293)
   - `UpdateActiveWord` [`../Src/Spellcheck/Engine.lua#L334`](../Src/Spellcheck/Engine.lua#L334)
   - `GetWordAtCursor` [`../Src/Spellcheck/Engine.lua#L437`](../Src/Spellcheck/Engine.lua#L437)
-  - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L984`](../Src/Spellcheck/Engine.lua#L984)
-  - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1325`](../Src/Spellcheck/Engine.lua#L1325)
-  - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1396`](../Src/Spellcheck/Engine.lua#L1396)
+  - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L989`](../Src/Spellcheck/Engine.lua#L989)
+  - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1330`](../Src/Spellcheck/Engine.lua#L1330)
+  - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1401`](../Src/Spellcheck/Engine.lua#L1401)
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -359,8 +359,8 @@ Initialised from `Spellcheck:Init` when present.
 - Methods:
   - `YAS:GetAutoCap() → number`: Returns the maximum number of entries tracked in the `auto` table before low-scoring ones are pruned. Configurable via `YASAutoCap`; default 500, min 50, max 5000. ([`../Src/Spellcheck/Adaptive.lua#L169`](../Src/Spellcheck/Adaptive.lua#L169))
   - `YAS:GetNegBiasCap() → number`: Returns the maximum number of `negBias` rejection-pair entries before low-scoring ones are pruned. Configurable via `YASNegBiasCap`; default 500, min 100, max 10000. ([`../Src/Spellcheck/Adaptive.lua#L162`](../Src/Spellcheck/Adaptive.lua#L162))
-  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L2033`](../Src/Spellcheck/Adaptive.lua#L2033))
-  - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L1295`](../Src/Spellcheck/Adaptive.lua#L1295))
+  - `YAS:Export() → nil`: Export current learned data for a locale as a text block. ([`../Src/Spellcheck/Adaptive.lua#L2132`](../Src/Spellcheck/Adaptive.lua#L2132))
+  - `YAS:GetBiasTargets() → nil`: Returns a list of candidate words that have been learned as corrections for the given typo. ([`../Src/Spellcheck/Adaptive.lua#L1370`](../Src/Spellcheck/Adaptive.lua#L1370))
   - `YAS:EnsureFreqSorted() → nil`: Ensures the frequency-sorted index is up-to-date, rebuilding if dirty. ([`../Src/Spellcheck/Adaptive.lua#L520`](../Src/Spellcheck/Adaptive.lua#L520))
   - `IsEnabled() → boolean`: Returns true if YAS is enabled in the configuration. ([`../Src/Spellcheck/Adaptive.lua#L132`](../Src/Spellcheck/Adaptive.lua#L132))
   - `YAS:GetFreqCap()` ([`../Src/Spellcheck/Adaptive.lua#L122`](../Src/Spellcheck/Adaptive.lua#L122))
@@ -369,7 +369,7 @@ Initialised from `Spellcheck:Init` when present.
   - `YAS:GetIntentCap() → number` ([`../Src/Spellcheck/Adaptive.lua#L176`](../Src/Spellcheck/Adaptive.lua#L176)) — cap on `intent` records; configurable via `YASIntentCap`, default 1000, min 100, max 10000.
   - `YAS:GetBigramCap() → number` ([`../Src/Spellcheck/Adaptive.lua#L184`](../Src/Spellcheck/Adaptive.lua#L184)) — cap on bigram transitions; configurable via `YASBigramCap`, default 2000, min 200, max 20000.
   - `YAS:RecordExposure(word, locale)` ([`../Src/Spellcheck/Adaptive.lua#L699`](../Src/Spellcheck/Adaptive.lua#L699)) — session-only exposure credit: the suggestion popup is visible for this token now. Consumed by the next `RecordIgnored` for the same token; stale entries (>30s or >200 tracked) are dropped opportunistically.
-  - `YAS:GetIntent(word, locale) → "ACCIDENT"|"WAIVER"|"INTENTIONAL"|nil` ([`../Src/Spellcheck/Adaptive.lua#L852`](../Src/Spellcheck/Adaptive.lua#L852)) — classify a token. Order: pin → any correction evidence (ACCIDENT) → ≥3 consistent unchanged sends (INTENTIONAL) → seen-and-sent-unchanged (WAIVER) → unclassified.
+  - `YAS:GetIntent(word, locale) → "ACCIDENT"|"WAIVER"|"INTENTIONAL"|nil` ([`../Src/Spellcheck/Adaptive.lua#L910`](../Src/Spellcheck/Adaptive.lua#L910)) — classify a token. Order: pin → any correction evidence (ACCIDENT) → ≥3 consistent unchanged sends (INTENTIONAL) → seen-and-sent-unchanged (WAIVER) → unclassified.
   - `YAS:PinIntent(word, class, locale)` ([`../Src/Spellcheck/Adaptive.lua#L734`](../Src/Spellcheck/Adaptive.lua#L734)) — permanent intent pin from explicit user actions.
   - `YAS:PruneBigrams(limit, locale)` ([`../Src/Spellcheck/Adaptive.lua#L1258`](../Src/Spellcheck/Adaptive.lua#L1258)) — evicts lowest-scored transitions to ~90% of the cap; empty buckets are dropped.
   - `YAS:StartConsolidation(locale)` / `YAS:_ConsolidationStep()` ([`../Src/Spellcheck/Adaptive.lua#L1305`](../Src/Spellcheck/Adaptive.lua#L1305)) — chunked background maintenance (≤200 entries/tick): halves cold counts (30d+), evicts stale unclassified intent (60d+), prunes bigrams/confusion pairs to cap. `C_Timer`-driven in-game; `_ConsolidationStep` is directly callable for deterministic tests.
@@ -392,10 +392,10 @@ Initialised from `Spellcheck:Init` when present.
   - Learned scorer (`db.model`): the per-feature multipliers `m_i` start at 1.0 (= frozen WEIGHTS behaviour) and get bounded perceptron updates — `RecordSelection` reinforces the accepted candidate's feature vector, `RecordRejection` dampens rejected candidates (≤5 per call). `lr = 0.02 / (1 + updates/500)`, multipliers clamped to [0.25, 4.0]. `FeatureVector` is shared between scoring and updates so both paths agree exactly.
   - Self-eval: a YAS-surfaced pick (`utilityGain > 0`) is remembered in the session-only `YAS._lastPromoted` map; if the same token is later manually re-corrected to a *different* word it counts as `retypeAfterPromoted`. Once ≥20 promoted picks have a ≥40% re-correction ratio, all multipliers regress halfway toward 1.0 and the eval counters reset — the model's own circuit breaker against overreach.
 - Autocorrect decision machinery:
-  - `YAS:ClassifySuggestion(typo, candidate, locale, prevWord)` returns `{ suggestion, confidence, tier, vetoReasons }`. Tiers: `AUTO` (≥0.8 conf, no vetoes), `SUGGEST` (≥0.4), `OFFER`, `SUPPRESS` (INTENTIONAL/WAIVER intent is a permanent hard veto). Engine `Autocorrect.AutocorrectVeto`/`MaxConfidence` are honoured; a hot re-correction ratio suspends AUTO. `Spellcheck.Autocorrect` applies only `AUTO`-tier results.
+  - `YAS:ClassifySuggestion(typo, candidate, locale, prevWord)` returns `{ suggestion, confidence, tier, vetoReasons }`. Tiers: `AUTO` (≥0.8 conf, no vetoes), `SUGGEST` (≥0.4), `OFFER`, `SUPPRESS` (INTENTIONAL/WAIVER intent is a permanent hard veto). Confidence mixes learned evidence (bias/freq/phonetic/bigram, minus a decaying `negBias` rejection penalty) with `MechanicalTypoPrior` — a cold-start prior that pushes clean single-op edits (adjacent transposition, single insert/delete/substitute on 4+ char words) to AUTO with no history. When the engine ships `KBLayouts`, the substitution prior is gated on key adjacency under the active layout: adjacent swapped keys keep the full prior, distant keys get a weaker signal instead (doign->doing stays AUTO; doign->deign does not). Engine `Autocorrect.AutocorrectVeto`/`MaxConfidence` are honoured; a hot re-correction ratio suspends AUTO. `Spellcheck.Autocorrect` applies only `AUTO`-tier results.
   - `YAS:ShadowClassify(typo, candidate, locale, prevWord)` — opt-in via `Config.Spellcheck.YASAutocorrectShadow`; classifies and appends to a bounded `db.autocorrLog` ring (50 entries). Called for the top candidate in `Spellcheck.Engine`'s suggestion path.
   - `YAS:PushUndo(entry)`/`YAS:PopUndo()`/`YAS:PeekUndo()` — session-only LIFO ring (50) of revertable applied corrections; `PeekUndo` lets a toast validate it still targets the newest correction before reverting. ([`../Src/Spellcheck/Adaptive.lua#L1485`](../Src/Spellcheck/Adaptive.lua#L1485), [`../Src/Spellcheck/Adaptive.lua#L1516`](../Src/Spellcheck/Adaptive.lua#L1516)).
-  - `YAS:RecordAutoReject(typo, correction, locale)` ([`../Src/Spellcheck/Adaptive.lua#L1532`](../Src/Spellcheck/Adaptive.lua#L1532)) — the user reverted an applied autocorrection: intent `corrected` bump on the typo (halves that pair's future confidence via `veto.recentRecorrect`), `negBias` on the pair, `retypeAfterPromoted` self-eval credit, and a negative model update.
+  - `YAS:RecordAutoReject(typo, correction, locale)` ([`../Src/Spellcheck/Adaptive.lua#L1532`](../Src/Spellcheck/Adaptive.lua#L1532)) — the user reverted an applied autocorrection: intent `corrected` bump on the typo (halves that pair's future confidence via `veto.recentRecorrect`), `negBias` on the pair, `retypeAfterPromoted` self-eval credit, and a negative model update. A later manual pick of the same pair via `RecordSelection` (suggestion click or implicit retype) clears the `negBias` entry and the session suppression — the pair returns to AUTO eligibility.
   - `YAS:UnlearnWord(word, locale)` ([`../Src/Spellcheck/Adaptive.lua#L1590`](../Src/Spellcheck/Adaptive.lua#L1590)) — forget a learned word entirely: removes it from `AddedWords`, `freq` and `auto`, then stamps `db.rejected` so organic learning can't re-promote it for ~30 days.
   - `YAS:ClearReject(word, locale)` ([`../Src/Spellcheck/Adaptive.lua#L1625`](../Src/Spellcheck/Adaptive.lua#L1625)) — lifts an Unlearn block; called by `Spellcheck:AddUserWord`.
 - Learning entry points:
@@ -415,14 +415,15 @@ Editing-stage autocorrect; opt-in via `Config.Spellcheck.AutocorrectEnabled` (re
 - Methods:
   - `Autocorrect:IsEnabled()` [`../Src/Spellcheck/Autocorrect.lua#L55`](../Src/Spellcheck/Autocorrect.lua#L55) — config flag + spellcheck + YAS enabled.
   - `Autocorrect:OnUserTextChanged(editBox, text, cursor) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L92`](../Src/Spellcheck/Autocorrect.lua#L92) — runs before the boundary check on every user edit. Stateless backspace-revert detection: recognises "the stored post-apply text minus its boundary byte, caret at `eApplied`" rather than an armed flag, so WoW's `OnCursorChanged`/`OnTextChanged` ordering cannot break it.
-  - `Autocorrect:OnBoundaryCommit(editBox, text, cursor)` [`../Src/Spellcheck/Autocorrect.lua#L113`](../Src/Spellcheck/Autocorrect.lua#L113) — evaluates the word before a `"commit"`/`"close"` boundary through `GetSuggestions` + `YAS:ClassifySuggestion`. Guards: slash commands, mid-word boundaries (the byte after the boundary must be non-word/EOL), already-correct words, ignored words, suppressed pairs. Temporarily lends `Spellcheck.ActiveRange`/`EditBox` to the call so bigram context and the suggestion-cache key match the panel's.
+  - `Autocorrect:OnBoundaryCommit(editBox, text, cursor)` [`../Src/Spellcheck/Autocorrect.lua#L113`](../Src/Spellcheck/Autocorrect.lua#L113) — evaluates the word before a `"commit"`/`"close"` boundary through `GetSuggestions` + `YAS:ClassifySuggestion` over the top five candidates, applying the highest-confidence AUTO (ties keep dictionary rank). Guards: slash commands, mid-word boundaries (the byte after the boundary must be non-word/EOL), already-correct words, ignored words, suppressed pairs (skipped per-candidate). Temporarily lends `Spellcheck.ActiveRange`/`EditBox` to the call so bigram context and the suggestion-cache key match the panel's.
   - `Autocorrect:LiveCorrectionAt(editBox, s, e) → corr|nil` [`../Src/Spellcheck/Autocorrect.lua#L65`](../Src/Spellcheck/Autocorrect.lua#L65) — newest un-reverted correction overlapping a word range; lets `UpdateActiveWord` keep a corrected word "active" so the suggestion popup can offer `Restore "<original>"` (entry `kind = "revert"`).
-  - `Autocorrect:RevertCorrection(editBox, corr, source) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L260`](../Src/Spellcheck/Autocorrect.lua#L260) — validates the applied word still sits at its recorded range (a drifted edit refuses), splices the original back, preserves the caret when it sat past the correction, then `_FlagReverted` (session pair suppression + `YAS:RecordAutoReject`).
+  - `Autocorrect:RevertCorrection(editBox, corr, source) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L273`](../Src/Spellcheck/Autocorrect.lua#L273) — validates the applied word still sits at its recorded range (a drifted edit refuses), splices the original back, preserves the caret when it sat past the correction, then `_FlagReverted` (session pair suppression + `YAS:RecordAutoReject`).
   - `Autocorrect:OnUndo(editBox, prevText, restoredText)` [`../Src/Spellcheck/Autocorrect.lua#L314`](../Src/Spellcheck/Autocorrect.lua#L314) — called by `History:Undo`; an exact `after → before` transition flags the correction reverted.
-  - `Autocorrect:UndoByToast(entry) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L329`](../Src/Spellcheck/Autocorrect.lua#L329) — toast Undo; refuses unless `YAS:PeekUndo()` still returns this entry, so a stale card can't pop a newer correction.
+  - `Autocorrect:UndoByToast(entry) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L350`](../Src/Spellcheck/Autocorrect.lua#L350) — toast Undo; refuses unless `YAS:PeekUndo()` still returns this entry, so a stale card can't pop a newer correction.
+  - `Autocorrect:ClearSuppression(typo, correction)` [`../Src/Spellcheck/Autocorrect.lua#L305`](../Src/Spellcheck/Autocorrect.lua#L305) — lifts the session suppression for a pair; called by `YAS:RecordSelection` when the user manually re-corrects a reverted pair.
 - Fields:
   - `_corrections` — session ring (cap 20) of live corrections `{box, s, eApplied, original, applied, before, after, undoEntry, reverted, time}`.
-  - `_suppressed` — `"typo\0correction"` set; a reverted pair never re-applies for the rest of the session.
+  - `_suppressed` — `"typo\0correction"` set; a reverted pair never re-applies for the rest of the session unless the user manually picks the same correction again (which also clears the `negBias` entry).
 - Callbacks fired:
   - `AUTOCORRECT_APPLIED`.
 
@@ -818,18 +819,18 @@ Lazy frame creation; active only when user enters multiline mode.
 
 Binds to overlay (or multiline) editbox when available.
 
-- Description: Ghost-text completion from dictionary + YAS.
+- Description: Ghost-text completion from dictionary + YAS. Candidates are ranked by prefix fit and length, then adjusted by YAS signals: personal `freq` bonus, `negBias` dismissal penalty, and a `bigram` context bonus (the completed word before the caret resolves the `bigram[prev]` bucket; text start uses `"<s>"`).
 - Fields:
   - `GhostFS` [`../Src/Autocomplete.lua#L59`](../Src/Autocomplete.lua#L59)
   - `CurrentSugg` [`../Src/Autocomplete.lua#L60`](../Src/Autocomplete.lua#L60)
   - `CurrentPrefix` [`../Src/Autocomplete.lua#L61`](../Src/Autocomplete.lua#L61)
   - `PrefixText` [`../Src/Autocomplete.lua#L62`](../Src/Autocomplete.lua#L62)
   - `Active` [`../Src/Autocomplete.lua#L63`](../Src/Autocomplete.lua#L63)
-  - `Enabled` [`../Src/Autocomplete.lua#L78`](../Src/Autocomplete.lua#L78)
+  - `Enabled` [`../Src/Autocomplete.lua#L80`](../Src/Autocomplete.lua#L80)
   - `_activeEditBox` [`../Src/Autocomplete.lua#L65`](../Src/Autocomplete.lua#L65)
   - `_isMultiline` [`../Src/Autocomplete.lua#L66`](../Src/Autocomplete.lua#L66)
 - Methods:
-  - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L628`](../Src/Autocomplete.lua#L628))
+  - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L667`](../Src/Autocomplete.lua#L667))
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 - Notes:
   - Accepting a completion only appends a space when the next byte is a word byte or end-of-text; when it does, the space position is remembered in `_pendingSnap`. If the very next keystroke is a `"close"` boundary (see `Spellcheck:ClassifyBoundary`), the space hops after the punctuation (`"hello "` + `.` → `"hello. "`) — the mobile-keyboard behaviour. The marker self-invalidates by position match, so caret moves can't trigger a stray snap.

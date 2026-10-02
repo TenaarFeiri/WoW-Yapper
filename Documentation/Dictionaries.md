@@ -89,7 +89,7 @@ An engine is a plain table. The table is **deep-copied** on registration
 | `HasVariantRules` | `boolean` | Must be `true` when `VariantRules` is present. |
 | `VariantRules` | `table` | Array of `{ from, to }` string pairs (≤64 rules, ≤32 bytes per side, `from ≠ to`). Dialect spelling variants, e.g. `{ "or", "our" }`. Used for scoring bonus and direct injection. |
 | `ScoreWeights` | `table` | Subset of the core weight keys (`lenDiff`, `longerPenalty`, `prefix`, `letterBag`, `bigram`, `kbProximity`, `firstCharBias`, `vowelBonus`), finite numbers with |v| ≤ 1000. |
-| `KBLayouts` | `table` | `{ LAYOUTNAME = { char = { x, y } } }` — up to 16 layouts, ≤256 keys each, coords within ±64. |
+| `KBLayouts` | `table` | `{ LAYOUTNAME = { char = { x, y } } }` — up to 16 layouts, ≤256 keys each, coords within ±64. Feeds proximity scoring and gates the autocorrect substitution prior: a single-letter swap only counts as an obvious typo when the two keys sit next to each other. |
 | `DefaultLayout` | `string` | Name of a key in `KBLayouts`; used when the user's saved layout is absent. |
 | `Locales` | `table` | Array of locale ids this engine serves (≤64). Lets core resolve the family before a dictionary loads. |
 | `DisplayName` | `string` | ≤64 bytes; shown in docs/debug output. |

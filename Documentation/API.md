@@ -196,7 +196,7 @@ State log entries have `{ time, old, new, file, func, line }`. `GetStateLogs` an
 - `YapperAPI:HideSuggestions() → boolean` ([`Src/API.lua#L869`](../Src/API.lua#L846)) — true means spellcheck was available and the hide operation was called; it does not necessarily mean a visible popup existed.
 - `YapperAPI:ApplySuggestion(index: number) → boolean` ([`Src/API.lua#L880`](../Src/API.lua#L857)) — accepts a one-based suggestion row.
 - `YapperAPI:FindMisspellings(text: string) → table[]|nil` ([`Src/API.lua#L893`](../Src/API.lua#L870)) — returns nil when disabled, unavailable, or empty; entries are `{ startPos, endPos, word }`.
-- `YapperAPI:ClearSuggestionCache() → boolean` ([`Src/API.lua#L1369`](../Src/API.lua#L1385)) — returns true when the spellcheck service cleared its cache.
+- `YapperAPI:ClearSuggestionCache() → boolean` ([`Src/API.lua#L1369`](../Src/API.lua#L1387)) — returns true when the spellcheck service cleared its cache.
 
 These wrappers return false or nil when spellcheck is unavailable or arguments are invalid.
 
@@ -247,21 +247,21 @@ Call sites should resolve at render time rather than caching text: dictionary ad
 
 ### Autocomplete and ghost text
 
-- `YapperAPI:GetAutocompleteSuggestion(word: string) → string|nil` ([`Src/API.lua#L1276`](../Src/API.lua#L1293)).
-- `YapperAPI:GetCaretOffset(editBox: EditBox) → number, number, number` ([`Src/API.lua#L1286`](../Src/API.lua#L1303)) — returns logical-pixel `x, y, height`, or `0, 0, 0` when the editbox is not the currently hooked one.
-- `YapperAPI:GetGhostFrame() → FontString|nil` ([`Src/API.lua#L1303`](../Src/API.lua#L1320)).
-- `YapperAPI:ShowGhostText(text: string, editBox: EditBox, prefix?: string, textUpToCursor?: string) → nil` ([`Src/API.lua#L1315`](../Src/API.lua#L1332)).
-- `YapperAPI:HideGhostText() → nil` ([`Src/API.lua#L1331`](../Src/API.lua#L1347)).
-- `YapperAPI:SetGhostTextOffset(offsetX: number, offsetY: number) → nil` ([`Src/API.lua#L1340`](../Src/API.lua#L1356)).
-- `YapperAPI:SyncGhostTextFont() → nil` ([`Src/API.lua#L1348`](../Src/API.lua#L1364)).
-- `YapperAPI:SetSpellcheckTooltipOffset(hintX?: number, hintY?: number, suggestX?: number, suggestY?: number) → nil` ([`Src/API.lua#L1360`](../Src/API.lua#L1376)).
+- `YapperAPI:GetAutocompleteSuggestion(word: string) → string|nil` ([`Src/API.lua#L1276`](../Src/API.lua#L1295)).
+- `YapperAPI:GetCaretOffset(editBox: EditBox) → number, number, number` ([`Src/API.lua#L1286`](../Src/API.lua#L1305)) — returns logical-pixel `x, y, height`, or `0, 0, 0` when the editbox is not the currently hooked one.
+- `YapperAPI:GetGhostFrame() → FontString|nil` ([`Src/API.lua#L1303`](../Src/API.lua#L1322)).
+- `YapperAPI:ShowGhostText(text: string, editBox: EditBox, prefix?: string, textUpToCursor?: string) → nil` ([`Src/API.lua#L1315`](../Src/API.lua#L1334)).
+- `YapperAPI:HideGhostText() → nil` ([`Src/API.lua#L1331`](../Src/API.lua#L1349)).
+- `YapperAPI:SetGhostTextOffset(offsetX: number, offsetY: number) → nil` ([`Src/API.lua#L1340`](../Src/API.lua#L1358)).
+- `YapperAPI:SyncGhostTextFont() → nil` ([`Src/API.lua#L1348`](../Src/API.lua#L1366)).
+- `YapperAPI:SetSpellcheckTooltipOffset(hintX?: number, hintY?: number, suggestX?: number, suggestY?: number) → nil` ([`Src/API.lua#L1360`](../Src/API.lua#L1378)).
 
 ### Settings categories
 
-- `YapperAPI:RegisterSettingsCategory(id: string, label: string, options: table) → boolean` ([`Src/API.lua#L1460`](../Src/API.lua#L1474)) — rejects invalid or duplicate IDs and caps registrations at 20. `options.render` must be a function when present; `options.schema` must be a table when present. At least one of `render`, `schema`, or the internal `_internal` flag is required. `options.internal = true` marks the category hidden from `GetRegisteredSettingsCategories()`.
-- `YapperAPI:UnregisterSettingsCategory(id: string) → nil` ([`Src/API.lua#L1500`](../Src/API.lua#L1511)) — ignores invalid or unknown IDs.
-- `YapperAPI:GetRegisteredSettingsCategories() → { { id: string, label: string } }` ([`Src/API.lua#L1518`](../Src/API.lua#L1528)) — returns newly-created `{ id, label }` tables for categories not marked `internal`.
-- `YapperAPI:OpenSettingsCategory(id: string) → boolean` ([`Src/API.lua#L1531`](../Src/API.lua#L1541)) — returns false for a non-string ID or unavailable Interface module. It passes string IDs to `Interface:OpenToCategory` and does not verify that a category with that ID exists.
+- `YapperAPI:RegisterSettingsCategory(id: string, label: string, options: table) → boolean` ([`Src/API.lua#L1460`](../Src/API.lua#L1476)) — rejects invalid or duplicate IDs and caps registrations at 20. `options.render` must be a function when present; `options.schema` must be a table when present. At least one of `render`, `schema`, or the internal `_internal` flag is required. `options.internal = true` marks the category hidden from `GetRegisteredSettingsCategories()`.
+- `YapperAPI:UnregisterSettingsCategory(id: string) → nil` ([`Src/API.lua#L1500`](../Src/API.lua#L1513)) — ignores invalid or unknown IDs.
+- `YapperAPI:GetRegisteredSettingsCategories() → { { id: string, label: string } }` ([`Src/API.lua#L1518`](../Src/API.lua#L1530)) — returns newly-created `{ id, label }` tables for categories not marked `internal`.
+- `YapperAPI:OpenSettingsCategory(id: string) → boolean` ([`Src/API.lua#L1531`](../Src/API.lua#L1543)) — returns false for a non-string ID or unavailable Interface module. It passes string IDs to `Interface:OpenToCategory` and does not verify that a category with that ID exists.
 
 ## Grouped aliases
 
