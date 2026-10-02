@@ -52,18 +52,31 @@ function EditBox:NavigateHistory(direction)
 
     if newIdx == self.HistoryIndex then return end
 
-    -- Leaving the bottom slot: stash any in-progress draft so navigating
-    -- back down restores it instead of wiping it.
+    -- Leaving the bottom slot: stash the in-progress draft (text plus the
+    -- channel context it was being written in) so navigating back down
+    -- restores it instead of wiping it.
     if self.HistoryIndex == #cache + 1 then
-        self.HistoryDraft = YapperTable.Recolour.CanonicalText(self.OverlayEdit)
+        self.HistoryDraft = {
+            text     = YapperTable.Recolour.CanonicalText(self.OverlayEdit),
+            chatType = self.ChatType,
+            target   = self.Target,
+            channel  = self.ChannelName,
+        }
     end
     self.HistoryIndex = newIdx
 
     if newIdx > #cache then
-        local draft = self.HistoryDraft or ""
+        local draft = self.HistoryDraft
         self.HistoryDraft = nil
-        self.OverlayEdit:SetText(draft)
-        self.OverlayEdit:SetCursorPosition(#draft)
+        local text = (draft and draft.text) or ""
+        self.OverlayEdit:SetText(text)
+        self.OverlayEdit:SetCursorPosition(#text)
+        if draft then
+            self.ChatType = draft.chatType
+            self.Target = draft.target
+            self.ChannelName = draft.channel
+            if self.RefreshLabel then self:RefreshLabel() end
+        end
     else
         local item = cache[newIdx]
         local text = ""

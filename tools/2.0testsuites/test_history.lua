@@ -409,16 +409,21 @@ History.GetChatHistory = function()
 end
 
 local overlay = MockEditBox("Overlay")
+local refreshCalls = 0
 EditBoxFacade.OverlayEdit = overlay
-EditBoxFacade.RefreshLabel = function() end
+EditBoxFacade.RefreshLabel = function() refreshCalls = refreshCalls + 1 end
 EditBoxFacade.HistoryIndex = nil
 EditBoxFacade.HistoryCache = nil
 EditBoxFacade.HistoryDraft = nil
+EditBoxFacade.ChatType = "WHISPER"
+EditBoxFacade.Target = "Someone"
+EditBoxFacade.ChannelName = nil
 overlay:SetText("my unfinished draft")
 
--- UP: stash the draft, land on the most recent sent entry.
+-- UP: stash the draft (with its whisper context), land on the newest entry.
 EditBoxFacade:NavigateHistory(-1)
 check("up recalls newest sent entry", overlay:GetText() == "second sent")
+check("recall applies entry chatType", EditBoxFacade.ChatType == "SAY")
 
 -- UP again: older entry, draft stays stashed.
 EditBoxFacade:NavigateHistory(-1)
@@ -431,6 +436,8 @@ EditBoxFacade:NavigateHistory(1)
 check("down past newest restores the draft", overlay:GetText() == "my unfinished draft")
 check("cursor at end of restored draft",
     overlay:GetCursorPosition() == #"my unfinished draft")
+check("draft chat context restored", EditBoxFacade.ChatType == "WHISPER"
+    and EditBoxFacade.Target == "Someone")
 
 -- Leaving and returning again still restores (snapshot retaken each time).
 EditBoxFacade:NavigateHistory(-1)
