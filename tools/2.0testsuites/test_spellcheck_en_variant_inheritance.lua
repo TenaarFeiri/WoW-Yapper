@@ -301,6 +301,72 @@ do
     check("Phonetic: in-range posting registers", SC.Dictionaries.enBase ~= nil)
 end
 
+do
+    -- Regression: the reshuffle budget used to cap ALL generated variants,
+    -- so for "doign" only the first three transpositions (odign, diogn,
+    -- dogin) were tried and "doing" (swap at position 4) never existed.
+    -- Mechanical slips (all transposes + all deletions) are bounded by
+    -- word length and must always be covered; the configured budget
+    -- applies to the substitution sweep on top.
+    local SC = newHarness()
+    SC._SCORE_WEIGHTS = {
+        prefix = 1, lenDiff = 1, longerPenalty = 1, firstCharBias = 1,
+        letterBag = 1, bigram = 1, vowelBonus = 1, kbProximity = 1,
+    }
+    SC._RAID_ICONS = {}
+    SC.GetDictionary = function(self) return self.Dictionaries.enUS end
+    SC.GetLocale = function() return "enUS" end
+    SC.GetMaxSuggestions = function() return 10 end
+    SC.GetMaxCandidates = function() return 100 end
+    SC.GetMaxWrongLetters = function() return 4 end
+    SC.GetMinWordLength = function() return 2 end
+    SC.GetReshuffleAttempts = function() return 3 end
+    SC.GetNgramTopCandidates = function() return 500 end
+    SC.GetSuggestionCacheSize = function() return 500 end
+    SC.GetIgnoredRanges = function() return {} end
+    SC.GetUserDict = function() return { AddedWords = {} } end
+    SC.GetUserSets = function() return {}, {} end
+    SC.GetBlockData = function() return nil, nil, nil, nil end
+    SC.GetMeta = function(_, _, word)
+        local bag = {}
+        for i = 1, #word do
+            local byte = string.byte(word, i)
+            bag[byte] = (bag[byte] or 0) + 1
+        end
+        return { bag = bag, bigrams = {} }
+    end
+    SC.GetActiveEngine = function()
+        return {
+            GetPhoneticHash = function() return "" end,
+            NormaliseWord = function(w) return (w or ""):lower() end,
+            NormaliseVowels = function(word) return word:gsub("[aeiouy]", "*") end,
+        }
+    end
+
+    local runtime = {
+        Config = { Spellcheck = { UseNgramIndex = true } },
+        Spellcheck = SC,
+        Utils = { Print = function() end },
+    }
+    local engineFile = assert(loadfile("Src/Spellcheck/Engine.lua") or loadfile("../../Src/Spellcheck/Engine.lua"))
+    engineFile("Yapper", runtime)
+
+    SC:RegisterDictionary("enUS", {
+        words = { "doing", "deign", "dog", "dig", "don", "dozing" },
+        languageFamily = "en", engine = {},
+    })
+
+    local suggestions = SC:GetSuggestions("doign")
+    local foundDoing = false
+    for _, suggestion in ipairs(suggestions) do
+        if suggestion.kind == "word" and suggestion.value == "doing" then
+            foundDoing = true
+            break
+        end
+    end
+    check("Reshuffle: late transposition candidate generated", foundDoing)
+end
+
 if failures > 0 then
     print(("FAILED: %d checks failed"):format(failures))
     os.exit(1)

@@ -735,6 +735,10 @@ end
 
 --- Score a single candidate and append to the output list if it passes.
 local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
+    -- Phonetic membership is a property of the word, not the generator that
+    -- found it: a reshuffle variant that shares the input's hash still earns
+    -- the phonetic bonus even though the phonetic pool was skipped.
+    isPhonetic = isPhonetic or (ctx.phoneticSet ~= nil and ctx.phoneticSet[candidate] == true)
     local lower = ctx.lower
     local lowerLen = ctx.lowerLen
     local candidateLen = #candidate
@@ -880,6 +884,11 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap,
     local maxDist = (ctx.lowerLen <= 4) and 2 or 3
     local attempts = self:GetReshuffleAttempts() or 0
     if attempts <= 0 then return checks end
+    -- Adjacent transpositions and single deletions are bounded by word
+    -- length and are the classic mechanical slips; always cover them
+    -- fully.  The configured budget applies to the substitution sweep
+    -- on top of those.
+    attempts = attempts + ((ctx.lowerLen - 1) + ctx.lowerLen)
 
     local variants = self._scratchVariants
     if not variants then
@@ -1087,6 +1096,11 @@ function Spellcheck:GetSuggestions(word)
     local inputBag, inputBigrams = BuildInputMeta(self, lower)
     local ctx = MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale, engine)
     ctx.prevWord = prevNorm ~= "" and prevNorm or nil
+    if #phoneticCandidates > 0 then
+        local set = {}
+        for _, c in ipairs(phoneticCandidates) do set[c] = true end
+        ctx.phoneticSet = set
+    end
 
     local addedSet, ignoredSet, userBlockedSet = self:GetUserSets(self:GetLocale())
     local _, _, engineHashes, engineHashFn = self:GetBlockData(locale)
@@ -1153,17 +1167,26 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    -- 2. Phonetic candidates (high priority)
+    -- 2. Reshuffles (mechanical slips: transposes, deletes, near-key
+    --    replacements).  Highest-precision structural candidates, run
+    --    before phonetics and the broad prefix sweep — on a large
+    --    dictionary those pools can exhaust the shared check budget and
+    --    reshuffles would never run.
+    if not aborted and #out < maxCount and checks < dynamicCap then
+        checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
+    end
+
+    -- 3. Phonetic candidates (high priority)
     if not aborted and #phoneticCandidates > 0 then
         aborted = tryCandidates(phoneticCandidates, true)
     end
 
-    -- 3. Direct locale variant injection (only when the active engine has variant rules)
+    -- 4. Direct locale variant injection (only when the active engine has variant rules)
     if ctx.isVariantLocale then
         InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engineHashFn)
     end
 
-    -- 4. Bucket prefix candidates (2-char > 1-char > other)
+    -- 5. Bucket prefix candidates (2-char > 1-char > other)
     local pref2 = {}
     local pref1 = {}
     local other = {}
@@ -1188,20 +1211,15 @@ function Spellcheck:GetSuggestions(word)
             #pref2, #pref1, #other, dynamicCap, maxDist, maxLenDiff))
     end
 
-    -- 5. N-gram candidates
+    -- 6. N-gram candidates
     if not aborted and ngramCandidates and #ngramCandidates > 0 then
         aborted = tryCandidates(ngramCandidates)
     end
 
-    -- 6. Prefix buckets (ordered by relevance)
+    -- 7. Prefix buckets (ordered by relevance)
     if not aborted then aborted = tryCandidates(pref2) end
     if not aborted then aborted = tryCandidates(pref1) end
     if not aborted then tryCandidates(other) end
-
-    -- 7. Reshuffle fallback
-    if not aborted and #out < maxCount and checks < dynamicCap then
-        checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
-    end
 
     if IsDebugEnabled() then
         self:Notify("Spellcheck:GetSuggestions finished checks=" ..
