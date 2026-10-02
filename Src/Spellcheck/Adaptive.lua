@@ -627,6 +627,64 @@ local function FeatureVector(db, t, c, cand, prevWord, typoPhHash)
     return f
 end
 
+--- Is `a` -> `b` a clean mechanical edit?  Returns a confidence prior.
+--- The caller already vetted `a` as misspelled, so an adjacent transposition
+--- or a true distance-1 edit is an obvious correction even on a cold
+--- profile ("tihs" -> "this").  Deliberately stricter than ClassifyEdit:
+--- insert/delete requires the remainder to match exactly, and substitute
+--- requires exactly one differing byte.
+-- kbDist (optional): flat 676-entry distance table from the engine's active
+-- keyboard layout; gates the substitution prior on key adjacency.
+local function MechanicalTypoPrior(a, b, kbDist)
+    if a == b then return 0 end
+    local la, lb = #a, #b
+    if la == lb then
+        local d1, d2
+        for i = 1, la do
+            if a:byte(i) ~= b:byte(i) then
+                if not d1 then d1 = i
+                elseif not d2 then d2 = i
+                else return 0 end -- 3+ differing bytes: not a clean single op
+            end
+        end
+        if d1 and d2 then
+            if d2 == d1 + 1 and a:byte(d1) == b:byte(d2) and a:byte(d2) == b:byte(d1) then
+                return 0.85 -- adjacent transposition
+            end
+            return 0 -- two substitutions: not obvious
+        end
+        if d1 then
+            -- Single substitution: a plausible slip only when the two keys
+            -- sit next to each other on the active layout.  Distant keys
+            -- are weaker evidence, not zero.
+            if la >= 5 and kbDist then
+                local i1 = a:byte(d1) - 97
+                local i2 = b:byte(d1) - 97
+                local kd = kbDist[i1 * 26 + i2 + 1]
+                if kd then
+                    return (kd <= 1.5) and 0.80 or 0.50
+                end
+            end
+            return (la >= 5) and 0.80 or 0.35
+        end
+        return 0
+    end
+    if lb == la + 1 or la == lb + 1 then
+        -- Length delta of 1: single insertion or deletion, and only when the
+        -- remaining bytes all match.
+        local long  = (lb > la) and b or a
+        local short = (lb > la) and a or b
+        for i = 1, #short do
+            if short:byte(i) ~= long:byte(i) then
+                if short:sub(i) ~= long:sub(i + 1) then return 0 end
+                break
+            end
+        end
+        return (#short >= 4) and 0.80 or 0.45
+    end
+    return 0
+end
+
 --- Checks if a word passes sanity filters for learning (length, consonant
 --- clusters, keyboard smash, engine veto, n-gram anchors).
 ---@param w string The word to check (should be lowercase, no punctuation).
@@ -947,6 +1005,23 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
         entry.c = entry.c + 1
         entry.t = now
         if gain > 0 then entry.u = math_min((entry.u or 1) + gain, 5.0) end
+    end
+
+    -- A manual pick of a previously auto-reverted pair cancels the
+    -- rejection: drop the negBias entry and lift the session suppression so
+    -- the correction returns to autocorrect eligibility.
+    if db.negBias and db.negBias[key] then
+        db.negBias[key] = nil
+        db.negBiasCount = math_max(0, (db.negBiasCount or 1) - 1)
+    end
+    -- A user-driven correction of the token works off one revert's caution
+    -- (gain 0 = an auto-apply recording, not user endorsement).
+    if gain > 0 and rec and (rec.autoReverted or 0) > 0 then
+        rec.autoReverted = rec.autoReverted - 1
+    end
+    local ac = sc and sc.Autocorrect
+    if ac and ac.ClearSuppression then
+        ac:ClearSuppression(typo, correction)
     end
 
     -- Bump revision so the suggestion cache knows to recompute scores.
@@ -1362,10 +1437,15 @@ end
 ---   vetoReasons: { intentional, waiver, recentRecorrect, engineVeto }
 --- INTENTIONAL/WAIVER intent is a hard veto forever; engine AutocorrectVeto
 --- and MaxConfidence are respected; self-eval suspends the AUTO tier.
+--- recentRecorrect halves confidence while auto-reverts on the token
+--- outnumber the user's manual corrections of it.
 function YAS:ClassifySuggestion(typo, candidate, locale, prevWord)
     if not self:IsEnabled() then return nil end
     if type(typo) ~= "string" or type(candidate) ~= "string" then return nil end
-    local db = self:GetLocaleDB(locale, true)
+    -- Not a pure read: autocorrect decisions and their reverts write into
+    -- this partition, so a missing one is created rather than returning nil
+    -- (a fresh profile could otherwise never reach the AUTO tier).
+    local db = self:GetLocaleDB(locale)
     if not db then return nil end
 
     local t = Clean(typo)
@@ -1388,7 +1468,11 @@ function YAS:ClassifySuggestion(typo, candidate, locale, prevWord)
         elseif cls == "WAIVER" then
             veto.waiver = true
         end
-        if (rec.corrected or 0) > 0 then
+        -- autoReverted counts unresolved autocorrect reverts on this token:
+        -- each revert adds one, each user-driven correction works one off.
+        -- (Not `corrected` — that also counts manual retypes, which are
+        -- accident evidence in favour of correcting, and only ever grows.)
+        if (rec.autoReverted or 0) > 0 then
             veto.recentRecorrect = true
         end
     end
@@ -1418,6 +1502,18 @@ function YAS:ClassifySuggestion(typo, candidate, locale, prevWord)
                + math_min(f.freq * 0.05, 0.15)
                + math_min(f.ph * 0.10, 0.15)
                + math_min(f.bigram * 0.04, 0.10)
+               - math_min(f.neg * 0.15, 0.50)  -- persistent rejection penalty
+
+    -- Mechanical-typo prior: obvious single-op corrections reach AUTO even
+    -- with no learned evidence; vetoes and self-eval suspension still apply.
+    -- Substitutions are gated on keyboard adjacency when the engine ships
+    -- layout data (doign->doing is a slip; doign->deign is not).
+    local kbDist
+    local kbLayouts = engine and engine.KBLayouts
+    if kbLayouts and sc.GetKeyboardLayout then
+        kbDist = sc:_GetKBDistFromLayouts(kbLayouts, sc:GetKeyboardLayout())
+    end
+    conf = conf + MechanicalTypoPrior(t, c, kbDist)
     if veto.recentRecorrect then
         conf = conf * 0.5   -- a re-corrected pair earns half trust
     end
@@ -1541,10 +1637,13 @@ function YAS:RecordAutoReject(typo, correction, locale)
     local wrote = false
 
     -- Intent bookkeeping: a reverted correction is correction evidence on
-    -- the typo token (blocks INTENTIONAL promotion of the typo).
+    -- the typo token (blocks INTENTIONAL promotion of the typo), plus a
+    -- dedicated revert tally that halves confidence until the user works
+    -- it off by manually correcting the token again (see RecordSelection).
     local rec = GetIntentRecord(db, t)
     if rec then
         rec.corrected = rec.corrected + 1
+        rec.autoReverted = (rec.autoReverted or 0) + 1
         rec.c = rec.c + 1
         rec.lastSeen = now
         rec.t = now

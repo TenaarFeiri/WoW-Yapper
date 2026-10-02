@@ -530,13 +530,49 @@ YapperTable.Config.Spellcheck.YASEnabled = nil
 print("")
 print("=== 10. Autocorrect scaffold (Phase 4) ===")
 
--- 10a. Bare token: classification works, no evidence -> OFFER.
+-- 10a. Mechanical-typo prior: a clean single-op edit reaches AUTO on a
+-- completely cold profile; a divergent pair still lands on OFFER.
 YAS:Reset("enUS")
 db = YAS:GetLocaleDB("enUS")
-local d = YAS:ClassifySuggestion("aple", "apple", "enUS")
+local d = YAS:ClassifySuggestion("tihs", "this", "enUS")
 assert_bool(d ~= nil, true, "ClassifySuggestion returns a decision")
-assert_eq(d.tier, "OFFER", "No evidence -> OFFER tier")
-assert_bool(d.vetoReasons.intentional, false, "No intent veto on bare token")
+assert_eq(d.tier, "AUTO", "Adjacent transposition is an obvious cold-start correction")
+local dCold = YAS:ClassifySuggestion("aple", "apple", "enUS")
+assert_eq(dCold.tier, "AUTO", "Single missing-letter typo reaches AUTO cold")
+local dFar = YAS:ClassifySuggestion("aple", "grape", "enUS")
+assert_eq(dFar.tier, "OFFER", "Divergent candidate with no evidence -> OFFER")
+assert_bool(dFar.vetoReasons.intentional, false, "No intent veto on bare token")
+
+-- 10a2. Persistent rejection penalty: a negBias'd pair drops out of AUTO.
+db.negBias["tihs:this"] = { c = 2, t = time(), u = 1.0 }
+local dNeg = YAS:ClassifySuggestion("tihs", "this", "enUS")
+assert_bool(dNeg.tier ~= "AUTO", true, "negBias suppresses AUTO across sessions")
+
+-- 10a2b. A reverted autocorrection also halves via the token's autoReverted
+-- tally; bare `corrected` counts (manual retype evidence) must NOT halve.
+db.intent["tihs"] = { c = 1, t = time(), sentUnchanged = 0, waived = 0,
+    accepted = 0, corrected = 1, autoReverted = 1, lastSeen = time() }
+db.intent["hellp"] = { c = 1, t = time(), sentUnchanged = 0, waived = 0,
+    accepted = 0, corrected = 3, lastSeen = time() }
+local dHalved = YAS:ClassifySuggestion("tihs", "this", "enUS")
+assert_bool(dHalved.tier ~= "AUTO", true, "Unresolved auto-revert halves below AUTO")
+assert_bool(dHalved.vetoReasons.recentRecorrect, true, "recentRecorrect veto set")
+local dTypoOnly = YAS:ClassifySuggestion("hellp", "hello", "enUS")
+assert_eq(dTypoOnly.tier, "AUTO", "Manual-retype evidence alone does not halve")
+
+-- 10a3. Manually correcting the same pair cancels the rejection and lifts
+-- the autocorrect session suppression.
+local liftedPair
+YapperTable.Spellcheck.Autocorrect = {
+    ClearSuppression = function(_, t, c) liftedPair = t .. "->" .. c end,
+}
+YAS:RecordSelection("tihs", "this", 0.5, "enUS")
+assert_bool(db.negBias["tihs:this"] == nil, true, "Manual re-pick clears negBias pair")
+assert_eq(liftedPair, "tihs->this", "Manual re-pick lifts session suppression")
+assert_bool((db.intent["tihs"].autoReverted or 0) == 0, true,
+    "Manual re-pick works off the revert tally")
+local dRe = YAS:ClassifySuggestion("tihs", "this", "enUS")
+assert_eq(dRe.tier, "AUTO", "Manual re-pick restores AUTO eligibility")
 
 -- 10b. INTENTIONAL token is a hard SUPPRESS veto.
 db.intent["rpname"] = { c = 1, t = time(), pinned = "INTENTIONAL", sentUnchanged = 5 }
@@ -589,6 +625,31 @@ assert_eq(db.autocorrLog[1].s, "apple", "Log records suggestion")
 for i = 1, 80 do YAS:ShadowClassify("w"..i, "apple", "enUS") end
 assert_bool(#db.autocorrLog <= 50, true, "autocorrLog bounded at 50")
 YapperTable.Config.Spellcheck.YASAutocorrectShadow = nil
+
+-- 10f2. Keyboard adjacency gates the substitution prior.  doign->doing is
+-- an adjacent transposition (AUTO); doign->deign is an o->e substitution
+-- far apart on QWERTY, so it keeps only weak mechanical evidence.
+local kb = {}
+for i = 1, 676 do kb[i] = 99 end
+local function setKd(a, b, d)
+    kb[(string.byte(a) - 97) * 26 + (string.byte(b) - 97) + 1] = d
+    kb[(string.byte(b) - 97) * 26 + (string.byte(a) - 97) + 1] = d
+end
+setKd("p", "o", 1.0) -- QWERTY-adjacent pair used by the sub case below
+YapperTable.Spellcheck.GetActiveEngine = function() return { KBLayouts = { QWERTY = {} } } end
+YapperTable.Spellcheck.GetKeyboardLayout = function() return "QWERTY" end
+YapperTable.Spellcheck._GetKBDistFromLayouts = function() return kb end
+YAS:Reset("enUS")
+db = YAS:GetLocaleDB("enUS")
+local dTrans = YAS:ClassifySuggestion("doign", "doing", "enUS")
+assert_eq(dTrans.tier, "AUTO", "Adjacent transposition still AUTO with layout data")
+local dDist = YAS:ClassifySuggestion("doign", "deign", "enUS")
+assert_bool(dDist.tier ~= "AUTO", true, "Distant-key substitution does not reach AUTO")
+local dNear = YAS:ClassifySuggestion("hellp", "hello", "enUS")
+assert_eq(dNear.tier, "AUTO", "Adjacent-key substitution keeps AUTO")
+YapperTable.Spellcheck.GetActiveEngine = nil
+YapperTable.Spellcheck.GetKeyboardLayout = nil
+YapperTable.Spellcheck._GetKBDistFromLayouts = nil
 
 -- 10g. Undo ring: LIFO, bounded, session-only.
 YAS:Reset("enUS")
