@@ -563,6 +563,7 @@ Slash command forwarding.
 - File: [`../Src/Hooks/Slash.lua`](../Src/Hooks/Slash.lua)
 - Methods:
   - `EditBox:ForwardSlashCommand(text)` - Forward slash command to Blizzard editbox.
+  - `EditBox:ForwardJoinChannel(text)` - Emulate `/join` via `JoinPermanentChannel` so Blizzard's slash handler never writes Yapper-tainted values into `channelList`/`zoneChannelList` (iterated by `MessageEventHandler` for every channel event; tainted entries re-taint the dispatch and error on secret compares under restrictions).
 
 ## Hooks.Blizzard
 
@@ -639,8 +640,9 @@ Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
   - `LockdownPolicy:IsChatLockdown() → boolean`: Returns true when chat messaging lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L53`](../Src/Policies/LockdownPolicy.lua#L53))
   - `LockdownPolicy:IsCombatLockdown() → boolean`: Returns true when protected-frame combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L66`](../Src/Policies/LockdownPolicy.lua#L66))
   - `LockdownPolicy:IsChatOrCombatLockdown() → boolean`: Returns true when either chat or combat lockdown is active. ([`../Src/Policies/LockdownPolicy.lua#L71`](../Src/Policies/LockdownPolicy.lua#L71))
-  - `LockdownPolicy:IsProtectedSlashCommand(command) → boolean`: Returns true when a slash command token (e.g. "/m") resolves to an action insecure code cannot run during combat lockdown — secure registry commands via `IsSecureCmd` plus curated non-secure commands that call protected APIs. ([`../Src/Policies/LockdownPolicy.lua#L133`](../Src/Policies/LockdownPolicy.lua#L133))
-  - `LockdownPolicy:IsAlwaysForbiddenSlashCommand(command) → boolean`: Returns true for targeting and focus slash commands whose protected Blizzard handlers must never be dispatched through Yapper's tainted forwarding path. ([`../Src/Policies/LockdownPolicy.lua#L150`](../Src/Policies/LockdownPolicy.lua#L150))
+  - `LockdownPolicy:IsProtectedSlashCommand(command) → boolean`: Returns true when a slash command token (e.g. "/m") resolves to an action insecure code cannot run during combat lockdown — secure registry commands via `IsSecureCmd` plus curated non-secure commands that call protected APIs. ([`../Src/Policies/LockdownPolicy.lua#L143`](../Src/Policies/LockdownPolicy.lua#L143))
+  - `LockdownPolicy:IsAlwaysForbiddenSlashCommand(command) → boolean`: Returns true for targeting and focus slash commands whose protected Blizzard handlers must never be dispatched through Yapper's tainted forwarding path. ([`../Src/Policies/LockdownPolicy.lua#L160`](../Src/Policies/LockdownPolicy.lua#L160))
+  - `LockdownPolicy:IsEmulatedSlashCommand(command) → boolean`: Returns true for slash commands (e.g. "/join") Yapper emulates locally instead of forwarding through Blizzard's `SendText` dispatch, because the Blizzard handler would write tainted values into persistent chat-frame state (`channelList`) that re-taints later chat-event dispatches. ([`../Src/Policies/LockdownPolicy.lua#L172`](../Src/Policies/LockdownPolicy.lua#L172))
   - `LockdownPolicy:HasAddOnRestrictionAPI() → boolean`: Returns true when the client exposes the WoW 12.x `C_RestrictedActions` / `Enum.AddOnRestrictionType` surface. ([`../Src/Policies/LockdownPolicy.lua#L18`](../Src/Policies/LockdownPolicy.lua#L18))
   - `LockdownPolicy:IsAddOnRestrictionActive(restrictionType) → boolean`: Returns true when a single `Enum.AddOnRestrictionType` is enforced. ([`../Src/Policies/LockdownPolicy.lua#L28`](../Src/Policies/LockdownPolicy.lua#L28))
   - `LockdownPolicy:IsAnyAddOnRestrictionActive() → boolean`: Returns true while any addon restriction type is enforced; non-chat restrictions leave messaging usable but poison Blizzard-produced data with secret values, so tainted calls into Blizzard handlers can error on secret comparisons. ([`../Src/Policies/LockdownPolicy.lua#L42`](../Src/Policies/LockdownPolicy.lua#L42))
