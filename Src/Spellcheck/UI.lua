@@ -239,10 +239,30 @@ function Spellcheck:OnTextChanged(editBox, isUserInput)
         self._textChangedFlag = true
         self._lastTypingTime = GetTime()
 
+        local text, cursor = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
+
+        -- Autocorrect: the backspace-revert window lives for exactly one
+        -- keystroke; then a boundary char may commit the completed word.
+        -- Either may rewrite the text, so re-read canonical afterwards.
+        local ac = self.Autocorrect
+        local reverted = false
+        if ac and ac.OnUserTextChanged then
+            reverted = ac:OnUserTextChanged(editBox, text, cursor) == true
+            if reverted then
+                text, cursor = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
+            end
+        end
+        if not reverted and ac and ac.OnBoundaryCommit and ac:IsEnabled() then
+            local cls = self.ClassifyBoundary and self:ClassifyBoundary(text, cursor) or "none"
+            if cls == "commit" or cls == "close" then
+                ac:OnBoundaryCommit(editBox, text, cursor)
+                text = YapperTable.Recolour.CanonicalText(editBox)
+            end
+        end
+
         -- Word-boundary chars (space/punctuation) refresh immediately.
         -- Read canonical text: the display text may end in a "|r" reset,
         -- which would hide the real last character from this check.
-        local text = YapperTable.Recolour.CanonicalText(editBox)
         local lastChar = string_sub(text, -1)
         if lastChar:match("[%s%.%,%!%?%:%;]") then
             self:ScheduleRefresh(0)
@@ -296,6 +316,8 @@ function Spellcheck:OnOverlayHide()
     self:HideSuggestions()
     YapperTable.Recolour:Clear(self.EditBox)
     self:HideHint()
+    local ac = self.Autocorrect
+    if ac and ac.OnOverlayHide then ac:OnOverlayHide() end
 end
 
 function Spellcheck:ScheduleRefresh(delay)
@@ -764,8 +786,10 @@ function Spellcheck:OpenOrCycleSuggestions()
         return
     end
 
-    local suggestions = self:GetSuggestions(self.ActiveWord)
-    if type(suggestions) ~= "table" then suggestions = {} end
+    -- A live autocorrection under the caret offers "Restore '<original>'"
+    -- as row 1 (see _WithRevertEntry — always copies, the list may be the
+    -- shared cache entry).
+    local suggestions = self:_WithRevertEntry(self:GetSuggestions(self.ActiveWord))
     local sugCount = #suggestions
     if IsDebugEnabled() then
         self:Notify("Spellcheck:OpenOrCycleSuggestions word='" ..
@@ -990,6 +1014,21 @@ function Spellcheck:ApplySuggestion(index)
     local sugIndex = (self._suggestionOffset or 0) + index
     local entry = self.ActiveSuggestions[sugIndex]
     if not entry then return end
+
+    -- "Restore '<original>'" on a corrected word: revert the autocorrection
+    -- exactly like an immediate backspace (rejection signal + suppression).
+    if type(entry) == "table" and entry.kind == "revert" then
+        local ac = self.Autocorrect
+        local corr = self._revertCorrection
+        if ac and corr and ac.RevertCorrection then
+            ac:RevertCorrection(self.EditBox, corr, "suggestion")
+        end
+        self._revertCorrection = nil
+        self:HideSuggestions()
+        self._textChangedFlag = true
+        self:ScheduleRefresh()
+        return
+    end
 
     -- YAS usefulness: did learning push the pick ahead of the natural #1?
     local isUseful = false

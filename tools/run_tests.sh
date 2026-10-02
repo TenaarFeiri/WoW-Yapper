@@ -40,6 +40,8 @@ GATING_FROM_ROOT=(
     test_forever_names
     test_recolour
     test_engine_contract
+    test_autocorrect
+    test_toast
     test_sendposts_strip
     test_shadow_tint
     test_help_content

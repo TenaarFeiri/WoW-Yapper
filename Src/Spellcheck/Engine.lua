@@ -127,6 +127,58 @@ function Spellcheck:ShouldCheckWord(word, minLen, engine)
     return true
 end
 
+-- Punctuation that "closes" a word in the core default: a committed boundary
+-- AND a snap-back target (an auto-inserted space hops after it).
+local SNAPBACK_BYTES = {
+    [46] = true, -- .
+    [44] = true, -- ,
+    [33] = true, -- !
+    [63] = true, -- ?
+    [59] = true, -- ;
+    [58] = true, -- :
+}
+
+--- Classify the byte at `pos` (1-based) of canonical `text` for word-boundary
+--- purposes.  An engine may override via the optional ClassifyBoundary
+--- contract field; nil/"" means "no opinion" and falls through to the core
+--- default below, which encodes English conventions:
+---
+---   "commit" — boundary that completes a word (space, newline)
+---   "close"  — commit boundary that also snaps an auto-inserted space to
+---              AFTER itself (.,!?;: and a parity-closing '"')
+---   "open"   — opens a quote/span; not a word boundary; an auto-inserted
+---              space before it stays (opening '"' under English parity)
+---   "none"   — any other byte; not a word boundary
+---
+--- '"' is ambiguous in English: it opens or closes a quotation.  Parity of
+--- the '"' bytes before `pos` decides — odd means one is unclosed, so this
+--- one closes (boundary); even means it opens (not a boundary).  Completed
+--- quote pairs earlier in the text cancel out automatically.
+function Spellcheck:ClassifyBoundary(text, pos)
+    if type(text) ~= "string" or type(pos) ~= "number" then return "none" end
+    local engine = self:GetActiveEngine()
+    if engine and engine.ClassifyBoundary then
+        local r = self:_SafeEngineCall(engine, "ClassifyBoundary", false, text, pos)
+        if r == "commit" or r == "close" or r == "open" or r == "none" then
+            return r
+        end
+        -- nil/""/invalid: no opinion — core default below.
+    end
+    local b = string_byte(text, pos)
+    if not b then return "none" end
+    if b == 32 or b == 10 or b == 13 then return "commit" end
+    if SNAPBACK_BYTES[b] then return "close" end
+    if b == 34 then -- '"'
+        local parity = 0
+        for i = 1, pos - 1 do
+            if string_byte(text, i) == 34 then parity = 1 - parity end
+        end
+        if parity == 1 then return "close" end
+        return "open"
+    end
+    return "none"
+end
+
 function Spellcheck:GetIgnoredRanges(text)
     -- Called twice per spellcheck pass on identical text and does five
     -- full-text scans, so memoize on the text itself; the one-entry cache
@@ -303,6 +355,8 @@ function Spellcheck:UpdateActiveWord()
         self:ResolveImplicitTrace(false)
     end
 
+    self._revertCorrection = nil
+
     if not wordInfo then
         self.ActiveWord = nil
         self.ActiveRange = nil
@@ -311,10 +365,18 @@ function Spellcheck:UpdateActiveWord()
     end
 
     if YapperAPI:CheckWord(wordInfo.word) then
-        self.ActiveWord = nil
-        self.ActiveRange = nil
-        self:HideSuggestions()
-        return
+        -- A word we autocorrected stays "active" so the suggestion popup
+        -- can offer "Restore '<original>'" while the correction is live.
+        local ac = self.Autocorrect
+        local corr = ac and ac.LiveCorrectionAt
+            and ac:LiveCorrectionAt(self.EditBox, wordInfo.startPos, wordInfo.endPos)
+        if not corr then
+            self.ActiveWord = nil
+            self.ActiveRange = nil
+            self:HideSuggestions()
+            return
+        end
+        self._revertCorrection = corr
     end
 
     self.ActiveWord = wordInfo.word
@@ -337,7 +399,7 @@ function Spellcheck:UpdateActiveWord()
 
         local suggestions = nil
         if needCompute then
-            suggestions = self:GetSuggestions(self.ActiveWord)
+            suggestions = self:_WithRevertEntry(self:GetSuggestions(self.ActiveWord))
             self._lastSuggestionsText = currentText
             self._lastSuggestionsLocale = locale
             self._lastSuggestionsUserRev = userRev
@@ -358,6 +420,18 @@ function Spellcheck:UpdateActiveWord()
             self:ShowSuggestions()
         end
     end
+end
+
+--- Prepend a "Restore '<original>'" row when the active word sits inside a
+--- live autocorrection.  Always copies — GetSuggestions may return a cached
+--- table shared across callers.
+function Spellcheck:_WithRevertEntry(suggestions)
+    if type(suggestions) ~= "table" then suggestions = {} end
+    local corr = self._revertCorrection
+    if not corr then return suggestions end
+    local out = { { kind = "revert", value = corr.original } }
+    for i = 1, #suggestions do out[#out + 1] = suggestions[i] end
+    return out
 end
 
 function Spellcheck:GetWordAtCursor(text, cursor)
@@ -1329,6 +1403,7 @@ function Spellcheck:FormatSuggestionLabel(entry, index)
         if entry.kind == "split"  then return index .. ". Split: " .. v end
         if entry.kind == "add"    then return index .. ". Add \"" .. v .. "\" to dictionary" end
         if entry.kind == "ignore" then return index .. ". Ignore \"" .. v .. "\"" end
+        if entry.kind == "revert" then return index .. ". Restore \"" .. v .. "\"" end
         return index .. ". " .. v
     end
     if type(entry) == "string" then
@@ -1345,6 +1420,9 @@ function Spellcheck:FormatSuggestionLabel(entry, index)
     end
     if entry.kind == "ignore" then
         return L:Get("ui.spellcheck.ignore", index, entry.value or "")
+    end
+    if entry.kind == "revert" then
+        return L:Get("ui.spellcheck.revert", index, entry.value or "")
     end
     return L:Get("ui.spellcheck.row", index, entry.value or entry.word or "")
 end

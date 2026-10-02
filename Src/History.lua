@@ -357,6 +357,10 @@ function History:Undo(editbox)
     local buf = GetUndoBuffer(editbox)
     if not buf then return end
 
+    -- Canonical read before the restore: the autocorrect module diffs
+    -- (current -> restored) to detect a correction being reverted.
+    local prevText = YapperTable.Recolour.CanonicalText(editbox)
+
     self:AddSnapshot(editbox, true)
     if buf.position <= 1 then return end
 
@@ -367,6 +371,12 @@ function History:Undo(editbox)
 
     local name = editbox.GetName and editbox:GetName()
     if name then LastText[name] = entry.text end
+
+    local sc = YapperTable.Spellcheck
+    local ac = sc and sc.Autocorrect
+    if ac and ac.OnUndo then
+        ac:OnUndo(editbox, prevText, entry.text)
+    end
 end
 
 function History:Redo(editbox)

@@ -56,6 +56,7 @@ local VALID_CALLBACKS = {
     SPELLCHECK_WORD_ADDED           = true, -- (word, locale) word added to user dictionary
     SPELLCHECK_WORD_IGNORED         = true, -- (word, locale) word marked as ignored
     YAS_WORD_LEARNED                = true, -- (word, locale) YAS auto-promoted a word
+    AUTOCORRECT_APPLIED             = true, -- (original, replacement) autocorrect rewrote a word
     QUEUE_STALL                     = true, -- (chatType, policyClass, chunksRemaining) ack stall detected
     QUEUE_COMPLETE                  = true, -- () queue finished delivering all chunks
     ICON_GALLERY_SHOW               = true, -- (query) raid-icon gallery opened
