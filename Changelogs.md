@@ -31,6 +31,7 @@
 - Fixed phonetic divergences between the shipped engines and the dictionary generators: repeated-letter runs collapsed differently (zzz -> S, not SS), and non-ASCII characters could be dropped entirely because Lua's `string.upper` is ASCII-only.
 - The blocklist generator only hashed one word form. Anything with apostrophes, digits, or non-ASCII characters hashed differently at runtime and slipped through. It now emits every surface the engine checks, including leetspeak-folded variants.
 - A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
+- Forwarded `/join`, `/channel`, and `/chan` no longer run Blizzard's slash handler, which writes the channel name into the chat frame's channel list -- doing that write inside Yapper's tainted execution caused "secret value" chat errors in delves and other restricted content. Yapper now joins via the client API directly; joining works the same, and a freshly-joined custom channel may not display messages until the chat config next refreshes (reload or zone change).
 
 # 2.4.5
 

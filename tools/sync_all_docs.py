@@ -81,7 +81,11 @@ def get_doc_target(rel_lua_path):
 
 # Regex to find links like ([`../Path/File.lua#L123`](../Path/File.lua#L123))
 # or ([`File.lua#L123`](`../File.lua#L123`))
-LINK_RE = re.compile(r'\(\[`([^#]+)#L(\d+)`\]\(`?([^#`)]+)`?#L(\d+)`?\)\)')
+# Exclude \n from every span: without it a bare file link (no #L anchor) can
+# swallow the NEXT line's anchor, pairing the wrong symbol with that line's
+# line number — this actually rewrote an `_OnDictRegistrationComplete -> L421`
+# link to a `RegisterDictionary` position.
+LINK_RE = re.compile(r'\(\[`([^#\n]+)#L(\d+)`\]\(`?([^#`)\n]+)`?#L(\d+)`?\)\)')
 
 # Functions that are intentionally undocumented (internal implementation details)
 IGNORED_FUNCTIONS = {

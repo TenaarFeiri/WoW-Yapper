@@ -110,6 +110,16 @@ local ALWAYS_FORBIDDEN_COMMANDS = {
     ["/CLEARFOCUS"] = true,
 }
 
+-- Slash commands Yapper emulates locally instead of forwarding to
+-- Blizzard's dispatcher. Blizzard's handlers for these persist user-derived
+-- text into chat-frame state that later event dispatches read back; a write
+-- made under our tainted execution re-taints every dispatch that touches it
+-- and trips secret-value compares under addon restrictions.
+local EMULATED_COMMAND_KEYS = {
+    "JOIN", -- /join, /channel, /chan -- emulated via JoinPermanentChannel so the
+            -- handler's channelList/zoneChannelList write never runs
+}
+
 local function MatchesCommandAlias(command, keys)
     local upper = command:upper()
     for _, key in ipairs(keys) do
@@ -152,4 +162,14 @@ function LockdownPolicy:IsAlwaysForbiddenSlashCommand(command)
     local upper = command:upper()
     return ALWAYS_FORBIDDEN_COMMANDS[upper]
         or MatchesCommandAlias(command, ALWAYS_FORBIDDEN_COMMAND_KEYS)
+end
+
+--- Returns true for slash commands Yapper emulates locally rather than
+--- forwarding through Blizzard's SendText dispatch, because the Blizzard
+--- handler would write tainted values into persistent chat-frame state.
+--- @param command string  Slash command including the leading slash.
+--- @return boolean
+function LockdownPolicy:IsEmulatedSlashCommand(command)
+    if type(command) ~= "string" or command == "" then return false end
+    return MatchesCommandAlias(command, EMULATED_COMMAND_KEYS)
 end

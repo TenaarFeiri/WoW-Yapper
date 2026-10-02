@@ -45,7 +45,7 @@ def extract_custom_logic(filepath):
             return logic + "\n"
     return ""
 
-def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
+def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict, family="en"):
     """Writes the optimized dictionary format with chunked loading for Lua 5.1 constant table limits."""
     # Extract any existing custom logic to preserve it
     custom_logic = extract_custom_logic(filepath)
@@ -94,9 +94,10 @@ def write_lua_dict(filepath, locale, extends, words_list, phonetics_dict):
             # in-game. Normalise to a bare token before quoting.
             extends_clean = str(extends).strip().strip('"').strip("'")
             f.write(f'        extends = "{extends_clean}",\n')
-            f.write('        isDelta = true,\n')
         else:
-            f.write('        languageFamily = "en",\n')
+            # Base dictionaries carry the language family themselves;
+            # deltas inherit it through `extends`.
+            f.write(f'        languageFamily = "{family}",\n')
         f.write('        words = {},\n')
         f.write('        phonetics = {},\n')
         f.write('    }\n')
@@ -178,10 +179,14 @@ def main():
     print(f"  -> Universal Base: {len(base_words_set)} words")
 
     def process_dataset(word_set, index_offset=0):
+        # index_offset is deprecated and ignored: a delta dictionary's words
+        # are indexed locally (1..N) by the loader — the delta's `words`
+        # table starts empty and chains to the base via metatable, so global
+        # offsets resolve past the delta's own array and never match. All
+        # phonetic indices must be the word's LOCAL 1-based position.
         sorted_words = sorted(list(word_set))
         phonetics = {}
-        # Lua tables are 1-indexed; delta dicts offset past the base to avoid collision
-        for idx, word in enumerate(sorted_words, start=1 + index_offset):
+        for idx, word in enumerate(sorted_words, start=1):
             p_hash = get_phonetic_hash(word)
             if not p_hash: continue
             if p_hash not in phonetics:

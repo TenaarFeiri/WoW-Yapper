@@ -5,7 +5,7 @@
 -- This must load before Dict_enBase.lua (ensured by TOC order).
 --
 -- IMPORTANT: The phonetic rules in GetPhoneticHash MUST remain in exact parity
--- with the Python generation script (tools/generate_phonetic_dict_en.py).
+-- with the Python generation script (tools/phonetics_en.py).
 -- See Documentation/Spellcheck/SpellcheckSpec.md for the change protocol.
 
 -- ---------------------------------------------------------------------------
@@ -303,26 +303,49 @@ local KB_LAYOUTS     = {
 }
 
 -- ---------------------------------------------------------------------------
--- NormaliseVowels
--- Strips vowels (replaced with '*') for vowel-neutral similarity comparisons.
+-- NormaliseWord / NormaliseVowels / tokenisation
+-- English canonical form is simple lowercase; vowels become '*' for the
+-- vowel-neutral index.  WordBytes/WordStartBytes define what counts as a
+-- word token for English text scanning (letters, apostrophe; byte >= 128 is
+-- a UTF-8 continuation so non-ASCII characters are kept inside a word).
 -- ---------------------------------------------------------------------------
 local string_gsub    = string.gsub
 local string_lower   = string.lower
 local string_upper   = string.upper
 local string_sub     = string.sub
 
+local function NormaliseWord(word)
+    if type(word) ~= "string" then return "" end
+    return string_lower(word)
+end
+
 local function NormaliseVowels(word)
     if type(word) ~= "string" then return "" end
     return string_gsub(string_lower(word), "[aeiouy]", "*")
 end
 
+local WORD_BYTES = {}
+local WORD_START_BYTES = {}
+for b = 65, 90 do
+    WORD_BYTES[b] = true       -- A-Z
+    WORD_START_BYTES[b] = true
+end
+for b = 97, 122 do
+    WORD_BYTES[b] = true       -- a-z
+    WORD_START_BYTES[b] = true
+end
+for b = 128, 255 do
+    WORD_BYTES[b] = true       -- UTF-8 continuation/lead bytes
+end
+WORD_BYTES[39] = true          -- apostrophe ("don't")
+
 -- ---------------------------------------------------------------------------
--- GetPhoneticHash  (MUST match tools/generate_phonetic_dict_en.py exactly)
+-- GetPhoneticHash  (MUST match tools/phonetics_en.py exactly)
 --
 -- Change protocol (see SpellcheckSpec.md):
 --   1. Update SpellcheckSpec.md → English phonetic rules section
 --   2. Update this function
---   3. Update tools/generate_phonetic_dict_en.py
+--   3. Update tools/phonetics_en.py
 --   4. Regenerate enBase, enGB, enUS phonetics tables
 -- ---------------------------------------------------------------------------
 local function GetPhoneticHash(word)
@@ -330,8 +353,15 @@ local function GetPhoneticHash(word)
     -- Strip non-alphabetic characters (including apostrophes)
     hash = string_gsub(hash, "[^%a]", "")
 
-    -- Strip duplicate adjacent letters (e.g. "LL" → "L")
-    hash = string_gsub(hash, "(%a)%1", "%1")
+    -- Strip duplicate adjacent letters (e.g. "LLL" → "L").
+    -- Must collapse the WHOLE run to match tools/phonetics_en.py's
+    -- re.sub(r'([A-Z])\1+', ...). Lua 5.1 cannot quantify a %n
+    -- backreference, so repeat single-pair collapses until stable
+    -- (bounded: each pass halves the longest run).
+    repeat
+        local n
+        hash, n = string_gsub(hash, "(%a)%1", "%1")
+    until n == 0
 
     -- Silent / variable consonant groups
     hash = string_gsub(hash, "GHT", "T")
@@ -551,29 +581,37 @@ local function StripAffixes(engine, word, dict)
 end
 
 local ok = YapperAPI:RegisterLanguageEngine("en", {
-    -- Required
+    -- ===== Required contract fields =======================================
+    -- Canonical lookup form + vowel model + tokenisation
+    NormaliseWord          = NormaliseWord,
+    NormaliseVowels        = NormaliseVowels,
+    WordBytes              = WORD_BYTES,
+    WordStartBytes         = WORD_START_BYTES,
+
+    -- Phonetic index key (see parity note above)
     GetPhoneticHash        = GetPhoneticHash,
 
-    -- Optional helpers — fall back to built-in if absent
-    NormaliseVowels        = NormaliseVowels,
+    -- Mandatory security data: blocklist hash function + hash set
+    HashWord               = HashWord,
+    BlockedHashes          = BLOCKED_HASHES,
 
-    -- Solve A: Affix stripping
+    -- ===== Optional contract fields =======================================
+    -- Affix model
     StripAffixes           = StripAffixes,
-    DefaultStrip           = DefaultStrip, -- Exposed for custom rules to call back into
-    PrefixStrippingEnabled = PREFIX_STRIPPING_ENABLED,
 
     -- English has British/American spelling variants
     HasVariantRules        = true,
     VariantRules           = VARIANT_RULES,
 
-    -- Keyboard layout data (same schema as the built-in KB_LAYOUTS table)
+    -- Keyboard layout data + default
     KBLayouts              = KB_LAYOUTS,
+    DefaultLayout          = "QWERTY",
 
-    -- Blocked words hashes and the corresponding hash function
-    BlockedHashes          = BLOCKED_HASHES,
-    HashWord               = HashWord,
+    -- Locales served by this family + display name
+    Locales                = { "enBase", "enUS", "enGB", "enAU" },
+    DisplayName            = "English",
 
-    -- No ScoreWeights override — English uses the built-in defaults
+    -- No ScoreWeights override — English uses the core defaults
     ScoreWeights           = nil,
 })
 

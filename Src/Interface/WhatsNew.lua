@@ -21,6 +21,58 @@ end
 
 YapperTable.WHATS_NEW = {
     -- New entries can use the helpers above to keep the data compact.
+    ["2.4.6"] = release(
+        note("Dictionaries control their own language",
+            "Spellchecking logic is no longer hardcoded for English. Each dictionary addon now supplies its own "
+                .. "language engine — tokenisation, phonetics, affixes, casing rules, keyboard layouts, and "
+                .. "blocked-word lists — through a validated contract, so anyone can build a dictionary that "
+                .. "teaches Yapper a new language. Faulting engines are safely purged rather than breaking "
+                .. "your spellcheck."),
+        note("YAS is actually adaptive now",
+            "Adaptive Learning now notices the difference between a slip and a choice — words you knowingly "
+                .. "send unchanged (like an RP name) stop being flagged, while your habitual slip patterns and "
+                .. "the words you tend to pair together shape future suggestions. Suggestion scoring also "
+                .. "learns from your picks instead of using fixed weights, and dials itself back if its "
+                .. "promotions keep getting re-corrected."),
+        note("YAS opt-out now actually opts out",
+            "Disabling Adaptive Learning previously still scanned your outgoing chat, recorded misspellings, "
+                .. "and could silently add words to your personal dictionary. The toggle now stops all "
+                .. "observation and learning completely."),
+        note("Localisable UI",
+            "Yapper's interface text can now be translated. English ships built in; dictionary addons can "
+                .. "provide translations for their language, which update the interface when they load."),
+        note("Lost learned data recovered",
+            "Older learned vocabulary and personal dictionary entries were being migrated into a storage "
+                .. "partition nothing could read. That data is now recovered and merged into the correct "
+                .. "language automatically."),
+        note("Bug fixes",
+            "- Suggestion cache now refreshes when YAS learns, so rejected corrections stop immediately reappearing.\n\n"
+                .. "- Learned-word sanity checks now respect the configured n-gram size instead of silently disabling themselves.\n\n"
+                .. "- YAS phonetic learning and phonetic autocomplete now work — the function they called never existed.\n\n"
+                .. "- Phonetic suggestions in the regional English dictionaries (US/GB/AU) were dead — their "
+                .. "indices pointed past their own word lists. All three were regenerated and verified.\n\n"
+                .. "- Blocked-word filtering now catches apostrophe, digit, and leetspeak variants "
+                .. "that used to slip through.")
+    ),
+    ["2.4.5"] = release(
+        note("World of Warcraft: Forever support",
+            "Yapper now supports WoW: Forever (still in beta), including Firstname and Lastname whispers."),
+        note("Drop shadow follows channel colour",
+            "The drop shadow can now follow your selected channel's colour — respecting per-channel overrides — "
+                .. "for both the overlay and the storyteller/multiline editor. On by default, with separate "
+                .. "toggles under Appearance settings."),
+        note("Bug fixes",
+            "- Corrected text alignment on the Help page.\n\n"
+                .. "- Fixed forwarded slash commands (like `/invite` with no name) erroring with \"secret string value\" while addon restrictions are active.\n\n"
+                .. "- Unit-popup Whisper routing now stays untouched while addon restrictions are enforced.\n\n"
+                .. "- Fixed lockdown flags occasionally sticking across teleports and loading screens.\n\n"
+                .. "- Hardened editbox attribute reads so secret whisper/channel targets degrade gracefully during restrictions.")
+    ),
+    ["2.4.4"] = release(
+        note("Bug fixes",
+            "- Yapper no longer overrides keybindings in the housing editor, which could block input.\n\n"
+                .. "- You can now initiate Battle.net whispers with the Send Message button in your Contacts list.")
+    ),
     ["2.4.3"] = release(
         note("Settings window scales with font size",
             "The settings window now grows proportionally with the configured UI font size, up to 150% of the default dimensions, so everything stays readable at larger fonts."),

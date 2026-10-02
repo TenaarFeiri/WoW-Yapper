@@ -39,11 +39,32 @@ local function newHarness()
             IsEnabled = function() return true end,
             ScheduleRefresh = function() end,
             ClearSuggestionCache = function() end,
+            _NormForLocale = function(_, w) return (w or ""):lower() end,
+            _SafeEngineCall = function(_, engine, name, passSelf, ...)
+                local fn = engine and engine[name]
+                if type(fn) ~= "function" then return nil end
+                if passSelf then return fn(engine, ...) end
+                return fn(...)
+            end,
             ClearUnderlines = function() end,
             GetConfig = function(self) return self._testConfig or { Locale = "enUS" } end,
             GetNgramN = function() return 2 end,
             GetNgramMaxPosting = function() return 500 end,
-            GetEngine = function() return { BlockedHashes = {} } end,
+            GetEngine = function()
+                -- Minimal contract-shaped engine: the loader binds
+                -- NormaliseWord/NormaliseVowels/WordStartBytes from the
+                -- registered family engine, never the active-locale one.
+                local bytes = {}
+                for b = 65, 90 do bytes[b] = true end
+                for b = 97, 122 do bytes[b] = true end
+                for b = 128, 255 do bytes[b] = true end
+                return {
+                    BlockedHashes = {},
+                    NormaliseWord = function(w) return (w or ""):lower() end,
+                    NormaliseVowels = function(w) return (w or ""):lower():gsub("[aeiouy]", "*") end,
+                    WordStartBytes = bytes,
+                }
+            end,
             _RegisterLanguageEngine = function() end,
             UserDictCache = {},
             SuggestionFrame = nil,
@@ -66,8 +87,10 @@ local function newHarness()
         end
     }
 
+    -- Runnable from the repo root OR the suite dir (the gating runner cds
+    -- into tools/2.0testsuites).
     local function LoadFile(path)
-        local f = assert(loadfile(path))
+        local f = assert(loadfile(path) or loadfile("../../" .. path))
         f(YapperName, YapperTable)
     end
 
@@ -147,6 +170,7 @@ do
     SC.GetActiveEngine = function()
         return {
             GetPhoneticHash = function() return "" end,
+            NormaliseWord = function(w) return (w or ""):lower() end,
             NormaliseVowels = function(word) return word:gsub("[aeiouy]", "*") end,
         }
     end
@@ -156,7 +180,7 @@ do
         Spellcheck = SC,
         Utils = { Print = function() end },
     }
-    local engineFile = assert(loadfile("Src/Spellcheck/Engine.lua"))
+    local engineFile = assert(loadfile("Src/Spellcheck/Engine.lua") or loadfile("../../Src/Spellcheck/Engine.lua"))
     engineFile("Yapper", runtime)
 
     SC:RegisterDictionary("enBase", { words = { "cat" }, languageFamily = "en", engine = {} })
@@ -171,6 +195,110 @@ do
         end
     end
     check("N-gram suggestions retain base candidates", foundBase)
+end
+
+do
+    -- Phonetic-index contract: delta postings are LOCAL indices into the
+    -- delta's own words array, and a hash shared with the base must union
+    -- both layers' postings (not shadow them).
+    local SC = newHarness()
+    SC._SCORE_WEIGHTS = {
+        prefix = 1, lenDiff = 1, longerPenalty = 1, firstCharBias = 1,
+        letterBag = 1, bigram = 1, vowelBonus = 1, kbProximity = 1,
+    }
+    SC._RAID_ICONS = {}
+    SC.GetDictionary = function(self) return self.Dictionaries.enUS end
+    SC.GetLocale = function() return "enUS" end
+    SC.GetMaxSuggestions = function() return 4 end
+    SC.GetMaxCandidates = function() return 100 end
+    SC.GetMaxWrongLetters = function() return 4 end
+    SC.GetMinWordLength = function() return 2 end
+    SC.GetReshuffleAttempts = function() return 0 end
+    SC.GetNgramTopCandidates = function() return 500 end
+    SC.GetSuggestionCacheSize = function() return 500 end
+    SC.GetIgnoredRanges = function() return {} end
+    SC.GetUserDict = function() return { AddedWords = {} } end
+    SC.GetUserSets = function() return {}, {} end
+    SC.GetBlockData = function() return nil, nil, nil, nil end
+    SC.GetMeta = function(_, _, word)
+        local bag = {}
+        for i = 1, #word do
+            local byte = string.byte(word, i)
+            bag[byte] = (bag[byte] or 0) + 1
+        end
+        return { bag = bag, bigrams = {} }
+    end
+    -- Phonetic stub: "cat", "dat", "kat" all collapse to hash "H".
+    SC.GetActiveEngine = function()
+        return {
+            GetPhoneticHash = function(w)
+                if w == "cat" or w == "dat" or w == "kat" then return "H" end
+                return ""
+            end,
+            NormaliseVowels = function(word) return word:gsub("[aeiouy]", "*") end,
+            NormaliseWord = function(w) return (w or ""):lower() end,
+        }
+    end
+
+    local runtime = {
+        Config = { Spellcheck = {} },
+        Spellcheck = SC,
+        Utils = { Print = function() end },
+    }
+    assert(loadfile("Src/Spellcheck/Engine.lua") or loadfile("../../Src/Spellcheck/Engine.lua"))("Yapper", runtime)
+
+    SC:RegisterDictionary("enBase", {
+        words = { "cat" }, phonetics = { H = { 1 } },
+        languageFamily = "en", engine = {},
+    })
+    SC:RegisterDictionary("enUS", {
+        words = { "dat" }, phonetics = { H = { 1 } }, -- local id 1 = "dat"
+        languageFamily = "en", extends = "enBase", isDelta = true,
+    })
+
+    -- Delta posting id 1 must resolve to the delta's own word, not the base's.
+    local us = SC.Dictionaries.enUS
+    check("Phonetic: delta posting resolves locally", rawget(us.words, 1) == "dat")
+
+    local suggestions = SC:GetSuggestions("kat")
+    local foundCat, foundDat = false, false
+    for _, suggestion in ipairs(suggestions) do
+        if suggestion.kind == "word" then
+            if suggestion.value == "cat" then foundCat = true end
+            if suggestion.value == "dat" then foundDat = true end
+        end
+    end
+    check("Phonetic: delta phonetic candidate found", foundDat)
+    check("Phonetic: shared hash unions base candidates", foundCat)
+end
+
+do
+    -- Contract: out-of-range / non-integer / non-array phonetic postings
+    -- reject the dictionary outright rather than silently degrading.
+    local SC = newHarness()
+    SC:RegisterDictionary("enBase", {
+        words = { "cat" }, phonetics = { H = { 2 } }, -- only 1 word exists
+        languageFamily = "en", engine = {},
+    })
+    check("Phonetic: out-of-range posting rejects dict", SC.Dictionaries.enBase == nil)
+
+    SC:RegisterDictionary("enBase", {
+        words = { "cat" }, phonetics = { H = { 1.5 } },
+        languageFamily = "en", engine = {},
+    })
+    check("Phonetic: non-integer posting rejects dict", SC.Dictionaries.enBase == nil)
+
+    SC:RegisterDictionary("enBase", {
+        words = { "cat" }, phonetics = { H = "cat" },
+        languageFamily = "en", engine = {},
+    })
+    check("Phonetic: non-array posting rejects dict", SC.Dictionaries.enBase == nil)
+
+    SC:RegisterDictionary("enBase", {
+        words = { "cat" }, phonetics = { H = { 1 } },
+        languageFamily = "en", engine = {},
+    })
+    check("Phonetic: in-range posting registers", SC.Dictionaries.enBase ~= nil)
 end
 
 if failures > 0 then

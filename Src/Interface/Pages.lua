@@ -404,15 +404,25 @@ function Interface:CreateYASLearningPage(parent, cursor)
         LAYOUT.WINDOW_PADDING,
         cursor:Y(),
         400,
-        "Personalized typing patterns and correction biases stored by the YAS engine.",
+        self:GetTooltip("YAS.TITLE"),
         "GameFontNormal"
     )
     titleFs:SetTextColor(1, 0.82, 0)
     cursor:Advance(self:ScaledRow(LAYOUT.ROW_SECTION))
 
-    -- 1. Top Vocabulary Trends
+    -- Tracking overview: what YAS currently holds, against its caps.
+    local c, caps = data.counts or {}, data.caps or {}
+    self:CreateLabel(parent, string_format(
+        "|cffaaaaaaTracking %d/%d words · %d correction pairs · %d auto-learn candidates · "
+            .. "%d intent records · %d context pairs · %d phonetic patterns|r",
+        c.freq or 0, caps.freq or 0, c.bias or 0, c.auto or 0,
+        c.intent or 0, c.bigram or 0, c.phBias or 0),
+        LAYOUT.WINDOW_PADDING, cursor:Y(), 520, nil, "GameFontHighlightSmall")
+    cursor:Advance(self:ScaledRow(16))
     cursor:Pad(4)
-    self:CreateLabel(parent, "Top Vocabulary Trends", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+
+    -- 1. Top Vocabulary Trends
+    self:CreateLabel(parent, "Top Vocabulary Trends", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, self:GetTooltip("YAS.SECTION.TRENDS"), "GameFontHighlightMedium")
     cursor:Advance(self:ScaledRow(20))
     
     local freqCount = 0
@@ -431,7 +441,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
     cursor:Advance(self:ScaledRow(10))
 
     -- 2. Common Corrections
-    self:CreateLabel(parent, "Common Corrections", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    self:CreateLabel(parent, "Common Corrections", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, self:GetTooltip("YAS.SECTION.CORRECTIONS"), "GameFontHighlightMedium")
     cursor:Advance(self:ScaledRow(20))
     
     local biasCount = 0
@@ -451,7 +461,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
     cursor:Advance(self:ScaledRow(10))
 
     -- 3. Learning Candidates
-    self:CreateLabel(parent, "Learning Candidates", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    self:CreateLabel(parent, "Learning Candidates", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, self:GetTooltip("YAS.SECTION.CANDIDATES"), "GameFontHighlightMedium")
     cursor:Advance(self:ScaledRow(20))
     
     local autoCount = 0
@@ -472,7 +482,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
     cursor:Advance(self:ScaledRow(10))
 
     -- 4. Detailed Data (Granular Tables)
-    self:CreateLabel(parent, "Detailed Engine Context", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    self:CreateLabel(parent, "Detailed Engine Context", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, self:GetTooltip("YAS.SECTION.DETAIL"), "GameFontHighlightMedium")
     cursor:Advance(self:ScaledRow(20))
 
     local function renderTable(list, headers, emptyMsg, maxHeight)
@@ -523,22 +533,31 @@ function Interface:CreateYASLearningPage(parent, cursor)
             cursor:Advance(maxHeight + 10)
         end
 
+        local INTENT_COLOURS = {
+            INTENTIONAL = "|cff44ff44", ACCIDENT = "|cffffaa44", WAIVER = "|cff66aaff",
+        }
         for i = 1, #list do
             local row = list[i]
             local rowY = renderCursorY - ((i - 1) * 15)
             local rX = useScroll and 5 or (LAYOUT.WINDOW_PADDING + 5)
 
             for _, col in ipairs(headers) do
-                local val = ""
+                local v = row[col.key]
+                local val
                 if col.key == "typo" then val = row.typo or row.hash or "-"
-                elseif col.key == "correction" then val = row.correction or "-"
-                elseif col.key == "count" then val = tostring(row.count or 0)
-                elseif col.key == "utility" then val = string.format("%.1f", row.utility or 1)
-                elseif col.key == "word" then val = row.word or "-"
-                elseif col.key == "last" then val = FormatRelativeTime(row.last)
+                elseif col.key == "last" then val = FormatRelativeTime(v)
+                elseif col.key == "class" then
+                    local cls = (row.pinned and row.class and row.class ~= "—") and (row.class .. "*") or row.class or "-"
+                    local colr = INTENT_COLOURS[row.class]
+                    val = colr and (colr .. cls .. "|r") or cls
                 elseif col.key == "progress" then
-                    local progress = math.min(100, math.floor(((row.count or 0) / (data.threshold or 10)) * 100))
-                    val = progress .. "%"
+                    val = tostring(math.min(100, math.floor(((row.count or 0) / (data.threshold or 10)) * 100))) .. "%"
+                elseif col.key == "utility" then
+                    val = string.format("%.1f", v or 1)
+                elseif type(v) == "number" then
+                    val = col.float and string.format("%.2f", v) or tostring(v)
+                else
+                    val = v or "-"
                 end
 
                 local fs = self:AcquireWidget("YASTableRow", container, "GameFontHighlightSmall", "FontString")
@@ -554,9 +573,85 @@ function Interface:CreateYASLearningPage(parent, cursor)
         if not useScroll then cursor:Pad(10) end
     end
 
+    -- Intent: what YAS believes about each flagged token. A pinned class
+    -- (from "Add to Dictionary"/"Ignore Word") is shown with a * suffix.
+    self:CreateLabel(parent, "Intent Classification", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.INTENT"))
+    cursor:Advance(self:ScaledRow(15))
+    self:CreateLabel(parent, "|cffaaaaaa[* = pinned by you — immune to pruning]|r",
+        LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(14))
+    renderTable(data.intent, {
+        { label = "Word",      width = 120, key = "word" },
+        { label = "Verdict",   width = 90,  key = "class" },
+        { label = "Sent",      width = 45,  key = "sentUnchanged" },
+        { label = "Waived",    width = 55,  key = "waived" },
+        { label = "Fixed",     width = 45,  key = "corrected" },
+        { label = "Last Seen", width = 110, key = "last" },
+    }, "No intent evidence recorded yet.", 120)
+
+    -- Bigrams: habitual prev -> next transitions feeding context scoring.
+    self:CreateLabel(parent, "Context Habits", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.CONTEXT"))
+    cursor:Advance(self:ScaledRow(15))
+    self:CreateLabel(parent, "|cffaaaaaa[<s> = sentence opener]|r",
+        LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    cursor:Advance(self:ScaledRow(14))
+    renderTable(data.bigram, {
+        { label = "Previous",  width = 160, key = "prev" },
+        { label = "Then",      width = 160, key = "nxt" },
+        { label = "Times",     width = 55,  key = "count" },
+        { label = "Last Seen", width = 110, key = "last" },
+    }, "No word-pair habits recorded yet.", 120)
+
+    -- Error profile: which slip classes dominate your typos, plus the
+    -- substitution confusion pairs (a>e means you typed a where e belonged).
+    self:CreateLabel(parent, "Typing Error Profile", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.ERRORS"))
+    cursor:Advance(self:ScaledRow(15))
+    renderTable(data.errOps, {
+        { label = "Error Type", width = 180, key = "op" },
+        { label = "Count",      width = 80,  key = "count" },
+    }, "No error profile yet.", 80)
+    renderTable(data.errConf, {
+        { label = "Confusion (typed > meant)", width = 180, key = "pair" },
+        { label = "Count",                     width = 80,  key = "count" },
+    }, "No letter-confusion data yet.", 80)
+
+    -- Learned scoring model: per-signal multipliers over the frozen weights.
+    self:CreateLabel(parent, "Learned Scoring Model", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.MODEL"))
+    cursor:Advance(self:ScaledRow(15))
+    local m = data.model
+    if m then
+        self:CreateLabel(parent, string.format(
+            "|cffaaaaaa%d updates · self-eval: %d promoted picks kept, %d re-corrected (model regresses above 40%%)|r",
+            m.updates or 0, m.evalAccepted or 0, m.evalRecorrected or 0),
+            LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+        cursor:Advance(self:ScaledRow(14))
+    end
+    renderTable(m and m.mults, {
+        { label = "Signal",     width = 180, key = "feature" },
+        { label = "Multiplier", width = 90,  key = "value", float = true },
+    }, "No learned scoring yet (neutral model).", 110)
+
+    -- Shadow autocorrect decisions (opt-in; nothing mutates text).
+    self:CreateLabel(parent, "Autocorrect Shadow Log", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.AUTOCORR"))
+    cursor:Advance(self:ScaledRow(15))
+    if not data.shadowEnabled then
+        self:CreateLabel(parent, "|cffaaaaaa[Disabled — set Spellcheck.YASAutocorrectShadow to observe would-be autocorrections]|r",
+            LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+        cursor:Advance(self:ScaledRow(14))
+        cursor:Pad(6)
+    else
+        renderTable(data.autocorr, {
+            { label = "Typo",         width = 120, key = "typo" },
+            { label = "Would pick",   width = 140, key = "suggestion" },
+            { label = "Tier",         width = 75,  key = "tier" },
+            { label = "Conf",         width = 55,  key = "conf", float = true },
+            { label = "When",         width = 95,  key = "last" },
+        }, "No shadow decisions recorded yet.", 120)
+    end
+
     -- Utility > 1.0 means the user implicitly confirmed the correction was
     -- useful (YAS promoted a lower-ranked candidate and the user accepted it).
-    self:CreateLabel(parent, "Correction Bias (Full)", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    self:CreateLabel(parent, "Correction Bias (Full)", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.BIAS"))
     cursor:Advance(self:ScaledRow(15))
     self:CreateLabel(parent, "|cffaaaaaa[Utility > 1.0 = implicitly learned — user accepted a YAS-promoted candidate]|r",
         LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
@@ -571,7 +666,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
 
     -- Phonetic bias: patterns learned by sound, applied even to typos YAS
     -- has never seen before.
-    self:CreateLabel(parent, "Phonetic Pattern Bias", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    self:CreateLabel(parent, "Phonetic Pattern Bias", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.PHONETIC"))
     cursor:Advance(self:ScaledRow(15))
     self:CreateLabel(parent, "|cffaaaaaa[Generalised corrections by sound — hash is the phonetic fingerprint of the typo]|r",
         LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
@@ -585,7 +680,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
 
     -- Rejections: explicit ("More..." click) or implicit (ResolveImplicitTrace
     -- saw the user retype over a YAS suggestion).
-    self:CreateLabel(parent, "Rejected Suggestions / Implicit Backtracks", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    self:CreateLabel(parent, "Rejected Suggestions / Implicit Backtracks", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.REJECTIONS"))
     cursor:Advance(self:ScaledRow(15))
     self:CreateLabel(parent, "|cffaaaaaa[Populated when user clicks \"More...\" or manually retypes over a YAS suggestion]|r",
         LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
@@ -599,7 +694,7 @@ function Interface:CreateYASLearningPage(parent, cursor)
     }, "No rejections or backtracks recorded yet.", 120)
 
     -- Full Vocabulary Frequency
-    self:CreateLabel(parent, "Complete Vocabulary", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520)
+    self:CreateLabel(parent, "Complete Vocabulary", LAYOUT.WINDOW_PADDING + 10, cursor:Y(), 520, self:GetTooltip("YAS.SECTION.VOCAB"))
     cursor:Advance(self:ScaledRow(15))
     renderTable(data.freq, {
         { label = "Word",      width = 270, key = "word" },
@@ -610,13 +705,14 @@ function Interface:CreateYASLearningPage(parent, cursor)
     cursor:Advance(self:ScaledRow(20))
 
     -- 5. Management
-    self:CreateLabel(parent, "Management", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, nil, "GameFontHighlightMedium")
+    self:CreateLabel(parent, "Management", LAYOUT.WINDOW_PADDING, cursor:Y(), 400, self:GetTooltip("YAS.SECTION.MANAGEMENT"), "GameFontHighlightMedium")
     cursor:Advance(self:ScaledRow(20))
 
     local resetAllBtn = self:AcquireWidget("YASResetAll", parent, "UIPanelButtonTemplate", "Button")
     resetAllBtn:SetSize(Interface._ScaleButtonWidth(180), 24)
     resetAllBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", LAYOUT.WINDOW_PADDING + 10, cursor:Y() - 2)
     resetAllBtn:SetText(string_format("Reset %s Learning", locale or "All"))
+    self:AttachTooltip(resetAllBtn, self:GetTooltip("YAS.RESET"))
     resetAllBtn:SetScript("OnClick", function()
         StaticPopup_Show("YAPPER_CONFIRM_RESET_LEARNING", locale or "All")
     end)
@@ -1050,7 +1146,23 @@ function Interface:CreateSpellcheckKeyboardLayoutDropdown(parent, label, path, c
     UIDropDownMenu_SetText(dd, current)
 
     UIDropDownMenu_Initialize(dd, function(frame, level)
-        local layouts = { "QWERTY", "QWERTZ", "AZERTY" }
+        -- Layouts are owned by the active language engine (KBLayouts); when
+        -- no engine is loaded the dropdown offers just the current value.
+        local spell = YapperTable and YapperTable.Spellcheck
+        local layouts = (spell and spell.GetKeyboardLayoutNames and spell:GetKeyboardLayoutNames()) or {}
+        if #layouts == 0 then
+            layouts = { current }
+        else
+            -- Keep a saved-but-unknown layout selectable (engine may load later).
+            local found = false
+            for _, l in ipairs(layouts) do
+                if l == current then found = true break end
+            end
+            if not found and type(current) == "string" and current ~= "" then
+                layouts[#layouts + 1] = current
+                table.sort(layouts)
+            end
+        end
         for _, layout in ipairs(layouts) do
             local info = UIDropDownMenu_CreateInfo()
             info.text = layout

@@ -67,6 +67,16 @@ After resolving all markers, run `python3 tools/check_doc_refs.py`, inspect the 
 
 ## Design notes
 
+- Language judgement (normalisation, phonetics, tokenisation byte-sets,
+  casing, affixes, keyboard layouts, word-shape sanity, blocklist hashes)
+  lives in dictionary-engine addons (`Dictionaries/*/Engine.lua`), not in
+  `Src/Spellcheck*`. Core owns mechanics only: edit distance, ranking,
+  caches, YAS feedback, dictionary lifecycle. Engines must satisfy the
+  contract in `Documentation/Dictionaries.md`; registration validates and
+  probes everything, and a runtime engine error purges the engine plus all
+  dictionaries bound to its family. Never reintroduce language-specific
+  fallbacks in core — delegate via `Spellcheck:_SafeEngineCall` and the
+  `Spellcheck.*` engine delegates instead.
 - The single-line multiline onboarding hint is runtime-only and is owned by the
   overlay lifecycle. It is created lazily as a non-interactive UIParent child so
   screen-space positioning remains correct across scaled or undocked chat

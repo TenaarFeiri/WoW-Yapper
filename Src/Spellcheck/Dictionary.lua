@@ -8,10 +8,10 @@ local _, YapperTable  = ...
 local Spellcheck      = YapperTable.Spellcheck
 local Utils           = YapperTable.Utils
 
--- Re-localise shared helpers from hub.
-local NormaliseWord   = Spellcheck.NormaliseWord
-local NormaliseVowels = Spellcheck.NormaliseVowels
-local IsWordStartByte = Spellcheck.IsWordStartByte
+-- Re-localise shared helpers from hub.  Language-specific normalisation and
+-- tokenisation are NOT taken from hub delegates here: they are bound to the
+-- dictionary's own engine inside RegisterDictionary/processWord, because a
+-- locale must always be processed by ITS family's engine, not the active one.
 local IsDebugEnabled  = Spellcheck.IsDebugEnabled
 
 local type            = type
@@ -22,6 +22,7 @@ local tonumber        = tonumber
 local math_min        = math.min
 local string_byte     = string.byte
 local string_sub      = string.sub
+local string_lower    = string.lower
 local table_sort      = table.sort
 local rawget          = rawget
 
@@ -39,14 +40,16 @@ function Spellcheck:LoadDictionary(locale)
         self._pendingBuilders = self._pendingBuilders or {}
         self._pendingBuilders[locale] = true
 
-        local builder = self.DictionaryBuilders[locale]
+        local entry = self.DictionaryBuilders[locale]
         -- The builder only assembles raw word/phonetic tables (cheap); the
         -- heavy per-word indexing happens async inside RegisterDictionary.
-        local success, data = pcall(builder)
+        local builderFn = type(entry) == "table" and entry.fn or entry
+        local builderOwner = type(entry) == "table" and entry.owner or nil
+        local success, data = pcall(builderFn)
         self._pendingBuilders[locale] = nil
 
         if success and data then
-            self:RegisterDictionary(locale, data)
+            self:RegisterDictionary(locale, data, builderOwner)
         else
             -- On failure `data` holds the builder's error message; don't discard
             -- it, or the cause of a failed dictionary load is impossible to trace.
@@ -63,14 +66,17 @@ function Spellcheck:LoadDictionary(locale)
     end
 end
 
-function Spellcheck:RegisterDictionary(locale, data)
+--- Register a dictionary for a locale.  `owner` is the addon folder name the
+--- registration came from (captured by the API layer); it is used to
+--- owner-lock any engine bundled in `data.engine`.
+function Spellcheck:RegisterDictionary(locale, data, owner)
     if type(locale) ~= "string" or locale == "" then
         return
     end
 
     if type(data) == "function" then
         self.DictionaryBuilders = self.DictionaryBuilders or {}
-        self.DictionaryBuilders[locale] = data
+        self.DictionaryBuilders[locale] = { fn = data, owner = owner }
         return
     end
 
@@ -81,11 +87,44 @@ function Spellcheck:RegisterDictionary(locale, data)
     -- If the data bundle includes an engine registration, wire it up now so
     -- that GetActiveEngine() returns the correct engine even before the dict
     -- is fully indexed (important for async loading of large base dicts).
+    -- A failed bundled registration does not abort the dictionary: the
+    -- contract check below decides whether a usable engine already exists.
     if type(data.engine) == "table" and type(data.languageFamily) == "string" then
-        self:_RegisterLanguageEngine(data.languageFamily, data.engine)
+        self:_RegisterLanguageEngine(data.languageFamily, data.engine, owner)
     end
 
     local words = data.words or {}
+
+    -- Phonetic postings are 1-based indices into THIS bundle's words array
+    -- (deltas do not offset by the base length — dict.words stays
+    -- positionally identical to the file's words array). An out-of-range or
+    -- non-integer id means a hand-built or stale bundle; reject loudly
+    -- rather than silently degrade phonetic suggestions.
+    if data.phonetics ~= nil then
+        local n = #words
+        local bad = type(data.phonetics) ~= "table"
+        if not bad then
+            for h, ids in pairs(data.phonetics) do
+                if type(h) ~= "string" or #h == 0 or #h > 128 or type(ids) ~= "table" then
+                    bad = true
+                    break
+                end
+                for i = 1, #ids do
+                    local id = ids[i]
+                    if type(id) ~= "number" or id % 1 ~= 0 or id < 1 or id > n then
+                        bad = true
+                        break
+                    end
+                end
+                if bad then break end
+            end
+        end
+        if bad then
+            self:Notify("|cffff0000Yapper Error:|r Dictionary '" .. tostring(locale) ..
+                "' has malformed phonetic postings (indices must be 1-based into its own words array). Registration blocked.")
+            return
+        end
+    end
 
     -- Cancel any in-progress async loads for OTHER locales.
     -- We only ever want one dictionary indexing in the background at a time.
@@ -107,7 +146,11 @@ function Spellcheck:RegisterDictionary(locale, data)
     local existing = self.Dictionaries[locale]
     local set = existing and existing.set or {}
     local index = existing and existing.index or {}
-    local outWords = (existing and existing.words) or (not data.extends and words) or {}
+    -- dict.words must be positionally identical to the file's words array:
+    -- phonetic postings (and delta n-gram postings) are 1-based indices into
+    -- it. Filtering at load would shift those indices, so rejected words are
+    -- skipped in set/index/ngrams only, and remain dead slots in words[].
+    local outWords = (existing and existing.words) or words or {}
     local phonetics = data.phonetics or (existing and existing.phonetics) or {}
 
     local n2 = Spellcheck:GetNgramN()
@@ -147,13 +190,21 @@ function Spellcheck:RegisterDictionary(locale, data)
         end
     end
 
-    -- Security: every dictionary must resolve to a language engine providing
-    -- BlockedHashes. No family means "en", which must also be registered.
-    local familyId = data.languageFamily or "en"
-    local engine = self:GetEngine(familyId)
-    if not engine or type(engine.BlockedHashes) ~= "table" then
+    -- Contract: every dictionary must resolve to a language family whose
+    -- engine is already registered and contract-valid (BlockedHashes etc.
+    -- are validated at engine registration).  There is no implicit default
+    -- family: a dictionary without a resolvable engine is rejected outright.
+    local familyId = data.languageFamily
+    if type(familyId) ~= "string" or familyId == "" then
         self:Notify("|cffff0000Yapper Error:|r Dictionary '" ..
-            locale .. "' requires a registered language engine with BlockedHashes. Registration blocked for security.")
+            locale .. "' declares no languageFamily (directly or via extends). Registration blocked.")
+        return
+    end
+    local engine = self:GetEngine(familyId)
+    if not engine then
+        self:Notify("|cffff0000Yapper Error:|r Dictionary '" .. locale ..
+            "' requires a registered language engine for family '" ..
+            tostring(familyId) .. "'. Registration blocked.")
         return
     end
 
@@ -185,7 +236,8 @@ function Spellcheck:RegisterDictionary(locale, data)
     --- or if the user has manually added it to their personal dictionary.
     function dict:Contains(word)
         if not word or word == "" then return false end
-        local norm = NormaliseWord(word)
+        local e = Spellcheck:_EngineForLocale(self.locale)
+        local norm = (e and e.NormaliseWord or string_lower)(word)
         -- 1. Check static dictionary set (includes base via metatable)
         if self.set[norm] or self.set[word] then return true end
         -- 2. Check user-added words for this locale
@@ -202,6 +254,12 @@ function Spellcheck:RegisterDictionary(locale, data)
     end
     local indexedCount = 0
 
+    -- Bind the family engine's language functions for the indexing loop:
+    -- a locale is always processed by ITS engine, never the active one.
+    local normWord   = engine.NormaliseWord
+    local normVowels = engine.NormaliseVowels
+    local wordStart  = engine.WordStartBytes
+
     -- If the data already contains a pre-built set and index, we can skip processing.
     if data.isPreBuilt then
         self:_OnDictRegistrationComplete(locale)
@@ -212,10 +270,10 @@ function Spellcheck:RegisterDictionary(locale, data)
     -- Returns true if the word was newly added.
     local function processWord(word, originalId)
         if type(word) ~= "string" or word == "" then return false end
-        local w = NormaliseWord(word)
+        local w = normWord(word)
         if w == "" then return false end
         local b = string_byte(w, 1)
-        if not b or not IsWordStartByte(b) then return false end
+        if not b or not wordStart[b] then return false end
 
         -- Check set (including the base dictionary via metatable)
         if set[w] then return false end
@@ -238,7 +296,7 @@ function Spellcheck:RegisterDictionary(locale, data)
         end
 
         -- Build n-gram postings inline using vowel-neutral normalisation
-        local norm = NormaliseVowels(w)
+        local norm = normVowels(w)
 
         -- Short-word index (N = NgramN)
         if #norm >= n2 then

@@ -98,10 +98,33 @@ _G.SLASH_MACRO1 = "/macro"
 _G.SLASH_MACRO2 = "/m"
 _G.SLASH_TARGET1 = "/target"
 _G.SLASH_TARGET2 = "/tar"
+_G.SLASH_JOIN1 = "/join"
+_G.SLASH_JOIN2 = "/channel"
+_G.SLASH_JOIN3 = "/chan"
+-- Mocks for the emulated /join path (JoinPermanentChannel + frame echo).
+local joinCalls = {}
+local addedMessages = {}
+local joinResult = 7 -- zoneChannel; nil simulates an invalid channel name
+_G.JoinPermanentChannel = function(name, password, frameID, hasVoice)
+    joinCalls[#joinCalls + 1] = { name = name, password = password, frameID = frameID, hasVoice = hasVoice }
+    return joinResult
+end
+_G.DEFAULT_CHAT_FRAME = {
+    GetID = function() return 1 end,
+    AddMessage = function(_, msg) addedMessages[#addedMessages + 1] = msg end,
+}
+_G.ChatTypeInfo = {
+    SYSTEM = { r = 1, g = 1, b = 1, id = 0 },
+    CHANNEL = { r = 1, g = 1, b = 1, id = 0 },
+}
+_G.CHAT_JOIN_HELP = "CHAT_JOIN_HELP_TEXT"
+_G.CHAT_INVALID_NAME_NOTICE = "CHAT_INVALID_NAME_NOTICE_TEXT"
+_G.CHAT_YOU_CHANGED_NOTICE = "Changed Channel: [%d. %s]"
 _G.C_ChatInfo = {
     PerformEmote = function(token, message)
         forwardedText = token .. ":" .. message
     end,
+    IsChannelRegionalForChannelID = function() return false end,
 }
 _G.ChatFrameUtil = {}
 
@@ -213,6 +236,42 @@ check("secret-compare error is contained", ok == true)
 check("handoff preserves the draft", handedOff == true)
 check("user-facing warning printed", printedLine ~= nil and printedLine:find("restrictions") ~= nil)
 nativeEditBox.SendText = origSendText
+
+print("\nTest 13: /join is emulated via JoinPermanentChannel, never forwarded")
+forwardedText, printedLine = nil, nil
+joinCalls, addedMessages = {}, {}
+YapperTable.EditBox:ForwardSlashCommand("/join somechannel")
+check("join does not reach the native parser", forwardedText == nil)
+check("join calls JoinPermanentChannel", #joinCalls == 1)
+local join = joinCalls[1] or {}
+check("join forwards channel name", join.name == "somechannel")
+check("join passes empty password", join.password == "")
+check("join targets the default frame", join.frameID == 1 and join.hasVoice == 1)
+check("non-regional join echoes a confirmation", addedMessages[1] == "Changed Channel: [7. somechannel]")
+
+print("\nTest 14: /channel alias and password are parsed like Blizzard's handler")
+forwardedText, printedLine = nil, nil
+joinCalls = {}
+YapperTable.EditBox:ForwardSlashCommand("/channel  somechannel  s3cret  ")
+join = joinCalls[1] or {}
+check("channel alias is emulated too", #joinCalls == 1 and forwardedText == nil)
+check("alias join forwards channel name", join.name == "somechannel")
+check("alias join forwards password", join.password == "s3cret")
+
+print("\nTest 15: /join with no name prints the join help message")
+forwardedText, printedLine = nil, nil
+joinCalls, addedMessages = {}, {}
+YapperTable.EditBox:ForwardSlashCommand("/join")
+check("empty join does not call JoinPermanentChannel", #joinCalls == 0)
+check("empty join prints join help", addedMessages[1] == "CHAT_JOIN_HELP_TEXT")
+
+print("\nTest 16: invalid channel name prints the invalid-name notice")
+joinCalls, addedMessages = {}, {}
+joinResult = nil
+YapperTable.EditBox:ForwardSlashCommand("/join notachannel")
+check("invalid name still calls JoinPermanentChannel", #joinCalls == 1)
+check("invalid name prints the notice", addedMessages[1] == "CHAT_INVALID_NAME_NOTICE_TEXT")
+joinResult = 7
 
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
 if FAILURES > 0 then

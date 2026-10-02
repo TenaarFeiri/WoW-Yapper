@@ -197,7 +197,6 @@ function Emotes:EnsureHintUI()
     local hfs = hint:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     hfs:SetPoint("LEFT", hint, "LEFT", 6, 0)
     hfs:SetTextColor(0.8, 0.8, 0.8, 1)
-    hfs:SetText("Tab: browse emotes")
     hint._fs = hfs
     self.HintFrame = hint
 end
@@ -211,9 +210,13 @@ end
 function Emotes:ShowHint(editBox)
     self:EnsureHintUI()
     if not self.HintFrame or self.HintFrame:IsShown() or self:IsActive() then return end
-    
+
     self._anchorBox = editBox
-    
+
+    -- Resolve at show time so late-registered locale strings apply live.
+    local L = YapperTable.Strings
+    self.HintFrame._fs:SetText(L and L:Get("ui.emotes.hint") or "ui.emotes.hint")
+
     -- Match the hint font size to the overlay's.
     if YapperTable.Spellcheck and type(YapperTable.Spellcheck.ApplyOverlayFont) == "function" then
         local fontSize = YapperTable.Spellcheck:ApplyOverlayFont(self.HintFrame._fs, 22)

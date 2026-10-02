@@ -8,6 +8,14 @@
 local _, YapperTable      = ...
 local Spellcheck          = YapperTable.Spellcheck
 
+-- String resolver (Strings.lua loads earlier in the .toc; nil-safe guards
+-- cover headless test stubs that omit it).
+local L                   = YapperTable.Strings
+local function S(key, ...)
+    if L then return L:Get(key, ...) end
+    return tostring(key)
+end
+
 -- Re-localise shared helpers from hub.
 local SuggestionKey       = Spellcheck.SuggestionKey
 local MAX_SUGGESTION_ROWS = Spellcheck._MAX_SUGGESTION_ROWS
@@ -866,10 +874,9 @@ function Spellcheck:ShowSuggestions()
                 row:Show()
                 visibleRows = i
                 if hasMore then
-                    -- TODO: Localization required for German and other locales.
-                    row._fs:SetText("|cffbbbbbb" .. i .. ". More Suggestions »|r")
+                    row._fs:SetText("|cffbbbbbb" .. S("ui.spellcheck.more", i) .. "|r")
                 else
-                    row._fs:SetText("|cffbbbbbb" .. i .. ". « Back to Top|r")
+                    row._fs:SetText("|cffbbbbbb" .. S("ui.spellcheck.backtotop", i) .. "|r")
                 end
                 local w = row._fs:GetStringWidth() + 30
                 if w > maxWidth then maxWidth = w end
@@ -893,6 +900,12 @@ function Spellcheck:ShowSuggestions()
     self.SuggestionFrame:Show()
     self._lastShownSuggestions = self.ActiveSuggestions
     self._lastShownOffset = offset
+
+    -- Exposure credit for intent classification: the popup is visible for
+    -- this token as of now; the next send decides waiver vs. accident.
+    if self.YAS and self.YAS.RecordExposure and self.ActiveWord then
+        self.YAS:RecordExposure(self.ActiveWord, self:GetLocale())
+    end
 
     -- Notify external addons that suggestions are being shown.
     if self.ActiveWord and YapperTable.API then
@@ -1026,6 +1039,10 @@ function Spellcheck:ApplySuggestion(index)
     if type(entry) == "table" and entry.kind == "add" then
         local locale = self:GetLocale()
         self:AddUserWord(locale, entry.value or self.ActiveWord)
+        -- Explicit pin: the user declared this spelling deliberate.
+        if self.YAS and self.YAS.PinIntent then
+            self.YAS:PinIntent(entry.value or self.ActiveWord, "INTENTIONAL", locale)
+        end
         if self.EditBox then
             self._expectedText, self._expectedCursor =
                 YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)
@@ -1039,6 +1056,10 @@ function Spellcheck:ApplySuggestion(index)
     elseif type(entry) == "table" and entry.kind == "ignore" then
         local locale = self:GetLocale()
         self:IgnoreWord(locale, entry.value or self.ActiveWord)
+        -- Explicit pin: flagged but dismissed — waiver, not vocabulary.
+        if self.YAS and self.YAS.PinIntent then
+            self.YAS:PinIntent(entry.value or self.ActiveWord, "WAIVER", locale)
+        end
         if self.EditBox then
             self._expectedText, self._expectedCursor =
                 YapperTable.Recolour.CanonicalTextAndCursor(self.EditBox)

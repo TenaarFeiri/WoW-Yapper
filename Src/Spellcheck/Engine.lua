@@ -9,9 +9,10 @@ local _, YapperTable  = ...
 local Spellcheck      = YapperTable.Spellcheck
 
 
--- Re-localise shared helpers from hub.
+-- Re-localise shared helpers from hub.  NormaliseWord / NormaliseVowels /
+-- IsWordByte / IterWords are engine-delegating closures: they resolve the
+-- ACTIVE locale's language engine on each call.
 local NormaliseWord   = Spellcheck.NormaliseWord
-local NormaliseVowels = Spellcheck.NormaliseVowels -- built-in fallback
 local IsWordByte      = Spellcheck.IsWordByte
 local IsDebugEnabled  = Spellcheck.IsDebugEnabled
 local IterWords       = Spellcheck.IterWords
@@ -40,36 +41,11 @@ local rawget          = rawget
 local Utils = YapperTable.Utils
 
 -- ---------------------------------------------------------------------------
--- Engine accessor helper
+-- Engine accessor
 -- ---------------------------------------------------------------------------
--- GetEngineFor returns the engine registered for the current locale's family,
--- or a built-in English fallback table so callers can be written uniformly.
-local VARIANT_RULES = {
-    { "or",  "our" }, { "our", "or" },
-    { "ize", "ise" }, { "ise", "ize" },
-    { "er", "re" }, { "re", "er" },
-    { "og", "ogue" }, { "ogue", "og" },
-    { "l", "ll" }, { "ll", "l" },
-}
-
-local _builtinEngine
-local function GetEngineFor(self)
-    local eng = self:GetActiveEngine()
-    if eng then return eng end
-
-    -- Lazily build the built-in fallback once.
-    if not _builtinEngine then
-        _builtinEngine = {
-            GetPhoneticHash = function(w) return string_upper(w) end, -- Simple fallback
-            NormaliseVowels = NormaliseVowels,
-            HasVariantRules = true,
-            VariantRules    = VARIANT_RULES,
-            ScoreWeights    = nil,
-            KBLayouts       = nil,
-        }
-    end
-    return _builtinEngine
-end
+-- There is no built-in language engine: a locale only spellchecks when its
+-- dictionary addon has registered a contract-valid engine for its family.
+-- Callers obtain the engine via self:GetActiveEngine() / _EngineForLocale.
 
 
 function Spellcheck:CollectMisspellings(text, dict)
@@ -82,9 +58,11 @@ function Spellcheck:CollectMisspellings(text, dict)
     end
 
     local out = {}
+    if not dict then return out end
     local minLen = self:GetMinWordLength()
     local ignoreRanges = self:GetIgnoredRanges(text)
     local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
+    local engine = self:GetActiveEngine()
 
     local isSlashCommand = (text:match("^%s*/") ~= nil)
     local emotePickerVisible = false
@@ -106,7 +84,7 @@ function Spellcheck:CollectMisspellings(text, dict)
 
         if shouldAdd
             and not self:IsRangeIgnored(s, e, ignoreRanges)
-            and self:ShouldCheckWord(word, minLen)
+            and self:ShouldCheckWord(word, minLen, engine)
             and not self:IsWordCorrect(word) then
             out[#out + 1] = { startPos = s, endPos = e, word = word }
         end
@@ -120,9 +98,10 @@ end
 function Spellcheck:CollectAffixMatches(text, dict)
     local out = {}
     if not text or text == "" then return out end
+    local engine = self:GetActiveEngine()
 
     for s, e, word in IterWords(text) do
-        if self:ShouldCheckWord(word, 3) then
+        if self:ShouldCheckWord(word, 3, engine) then
             local isCorrect, isAffix = self:IsWordCorrect(word)
             if isCorrect and isAffix then
                 out[#out + 1] = { startPos = s, endPos = e, word = word }
@@ -133,7 +112,15 @@ function Spellcheck:CollectAffixMatches(text, dict)
     return out
 end
 
-function Spellcheck:ShouldCheckWord(word, minLen)
+--- Word-shape gate: should this token be spellchecked at all?
+--- The core default drops sub-minimum words, digits and SHOUTING; an engine
+--- may replace the judgement entirely via ShouldCheckWord.
+--- @param engine table|nil  pre-resolved engine (hot paths pass this in)
+function Spellcheck:ShouldCheckWord(word, minLen, engine)
+    if engine == nil then engine = self:GetActiveEngine() end
+    if engine and engine.ShouldCheckWord then
+        return self:_SafeEngineCall(engine, "ShouldCheckWord", false, word, minLen) == true
+    end
     if #word < minLen then return false end
     if word:find("%d") then return false end
     if word:find("[A-Za-z]") and word == word:upper() then return false end
@@ -217,8 +204,10 @@ function Spellcheck:IsWordCorrect(word)
     local dict = self:GetDictionary()
     if not dict then return false end
 
-    local norm = NormaliseWord(word)
-    local addedSet, ignoredSet = self:GetUserSets(self:GetLocale())
+    local locale = self:GetLocale()
+    local engine = self:GetActiveEngine()
+    local norm = (engine and engine.NormaliseWord or NormaliseWord)(word)
+    local addedSet, ignoredSet = self:GetUserSets(locale)
 
     -- 1. Check user dictionary overrides (Manual Add/Ignore)
     if (addedSet and addedSet[norm]) or (ignoredSet and ignoredSet[norm]) then
@@ -228,19 +217,19 @@ function Spellcheck:IsWordCorrect(word)
     -- 2. Check base dictionary + global blocklist
     if dict.set[norm] or dict.set[word] then
         -- Even if in base dictionary, check if blocked by engine
-        if self:IsWordBlocked(norm, self:GetLocale(), true) then
+        if self:IsWordBlocked(norm, locale, true) then
             return false
         end
         return true
     end
 
-    -- 3. Affix-stripping fallback
-    local engine = self:GetActiveEngine()
+    -- 3. Affix-stripping fallback (engine-owned; guarded: a faulting engine
+    --    is purged along with its bound dictionaries)
     if engine and engine.StripAffixes then
-        local base = engine:StripAffixes(norm, dict)
+        local base = self:_SafeEngineCall(engine, "StripAffixes", true, norm, dict)
         if base then
             -- The stripped root must also clear the blocklist.
-            if not self:IsWordBlocked(base, self:GetLocale(), true) then
+            if not self:IsWordBlocked(base, locale, true) then
                 return true, true -- second return flags an affix match
             end
         end
@@ -375,6 +364,7 @@ function Spellcheck:GetWordAtCursor(text, cursor)
     local caret = cursor + 1
     local ignoreRanges = self:GetIgnoredRanges(text)
     local minLen = self:GetMinWordLength()
+    local engine = self:GetActiveEngine()
 
     local isSlashCommand = (text:match("^%s*/") ~= nil)
     local emotePickerVisible = false
@@ -393,7 +383,7 @@ function Spellcheck:GetWordAtCursor(text, cursor)
             -- Slash command + emote picker: don't spellcheck the command word.
         elseif caret >= s and caret <= (e + 1)
             and not self:IsRangeIgnored(s, e, ignoreRanges)
-            and self:ShouldCheckWord(word, minLen) then
+            and self:ShouldCheckWord(word, minLen, engine) then
             return { word = word, startPos = s, endPos = e }
         end
     end
@@ -428,11 +418,12 @@ end
 --- Collect normalised user-added words for the current locale.
 local function GatherUserCandidates(self, locale)
     local out = {}
+    local normFn = self:_NormForLocale(locale)
     local userDict = self:GetUserDict(locale)
     if userDict and type(userDict.AddedWords) == "table" then
         for _, uw in ipairs(userDict.AddedWords) do
             if type(uw) == "string" and uw ~= "" then
-                local norm = NormaliseWord(uw)
+                local norm = normFn(uw)
                 if norm ~= "" then out[#out + 1] = norm end
             end
         end
@@ -446,8 +437,7 @@ local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
     local baseHits = {}
     local ngramN = Spellcheck:GetNgramN()
     local n = lowerLen < 5 and ngramN or (ngramN + 1)
-    local normVowels = (engine and engine.NormaliseVowels) or NormaliseVowels
-    local norm = normVowels(lower)
+    local norm = engine.NormaliseVowels(lower)
 
     local function addHits(idx, hits)
         if not idx then return end
@@ -501,17 +491,26 @@ local function GatherNgramCandidates(dict, base, lower, lowerLen, engine)
 end
 
 --- Collect phonetically similar candidates via the phonetic index.
+--- The engine call is guarded: a faulting engine is purged, not propagated.
 local function GatherPhoneticCandidates(dict, lower, engine)
     local out = {}
-    local phoneticHash = engine.GetPhoneticHash(lower)
-    if phoneticHash == "" then return out, phoneticHash end
-    local matches = dict.phonetics and dict.phonetics[phoneticHash]
-    if matches then
-        for _, id in ipairs(matches) do
-            if #out >= 2000 then break end
-            local w = dict.words[id]
-            if w then out[#out + 1] = w end
+    local phoneticHash = Spellcheck:_SafeEngineCall(engine, "GetPhoneticHash", false, lower)
+    if type(phoneticHash) ~= "string" or phoneticHash == "" then return out, "" end
+    -- Walk the extends chain with rawget: each level's phonetic postings are
+    -- 1-based indices into THAT level's words array, and a delta entry must
+    -- not shadow base postings for the same hash.
+    local d, guard = dict, 0
+    while d and guard < 8 do
+        guard = guard + 1
+        local matches = d.phonetics and rawget(d.phonetics, phoneticHash)
+        if matches then
+            for _, id in ipairs(matches) do
+                if #out >= 2000 then break end
+                local w = d.words and rawget(d.words, id)
+                if w then out[#out + 1] = w end
+            end
         end
+        d = d.extends and Spellcheck.Dictionaries[d.extends]
     end
     return out, phoneticHash
 end
@@ -563,8 +562,12 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
     local isVariantLocale = (engine and engine.HasVariantRules) == true
     local variantRules    = (engine and engine.VariantRules) or {}
 
-    -- Keyboard layout: prefer the engine's layouts, fall back to built-in.
-    local kbLayouts       = (engine and engine.KBLayouts) or Spellcheck._KB_LAYOUTS
+    -- Keyboard layouts come from the engine; no engine layouts means no
+    -- proximity scoring at all.
+    local kbLayouts = engine and engine.KBLayouts
+    local kbDist    = kbLayouts
+        and Spellcheck:_GetKBDistFromLayouts(kbLayouts, self:GetKeyboardLayout())
+        or nil
 
     -- Score weights: start from the built-in base and overlay engine overrides.
     local weights         = SCORE_WEIGHTS
@@ -581,8 +584,8 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
     end
     for i = 1, lowerLen do lowerBytes[i] = string_byte(lower, i) end
 
-    local normVowelsFn = (engine and engine.NormaliseVowels) or NormaliseVowels
-    local lowerVowels  = normVowelsFn(lower)
+    local normVowelsFn = engine and engine.NormaliseVowels
+    local lowerVowels  = normVowelsFn and normVowelsFn(lower) or lower
 
     return {
         dict            = dict,
@@ -593,7 +596,8 @@ local function MakeScoringContext(self, dict, lower, inputBag, inputBigrams, pho
         lFlat           = lFlat,
         isVariantLocale = isVariantLocale,
         variantRules    = variantRules,
-        kbLayouts       = kbLayouts,
+        kbDist          = kbDist,
+        engine          = engine,
         weights         = weights,
         lowerBytes      = lowerBytes,
         inputBag        = inputBag,
@@ -687,7 +691,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     end
 
     -- Vowel-neutral match bonus
-    if ctx.normVowelsFn(candidate) == ctx.lowerVowels then
+    if ctx.normVowelsFn and ctx.normVowelsFn(candidate) == ctx.lowerVowels then
         score = score - W.vowelBonus
     end
 
@@ -715,10 +719,8 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     if variantBonus > 0 then score = score - variantBonus end
 
     -- Keyboard proximity bonus: only plausible for near-misses.
-    if dist <= 2 and lenDiff <= 1 and ctx.kbLayouts then
-        local layout    = Spellcheck:GetKeyboardLayout()
-        local layouts   = ctx.kbLayouts
-        local kbDist    = Spellcheck:_GetKBDistFromLayouts(layouts, layout)
+    if dist <= 2 and lenDiff <= 1 and ctx.kbDist then
+        local kbDist    = ctx.kbDist
         local proxScore = 0
         local proxCount = 0
         local scanLen   = math_min(lowerLen, candidateLen)
@@ -759,7 +761,7 @@ local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
     -- Personalised learning bonus
     local baseScore = score
     if ctx.YAS and ctx.YAS.GetBonus then
-        score = score + ctx.YAS:GetBonus(candidate, lower, ctx.phoneticHash, ctx.locale)
+        score = score + ctx.YAS:GetBonus(candidate, lower, ctx.phoneticHash, ctx.locale, ctx.prevWord)
     end
 
     out[#out + 1] = { word = candidate, dist = dist, score = score, baseScore = baseScore, bag = bagScore }
@@ -775,10 +777,10 @@ local function InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engi
         if varWord ~= lower and dict.set[varWord] and not seenCandidates[varWord] then
             seenCandidates[varWord] = true
 
-            -- Blocklist check
+            -- Blocklist check (normalise via the engine's canonicaliser)
             local isBlocked = false
             if engineHashes and engineHashFn then
-                local nw = sc and sc.NormaliseWord and sc.NormaliseWord(varWord) or varWord
+                local nw = (ctx.engine and ctx.engine.NormaliseWord or NormaliseWord)(varWord)
                 if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Utils.Deleet(nw))] then
                     isBlocked = true
                 end
@@ -926,28 +928,51 @@ function Spellcheck:GetSuggestions(word)
         return {}
     end
 
+    -- No engine = no language judgement; return nothing rather than guess.
+    local engine = self:GetActiveEngine()
+    if not engine then
+        if IsDebugEnabled() then
+            self:Notify("Spellcheck:GetSuggestions no language engine for locale")
+        end
+        return {}
+    end
+
     local locale = self:GetLocale()
     local userCache = self.UserDictCache[locale]
     local userRev = userCache and userCache._rev or nil
     local maxCount = self:GetMaxSuggestions()
-    local lower = NormaliseWord(word)
+    local lower = self:_SafeEngineCall(engine, "NormaliseWord", false, word)
+    if type(lower) ~= "string" then lower = "" end
     local lowerLen = #lower
+    if lowerLen == 0 then return {} end
     local first = lower:sub(1, 1)
     local maxCandidates = self:GetMaxCandidates() or 1000
 
-    -- Resolve the active language engine once for this suggestion pass.
-    local engine = GetEngineFor(self)
+    -- Context for the YAS bigram feature: the word immediately preceding
+    -- the active range.  Extracted before the cache lookup because it is
+    -- part of the cache key — the same typo under different preceding
+    -- words must not share a cached result.
+    local prevWord
+    if self.ActiveRange and self.EditBox and YapperTable.Recolour then
+        local canon = YapperTable.Recolour.CanonicalText(self.EditBox)
+        if type(canon) == "string" then
+            local pre = string_sub(canon, 1, self.ActiveRange.startPos - 1)
+            for _, _, w in IterWords(pre) do prevWord = w end
+        end
+    end
+    local prevNorm = prevWord and self:_SafeEngineCall(engine, "NormaliseWord", false, prevWord) or ""
 
-    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount+yasRev.
+    -- Suggestion cache: reuse result for the same normalised word+locale+userRev+maxCount+yasRev+prevWord.
     self._suggestionCache = self._suggestionCache or {}
     self._suggestionCacheCount = self._suggestionCacheCount or 0
     local sc = self._suggestionCache
     local userRevKey = (userRev == nil) and NIL_USER_REV_KEY or userRev
     -- Include YAS db revision so learning writes invalidate cached scores.
-    local yasDb = self.YAS and self.YAS:GetLocaleDB(locale)
+    local yasDb = self.YAS and self.YAS:GetLocaleDB(locale, true)
     local yasRev = (yasDb and yasDb._rev) or 0
     local cacheKey = lower ..
     "\0" .. locale .. "\0" .. tostring(userRevKey) .. "\0" .. tostring(maxCount) .. "\0" .. tostring(yasRev)
+    .. "\0" .. prevNorm
     if sc[cacheKey] then
         return sc[cacheKey]
     end
@@ -987,6 +1012,7 @@ function Spellcheck:GetSuggestions(word)
     -- Build scoring context
     local inputBag, inputBigrams = BuildInputMeta(self, lower)
     local ctx = MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale, engine)
+    ctx.prevWord = prevNorm ~= "" and prevNorm or nil
 
     local addedSet, ignoredSet, userBlockedSet = self:GetUserSets(self:GetLocale())
     local _, _, engineHashes, engineHashFn = self:GetBlockData(locale)
@@ -1015,7 +1041,7 @@ function Spellcheck:GetSuggestions(word)
                 elseif userBlockedSet and userBlockedSet[candidate] then
                     isBlocked = true
                 elseif engineHashes and engineHashFn then
-                    local nw = sc and sc.NormaliseWord and sc.NormaliseWord(candidate) or candidate
+                    local nw = engine.NormaliseWord(candidate)
                     if engineHashes[engineHashFn(nw)] or engineHashes[engineHashFn(Utils.Deleet(nw))] then
                         isBlocked = true
                     end
@@ -1117,6 +1143,14 @@ function Spellcheck:GetSuggestions(word)
         return a.score < b.score
     end)
 
+    -- Autocorrect scaffold (Phase 4): when shadow logging is enabled,
+    -- classify the top-ranked candidate — tiers/vetoes/confidence are
+    -- recorded for observation only; nothing is applied to the text.
+    if self.YAS and self.YAS.ShadowClassify and out[1] then
+        self.YAS:ShadowClassify(lower, out[1].word, locale,
+            prevNorm ~= "" and prevNorm or nil)
+    end
+
     local final = {}
     local poolSize = math_min(maxCount * 3, #out)
     for i = 1, poolSize do
@@ -1127,7 +1161,7 @@ function Spellcheck:GetSuggestions(word)
     -- Add optional "add to dictionary" / "ignore" actions after the words.
     local addedSet2, ignoredSet2 = self:GetUserSets(self:GetLocale())
     if word and word ~= "" then
-        local norm = NormaliseWord(word)
+        local norm = engine.NormaliseWord(word)
         if not (addedSet2 and addedSet2[norm]) then
             final[#final + 1] = { kind = "add", value = word }
         end
@@ -1136,13 +1170,21 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    -- Mirror capitalisation: if the input word started uppercase, capitalise
-    -- every word suggestion (preserves sentence starts and proper nouns).
+    -- Casing mirror.  An engine-provided MatchCase owns the judgement
+    -- entirely (e.g. a language may capitalise nouns regardless of input);
+    -- otherwise the core default capitalises suggestions when the input
+    -- word started with an ASCII uppercase letter.
+    local matchCase = engine.MatchCase
     local wb = string_byte(word, 1)
-    if wb and wb >= 65 and wb <= 90 then
+    if matchCase or (wb and wb >= 65 and wb <= 90) then
         for _, entry in ipairs(final) do
             if entry.kind == "word" then
-                entry.value = string_upper(string_sub(entry.value, 1, 1)) .. string_sub(entry.value, 2)
+                if matchCase then
+                    local v = self:_SafeEngineCall(engine, "MatchCase", false, word, entry.value)
+                    if type(v) == "string" then entry.value = v end
+                else
+                    entry.value = string_upper(string_sub(entry.value, 1, 1)) .. string_sub(entry.value, 2)
+                end
             end
         end
     end
@@ -1278,22 +1320,33 @@ function Spellcheck:EditDistance(a, b, maxDist)
 end
 
 function Spellcheck:FormatSuggestionLabel(entry, index)
+    local L = YapperTable.Strings
+    if not L then
+        -- Test harnesses / early-boot path without the Strings module.
+        if type(entry) == "string" then return index .. ". " .. entry end
+        if type(entry) ~= "table" then return index .. ". -" end
+        local v = entry.value or entry.word or ""
+        if entry.kind == "split"  then return index .. ". Split: " .. v end
+        if entry.kind == "add"    then return index .. ". Add \"" .. v .. "\" to dictionary" end
+        if entry.kind == "ignore" then return index .. ". Ignore \"" .. v .. "\"" end
+        return index .. ". " .. v
+    end
     if type(entry) == "string" then
-        return index .. ". " .. entry
+        return L:Get("ui.spellcheck.row", index, entry)
     end
     if type(entry) ~= "table" then
-        return index .. ". -"
+        return L:Get("ui.spellcheck.row.empty", index)
     end
     if entry.kind == "split" then
-        return index .. ". Split: " .. (entry.value or "")
+        return L:Get("ui.spellcheck.split", index, entry.value or "")
     end
     if entry.kind == "add" then
-        return index .. ". Add \"" .. (entry.value or "") .. "\" to dictionary"
+        return L:Get("ui.spellcheck.add", index, entry.value or "")
     end
     if entry.kind == "ignore" then
-        return index .. ". Ignore \"" .. (entry.value or "") .. "\""
+        return L:Get("ui.spellcheck.ignore", index, entry.value or "")
     end
-    return index .. ". " .. (entry.value or entry.word or "")
+    return L:Get("ui.spellcheck.row", index, entry.value or entry.word or "")
 end
 
 return Spellcheck

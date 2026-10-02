@@ -12,6 +12,7 @@ local CHATTYPE_TO_OVERRIDE_KEY = Core.CHATTYPE_TO_OVERRIDE_KEY
 
 -- Re-localise Lua globals.
 local type = type
+local string_format = string.format
 
 -- ---------------------------------------------------------------------------
 -- Slash command forwarding
@@ -22,6 +23,61 @@ local type = type
 -- /invite -> GetUnitName compares a secret realm under restrictions).
 local function SafeSendText(editBox)
     return pcall(editBox.SendText, editBox)
+end
+
+--- Emulate Blizzard's /join handler without running it. Blizzard's JOIN
+--- slash handler writes the channel name into DEFAULT_CHAT_FRAME.channelList
+--- (and the zone channel id into zoneChannelList); forwarded through SendText
+--- that write lands under our tainted execution, and MessageEventHandler's
+--- pairs(channelList) then re-taints every CHANNEL* event dispatch that
+--- touches it -- exploding Blizzard's secret-value compares under addon
+--- restrictions (delves etc.). The client maintains channel membership
+--- itself, so we call JoinPermanentChannel directly and never touch
+--- channelList; regional channels re-add cleanly on their first YOU_CHANGED
+--- notice via ChatFrame_CheckAddChannel, and RegisterForChannels rebuilds
+--- the list from client state on the next UPDATE_CHAT_WINDOWS.
+--- @param text string  Full command text, e.g. "/join channel password".
+function EditBox:ForwardJoinChannel(text)
+    local utils = YapperTable.Utils
+    local frame = DEFAULT_CHAT_FRAME
+    if type(JoinPermanentChannel) ~= "function"
+        or not (frame and frame.GetID and frame.AddMessage) then
+        if utils then
+            utils:Print("warn", "/join can't be executed through Yapper; use the Blizzard chat box instead.")
+        end
+        return
+    end
+
+    -- Same argument parsing as Blizzard's JOIN handler.
+    local rest = text:match("^%s*/%S+%s*(.-)%s*$") or ""
+    local name = rest:match("^%s*([^%s]+)") or ""
+    local password = rest:match("^%s*[^%s]+%s*(.-)%s*$") or ""
+
+    local info = ChatTypeInfo and (name ~= "" and ChatTypeInfo["CHANNEL"] or ChatTypeInfo["SYSTEM"])
+    if name == "" then
+        if info then frame:AddMessage(CHAT_JOIN_HELP, info.r, info.g, info.b, info.id) end
+        return
+    end
+
+    local ok, zoneChannel, channelName = pcall(JoinPermanentChannel, name, password, frame:GetID(), 1)
+    if not ok then
+        if utils then
+            utils:Print("warn", "/join can't be executed through Yapper right now; use the Blizzard chat box instead.")
+        end
+    elseif not zoneChannel then
+        if info then frame:AddMessage(CHAT_INVALID_NAME_NOTICE, info.r, info.g, info.b, info.id) end
+    else
+        -- Regional channels re-add to channelList on their YOU_CHANGED
+        -- notice and display it normally; for other channels that notice
+        -- (and the channel's messages) drop until channelList is rebuilt by
+        -- the next UPDATE_CHAT_WINDOWS, so echo the join ourselves.
+        local regional = C_ChatInfo and C_ChatInfo.IsChannelRegionalForChannelID
+            and C_ChatInfo.IsChannelRegionalForChannelID(zoneChannel)
+        if not regional and info then
+            local notice = CHAT_YOU_CHANGED_NOTICE or "Changed Channel: [%d. %s]"
+            frame:AddMessage(string_format(notice, zoneChannel, channelName or name), info.r, info.g, info.b, info.id)
+        end
+    end
 end
 
 --- Forward an unrecognised slash command to Blizzard.
@@ -38,6 +94,15 @@ function EditBox:ForwardSlashCommand(text)
         if utils then
             utils:Print("warn", command .. " can't be executed through Yapper; use the Blizzard chat box instead.")
         end
+        return
+    end
+
+    -- Commands whose Blizzard handlers persist our text into chat-frame
+    -- state are emulated locally instead of forwarded (ForwardJoinChannel).
+    if policy and command
+        and type(policy.IsEmulatedSlashCommand) == "function"
+        and policy:IsEmulatedSlashCommand(command) then
+        self:ForwardJoinChannel(text)
         return
     end
 

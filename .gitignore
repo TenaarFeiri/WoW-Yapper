@@ -20,3 +20,5 @@ Yapper Architecture.png
 .devin/hooks/
 .devin/rules/
 .devin/hooks.v1.json
+__pycache__/
+*.pyc

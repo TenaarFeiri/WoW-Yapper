@@ -326,18 +326,32 @@
     YapperAPI:RegisterDictionary(locale, data) → boolean
       Registers a dictionary table or a builder function for a locale.  A
       table may contain words, phonetics, extends, languageFamily, affixRules,
-      and an optional engine table.  Delta status is inferred from extends.  A
-      function is stored as a lazy dictionary builder.  The call returns false
-      for invalid arguments, unavailable spellcheck, or an error during dispatch.
-      A true return
-      means dispatch completed without a Lua error; internal security
-      validation can still reject dictionary data.
+      and an optional embedded engine table.  Delta status is inferred from
+      extends.  Every dictionary must resolve to a languageFamily (directly or
+      via extends) whose engine is already registered; there is no implicit
+      default family.  A function is stored as a lazy dictionary builder.  The
+      call returns false for invalid arguments, unavailable spellcheck, or an
+      error during dispatch.  A true return means dispatch completed without a
+      Lua error; internal contract and security validation can still reject
+      dictionary data.
 
     YapperAPI:RegisterLanguageEngine(familyId, engine) → boolean
-      Registers an engine for a locale family.  GetPhoneticHash(word) is
-      required, as are BlockedHashes (table) and HashWord(word) (function) for
-      the security validation.  Optional fields include NormaliseVowels,
-      HasVariantRules, VariantRules, ScoreWeights, and KBLayouts.
+      Registers a language engine for a locale family under a strict contract
+      (see Documentation/Dictionaries.md for the full schema, limits, and
+      failure semantics).  The engine table is deep-copied, validated
+      (whitelist + type checks + runtime probes), and owner-locked: after a
+      family is claimed by one addon, only that addon may re-register it.
+
+      Required: NormaliseWord, NormaliseVowels, GetPhoneticHash, HashWord,
+      BlockedHashes, WordBytes, WordStartBytes.
+      Optional: StripAffixes, ShouldCheckWord, MatchCase, IsSaneWord,
+      HasVariantRules, VariantRules, ScoreWeights, KBLayouts, DefaultLayout,
+      Locales, DisplayName.  Unknown keys are rejected; engine-private fields
+      must use an "X_" prefix.
+
+      A runtime error inside engine code purges the engine and every
+      dictionary bound to its family, and marks the affected locales
+      ENGINE_PURGED.
 
     YapperAPI:IsLanguageEngineRegistered(familyId) → boolean
     YapperAPI:GetLanguageEngine(familyId) → table|nil
@@ -348,6 +362,18 @@
       Associates a load-on-demand dictionary addon with a locale, for example
       "ptBR" and "Yapper_Dict_pt".  If that locale is active, Yapper attempts
       to ensure it immediately.
+
+    YapperAPI:RegisterStrings(locale, strings) → boolean
+      Registers a sparse UI-string table for a client locale (e.g. "deDE").
+      Keys must exist in the canonical English table (Src/Strings.lua);
+      missing keys fall back to English.  Owner-captured; re-registering
+      replaces your addon's contribution wholesale and fires STRINGS_UPDATED.
+      enUS is core-owned and cannot be overridden.
+
+    YapperAPI:GetString(key, ...) → string
+      Resolves a UI string for the active client locale with English
+      fallback.  Extra arguments feed string.format.  Never returns nil —
+      an unknown key resolves to the key itself.
 
 ---------------------------------------------------------------------------
 5. CHAT, QUEUE, ATOMIC TEXT, AND DELEGATION

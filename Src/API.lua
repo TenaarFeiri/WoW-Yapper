@@ -61,6 +61,7 @@ local VALID_CALLBACKS = {
     ICON_GALLERY_SHOW               = true, -- (query) raid-icon gallery opened
     ICON_GALLERY_HIDE               = true, -- () raid-icon gallery closed
     ICON_GALLERY_SELECT             = true, -- (index, text, code) user picked a raid icon
+    STRINGS_UPDATED                 = true, -- (locale) an addon registered/overwrote locale strings
     API_ERROR                       = true, -- (kind, hook, handler_info, errorMessage, data, ...) handler faulted
 }
 
@@ -374,6 +375,25 @@ local function _is_valid_filter_payload(hookPoint, payload)
     return not validator or validator(payload)
 end
 
+-- Best-effort owner attribution: extract the AddOn folder name from the
+-- caller's source path via debug.getinfo, else store short_src.  This is an
+-- attribution aid, not a security boundary (Lua addons share one VM).
+-- `stackLevel` is measured from INSIDE this helper: pcall(1) ->
+-- _capture_caller_owner(2) -> registration method(3) -> caller(4).
+local function _capture_caller_owner(stackLevel)
+    if type(debug) ~= "table" or type(debug.getinfo) ~= "function" then
+        return nil
+    end
+    local ok, reginfo = pcall(debug.getinfo, stackLevel, "S")
+    if ok and reginfo then
+        local src = reginfo.source or reginfo.short_src
+        if type(src) == "string" then
+            return src:match("AddOns[/\\]([^/\\]+)") or src
+        end
+    end
+    return nil
+end
+
 -- Most payloads are scalar routing fields. Frame identity is preserved, but
 -- nested suggestion data is copied so an erroring filter can't leave the
 -- active suggestion list half-mutated.
@@ -428,20 +448,8 @@ function YapperAPI:RegisterFilter(hookPoint, callback, priority)
     priority = type(priority) == "number" and priority or 10
     local handle = NextHandle()
 
-    -- Best-effort owner capture for error attribution: extract the AddOn
-    -- folder name from the caller's source path, else store short_src.
-    local owner = nil
-    if type(debug) == "table" and type(debug.getinfo) == "function" then
-        -- Level 3: pcall(1) -> RegisterFilter(2) -> caller(3)
-        local ok, reginfo = pcall(debug.getinfo, 3, "S")
-        if ok and reginfo then
-            local src = reginfo.source or reginfo.short_src
-            if type(src) == "string" then
-                local addon = src:match("AddOns[/\\]([^/\\]+)")
-                owner = addon or src
-            end
-        end
-    end
+    -- Owner attribution: level 4 reaches the caller through this helper.
+    local owner = _capture_caller_owner(4)
 
     table_insert(filters[hookPoint], {
         cb       = callback,
@@ -514,18 +522,7 @@ function YapperAPI:RegisterCallback(event, callback)
     local handle = NextHandle()
 
     -- Same owner capture as RegisterFilter.
-    local owner = nil
-    if type(debug) == "table" and type(debug.getinfo) == "function" then
-        -- Level 3: pcall(1) -> RegisterCallback(2) -> caller(3)
-        local ok, reginfo = pcall(debug.getinfo, 3, "S")
-        if ok and reginfo then
-            local src = reginfo.source or reginfo.short_src
-            if type(src) == "string" then
-                local addon = src:match("AddOns[/\\]([^/\\]+)")
-                owner = addon or src
-            end
-        end
-    end
+    local owner = _capture_caller_owner(4)
 
     table_insert(callbacks[resolvedEvent], {
         cb     = callback,
@@ -887,15 +884,18 @@ end
 --- `locale` -- locale key, e.g. "enBase", "enGB", "enUS".
 --- `data`   -- dictionary table or lazy builder function. Tables accept the
 ---             fields used by RegisterDictionary (words, phonetics, extends,
----             languageFamily, affixRules, and optional engine data).
+---             languageFamily, affixRules, and an optional embedded engine).
+--- Every dictionary must resolve to a languageFamily whose engine is
+--- already registered and contract-valid; there is no silent default.
 --- Returns true when dispatch completes without a Lua error. Internal
---- security validation may still reject the dictionary data.
+--- contract/security validation may still reject the dictionary data.
 function YapperAPI:RegisterDictionary(locale, data)
     if type(locale) ~= "string" or locale == "" then return false end
     if type(data) ~= "table" and type(data) ~= "function" then return false end
     local sc = YapperTable.Spellcheck
     if not sc or not sc.RegisterDictionary then return false end
-    local ok, err = pcall(sc.RegisterDictionary, sc, locale, data)
+    local owner = _capture_caller_owner(4)
+    local ok, err = pcall(sc.RegisterDictionary, sc, locale, data, owner)
     if not ok then
         _report_api_error("RegisterDictionary", locale, nil, err, { locale = locale })
         return false
@@ -905,21 +905,63 @@ end
 
 --- Register a language engine for a locale family.
 --- `familyId` -- short string id, e.g. "en", "de", "fr".
---- `engine`   -- table; GetPhoneticHash, BlockedHashes, and HashWord are
----             required for phonetic lookup and security validation.
+--- `engine`   -- table implementing the engine contract (see
+---             Documentation/Dictionaries.md): NormaliseWord, NormaliseVowels,
+---             GetPhoneticHash, HashWord, BlockedHashes, WordBytes and
+---             WordStartBytes are required; StripAffixes, ShouldCheckWord,
+---             MatchCase, IsSaneWord, VariantRules, ScoreWeights, KBLayouts,
+---             DefaultLayout, Locales and DisplayName are optional.
+--- The engine table is deep-copied, strictly validated (type, shape and
+--  limit checks plus runtime probes), and owner-locked: once a family is
+--- claimed by an addon, only that addon may re-register it. A runtime error
+--- inside engine code purges the engine and all bound dictionaries.
 --- Returns true on success, false on invalid arguments or failed validation.
 function YapperAPI:RegisterLanguageEngine(familyId, engine)
     if type(familyId) ~= "string" or familyId == "" then return false end
     if type(engine) ~= "table" then return false end
     local sc = YapperTable.Spellcheck
     if not sc or not sc._RegisterLanguageEngine then return false end
+    local owner = _capture_caller_owner(4)
     local engineCopy = _copy_value(engine)
-    local ok, result = pcall(sc._RegisterLanguageEngine, sc, familyId, engineCopy)
+    local ok, result = pcall(sc._RegisterLanguageEngine, sc, familyId, engineCopy, owner)
     if not ok then
         _report_api_error("RegisterLanguageEngine", familyId, nil, result, { familyId = familyId })
         return false
     end
     return result == true
+end
+
+--- Register UI strings for a locale.  `tbl` is a sparse map of canonical
+--- string keys (see Src/Strings.lua `Strings._enUS` for the key list) to
+--- translated text; missing keys fall back to English.  Owner-captured like
+--- engine registration: re-registering from the same addon replaces that
+--- addon's contribution wholesale.  Fires STRINGS_UPDATED on success.
+--- enUS itself is core-owned and cannot be overridden.
+--- Returns true on success, false on invalid input or failed validation.
+function YapperAPI:RegisterStrings(locale, tbl)
+    if type(locale) ~= "string" or locale == "" then return false end
+    if type(tbl) ~= "table" then return false end
+    local strings = YapperTable.Strings
+    if not strings or not strings.Register then return false end
+    local owner = _capture_caller_owner(4)
+    local ok, result, err = pcall(strings.Register, strings, locale, tbl, owner)
+    if not ok then
+        _report_api_error("RegisterStrings", locale, nil, result, { locale = locale })
+        return false
+    end
+    if result ~= true and type(err) == "string" and YapperTable.Utils and YapperTable.Utils.Print then
+        YapperTable.Utils:Print("error", "RegisterStrings: " .. err)
+    end
+    return result == true
+end
+
+--- Resolve a UI string for the active client locale, with enUS fallback.
+--- Extra args feed string.format.  Never returns nil: an unknown key
+--- resolves to the key itself.
+function YapperAPI:GetString(key, ...)
+    local strings = YapperTable.Strings
+    if not strings or not strings.Get then return tostring(key) end
+    return strings:Get(key, ...)
 end
 
 --- Returns true if a language engine for `familyId` is registered.
@@ -1569,6 +1611,8 @@ YapperAPI.Themes = {
 YapperAPI.UI = {
     IsOverlayShown       = YapperAPI.IsOverlayShown,
     ListFrames           = YapperAPI.ListFrames,
+    RegisterStrings      = YapperAPI.RegisterStrings,
+    GetString            = YapperAPI.GetString,
     ShowIconGallery      = YapperAPI.ShowIconGallery,
     HideIconGallery      = YapperAPI.HideIconGallery,
     IsIconGalleryShown   = YapperAPI.IsIconGalleryShown,

@@ -35,6 +35,30 @@ For new integrations, use `_G.YapperAPI` only (see [API.md](API.md)).
 
 ## Version-Specific Integration Notes
 
+### Language-engine contract (post-2.4.5)
+
+Dictionary addons now own **all** language logic and must satisfy the strict
+engine contract (see [Dictionaries.md](Dictionaries.md)):
+
+- `RegisterLanguageEngine` now **requires** `NormaliseWord`, `NormaliseVowels`,
+  `GetPhoneticHash`, `HashWord`, `BlockedHashes`, `WordBytes` and
+  `WordStartBytes` — previously only `GetPhoneticHash`/`BlockedHashes`/`HashWord`
+  were checked. Optional extras (`StripAffixes`, `ShouldCheckWord`, `MatchCase`,
+  `IsSaneWord`, `VariantRules`, `ScoreWeights`, `KBLayouts`, `DefaultLayout`,
+  `Locales`, `DisplayName`) are type-checked and probed; unknown top-level keys
+  fail registration (use an `X_` prefix for private fields).
+- A dictionary **must** declare `languageFamily` (or inherit it via `extends`)
+  and the family engine must be registered first — the implicit `"en"` default
+  is gone. There is no silent English fallback.
+- Engines are owner-locked: only the addon that first registered a family may
+  replace it. A runtime error inside engine code purges the engine plus all
+  dictionaries bound to its family.
+- Removed internals: `Spellcheck._KB_LAYOUTS` and `Spellcheck:GetKBDistTable`
+  are gone (layouts are engine data now). `Spellcheck.NormaliseWord`,
+  `Spellcheck.NormaliseVowels`, `Spellcheck.IsWordByte`,
+  `Spellcheck.IsWordStartByte` and `Spellcheck.IterWords` still exist but are
+  now engine-delegating entry points.
+
 ### 2.1.18+ Active Chat Window Hijack (`ChatEdit_GetActiveWindow`)
 
 In Yapper 2.1.18 and newer, Yapper hooks `_G.ChatEdit_GetActiveWindow` and `ChatFrameUtil.GetActiveWindow` to return Yapper's active editor (`YapperOverlayEditBox` or `Multiline.EditBox` in multiline mode) while active.

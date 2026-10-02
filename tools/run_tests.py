@@ -42,6 +42,7 @@ GATING_FROM_ROOT = [
     "test_sticky_sync",
     "test_forever_names",
     "test_recolour",
+    "test_engine_contract",
     "test_sendposts_strip",
     "test_shadow_tint",
     "test_help_content",
@@ -49,12 +50,14 @@ GATING_FROM_ROOT = [
 
 # Gating suites executed from the suite directory (they loadfile "../../Src/...").
 GATING_FROM_SUITEDIR = [
+    "test_strings",
     "test_api_error",
     "test_api_features",
     "test_yallm_logic",
     "test_yallm_extended",
     "test_yallm_pruning_decay_pipeline",
     "test_autocomplete_api",
+    "test_spellcheck_en_variant_inheritance",
 ]
 
 passed = 0
@@ -143,6 +146,21 @@ else:
     failed_names.append("doc-refs")
     print("  [FAIL] documentation line references drifted")
     print("         run: python3 tools/check_doc_refs.py --fix")
+
+
+# ---------------------------------------------------------------------------
+# Phase 1c: UI string-key coverage.
+# ---------------------------------------------------------------------------
+section("String-key coverage (check_string_refs.py)")
+proc = subprocess.run(
+    [sys.executable, str(ROOT / "tools" / "check_string_refs.py")], cwd=ROOT
+)
+if proc.returncode == 0:
+    print("  [PASS] string-key coverage")
+else:
+    failed += 1
+    failed_names.append("string-refs")
+    print("  [FAIL] unknown string keys referenced")
 
 
 # ---------------------------------------------------------------------------
