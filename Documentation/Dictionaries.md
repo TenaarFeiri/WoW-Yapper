@@ -84,6 +84,7 @@ An engine is a plain table. The table is **deep-copied** on registration
 | `StripAffixes` | `function(engine, word, dict) -> string|nil` | Colon-called convention: invoked as `engine:StripAffixes(word, dict)`. Return the dictionary root for an inflected form, or `nil`. |
 | `ShouldCheckWord` | `function(word, minLen) -> boolean` | Full override of the "is this token worth checking" gate. Default drops sub-`minLen` words, digits and ALL-CAPS. |
 | `MatchCase` | `function(input, suggestion) -> string` | Maps a suggestion to the casing the language expects given the user's raw input (e.g. capitalise nouns). Default: ASCII capitalise-first when input starts uppercase. |
+| `ClassifyBoundary` | `function(text, pos) -> string\|nil` | Boundary classification for the byte at 1-based `pos` of canonical `text`. Drives autocorrect commits and autocomplete space snap-back. Must return `"commit"`, `"close"`, `"open"`, `"none"`, `nil`, or `""` (`nil`/`""` = no opinion → core default, which encodes English conventions: space/newline commit; `.,!?;:` and a parity-closing `"` are `"close"`; an opening `"` is `"open"`). Probed at registration; invalid enum values reject the engine. |
 | `IsSaneWord` | `function(word) -> boolean` | Additional veto applied to YAS auto-learning, on top of core length/consonant/bigram checks. |
 | `HasVariantRules` | `boolean` | Must be `true` when `VariantRules` is present. |
 | `VariantRules` | `table` | Array of `{ from, to }` string pairs (≤64 rules, ≤32 bytes per side, `from ≠ to`). Dialect spelling variants, e.g. `{ "or", "our" }`. Used for scoring bonus and direct injection. |
@@ -103,10 +104,14 @@ An engine is a plain table. The table is **deep-copied** on registration
 | `AutocorrectVeto` | `function(word, suggestion) -> boolean` | Language veto: never auto-apply this correction (e.g. case-semantic languages where a surface form is a proper noun). Probed; must return a boolean. |
 | `MaxConfidence` | `number` | Per-language ceiling on endorsed confidence, [0, 1]. `0` = the language never endorses autocorrection. |
 
-The `Autocorrect` block is **scaffold today** — no code applies corrections
-silently yet. It exists so engines can ship language knowledge before the
-feature lands, and so `YAS:ClassifySuggestion` tiering already honours
-engine vetoes and confidence ceilings.
+The `Autocorrect` block feeds the live autocorrect feature. When the user
+completes a word with a boundary keystroke, `YAS:ClassifySuggestion` decides
+the tier; only `AUTO`-tier candidates rewrite the text, and engine vetoes
+and `MaxConfidence` ceilings are honoured in that classification. `ConfusionPairs`
+seeds the user's habitual-confusion error profile. Boundary treatment (which
+characters end a word, and how quote characters behave) is a separate
+top-level `ClassifyBoundary` field, documented in the optional-fields table
+above — engines may implement it and return `nil` to keep core defaults.
 
 **Strict rules**
 
@@ -116,7 +121,9 @@ engine vetoes and confidence ceilings.
   (`"hello"`, `"Don't"`, `"Straße"`, `"a"`). A function that errors, returns
   a wrong type, or breaks idempotency fails the whole registration.
 - `ShouldCheckWord`/`IsSaneWord` must return real booleans; `MatchCase` must
-  return a string; `StripAffixes` must return a string or `nil`.
+  return a string; `StripAffixes` must return a string or `nil`;
+  `ClassifyBoundary` must return `nil`, `""`, or one of the boundary enum
+  values (`commit`/`close`/`open`/`none`).
 - Table caps: `VariantRules` ≤ 64; `KBLayouts` ≤ 16 layouts × 256 keys;
   `BlockedHashes` ≤ 250 000 entries; `Locales` ≤ 64 ids;
   `Autocorrect.ConfusionPairs` ≤ 256 entries.
@@ -128,7 +135,7 @@ engine vetoes and confidence ceilings.
   and returns `false` from `RegisterLanguageEngine`. Nothing is stored.
 - **Runtime failure**: engine entry points that can run user-facing hot paths
   (`GetPhoneticHash`, `StripAffixes`, `ShouldCheckWord`, `MatchCase`,
-  `IsSaneWord`, top-level `NormaliseWord`) are called through a protected
+  `IsSaneWord`, `ClassifyBoundary`, top-level `NormaliseWord`) are called through a protected
   boundary. If engine code throws, the engine is **purged**: removed from the
   registry, every dictionary bound to its family is unloaded, all derived
   caches (suggestions, keyboard distances, user-word sets, dict metadata) are

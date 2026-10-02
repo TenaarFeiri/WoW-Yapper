@@ -12,12 +12,16 @@
 - YAS now has basic context-awareness and learns which words you actually write after other words and favours candidates that fit your habits.
 - YAS now has error-profile learning; your habitual slip pattern (such as transposing letters, dropping doubles, specific letter confusions) now generalises and learned corrections help beyond the exact typo you made.
 - YAS now implements learned scoring. The suggestion weights adapt to how *you* pick corrections, with a self-evaluation circuit breaker that regresses the model if YAS-surfaced picks keep getting re-corrected.
+- Autocorrect (opt-in): when you finish a word with a space or closing punctuation, corrections YAS is highly confident about are applied as you type. Undo instantly with Backspace, Ctrl+Z, the Undo toast, or "Restore" in the suggestion popup. A reverted correction is never re-applied that session.
+- New toast notifications: a small card appears when YAS learns a word into your dictionary (Keep / Unlearn / Ignore) and after each autocorrection (Undo). It positions itself clear of the chat frame, edit box, multiline editor, and suggestion popup, and pauses its timer while hovered.
+- Autocomplete quality-of-life: accepting a suggestion only adds a trailing space when the next character can start a word; if you immediately type `.`, `,`, `!`, `?`, `;`, `:` or a closing `"`, the space snaps after the punctuation like on a phone keyboard. Ghost text no longer appears mid-word.
+- The What's New and welcome popups now offer spellcheck, autocomplete, adaptive learning, and autocorrect toggles. Enabling spellcheck asks which dictionary language to load first. Autocorrect stays greyed out until spellcheck and adaptive learning are both on, in settings too.
 
 ### Technical Changes
 - Removed the built-in English fallback engine. All language behaviour now flows through the registered engine contract, and dictionaries ship their own engine which controls spellchecking logic.
 - YAS phonetic-bias learning and phonetic autocomplete now actually work. `Spellcheck:GetPhoneticHash` never existed, so those paths were silently dead until the engine delegate exposed them.
 - All YAS learned data is strictly bounded and periodically consolidated in small per-tick chunks, so it can't grow memory unbounded or stall frames.
-- Future autocorrect scaffolding is in place: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like compound-word splitting).
+- Autocorrect scaffolding from earlier betas is now live: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus the `Autocorrect` block in the engine contract (dictionaries can supply compound splitting, confusion-pair seeds, vetoes, and confidence ceilings). The English engine ships a confusion-pair seed and a `ClassifyBoundary` implementation that exercises the contract while deferring to core defaults.
 - Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
 
 ### Bug Fixes
@@ -32,6 +36,7 @@
 - The blocklist generator only hashed one word form. Anything with apostrophes, digits, or non-ASCII characters hashed differently at runtime and slipped through. It now emits every surface the engine checks, including leetspeak-folded variants.
 - A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
 - Forwarded `/join`, `/channel`, and `/chan` no longer run Blizzard's slash handler, which writes the channel name into the chat frame's channel list -- doing that write inside Yapper's tainted execution caused "secret value" chat errors in delves and other restricted content. Yapper now joins via the client API directly; joining works the same, and a freshly-joined custom channel may not display messages until the chat config next refreshes (reload or zone change).
+- Arrow-key history recall no longer eats your draft: pressing Up with text already in the box stashes it, and pressing Down past the newest entry restores it with the cursor at the end.
 
 # 2.4.5
 
