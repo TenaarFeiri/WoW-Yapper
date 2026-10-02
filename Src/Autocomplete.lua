@@ -568,6 +568,10 @@ function Autocomplete:_InstallCursorHook(editBox)
 		ac._caretX = x
 		ac._caretY = y
 		ac._caretH = h
+		-- NOTE: _pendingSnap is intentionally NOT cleared here.  WoW does not
+		-- guarantee whether OnCursorChanged or OnTextChanged fires first for a
+		-- typed char; the marker self-invalidates via its exact position check
+		-- and is consumed by the next text change either way.
 		if existing then existing(self, x, y, w, h) end
 		if ac.Active and ac.GhostFS then
 			ac:PositionGhost()
@@ -680,10 +684,48 @@ function Autocomplete:OnTextChanged(editBox)
 
 	local text, pos      = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
 
+	-- Snap-back: if the previous keystroke was our auto-inserted trailing
+	-- space and THIS keystroke is a "close" boundary (.,!?;: or a
+	-- parity-closing '"'), the space hops after the punctuation —
+	-- "hello " + "." -> "hello. ".  The marker lives for exactly one
+	-- keystroke and only ever applies to a space we inserted, never one
+	-- the user typed.
+	local snap = self._pendingSnap
+	self._pendingSnap = nil
+	if snap and snap.box == editBox and pos - 1 == snap.spacePos
+		and string_sub(text, snap.spacePos, snap.spacePos) == " " then
+		local sc = YapperTable.Spellcheck
+		local cls = sc and sc.ClassifyBoundary and sc:ClassifyBoundary(text, pos) or "none"
+		if cls == "close" then
+			local ch = string_sub(text, pos, pos)
+			local newText = string_sub(text, 1, snap.spacePos - 1)
+				.. ch .. " " .. string_sub(text, pos + 1)
+			editBox:SetText(newText)
+			editBox:SetCursorPosition(math_min(snap.spacePos + 2, string_len(newText)))
+			if YapperTable.API then
+				YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
+			end
+			text, pos = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
+		end
+	end
+
 	local word, startIdx = self:ExtractWordAtCursor(text, pos)
 	if not word then
 		YapperAPI:HideGhostText()
 		return
+	end
+
+	-- Mid-word suppression: a word byte right after the caret means the
+	-- user is editing inside a token — ghost text must not suggest a
+	-- completion that would collide with the following characters.
+	local afterByte = string_byte(text, pos + 1)
+	if afterByte then
+		local sc = YapperTable.Spellcheck
+		local isWord = sc and sc.IsWordByte and sc.IsWordByte(afterByte)
+		if isWord then
+			YapperAPI:HideGhostText()
+			return
+		end
 	end
 
 	-- Don't autocomplete a first-word slash command while the emote picker
@@ -779,13 +821,30 @@ function Autocomplete:OnTabPressed(editBox)
 	end
 
 	-- Replace the partial word with the full suggestion.  Append a space
-	-- so the user can continue typing without manually inserting one.
+	-- only when the next character is a word byte or the caret is at
+	-- end-of-text — never before punctuation (the snap-back marker in
+	-- OnTextChanged will instead move the space after a "close" boundary
+	-- if the user immediately types one).
 	local before  = string_sub(text, 1, wordStart - 1)
 	local after   = string_sub(text, pos + 1)
-	local trail   = (after:sub(1, 1) ~= " ") and " " or ""
+	local nextB   = string_byte(after, 1)
+	local sc      = YapperTable.Spellcheck
+	local trail   = ""
+	if not nextB or (sc and sc.IsWordByte and sc.IsWordByte(nextB)) then
+		trail = " "
+	end
+	local spacePos = wordStart - 1 + string_len(self.CurrentSugg) + 1
 	local newText = before .. self.CurrentSugg .. trail .. after
 	editBox:SetText(newText)
 	editBox:SetCursorPosition(wordStart - 1 + string_len(self.CurrentSugg) + string_len(trail))
+
+	-- Snap-back marker: valid for the next keystroke only, and only when
+	-- the space is ours.
+	if trail == " " then
+		self._pendingSnap = { box = editBox, spacePos = spacePos }
+	else
+		self._pendingSnap = nil
+	end
 
 	if YapperTable.API then
 		YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
@@ -793,7 +852,6 @@ function Autocomplete:OnTabPressed(editBox)
 
 	-- Record the acceptance in YAS: strong bias signal (prefix -> suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
-	local sc = YapperTable.Spellcheck
 	local yas = sc and sc.YAS
 	if yas then
 		local locale = ActiveLocale()
@@ -809,6 +867,7 @@ end
 
 --- Called when the overlay hides or loses focus.
 function Autocomplete:OnOverlayHide()
+	self._pendingSnap = nil
 	YapperAPI:HideGhostText()
 end
 
