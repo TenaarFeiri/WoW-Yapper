@@ -485,6 +485,31 @@ end
 -- Theme Override Helpers
 -- ---------------------------------------------------------------------------
 
+--- Settings that only make sense when their dependencies are enabled are
+--- shown greyed out rather than selectable.
+function Interface:IsPathDependencyDisabled(path)
+    local full = JoinPath(path)
+    local sc = YapperTable.Config and YapperTable.Config.Spellcheck or {}
+    -- Match Spellcheck:IsEnabled() semantics: nil counts as enabled.
+    local spellOn = sc.Enabled ~= false
+    local yasOn = sc.YASEnabled == true
+    local corrOn = sc.AutocorrectEnabled == true
+
+    -- Autocorrect evaluates through YAS classification: it needs both
+    -- spellcheck and adaptive learning.
+    if full == "Spellcheck.AutocorrectEnabled" then
+        return not (spellOn and yasOn)
+    end
+    if full == "Spellcheck.AutocorrectToast" then
+        return not corrOn
+    end
+    -- Learned-word toasts only fire on YAS learning events.
+    if full == "Spellcheck.LearnToastEnabled" then
+        return not yasOn
+    end
+    return false
+end
+
 function Interface:IsPathDisabledByTheme(path)
     -- Blizzard skin proxy acts as a high-priority visual override
     if self:GetConfigPath({ "EditBox", "UseBlizzardSkinProxy" }) == true then
