@@ -381,6 +381,72 @@ History:SaveDraft(nil, false)
 check("nil editbox doesn't crash", true)
 
 -- ===========================================================================
+-- Test 16: NavigateHistory preserves in-progress draft text
+-- ===========================================================================
+print("\nTest 16: NavigateHistory draft save/restore")
+
+-- NavigateHistory lives in Src/Hooks/History.lua and operates on the EditBox
+-- facade (self.OverlayEdit is the real widget).
+YapperTable.EditBoxHooksCore = {
+    ResolveChannelName = function(n) return "chan" .. tostring(n) end,
+}
+YapperTable.EditBox = {}
+local hooksLoader, hooksErr = loadfile("Src/Hooks/History.lua")
+if not hooksLoader then
+    print("FATAL: " .. tostring(hooksErr))
+    os.exit(1)
+end
+hooksLoader(YapperName, YapperTable)
+local EditBoxFacade = YapperTable.EditBox
+
+-- Feed a fixed chat history.
+local savedGetChatHistory = History.GetChatHistory
+History.GetChatHistory = function()
+    return {
+        { text = "first sent",  chatType = "SAY" },
+        { text = "second sent", chatType = "SAY" },
+    }
+end
+
+local overlay = MockEditBox("Overlay")
+EditBoxFacade.OverlayEdit = overlay
+EditBoxFacade.RefreshLabel = function() end
+EditBoxFacade.HistoryIndex = nil
+EditBoxFacade.HistoryCache = nil
+EditBoxFacade.HistoryDraft = nil
+overlay:SetText("my unfinished draft")
+
+-- UP: stash the draft, land on the most recent sent entry.
+EditBoxFacade:NavigateHistory(-1)
+check("up recalls newest sent entry", overlay:GetText() == "second sent")
+
+-- UP again: older entry, draft stays stashed.
+EditBoxFacade:NavigateHistory(-1)
+check("up recalls older entry", overlay:GetText() == "first sent")
+
+-- DOWN past the newest entry returns to the draft slot and restores text.
+EditBoxFacade:NavigateHistory(1)
+check("down returns to newest entry", overlay:GetText() == "second sent")
+EditBoxFacade:NavigateHistory(1)
+check("down past newest restores the draft", overlay:GetText() == "my unfinished draft")
+check("cursor at end of restored draft",
+    overlay:GetCursorPosition() == #"my unfinished draft")
+
+-- Leaving and returning again still restores (snapshot retaken each time).
+EditBoxFacade:NavigateHistory(-1)
+EditBoxFacade:NavigateHistory(1)
+check("second round-trip restores the draft", overlay:GetText() == "my unfinished draft")
+
+-- Empty draft: bottom slot restores "".
+overlay:SetText("")
+EditBoxFacade:NavigateHistory(-1)
+check("up with empty draft recalls entry", overlay:GetText() == "second sent")
+EditBoxFacade:NavigateHistory(1)
+check("empty draft slot restores empty", overlay:GetText() == "")
+
+History.GetChatHistory = savedGetChatHistory
+
+-- ===========================================================================
 -- Results
 -- ===========================================================================
 print("\n" .. string.rep("-", 50))

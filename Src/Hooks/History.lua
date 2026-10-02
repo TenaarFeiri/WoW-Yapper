@@ -51,10 +51,19 @@ function EditBox:NavigateHistory(direction)
     newIdx = math_max(1, math_min(newIdx, #cache + 1))
 
     if newIdx == self.HistoryIndex then return end
+
+    -- Leaving the bottom slot: stash any in-progress draft so navigating
+    -- back down restores it instead of wiping it.
+    if self.HistoryIndex == #cache + 1 then
+        self.HistoryDraft = YapperTable.Recolour.CanonicalText(self.OverlayEdit)
+    end
     self.HistoryIndex = newIdx
 
     if newIdx > #cache then
-        self.OverlayEdit:SetText("")
+        local draft = self.HistoryDraft or ""
+        self.HistoryDraft = nil
+        self.OverlayEdit:SetText(draft)
+        self.OverlayEdit:SetCursorPosition(#draft)
     else
         local item = cache[newIdx]
         local text = ""
