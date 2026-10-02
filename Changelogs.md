@@ -29,6 +29,9 @@
 - Notification toasts no longer jump to the bottom-right corner when the chat window sits near the top of the screen; the placement solver can now also settle below or beside the chat frame.
 - Mechanical-typo candidates (transposed or dropped letters) were starved by the suggestion budget on large dictionaries -- "doign" never produced "doing" until you had already taught YAS the correction. Autocorrect also weighs keyboard distance now, so a far-apart letter swap like "deign" no longer wins on confidence alone.
 - Phonetic matches now keep their score boost no matter which suggestion path surfaced them, so "tihs" ranks "this" first instead of behind looser sound-alikes like "thus".
+- Autocorrect could never fire on a fresh profile: it classified candidates against a learned-data partition that did not exist yet, so every check silently bailed.
+- Reverting an autocorrection once could lock that word out of autocorrect permanently, and fixing it yourself dug the hole deeper instead of clearing it.
+- Autocorrect now evaluates the top few suggestions and applies the most confident one instead of trusting dictionary rank alone.
 - Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary. The setting toggle now stops all observation, learning, and dictionary writes.
 - Restored lost learned data: legacy learned vocabulary and personal dictionaries were being migrated into an orphaned `enBASE` partition that nothing ever read; existing users' migrated data is recovered and merged into the correct language partition.
 - Suggestion cache now correctly refreshes when YAS learns (frequency, rejections, and clears now invalidate cached scores); previously a candidate you rejected could immediately reappear.
