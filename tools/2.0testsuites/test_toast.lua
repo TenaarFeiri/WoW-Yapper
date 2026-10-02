@@ -74,6 +74,10 @@ local function MockFrame()
     f.GetRight       = function(self) return self._r end
     f.GetBottom      = function(self) return self._b end
     f.GetTop         = function(self) return self._t end
+    f.GetHeight      = function(self) return self._h or ((self._t or 0) - (self._b or 0)) end
+    f.GetPoint       = function(self)
+        return self._point, self._relTo, self._relPoint
+    end
     f._alpha = 1
     return f
 end
@@ -206,8 +210,46 @@ YapperTable.EditBox.Overlay._b, YapperTable.EditBox.Overlay._t = 10, 40
 x, y = Toast:_PickPosition(200, 60)
 local inOverlay = not (x + 200 <= 10 or x >= 400 or y + 60 <= 10 or y >= 40)
 check("avoids input overlay rect", inOverlay == false)
-
 YapperTable.EditBox = nil
+
+-- Chat frame hugging the top edge: "above chat" clamps back onto the frame
+-- and is rejected; the solver must land below/beside the chat rather than
+-- dumping the toast into the far bottom-right corner.
+DEFAULT_CHAT_FRAME._l, DEFAULT_CHAT_FRAME._r = UIW / 2 - 200, UIW / 2 + 200
+DEFAULT_CHAT_FRAME._b, DEFAULT_CHAT_FRAME._t = UIH - 300, UIH - 10
+x, y = Toast:_PickPosition(200, 60)
+local inChat = not (x + 200 <= UIW / 2 - 200 or x >= UIW / 2 + 200
+    or y + 60 <= UIH - 300 or y >= UIH - 10)
+check("top-anchored chat: stays out of chat rect", inChat == false)
+check("top-anchored chat: not dumped in a bottom corner", y > UIH * 0.5)
+check("top-anchored chat: still in bounds",
+    x >= 0 and y >= 0 and x + 200 <= UIW and y + 60 <= UIH)
+
+-- Chat cluster: the edit box hangs below the frame and the tab strip sits
+-- above it; toasts must clear the whole cluster, not just the chat rect.
+-- Hidden edit box: anchor fallback reserves the strip it takes on focus.
+DEFAULT_CHAT_FRAME._shown = true
+DEFAULT_CHAT_FRAME.editBox = MockFrame()
+DEFAULT_CHAT_FRAME.editBox._shown = false
+DEFAULT_CHAT_FRAME.editBox._relTo = DEFAULT_CHAT_FRAME
+DEFAULT_CHAT_FRAME.editBox._relPoint = "BOTTOMLEFT"
+DEFAULT_CHAT_FRAME.editBox._h = 26
+x, y = Toast:_PickPosition(200, 60)
+check("hidden editbox strip reserved below chat", y + 60 <= UIH - 300 - 26)
+
+-- Shown edit box: its real rect extends the cluster.
+DEFAULT_CHAT_FRAME.editBox._shown = true
+DEFAULT_CHAT_FRAME.editBox._l = UIW / 2 - 200
+DEFAULT_CHAT_FRAME.editBox._r = UIW / 2 + 200
+DEFAULT_CHAT_FRAME.editBox._b = UIH - 326
+DEFAULT_CHAT_FRAME.editBox._t = UIH - 300
+x, y = Toast:_PickPosition(200, 60)
+local inEditBox = not (x + 200 <= UIW / 2 - 200 or x >= UIW / 2 + 200
+    or y + 60 <= UIH - 326 or y >= UIH - 300)
+check("shown editbox not overlapped", inEditBox == false)
+check("lands below the whole chat cluster", y + 60 <= UIH - 326)
+
+DEFAULT_CHAT_FRAME.editBox = nil
 _G.DEFAULT_CHAT_FRAME = nil
 
 -- ===========================================================================

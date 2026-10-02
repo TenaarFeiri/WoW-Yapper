@@ -132,6 +132,41 @@ local function RectsOverlap(a, b)
     return not (a.r <= b.l or a.l >= b.r or a.t <= b.b or a.b >= b.t)
 end
 
+--- Fold a chat-cluster child (tab strip, edit box) into the frame rect.
+--- Hidden frames report no screen rect, so fall back to the child's anchor
+--- on the chat frame and reserve the strip it will occupy when shown.
+local function ExtendClusterRect(rect, chatFrame, child)
+    if not child then return end
+    local cr = FrameRect(child)
+    if cr then
+        if cr.b < rect.b then rect.b = cr.b end
+        if cr.t > rect.t then rect.t = cr.t end
+        return
+    end
+    if not (child.GetPoint and child.GetHeight) then return end
+    local _, relTo, relPoint = child:GetPoint(1)
+    if relTo ~= chatFrame or type(relPoint) ~= "string" then return end
+    local h = child:GetHeight() or 0
+    if h <= 0 then return end
+    if relPoint:find("TOP") then
+        rect.t = rect.t + h
+    elseif relPoint:find("BOTTOM") then
+        rect.b = rect.b - h
+    end
+end
+
+--- The visible chat cluster is taller than DEFAULT_CHAT_FRAME alone: the
+--- tab strip sits above its top edge and the edit box hangs below its
+--- bottom edge.  Anchoring to the extended rect keeps toasts clear of both.
+local function ChatClusterRect()
+    local f = DEFAULT_CHAT_FRAME
+    local rect = FrameRect(f)
+    if not rect then return nil end
+    ExtendClusterRect(rect, f, f.Tab or _G["ChatFrame1Tab"])
+    ExtendClusterRect(rect, f, f.editBox)
+    return rect
+end
+
 local function OccupiedRects()
     local rects = {}
     local eb   = YapperTable.EditBox
@@ -142,7 +177,7 @@ local function OccupiedRects()
     if ml and ml.Frame then rects[#rects + 1] = FrameRect(ml.Frame) end
     if sc and sc.SuggestionFrame then rects[#rects + 1] = FrameRect(sc.SuggestionFrame) end
     if sc and sc.HintFrame then rects[#rects + 1] = FrameRect(sc.HintFrame) end
-    if DEFAULT_CHAT_FRAME then rects[#rects + 1] = FrameRect(DEFAULT_CHAT_FRAME) end
+    if DEFAULT_CHAT_FRAME then rects[#rects + 1] = ChatClusterRect() end
 
     -- Filter nils (hidden frames) out in-place.
     local out = {}
@@ -151,8 +186,8 @@ local function OccupiedRects()
 end
 
 --- Candidate zones are {x, y} BOTTOMLEFT screen coords for the toast.
---- Ordered by preference: beside the input, under the input, above the chat
---- frame, bottom-right corner, top-right corner.
+--- Ordered by preference: beside/above/below the input, above/below/beside
+--- the chat frame, then corners.
 local function CandidatePositions(w, h, screenW, screenH, occupied)
     local cands = {}
 
@@ -171,14 +206,21 @@ local function CandidatePositions(w, h, screenW, screenH, occupied)
             y = inputRect.b + (inputRect.t - inputRect.b - h) / 2 }
         cands[#cands + 1] = { x = inputRect.l - TOAST_GAP - w,
             y = inputRect.b + (inputRect.t - inputRect.b - h) / 2 }
-        -- Directly above the input.
+        -- Directly above / below the input, left-aligned.
         cands[#cands + 1] = { x = inputRect.l, y = inputRect.t + TOAST_GAP }
+        cands[#cands + 1] = { x = inputRect.l, y = inputRect.b - TOAST_GAP - h }
     end
 
-    -- Above the chat frame, left-aligned.
-    local chat = DEFAULT_CHAT_FRAME and FrameRect(DEFAULT_CHAT_FRAME)
+    -- Chat-frame candidates: above, below, then beside (top-aligned).  A
+    -- chat window hugging the screen top makes "above" clamp back onto the
+    -- frame itself, so the below/beside fallbacks keep the toast near the
+    -- context instead of dropping to a far corner.
+    local chat = ChatClusterRect()
     if chat then
         cands[#cands + 1] = { x = chat.l, y = chat.t + TOAST_GAP }
+        cands[#cands + 1] = { x = chat.l, y = chat.b - TOAST_GAP - h }
+        cands[#cands + 1] = { x = chat.r + TOAST_GAP, y = chat.t - h }
+        cands[#cands + 1] = { x = chat.l - TOAST_GAP - w, y = chat.t - h }
     end
 
     -- Corners.
