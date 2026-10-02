@@ -15,11 +15,10 @@
 
 ### Technical Changes
 - Removed the built-in English fallback engine. All language behaviour now flows through the registered engine contract, and dictionaries ship their own engine which controls spellchecking logic.
-- YAS phonetic-bias learning and phonetic autocomplete now actually work — `Spellcheck:GetPhoneticHash` never existed, so those paths were silently dead until the engine delegate exposed them.
+- YAS phonetic-bias learning and phonetic autocomplete now actually work. `Spellcheck:GetPhoneticHash` never existed, so those paths were silently dead until the engine delegate exposed them.
 - All YAS learned data is strictly bounded and periodically consolidated in small per-tick chunks, so it can't grow memory unbounded or stall frames.
-- Autocorrect scaffolding is in place — confidence tiers, vetoes, a bounded shadow decision log, and an undo ring — plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like compound-word splitting). Nothing is auto-applied yet.
+- Future autocorrect scaffolding is in place: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus an optional `Autocorrect` block in the engine contract so dictionaries can supply language-specific knowledge (like compound-word splitting).
 - Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
-
 
 ### Bug Fixes
 - Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary. The setting toggle now stops all observation, learning, and dictionary writes.
