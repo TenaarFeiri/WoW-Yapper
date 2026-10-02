@@ -59,7 +59,7 @@ Strings._enUS = {
 
     -- Toast notifications (Toast.lua): autocorrect undo + learned-word card.
     ["ui.toast.autocorrected"]    = "Autocorrected",
-    ["ui.toast.autocorrectBody"]  = "\"%s\" → \"%s\"",
+    ["ui.toast.autocorrectBody"]  = "\"%s\" -> \"%s\"",
     ["ui.toast.undo"]             = "Undo",
     ["ui.toast.learned"]          = "Yapper learned a word",
     ["ui.toast.learnedBody"]      = "\"%s\" added to your %s dictionary",

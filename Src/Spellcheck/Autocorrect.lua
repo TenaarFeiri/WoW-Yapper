@@ -155,8 +155,8 @@ function Autocorrect:OnBoundaryCommit(editBox, text, cursor)
     local _, ignoredSet = Spellcheck:GetUserSets(Spellcheck:GetLocale())
     if ignoredSet and ignoredSet[Spellcheck.NormaliseWord(word)] then return end
 
-    -- Top candidate, MatchCase'd (so "Teh" -> "The", not "the").  GetSuggestions
-    -- derives the bigram prevWord context from ActiveRange, so lend it the
+    -- Candidates are already MatchCase'd (so "Teh" -> "The", not "the").
+    -- GetSuggestions derives the bigram prevWord context from ActiveRange, so lend it the
     -- completed word's range for the duration of the call — this keeps both
     -- the scoring signal and the suggestion-cache key identical to what the
     -- suggestion panel would produce for this word.
@@ -166,28 +166,41 @@ function Autocorrect:OnBoundaryCommit(editBox, text, cursor)
     local okCall, suggestions = pcall(Spellcheck.GetSuggestions, Spellcheck, word)
     Spellcheck.ActiveRange, Spellcheck.EditBox = prevRange, prevBox
     if not okCall then suggestions = nil end
-    local candidate
+
+    -- Evaluate the top few word candidates and apply the highest-confidence
+    -- AUTO-tier pick; ties keep dictionary rank order.  The panel's #1 is
+    -- not always the mechanically-obvious fix ("doign" ranks "deign" over
+    -- "doing"), and a suppressed pair only skips that candidate, not the
+    -- whole word.
+    local yas = Spellcheck.YAS
+    local locale = Spellcheck:GetLocale()
+    local best, bestConf
     if type(suggestions) == "table" then
+        local seen = 0
         for _, entry in ipairs(suggestions) do
             local kind = (type(entry) == "table") and (entry.kind or "word") or "word"
             if kind == "word" then
-                candidate = (type(entry) == "table") and (entry.value or entry.word) or entry
-                break
+                seen = seen + 1
+                if seen > 5 then break end
+                local cand = (type(entry) == "table") and (entry.value or entry.word) or entry
+                if type(cand) == "string" and cand ~= "" and cand ~= word
+                    and not self._suppressed[PairKey(word, cand)] then
+                    local d = yas:ClassifySuggestion(word, cand, locale, prevWord)
+                    if d and d.vetoReasons
+                        and (d.vetoReasons.intentional or d.vetoReasons.waiver) then
+                        return -- token-level veto applies to every candidate
+                    end
+                    if d and d.tier == "AUTO"
+                        and (not bestConf or (d.confidence or 0) > bestConf) then
+                        best, bestConf = cand, d.confidence
+                    end
+                end
             end
         end
     end
-    if type(candidate) ~= "string" or candidate == "" then return end
-    if candidate == word then return end
+    if not best then return end
 
-    -- Never re-apply a pair the user already reverted this session.
-    if self._suppressed[PairKey(word, candidate)] then return end
-
-    local yas = Spellcheck.YAS
-    local locale = Spellcheck:GetLocale()
-    local d = yas:ClassifySuggestion(word, candidate, locale, prevWord)
-    if not d or d.tier ~= "AUTO" then return end
-
-    self:_Apply(editBox, s, wordEnd, word, candidate, text, cursor, locale)
+    self:_Apply(editBox, s, wordEnd, word, best, text, cursor, locale)
 end
 
 -- ---------------------------------------------------------------------------
@@ -298,6 +311,14 @@ function Autocorrect:_FlagReverted(corr)
     if yas and yas.RecordAutoReject then
         yas:RecordAutoReject(corr.original, corr.applied, Spellcheck:GetLocale())
     end
+end
+
+--- Lift the session suppression for a pair.  Called when the user manually
+--- makes the same correction after reverting it — the re-pick is a stronger
+--- signal than the earlier restore.
+function Autocorrect:ClearSuppression(typo, correction)
+    if type(typo) ~= "string" or type(correction) ~= "string" then return end
+    self._suppressed[PairKey(typo, correction)] = nil
 end
 
 -- ---------------------------------------------------------------------------

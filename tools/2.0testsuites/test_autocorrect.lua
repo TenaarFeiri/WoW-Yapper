@@ -96,6 +96,7 @@ YapperTable.History = { AddSnapshot = function() snapshots = snapshots + 1 end }
 local GOOD_WORDS    = {}   -- words IsWordCorrect accepts
 local SUGGESTIONS   = {}   -- entries GetSuggestions returns
 local YAS_DECISION  = nil  -- decision table ClassifySuggestion returns
+local YAS_DECISIONS = nil  -- optional per-candidate map: cand -> decision
 local selectionLog  = {}
 local rejectLog     = {}
 local undoRing      = {}
@@ -113,7 +114,12 @@ Spellcheck.ScheduleRefresh    = function() end
 
 Spellcheck.YAS = {
     IsEnabled           = function() return true end,
-    ClassifySuggestion  = function() return YAS_DECISION end,
+    ClassifySuggestion  = function(_, _, cand)
+        if YAS_DECISIONS and YAS_DECISIONS[cand] ~= nil then
+            return YAS_DECISIONS[cand]
+        end
+        return YAS_DECISION
+    end,
     RecordSelection     = function(_, typo, corr, gain, loc)
         selectionLog[#selectionLog + 1] = { typo = typo, corr = corr, gain = gain, loc = loc }
     end,
@@ -129,6 +135,7 @@ local function resetState()
     GOOD_WORDS   = {}
     SUGGESTIONS  = {}
     YAS_DECISION = nil
+    YAS_DECISIONS = nil
     selectionLog = {}
     rejectLog    = {}
     undoRing     = {}
@@ -300,6 +307,73 @@ box:SetCursorPosition(4)
 Autocorrect:OnBoundaryCommit(box, "teh ", 4)
 check("nil decision does not apply", box:GetText() == "teh ")
 
+-- Multiple candidates: the highest-confidence AUTO wins, not rank order
+-- ("doign" -> "deign" was rank 1 but "doing" classifies more confidently).
+resetState()
+SUGGESTIONS = {
+    { kind = "word", value = "deign" },
+    { kind = "word", value = "doing" },
+}
+YAS_DECISIONS = {
+    deign = { tier = "AUTO", confidence = 0.80 },
+    doing = { tier = "AUTO", confidence = 0.85 },
+}
+box = MockEditBox("m1")
+box:SetText("doign ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "doign ", 6)
+check("highest-confidence AUTO wins over rank", box:GetText() == "doing ",
+    box:GetText())
+
+-- A non-AUTO rank 1 does not block an AUTO rank 2.
+resetState()
+SUGGESTIONS = {
+    { kind = "word", value = "deign" },
+    { kind = "word", value = "doing" },
+}
+YAS_DECISIONS = {
+    deign = { tier = "OFFER", confidence = 0.1 },
+    doing = { tier = "AUTO", confidence = 0.85 },
+}
+box = MockEditBox("m2")
+box:SetText("doign ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "doign ", 6)
+check("AUTO rank 2 applies past OFFER rank 1", box:GetText() == "doing ")
+
+-- A suppressed pair is skipped, not fatal: the next AUTO candidate applies.
+resetState()
+SUGGESTIONS = {
+    { kind = "word", value = "deign" },
+    { kind = "word", value = "doing" },
+}
+YAS_DECISIONS = {
+    deign = { tier = "AUTO", confidence = 0.80 },
+    doing = { tier = "AUTO", confidence = 0.85 },
+}
+Autocorrect._suppressed["doign\0doing"] = true
+box = MockEditBox("m3")
+box:SetText("doign ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "doign ", 6)
+check("suppressed pair skipped, next AUTO applies", box:GetText() == "deign ")
+
+-- A token-level veto short-circuits the whole candidate list.
+resetState()
+SUGGESTIONS = {
+    { kind = "word", value = "deign" },
+    { kind = "word", value = "doing" },
+}
+YAS_DECISIONS = {
+    deign = { tier = "SUPPRESS", vetoReasons = { intentional = true } },
+    doing = { tier = "AUTO", confidence = 0.85 },
+}
+box = MockEditBox("m4")
+box:SetText("doign ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "doign ", 6)
+check("intentional veto stops all candidates", box:GetText() == "doign ")
+
 -- ===========================================================================
 -- Test 4: commit guards
 -- ===========================================================================
@@ -393,6 +467,13 @@ box:SetText("teh ")
 box:SetCursorPosition(4)
 Autocorrect:OnBoundaryCommit(box, "teh ", 4)
 check("reverted pair is suppressed on retype", box:GetText() == "teh ")
+
+-- ...unless the user manually re-corrects it: ClearSuppression (invoked by
+-- YAS:RecordSelection on a manual pick) restores the pair's eligibility.
+Autocorrect:ClearSuppression("teh", "the")
+Autocorrect:OnBoundaryCommit(box, "teh ", 4)
+check("manual re-pick lifts suppression", box:GetText() == "the ")
+check("suppression entry removed", Autocorrect._suppressed["teh\0the"] == nil)
 
 -- A non-matching edit does not revert.
 resetState()
