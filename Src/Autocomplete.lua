@@ -623,7 +623,17 @@ function Autocomplete:_InstallCursorHook(editBox)
 		-- and is consumed by the next text change either way.
 		if existing then existing(self, x, y, w, h) end
 		if ac.Active and ac.GhostFS then
-			ac:PositionGhost()
+			-- The ghost is only valid at the canonical caret position it was
+			-- computed for (string_len(PrefixText)).  Any caret move -- arrow
+			-- keys, clicks, Home/End -- invalidates it; without this check the
+			-- suffix would re-render at the new caret, inside an already-
+			-- committed word.
+			local cursor = YapperTable.Recolour.CanonicalCursor(self)
+			if ac.PrefixText and cursor == string_len(ac.PrefixText) then
+				ac:PositionGhost()
+			else
+				ac:HideGhost()
+			end
 		end
 	end)
 

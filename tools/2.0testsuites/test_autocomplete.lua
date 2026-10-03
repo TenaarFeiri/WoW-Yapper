@@ -64,6 +64,12 @@ end
 loader("Yapper", YapperTable)
 local AC = YapperTable.Autocomplete
 
+-- Recolour supplies CanonicalCursor for the ghost-anchor check in the
+-- OnCursorChanged hook. Plain ASCII test text needs no escape stripping.
+local reLoader, reErr = loadfile("Src/Spellcheck/Recolour.lua")
+assert(reLoader, reErr)
+reLoader("Yapper", YapperTable)
+
 -- ===========================================================================
 -- 1. Tier 1: YAS personal lexicon
 -- ===========================================================================
@@ -168,6 +174,51 @@ end
 SC.Dictionaries = { enBASE = { words = { "baseline", "basic" } } }
 check("base dict fallback", AC:GetSuggestion("bas") == "basic"
     or AC:GetSuggestion("bas") == "baseline", AC:GetSuggestion("bas"))
+
+-- ===========================================================================
+-- 5. Ghost anchor: caret move off the anchor invalidates the ghost
+-- ===========================================================================
+print("\nGhost anchor (OnCursorChanged)")
+
+-- Fake FontString: enough surface for HideGhost / PositionGhost.
+local fs = { _shown = false, _text = "" }
+function fs:SetText(t)     self._text = t end
+function fs:Show()         self._shown = true end
+function fs:Hide()         self._shown = false end
+function fs:ClearAllPoints() end
+function fs:SetPoint()     end
+function fs:SetParent()    end
+function fs:SetFontObject() end
+
+-- Fake EditBox with script storage and a movable caret.
+local box = { _text = "hello world", _cursor = 9, _scripts = {} }
+function box:GetText()            return self._text end
+function box:GetCursorPosition()  return self._cursor end
+function box:GetScript(n)         return self._scripts[n] end
+function box:SetScript(n, fn)     self._scripts[n] = fn end
+function box:GetEffectiveScale()  return 1 end
+
+_G.UIParent = { GetEffectiveScale = function() return 1 end }
+
+AC:_InstallCursorHook(box)
+local onCursor = box._scripts.OnCursorChanged
+check("cursor hook installed", type(onCursor) == "function")
+
+-- Ghost anchored at canonical caret pos 9 ("hello wor|ld").
+AC.Active        = true
+AC.CurrentSugg   = "world"
+AC.CurrentPrefix = "wor"
+AC.PrefixText    = "hello wor"
+AC.GhostFS       = fs
+fs._shown        = true
+
+onCursor(box, 10, 0, 0, 10)
+check("caret on anchor keeps ghost", AC.Active == true and fs._shown == true)
+
+-- Arrow-key into the middle of the committed word.
+box._cursor = 5
+onCursor(box, 10, 0, 0, 10)
+check("caret off anchor hides ghost", AC.Active == false and fs._shown == false)
 
 -- ===========================================================================
 print(string.format("\n%s\nResults: %d/%d passed",
