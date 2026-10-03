@@ -266,6 +266,13 @@ function Spellcheck:IsWordCorrect(word)
         return true
     end
 
+    -- 1.5 Known player names are vocabulary, not typos. Session-only
+    --     (Src/Names.lua); consults a normalised lowercase set.
+    local names = YapperTable.Names
+    if names and names.IsName and (names:IsName(norm) or names:IsName(word)) then
+        return true
+    end
+
     -- 2. Check base dictionary + global blocklist
     if dict.set[norm] or dict.set[word] then
         -- Even if in base dictionary, check if blocked by engine

@@ -217,6 +217,12 @@ local function OnPlayerEnteringWorld()
         YapperTable.Chat:Init()
     end
 
+    -- Session player-name registry (Src/Names.lua): registers chat/roster
+    -- listeners and performs the first guarded sweep.
+    if YapperTable.Names and YapperTable.Names.Init then
+        YapperTable.Names:Init()
+    end
+
     -- Overlay EditBox hooks: undo/redo and persistent history.
     if YapperTable.History then
         YapperTable.History:HookOverlayEditBox()
@@ -304,6 +310,11 @@ function YapperTable:OverrideYapper(disable)
         end
         if YapperTable.Chat then
             YapperTable.Chat:Init()
+        end
+        -- Names:Init is idempotent: re-registers the handlers that
+        -- UnregisterAll() wiped.
+        if YapperTable.Names and YapperTable.Names.Init then
+            YapperTable.Names:Init()
         end
         YapperTable.Utils:Print("|cFF00FF00Enabled.|r Yapper is back in control.")
     end

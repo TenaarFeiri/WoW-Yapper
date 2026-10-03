@@ -112,6 +112,27 @@ check("sentence-initial bigram applies", AC:GetSuggestion("ba") == "banana",
     AC:GetSuggestion("ba"))
 
 -- ===========================================================================
+-- 2b. Tier 1c: known player names (Src/Names.lua)
+-- ===========================================================================
+print("\nTier 1c: player names")
+
+DB = { freq = {}, freqSorted = {}, bigram = {} }
+YapperTable.Names = {
+    FindByPrefix = function(_, p) return p == "vel" and "velkira" or nil end,
+}
+check("name tier beats dictionary", AC:GetSuggestion("vel") == "velkira",
+    AC:GetSuggestion("vel"))
+check("name-tier miss falls through to dict", AC:GetSuggestion("ba") == "bank",
+    AC:GetSuggestion("ba"))
+check("capital mirrors onto name", AC:GetSuggestion("Vel") == "Velkira",
+    AC:GetSuggestion("Vel"))
+
+DB = { freq = { velasquez = { c = 1 } }, freqSorted = { "velasquez" }, bigram = {} }
+check("YAS freq outranks name tier", AC:GetSuggestion("vel") == "velasquez",
+    AC:GetSuggestion("vel"))
+YapperTable.Names = nil
+
+-- ===========================================================================
 -- 3. negBias penalty + capitalisation mirror
 -- ===========================================================================
 print("\nnegBias + casing")

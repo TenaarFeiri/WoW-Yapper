@@ -524,6 +524,16 @@ function Autocomplete:GetSuggestion(prefix, broad, prevWord)
 		end
 	end
 
+	-- Tier 1c: known player names (session-only, Src/Names.lua).  Below
+	-- learned vocabulary, above the base dictionary.
+	local names = YapperTable.Names
+	if names and names.FindByPrefix then
+		local hit = names:FindByPrefix(cleanPrefix ~= "" and cleanPrefix or lowerPrefix)
+		if hit then
+			return prefixIsCapital and CapFirst(hit) or hit
+		end
+	end
+
 	-- Tier 2: dictionary with confidence-narrowing.
 	if not sc or not sc.GetDictionary then return nil end
 	local dict = sc:GetDictionary()

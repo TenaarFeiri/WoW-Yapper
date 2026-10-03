@@ -42,6 +42,7 @@ GATING_FROM_ROOT=(
     test_engine_contract
     test_autocomplete
     test_autocorrect
+    test_names
     test_toast
     test_sendposts_strip
     test_shadow_tint
