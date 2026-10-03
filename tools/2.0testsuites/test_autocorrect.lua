@@ -97,6 +97,8 @@ local GOOD_WORDS    = {}   -- words IsWordCorrect accepts
 local SUGGESTIONS   = {}   -- entries GetSuggestions returns
 local YAS_DECISION  = nil  -- decision table ClassifySuggestion returns
 local YAS_DECISIONS = nil  -- optional per-candidate map: cand -> decision
+local YAS_INTENTS   = {}   -- token -> intent class returned by GetIntent
+local YAS_DB        = nil  -- when non-nil, GetLocaleDB returns this db
 local selectionLog  = {}
 local rejectLog     = {}
 local undoRing      = {}
@@ -120,6 +122,8 @@ Spellcheck.YAS = {
         end
         return YAS_DECISION
     end,
+    GetIntent           = function(_, w) return YAS_INTENTS[w] end,
+    GetLocaleDB         = function(_, _, _) return YAS_DB end,
     RecordSelection     = function(_, typo, corr, gain, loc)
         selectionLog[#selectionLog + 1] = { typo = typo, corr = corr, gain = gain, loc = loc }
     end,
@@ -136,6 +140,8 @@ local function resetState()
     SUGGESTIONS  = {}
     YAS_DECISION = nil
     YAS_DECISIONS = nil
+    YAS_INTENTS   = {}
+    YAS_DB        = nil
     selectionLog = {}
     rejectLog    = {}
     undoRing     = {}
@@ -591,6 +597,182 @@ for i = 1, 25 do
     box:SetText("teh ")
 end
 check("correction ring is bounded", #Autocorrect._corrections <= 20)
+
+-- ===========================================================================
+-- Test 8: two-token structural fixes (stray-space join + missing-space split)
+-- ===========================================================================
+print("\nTest 8: stray-space join + missing-space split")
+
+-- Merged token splits unambiguously: "whe nthere" -> "when there".
+resetState()
+GOOD_WORDS = { ["when"] = true, ["there"] = true }
+box = MockEditBox("j1")
+box:SetText("whe nthere ")
+box:SetCursorPosition(11)
+Autocorrect:OnBoundaryCommit(box, "whe nthere ", 11)
+check("join fixes stray space inside word", box:GetText() == "when there ")
+check("caret preserved at boundary", box:GetCursorPosition() == 11)
+check("join records two-token original",
+    Autocorrect._corrections[1] and Autocorrect._corrections[1].original == "whe nthere")
+check("join records applied pair",
+    Autocorrect._corrections[1] and Autocorrect._corrections[1].applied == "when there")
+
+-- Merged token is itself a word: "wh en" -> "when".
+resetState()
+GOOD_WORDS = { ["when"] = true }
+box = MockEditBox("j2")
+box:SetText("wh en ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "wh en ", 6)
+check("merged word joins fragments", box:GetText() == "when ")
+
+-- Leading capital on the first fragment mirrors onto the result.
+resetState()
+GOOD_WORDS = { ["When"] = true } -- mock IsWordCorrect matches raw input
+box = MockEditBox("j3")
+box:SetText("Wh en ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "Wh en ", 6)
+check("capital mirrors onto join", box:GetText() == "When ")
+
+-- A correct previous word blocks the join: "the xw" is not "the" + stray.
+resetState()
+GOOD_WORDS = { ["the"] = true }
+box = MockEditBox("j4")
+box:SetText("the xw ")
+box:SetCursorPosition(7)
+Autocorrect:OnBoundaryCommit(box, "the xw ", 7)
+check("correct prev fragment blocks join", box:GetText() == "the xw ")
+
+-- Punctuation between fragments is not a stray space.
+resetState()
+GOOD_WORDS = { ["when"] = true, ["there"] = true }
+box = MockEditBox("j5")
+box:SetText("whe,nthere ")
+box:SetCursorPosition(11)
+Autocorrect:OnBoundaryCommit(box, "whe,nthere ", 11)
+check("punctuation gap blocks join", box:GetText() == "whe,nthere ")
+
+-- Ambiguous merged split ("carpen" -> car|pen or carp|en): leave it alone.
+resetState()
+GOOD_WORDS = { ["car"] = true, ["pen"] = true, ["carp"] = true, ["en"] = true }
+box = MockEditBox("j6")
+box:SetText("ca rpen ")
+box:SetCursorPosition(8)
+Autocorrect:OnBoundaryCommit(box, "ca rpen ", 8)
+check("ambiguous merged split leaves text", box:GetText() == "ca rpen ")
+
+-- INTENTIONAL intent on a fragment vetoes the join.
+resetState()
+GOOD_WORDS = { ["when"] = true }
+YAS_INTENTS = { ["en"] = "INTENTIONAL" }
+box = MockEditBox("j7")
+box:SetText("wh en ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "wh en ", 6)
+check("intent veto blocks join", box:GetText() == "wh en ")
+
+-- A suppressed join pair does not re-apply.
+resetState()
+GOOD_WORDS = { ["when"] = true, ["there"] = true }
+Autocorrect._suppressed[
+    Spellcheck.NormaliseWord("whe nthere") .. "\0"
+    .. Spellcheck.NormaliseWord("when there")] = true
+box = MockEditBox("j8")
+box:SetText("whe nthere ")
+box:SetCursorPosition(11)
+Autocorrect:OnBoundaryCommit(box, "whe nthere ", 11)
+check("suppressed join does not re-apply", box:GetText() == "whe nthere ")
+
+-- Unambiguous kind=split suggestion applies (run-together word).
+resetState()
+SUGGESTIONS = { { kind = "split", value = "hello world" } }
+box = MockEditBox("s1")
+box:SetText("helloworld ")
+box:SetCursorPosition(11)
+Autocorrect:OnBoundaryCommit(box, "helloworld ", 11)
+check("unambiguous split applies", box:GetText() == "hello world ")
+
+-- Two split candidates are ambiguous: falls through to word eval.
+resetState()
+SUGGESTIONS = {
+    { kind = "split", value = "hello world" },
+    { kind = "split", value = "hell ow orld" },
+}
+box = MockEditBox("s2")
+box:SetText("helloworld ")
+box:SetCursorPosition(11)
+Autocorrect:OnBoundaryCommit(box, "helloworld ", 11)
+check("ambiguous splits do not apply", box:GetText() == "helloworld ")
+
+-- ===========================================================================
+-- Test 9: space-fix certainty gate (YAS disagreement demands pair support)
+-- ===========================================================================
+print("\nTest 9: space-fix certainty gate")
+
+local function SpaceKey(orig, cand) -- mirrors Autocorrect's C() key hygiene
+    return Spellcheck.NormaliseWord(orig):gsub("[%p%c%s]", "")
+        .. ":" .. Spellcheck.NormaliseWord(cand):gsub("[%p%c%s]", "")
+end
+
+-- Learned vocabulary vetoes the structural fix: "bobbysue" is a word the
+-- user actually sends (freq > 2), so splitting it needs pair support.
+resetState()
+GOOD_WORDS  = { ["bobby"] = true, ["sue"] = true }
+SUGGESTIONS = { { kind = "split", value = "bobby sue" } }
+YAS_DB      = { freq = { ["bobbysue"] = { c = 4 } }, bias = {}, negBias = {} }
+box = MockEditBox("g1")
+box:SetText("bobbysue ")
+box:SetCursorPosition(9)
+Autocorrect:OnBoundaryCommit(box, "bobbysue ", 9)
+check("learned token blocks split", box:GetText() == "bobbysue ")
+
+-- Same token, but the user has manually made this correction before.
+resetState()
+GOOD_WORDS  = { ["bobby"] = true, ["sue"] = true }
+SUGGESTIONS = { { kind = "split", value = "bobby sue" } }
+YAS_DB      = {
+    freq = { ["bobbysue"] = { c = 4 } },
+    bias = { [SpaceKey("bobbysue", "bobby sue")] = { c = 1 } },
+    negBias = {},
+}
+box = MockEditBox("g2")
+box:SetText("bobbysue ")
+box:SetCursorPosition(9)
+Autocorrect:OnBoundaryCommit(box, "bobbysue ", 9)
+check("learned pair overrides disagreement", box:GetText() == "bobby sue ")
+
+-- ACCIDENT intent on a source fragment also satisfies the support demand.
+resetState()
+GOOD_WORDS  = { ["when"] = true }
+YAS_DB      = { freq = { ["en"] = { c = 5 } }, bias = {}, negBias = {} }
+YAS_INTENTS = { ["en"] = "ACCIDENT" }
+box = MockEditBox("g3")
+box:SetText("wh en ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "wh en ", 6)
+check("ACCIDENT intent overrides disagreement", box:GetText() == "when ")
+
+-- A previously reverted pair (negBias) refuses to re-fire next session.
+resetState()
+GOOD_WORDS  = { ["when"] = true }
+YAS_DB      = { freq = {}, bias = {},
+    negBias = { [SpaceKey("wh en", "when")] = { c = 1, t = 1 } } }
+box = MockEditBox("g4")
+box:SetText("wh en ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "wh en ", 6)
+check("negBias pair refuses re-fire", box:GetText() == "wh en ")
+
+-- Weak learned presence (freq <= 2) does not count as disagreement.
+resetState()
+GOOD_WORDS  = { ["when"] = true }
+YAS_DB      = { freq = { ["en"] = { c = 2 } }, bias = {}, negBias = {} }
+box = MockEditBox("g5")
+box:SetText("wh en ")
+box:SetCursorPosition(6)
+Autocorrect:OnBoundaryCommit(box, "wh en ", 6)
+check("weak freq does not block join", box:GetText() == "when ")
 
 -- ===========================================================================
 -- Summary
