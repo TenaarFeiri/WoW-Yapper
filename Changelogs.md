@@ -17,6 +17,7 @@
 - Autocomplete quality-of-life: accepting a suggestion only adds a trailing space when the next character can start a word; if you immediately type `.`, `,`, `!`, `?`, `;`, `:` or a closing `"`, the space snaps after the punctuation like on a phone keyboard. Ghost text no longer appears mid-word.
 - Autocomplete now weighs context: YAS remembers which words you usually type after a given word, so the completion for "the quick br" prefers your habits over raw frequency.
 - The What's New and welcome popups now offer spellcheck, autocomplete, adaptive learning, and autocorrect toggles. Enabling spellcheck asks which dictionary language to load first. Autocorrect stays greyed out until spellcheck and adaptive learning are both on, in settings too.
+- Player names are recognised for free: Yapper keeps a session-only list of character names it sees (party, raid, friends, guild, Battle.net, and people chatting around you) and treats them as vocabulary -- party member names are no longer flagged as typos or rewritten by autocorrect, and autocomplete can finish a name you've seen this session. Nothing is saved to disk, name handling is Forever-aware (Firstname Lastname counts, realm suffixes don't), and all harvesting stops completely during combat and addon restrictions.
 
 ### Technical Changes
 - Removed the built-in English fallback engine. All language behaviour now flows through the registered engine contract, and dictionaries ship their own engine which controls spellchecking logic.
@@ -24,6 +25,7 @@
 - All YAS learned data is strictly bounded and periodically consolidated in small per-tick chunks, so it can't grow memory unbounded or stall frames.
 - Autocorrect scaffolding from earlier betas is now live: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus the `Autocorrect` block in the engine contract (dictionaries can supply compound splitting, confusion-pair seeds, vetoes, and confidence ceilings). The English engine ships a confusion-pair seed and a `ClassifyBoundary` implementation that exercises the contract while deferring to core defaults.
 - Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
+- `Src/Names.lua`: a bounded (256-entry) session-only ring of observed player names. Every ingress is gated through `Utils:IsSecret`, no collection runs while `InCombatLockdown()` or any `Enum.AddOnRestrictionType` is active, and entering a restricted state purges the buffer. `Spellcheck:IsWordCorrect` treats a known name as correct, which also makes it untouchable to autocorrect's split/join fixes.
 
 ### Bug Fixes
 - Notification toasts no longer jump to the bottom-right corner when the chat window sits near the top of the screen; the placement solver can now also settle below or beside the chat frame.
@@ -32,6 +34,8 @@
 - Autocorrect could never fire on a fresh profile: it classified candidates against a learned-data partition that did not exist yet, so every check silently bailed.
 - Reverting an autocorrection once could lock that word out of autocorrect permanently, and fixing it yourself dug the hole deeper instead of clearing it.
 - Autocorrect now evaluates the top few suggestions and applies the most confident one instead of trusting dictionary rank alone.
+- Ghost text no longer follows the caret: moving the cursor with arrow keys, clicks, or Home/End now dismisses the suggestion instead of re-rendering it inside an already-typed word.
+- Autocorrect now fixes misplaced spaces: two non-word fragments joined by a stray space merge when the result is unambiguous ("whe nthere" -> "when there"), and a run-together word splits when exactly one two-word decomposition exists ("helloworld" -> "hello world"). It stays conservative: if you demonstrably write a token it would break apart (a name like "BobbySue"), the fix only applies once you've taught it that correction yourself.
 - Disabling YAS now actually disables it. Previously, sending a chat line still scanned your misspellings, recorded them, and could silently auto-promote words into your personal dictionary. The setting toggle now stops all observation, learning, and dictionary writes.
 - Restored lost learned data: legacy learned vocabulary and personal dictionaries were being migrated into an orphaned `enBASE` partition that nothing ever read; existing users' migrated data is recovered and merged into the correct language partition.
 - Suggestion cache now correctly refreshes when YAS learns (frequency, rejections, and clears now invalidate cached scores); previously a candidate you rejected could immediately reappear.

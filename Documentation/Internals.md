@@ -13,7 +13,7 @@ Published in [`../Yapper.lua#L64`](../Yapper.lua#L64).
 - Fields:
   - `YapperTable.YAPPER_DISABLED: boolean` set by override toggle ([`../Yapper.lua#L290`](../Yapper.lua#L290)).
 - Methods:
-  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L282`](../Yapper.lua#L282)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
+  - `YapperTable:OverrideYapper(disable: boolean) → nil` ([`../Yapper.lua#L288`](../Yapper.lua#L288)) — toggles runtime ownership between Yapper overlay and Blizzard chat; cancels queue and unregisters events when disabling.
 
 ## Core
 
@@ -153,6 +153,44 @@ Loaded early; central orchestrator for the addon's operational mode.
 - Callbacks fired:
   - `STATE_CHANGED(newState, oldState, ...)`.
 
+## Names
+
+Session-only registry of player names harvested in-world. Feeds the
+spellcheck pipeline so character names count as known vocabulary: never
+flagged, never autocorrected, and offered to autocomplete as a tier below
+YAS/learned words and user dictionary additions but above the base
+dictionary. Memory only — a bounded FIFO ring that is never written to
+SavedVariables.
+
+Safety model is fail-closed:
+
+- Every ingress passes `Utils:IsSecret`; secret values are never stored,
+  compared, or persisted.
+- No harvesting during combat (`InCombatLockdown`) — an absolute stop,
+  including "safe" combat where APIs still return data.
+- No harvesting while any `Enum.AddOnRestrictionType` is enforced.
+- `ADDON_RESTRICTION_STATE_CHANGED` Activating/Active purges the buffer;
+  Inactive re-sweeps. ANY harvest attempted while unsafe (sweep or
+  single `Add`) defers the whole catch-up to the first moment no gate is
+  active at all: a slow retry chain guarantees it (restriction-end
+  dispatches can be swallowed by loading screens), while
+  `PLAYER_REGEN_ENABLED` and restriction `Inactive` flush promptly.
+
+- Description: Bounded session name set fed by roster sweeps (player,
+  party/raid, friends, guild, Battle.net) and chat-sender events.
+- Fields:
+  - `_set: table` canonical lowercase name/part → true.
+  - `_order: table` FIFO key list used for eviction (capacity 512).
+  - `_pendingSweep: boolean` a harvest was deferred by a safety gate.
+  - `_retryScheduled: boolean` a catch-up-sweep retry timer is queued.
+- Methods:
+  - `Names:Add(raw) → nil`: Store a raw name after secret/combat/restriction gates; strips BattleTag discrims and normalises via `Utils:NormaliseCharName` (Forever `Firstname-Lastname`/`Firstname Lastname` → `firstname lastname`, each part indexed). Rejects oversized inputs (>128 raw / >64 normalised bytes) and strings with no letter-ish byte, bounding stored-key size and keeping punctuation/digit junk out of the ring. ([`../Src/Names.lua#L114`](../Src/Names.lua#L114))
+  - `Names:IsName(token) → boolean`: True when a token is a known player name, case-insensitive. ([`../Src/Names.lua#L152`](../Src/Names.lua#L152))
+  - `Names:FindByPrefix(lowerPrefix) → string|nil`: First stored name extending the prefix; autocomplete tier source. ([`../Src/Names.lua#L159`](../Src/Names.lua#L159))
+  - `Names:Clear() → nil`: Purge the registry. ([`../Src/Names.lua#L172`](../Src/Names.lua#L172))
+  - `Names:SweepRoster() → nil`: Harvest self/group/friends/guild/Battle.net rosters; defers while unsafe. ([`../Src/Names.lua#L184`](../Src/Names.lua#L184))
+  - `Names:Init() → nil`: Register chat-sender, roster, regen-flush, and restriction-transition handlers, then sweep. Idempotent — all registrations are keyed `handlerId "Names"`, so re-calling it (e.g. `OverrideYapper` re-enable after `UnregisterAll`) restores handlers rather than duplicating them. ([`../Src/Names.lua#L277`](../Src/Names.lua#L277))
+
 ## Spellcheck
 
 Initialised on `ADDON_LOADED` (`Spellcheck:Init`) and rebound to overlay lifecycle.
@@ -252,12 +290,12 @@ Runs during suggestion/recolour rebuild.
   - `GetIgnoredRanges` [`../Src/Spellcheck/Engine.lua#L182`](../Src/Spellcheck/Engine.lua#L182)
   - `IsRangeIgnored` [`../Src/Spellcheck/Engine.lua#L245`](../Src/Spellcheck/Engine.lua#L245)
   - `IsWordCorrect` [`../Src/Spellcheck/Engine.lua#L254`](../Src/Spellcheck/Engine.lua#L254)
-  - `ResolveImplicitTrace` [`../Src/Spellcheck/Engine.lua#L293`](../Src/Spellcheck/Engine.lua#L293)
-  - `UpdateActiveWord` [`../Src/Spellcheck/Engine.lua#L334`](../Src/Spellcheck/Engine.lua#L334)
-  - `GetWordAtCursor` [`../Src/Spellcheck/Engine.lua#L437`](../Src/Spellcheck/Engine.lua#L437)
-  - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L989`](../Src/Spellcheck/Engine.lua#L989)
-  - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1330`](../Src/Spellcheck/Engine.lua#L1330)
-  - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1401`](../Src/Spellcheck/Engine.lua#L1401)
+  - `ResolveImplicitTrace` [`../Src/Spellcheck/Engine.lua#L300`](../Src/Spellcheck/Engine.lua#L300)
+  - `UpdateActiveWord` [`../Src/Spellcheck/Engine.lua#L341`](../Src/Spellcheck/Engine.lua#L341)
+  - `GetWordAtCursor` [`../Src/Spellcheck/Engine.lua#L444`](../Src/Spellcheck/Engine.lua#L444)
+  - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L1000`](../Src/Spellcheck/Engine.lua#L1000)
+  - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1350`](../Src/Spellcheck/Engine.lua#L1350)
+  - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1421`](../Src/Spellcheck/Engine.lua#L1421)
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -415,11 +453,11 @@ Editing-stage autocorrect; opt-in via `Config.Spellcheck.AutocorrectEnabled` (re
 - Methods:
   - `Autocorrect:IsEnabled()` [`../Src/Spellcheck/Autocorrect.lua#L55`](../Src/Spellcheck/Autocorrect.lua#L55) — config flag + spellcheck + YAS enabled.
   - `Autocorrect:OnUserTextChanged(editBox, text, cursor) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L92`](../Src/Spellcheck/Autocorrect.lua#L92) — runs before the boundary check on every user edit. Stateless backspace-revert detection: recognises "the stored post-apply text minus its boundary byte, caret at `eApplied`" rather than an armed flag, so WoW's `OnCursorChanged`/`OnTextChanged` ordering cannot break it.
-  - `Autocorrect:OnBoundaryCommit(editBox, text, cursor)` [`../Src/Spellcheck/Autocorrect.lua#L113`](../Src/Spellcheck/Autocorrect.lua#L113) — evaluates the word before a `"commit"`/`"close"` boundary through `GetSuggestions` + `YAS:ClassifySuggestion` over the top five candidates, applying the highest-confidence AUTO (ties keep dictionary rank). Guards: slash commands, mid-word boundaries (the byte after the boundary must be non-word/EOL), already-correct words, ignored words, suppressed pairs (skipped per-candidate). Temporarily lends `Spellcheck.ActiveRange`/`EditBox` to the call so bigram context and the suggestion-cache key match the panel's.
+  - `Autocorrect:OnBoundaryCommit(editBox, text, cursor)` [`../Src/Spellcheck/Autocorrect.lua#L113`](../Src/Spellcheck/Autocorrect.lua#L113) — evaluates the word before a `"commit"`/`"close"` boundary. Two structural fixes run ahead of fuzzy matching: a stray-space join (the committed fragment and the previous fragment are both non-words separated by exactly one space, and their concatenation is a word or decomposes into exactly one two-word split — "whe nthere" -> "when there") and a missing-space split (an unambiguous `kind = "split"` candidate from `GetSuggestions` — "helloworld" -> "hello world"). Ambiguous decompositions are left to the popup. Space fixes additionally pass `_SpaceFixPermitted`, a certainty gate: with no learned opposition the structural case applies, but a source token the user demonstrably sends (freq > 2) or a pair carrying negBias demands pair-specific support — a learned `db.bias` pair or ACCIDENT intent on a source token — else it abstains. Otherwise the top five word candidates go through `YAS:ClassifySuggestion`, applying the highest-confidence AUTO (ties keep dictionary rank). Guards: slash commands, mid-word boundaries (the byte after the boundary must be non-word/EOL), already-correct words, ignored words, INTENTIONAL/WAIVER intent on any involved fragment, suppressed pairs (skipped per-candidate). Temporarily lends `Spellcheck.ActiveRange`/`EditBox` to the call so bigram context and the suggestion-cache key match the panel's.
   - `Autocorrect:LiveCorrectionAt(editBox, s, e) → corr|nil` [`../Src/Spellcheck/Autocorrect.lua#L65`](../Src/Spellcheck/Autocorrect.lua#L65) — newest un-reverted correction overlapping a word range; lets `UpdateActiveWord` keep a corrected word "active" so the suggestion popup can offer `Restore "<original>"` (entry `kind = "revert"`).
-  - `Autocorrect:RevertCorrection(editBox, corr, source) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L273`](../Src/Spellcheck/Autocorrect.lua#L273) — validates the applied word still sits at its recorded range (a drifted edit refuses), splices the original back, preserves the caret when it sat past the correction, then `_FlagReverted` (session pair suppression + `YAS:RecordAutoReject`).
+  - `Autocorrect:RevertCorrection(editBox, corr, source) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L405`](../Src/Spellcheck/Autocorrect.lua#L405) — validates the applied word still sits at its recorded range (a drifted edit refuses), splices the original back, preserves the caret when it sat past the correction, then `_FlagReverted` (session pair suppression + `YAS:RecordAutoReject`).
   - `Autocorrect:OnUndo(editBox, prevText, restoredText)` [`../Src/Spellcheck/Autocorrect.lua#L314`](../Src/Spellcheck/Autocorrect.lua#L314) — called by `History:Undo`; an exact `after → before` transition flags the correction reverted.
-  - `Autocorrect:UndoByToast(entry) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L350`](../Src/Spellcheck/Autocorrect.lua#L350) — toast Undo; refuses unless `YAS:PeekUndo()` still returns this entry, so a stale card can't pop a newer correction.
+  - `Autocorrect:UndoByToast(entry) → boolean` [`../Src/Spellcheck/Autocorrect.lua#L482`](../Src/Spellcheck/Autocorrect.lua#L482) — toast Undo; refuses unless `YAS:PeekUndo()` still returns this entry, so a stale card can't pop a newer correction.
   - `Autocorrect:ClearSuppression(typo, correction)` [`../Src/Spellcheck/Autocorrect.lua#L305`](../Src/Spellcheck/Autocorrect.lua#L305) — lifts the session suppression for a pair; called by `YAS:RecordSelection` when the user manually re-corrects a reverted pair.
 - Fields:
   - `_corrections` — session ring (cap 20) of live corrections `{box, s, eApplied, original, applied, before, after, undoEntry, reverted, time}`.
@@ -819,7 +857,7 @@ Lazy frame creation; active only when user enters multiline mode.
 
 Binds to overlay (or multiline) editbox when available.
 
-- Description: Ghost-text completion from dictionary + YAS. Candidates are ranked by prefix fit and length, then adjusted by YAS signals: personal `freq` bonus, `negBias` dismissal penalty, and a `bigram` context bonus (the completed word before the caret resolves the `bigram[prev]` bucket; text start uses `"<s>"`).
+- Description: Ghost-text completion from YAS + known player names + dictionary. Candidates are ranked by prefix fit and length, then adjusted by YAS signals: personal `freq` bonus, `negBias` dismissal penalty, and a `bigram` context bonus (the completed word before the caret resolves the `bigram[prev]` bucket; text start uses `"<s>"`). Lookup tiers: YAS personal lexicon → user dictionary additions → session player names (`Names:FindByPrefix`) → dictionary (+ base-dictionary fallback).
 - Fields:
   - `GhostFS` [`../Src/Autocomplete.lua#L59`](../Src/Autocomplete.lua#L59)
   - `CurrentSugg` [`../Src/Autocomplete.lua#L60`](../Src/Autocomplete.lua#L60)
@@ -830,7 +868,7 @@ Binds to overlay (or multiline) editbox when available.
   - `_activeEditBox` [`../Src/Autocomplete.lua#L65`](../Src/Autocomplete.lua#L65)
   - `_isMultiline` [`../Src/Autocomplete.lua#L66`](../Src/Autocomplete.lua#L66)
 - Methods:
-  - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L667`](../Src/Autocomplete.lua#L667))
+  - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L687`](../Src/Autocomplete.lua#L687))
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 - Notes:
   - Accepting a completion only appends a space when the next byte is a word byte or end-of-text; when it does, the space position is remembered in `_pendingSnap`. If the very next keystroke is a `"close"` boundary (see `Spellcheck:ClassifyBoundary`), the space hops after the punctuation (`"hello "` + `.` → `"hello. "`) — the mobile-keyboard behaviour. The marker self-invalidates by position match, so caret moves can't trigger a stray snap.
