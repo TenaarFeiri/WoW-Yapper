@@ -112,7 +112,9 @@ end
 --- Add() is the storage boundary, so the combat/restriction gate lives
 --- here as well as at the harvest callers.
 function Names:Add(raw)
-    if type(raw) ~= "string" or raw == "" then return end
+    -- Gates run BEFORE any value operation: a secret string throws even
+    -- on `== ""` comparisons in tainted execution, so the value is not
+    -- touched until it has passed the safe predicates.
     if not CanHarvest() then
         -- Dropped this value, but queue a catch-up sweep so deferred
         -- harvesting resumes at the first fully-unrestricted moment.
@@ -121,6 +123,7 @@ function Names:Add(raw)
         return
     end
     if IsSecret(raw) then return end
+    if type(raw) ~= "string" or raw == "" then return end
     -- Size bound: real character names (< 32 bytes), Forever surnames,
     -- and BattleTags sit far under this; it caps stored-key size against
     -- garbage inputs.
@@ -150,6 +153,7 @@ end
 
 --- True when a token is a known player name (case-insensitive).
 function Names:IsName(token)
+    if IsSecret(token) then return false end
     if type(token) ~= "string" or token == "" then return false end
     return self._set[string_lower(token)] == true
 end
@@ -157,6 +161,7 @@ end
 --- First stored name extending `lowerPrefix` (FIFO order), or nil.
 --- Used by autocomplete as a suggestion tier below learned vocabulary.
 function Names:FindByPrefix(lowerPrefix)
+    if IsSecret(lowerPrefix) then return nil end
     if type(lowerPrefix) ~= "string" or lowerPrefix == "" then return nil end
     local plen = #lowerPrefix
     for _, key in ipairs(self._order) do

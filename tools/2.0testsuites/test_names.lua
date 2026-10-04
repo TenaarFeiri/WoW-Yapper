@@ -210,6 +210,19 @@ Names:Add(nil)
 Names:Add("")
 check("nil/empty refused", #Names._order == 1)
 
+-- Gate ORDER is the contract: in tainted execution even `raw == ""`
+-- throws on a secret string, so CanHarvest and IsSecret must run before
+-- any comparison or string op on the value.
+COMBAT = true
+Names:Add(SECRET_SENTINEL)
+check("secret under combat: refused + catch-up queued",
+    Names._pendingSweep == true)
+COMBAT = false
+Names._pendingSweep = false
+check("IsName refuses a secret arg", Names:IsName(SECRET_SENTINEL) == false)
+check("FindByPrefix refuses a secret arg",
+    Names:FindByPrefix(SECRET_SENTINEL) == nil)
+
 -- ===========================================================================
 print("\nTest 4b: junk-input bounds (memory hygiene)")
 -- ===========================================================================
