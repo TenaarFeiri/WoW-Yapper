@@ -55,6 +55,8 @@ YapperTable.History = {
 -- Chunking passes each post through as a single chunk.
 YapperTable.Chunking = {
     Split = function(_, post) return { post } end,
+    Measure = function(_, post) return #post, 0 end,
+    INVISIBLE_LIMIT = 1023,
 }
 
 loadModule("Src/Chat.lua")

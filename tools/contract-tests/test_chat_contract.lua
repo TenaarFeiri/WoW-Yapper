@@ -87,6 +87,36 @@ h.server:reset()
 local recolourOK = h.Chat:SendPosts({ recoloured }, "SAY", "Common", nil)
 check("standalone display colour is stripped", recolourOK and h.server.sent[1].message == "I mispelled this")
 
+-- There is no per-message link cap: links that fit the visible budget go
+-- out in one message, and only visible overflow pushes a link to the next
+-- chunk.  WoW budgets markup separately (visibleBytes/invisibleBytes), so
+-- raw chunk length may exceed CHARACTER_LIMIT when escapes are present.
+local threeLinks = table.concat({
+    "|cffa335ee|Hitem:1|h[A]|h|r",
+    "|cffa335ee|Hitem:2|h[B]|h|r",
+    "|cffa335ee|Hitem:3|h[C]|h|r",
+}, " ")
+h:reset()
+h.inInstance = true
+h.Chat:SendPosts({ threeLinks }, "EMOTE", "Common", nil)
+while h.Queue:IsActive() do drain(h, 1) end
+check("3-link post sends as one message", h:sent_count() == 1)
+check("all 3 links in the sent message", (function()
+    local _, n = h.server.sent[1].message:gsub("|H", "|H")
+    return n == 3
+end)())
+
+h:reset()
+local linkOverflow = string.rep("x", 250)
+    .. " |cffa335ee|Hitem:9|h[Item 9]|h|r tail"
+h.Chat:SendPosts({ linkOverflow }, "EMOTE", "Common", nil)
+while h.Queue:IsActive() do drain(h, 1) end
+check("visible-overflow post sends as two messages", h:sent_count() == 2)
+check("overflow link intact in second message",
+    h.server.sent[2].message:find("|Hitem:9|h[Item 9]|h", 1, true) ~= nil)
+check("colour wrapper travelled with the link",
+    h.server.sent[2].message:sub(1, 10) == "|cffa335ee")
+
 local chunks = h.Chunking:Split("before " .. modernLink .. " after", 255, { useDelineators = false })
 check("modern link fits as one atomic chunk", #chunks == 1 and chunks[1]:find(modernLink, 1, true) ~= nil)
 
@@ -95,7 +125,8 @@ local splitWithLink = h.Chunking:Split(longWithLink, 80, { useDelineators = fals
 local linkChunkCount = 0
 for _, chunk in ipairs(splitWithLink) do
     if chunk:find(modernLink, 1, true) then linkChunkCount = linkChunkCount + 1 end
-    check("chunk respects byte limit", #chunk <= 80)
+    local chunkVis = h.Chunking:Measure(chunk)
+    check("chunk respects visible-byte limit", chunkVis <= 80)
 end
 check("long modern link stays whole in one chunk", linkChunkCount == 1)
 

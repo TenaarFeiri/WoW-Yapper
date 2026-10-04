@@ -206,7 +206,8 @@ function Chat:SendPosts(posts, chatType, language, target)
     -- once per post and is link-aware, so hyperlinks stay atomic.
     local allChunks = {}
     for _, post in ipairs(posts) do
-        if #post > limit and not SPLITTABLE[chatType] then
+        local visLen, invisLen = Chunking:Measure(post)
+        if (visLen > limit or invisLen > Chunking.INVISIBLE_LIMIT) and not SPLITTABLE[chatType] then
             YapperTable.Error:PrintError("BAD_CHAT_TYPE", tostring(chatType))
             return false
         end

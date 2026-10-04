@@ -189,6 +189,55 @@ end
 check("hyperlink kept in one chunk", linkFound)
 
 -- ===========================================================================
+-- Test 8b: Hyperlinks cost only their display text against the limit
+-- ===========================================================================
+-- WoW budgets a message as 255 VISIBLE bytes plus 1023 invisible markup
+-- bytes (ChatFrameEditBoxTemplate: bytes="1280" visibleBytes="255"
+-- invisibleBytes="1023").  Link markup is invisible -- only [display]
+-- counts -- so many links share one message exactly like Blizzard's
+-- editbox, and a link only moves to the next chunk when it would push the
+-- VISIBLE length over the limit.
+print("\nTest 8b: hyperlinks cost only their display text")
+
+-- A realistic item link: ~60 raw bytes, only "[Item N]" is visible.
+local function ItemLink(id)
+    return "|cffa335ee|Hitem:" .. id .. ":0:0:0:0:0:0:0:0:80|h[Item " .. id .. "]|h|r"
+end
+
+-- Chunking:Measure reports the two axes separately.
+local measured = "|cff1eff00|Hitem:1|h[Name]|h|r hi"
+local vis, inv = Chunking:Measure(measured)
+check("measure: link contributes display text only", vis == 6 + 3)
+check("measure: markup is invisible", inv == #measured - 9)
+
+-- Several links whose RAW length exceeds the limit but whose VISIBLE
+-- length fits stay in a single chunk -- no per-link quota.
+local five = table.concat({ ItemLink(100), ItemLink(200), ItemLink(300), ItemLink(400), ItemLink(500) }, " ")
+assert(#five > 255, "fixture must exceed the raw byte limit")
+local res5 = Chunking:Split(five, 255, { useDelineators = false })
+check("raw-over-limit links stay in one chunk", #res5 == 1)
+check("single chunk keeps all links", res5[1]:find("Item 500", 1, true) ~= nil)
+
+-- A link that would overflow the VISIBLE budget moves intact to the next
+-- chunk, colour wrapper included (the |c must never be orphaned).
+local lead = string.rep("x", 250)
+local packed = lead .. " " .. ItemLink(9)
+local resP = Chunking:Split(packed, 255, { useDelineators = false })
+check("visible-overflow link pushed to next chunk", #resP == 2)
+check("link kept whole in chunk 2", resP[2]:find("|Hitem:9", 1, true) ~= nil)
+check("colour wrapper travelled with the link", resP[2]:sub(1, 10) == "|cffa335ee")
+
+-- The invisible budget is still enforced: markup beyond 1023 bytes splits
+-- even when the visible text is tiny.
+local function FatLink(id)
+    return "|cffa335ee|Hitem:" .. string.rep(tostring(id), 650) .. "|h[Fat " .. id .. "]|h|r"
+end
+local twoFat = FatLink(7) .. " " .. FatLink(8)
+local resF = Chunking:Split(twoFat, 255, { useDelineators = false })
+check("invisible-overflow splits the message", #resF == 2)
+check("second fat link kept whole", resF[2]:find("%[Fat 8%]") ~= nil)
+
+-- ===========================================================================
 -- Test 9: Texture escape kept atomic
 -- ===========================================================================
 print("\nTest 9: Texture escape atomicity")

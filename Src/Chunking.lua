@@ -1,8 +1,9 @@
 --[[
     Message splitting.
 
-    Splits text into chunks that fit within WoW's byte limit, preserving
-    colour codes, hyperlinks, texture/atlas escapes, and word boundaries.
+    Splits text into chunks that fit within WoW's visible-byte limit
+    (markup spends a separate invisible budget), preserving colour codes,
+    hyperlinks, texture/atlas escapes, and word boundaries.
     Adds optional delineators (" >>" / ">> ") for continuation.
 ]]
 
@@ -10,10 +11,12 @@ local _, YapperTable = ...
 
 -- Localise Lua globals for performance
 local string_byte   = string.byte
+local string_char   = string.char
 local string_sub    = string.sub
 local string_find   = string.find
 local string_match  = string.match
 local string_gmatch = string.gmatch
+local string_lower  = string.lower
 local table_concat  = table.concat
 local type     = type
 local pairs    = pairs
@@ -24,6 +27,19 @@ local select   = select
 
 local Chunking = {}
 YapperTable.Chunking = Chunking
+
+-- ---------------------------------------------------------------------------
+-- WoW message budgets
+-- ---------------------------------------------------------------------------
+-- Blizzard's chat editbox (ChatFrameEditBoxTemplate) declares
+-- bytes="1280" visibleBytes="255" invisibleBytes="1023": only *rendered*
+-- text counts toward the 255 limit.  Escape markup -- colour codes, the
+-- |H...|h wrappers around a link's [display] text, textures, atlases --
+-- spends the separate invisible budget instead.  A hyperlink therefore
+-- costs only its display text against the character limit, which is how
+-- Blizzard's own editbox fits several links in one message.
+local INVISIBLE_LIMIT = 1023
+Chunking.INVISIBLE_LIMIT = INVISIBLE_LIMIT
 
 -- ---------------------------------------------------------------------------
 -- Tokeniser
@@ -173,6 +189,32 @@ local function Tokenise(text)
 end
 
 -- ---------------------------------------------------------------------------
+-- Visible-byte accounting
+-- ---------------------------------------------------------------------------
+
+-- Bytes of `token` that count toward the visible limit.  Pipe escapes are
+-- invisible markup -- except a well-formed hyperlink, where the display
+-- text between |h...|h renders and therefore counts.  Malformed links and
+-- non-pipe tokens (literal text, {atlas} shorthand, custom atomics) count
+-- in full, erring on the side of safety.
+local function TokenVisibleBytes(token)
+    local b1, b2 = string_byte(token, 1, 2)
+    if b1 ~= 124 or not b2 then return #token end
+
+    local c2 = string_lower(string_char(b2))
+    if c2 ~= "h" then return 0 end
+
+    -- |H...|h<display>|h : only <display> is visible.
+    local low  = string_lower(token)
+    local mEnd = string_find(low, "|h", 3, true)
+    local dEnd = mEnd and string_find(low, "|h", mEnd + 2, true)
+    if mEnd and dEnd then
+        return dEnd - mEnd - 2
+    end
+    return #token
+end
+
+-- ---------------------------------------------------------------------------
 -- Continuation delimiter pairs
 -- ---------------------------------------------------------------------------
 -- When a chunk boundary falls inside one of these pairs the closer is
@@ -319,11 +361,12 @@ local function FlushChunk(chunks, parts)
     if #parts > 0 then
         chunks[#chunks + 1] = table_concat(parts)
     end
-    return {}, 0
+    return {}, 0, 0
 end
 
--- Start a new chunk with the configured prefixes and colour.
-local function StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
+-- Start a new chunk with the configured prefixes and colour.  Prefixes are
+-- visible text; a re-opened colour spends the invisible budget.
+local function StartNewChunk(parts, size, invis, prefix, colour, continuationPrefix, continuationFirst)
     local hasContinuation = continuationPrefix and continuationPrefix ~= ""
 
     if hasContinuation and continuationFirst then
@@ -340,9 +383,9 @@ local function StartNewChunk(parts, size, prefix, colour, continuationPrefix, co
     end
     if colour then
         parts[#parts + 1] = colour
-        size = size + #colour
+        invis = invis + #colour
     end
-    return size
+    return size, invis
 end
 
 -- ---------------------------------------------------------------------------
@@ -366,7 +409,7 @@ end
 --- chunks 2+ (never to the head chunk).
 ---
 --- @param text  string
---- @param limit number|nil  Byte limit per chunk; defaults to the configured limit.
+--- @param limit number|nil  Visible-byte limit per chunk; defaults to the configured limit.
 --- @param opts  table|nil   { ignoreParagraphMerging, useDelineators, delineator,
 ---                            chatType, language }
 --- @return string[]|nil chunks  `nil` when a `PRE_CHUNK` filter cancelled the send.
@@ -417,8 +460,10 @@ function Chunking:Split(text, limit, opts)
         continuationFirst  = payload.continuationPrefixFirst == true
     end
 
-    local useDelineators = (opts.useDelineators ~= nil) and opts.useDelineators
-                           or (cfg.USE_DELINEATORS ~= false)
+    local useDelineators = opts.useDelineators
+    if useDelineators == nil then
+        useDelineators = (cfg.USE_DELINEATORS ~= false)
+    end
 
     -- Normalize markers: treat the marker as opaque UTF-8 and add spacing
     -- here so explicit args and config values behave the same.
@@ -447,7 +492,8 @@ function Chunking:Split(text, limit, opts)
 
     local chunks = {}
     local parts  = {}   -- accumulator for the current chunk
-    local size   = 0    -- byte count of the current chunk
+    local size   = 0    -- visible bytes in the current chunk
+    local invis  = 0    -- invisible (markup) bytes in the current chunk
     local colour = nil  -- active |cXXXXXXXX tag (re-opened on new chunks)
 
     for i = 1, #tokens do
@@ -466,14 +512,19 @@ function Chunking:Split(text, limit, opts)
             end
         end
 
-        -- How many bytes the delineator/colour-close would cost at EOL.
-        local suffixCost = #delineator + (colour and 2 or 0)
-        local effective  = limit - suffixCost
+        local visLen = TokenVisibleBytes(token)
+        local invLen = #token - visLen
 
-        -- Token fits
-        if size + #token <= effective then
+        -- What the delineator and colour-close would cost at EOL: the
+        -- delineator spends visible bytes, the "|r" spends invisible ones.
+        local effective      = limit - #delineator
+        local invisEffective = INVISIBLE_LIMIT - (colour and 2 or 0)
+
+        -- Token fits both budgets
+        if size + visLen <= effective and invis + invLen <= invisEffective then
             parts[#parts + 1] = token
-            size = size + #token
+            size  = size + visLen
+            invis = invis + invLen
 
         -- Escape sequence that doesn't fit -- keep it atomic
         elseif isEscape then
@@ -489,10 +540,10 @@ function Chunking:Split(text, limit, opts)
                 if last then lb1, lb2 = string_byte(last, 1, 2) end
                 
                 if last and lb1 == 124 and (lb2 == 99 or lb2 == 67) and #last >= 4 then
-                    -- Case A: orphaned colour code.
+                    -- Case A: orphaned colour code (invisible bytes only).
                     movedParts[1] = last
                     parts[#parts] = nil
-                    size = size - #last
+                    invis = invis - #last
                     colour = nil
                 elseif last and #last > 2 and lb1 == 124 and (lb2 == 72 or lb2 == 104) then
                     -- The |H token is incomplete without its |r.
@@ -507,7 +558,9 @@ function Chunking:Split(text, limit, opts)
                         movedParts[2] = last   -- |H
                         parts[#parts] = nil     -- remove |H
                         parts[#parts] = nil     -- remove |c
-                        size = size - #prev - #last
+                        local lastVis = TokenVisibleBytes(last)
+                        size  = size - lastVis
+                        invis = invis - #prev - (#last - lastVis)
                         colour = nil
                     end
                 end
@@ -517,16 +570,18 @@ function Chunking:Split(text, limit, opts)
             local nextOpen = InjectContClose(parts, tokens, i)
             if colour then parts[#parts + 1] = "|r" end
             if delineator ~= "" then parts[#parts + 1] = delineator end
-            parts, size = FlushChunk(chunks, parts)
+            parts, size, invis = FlushChunk(chunks, parts)
 
             -- Open new chunk (continuation).
-            size = StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
+            size, invis = StartNewChunk(parts, size, invis, prefix, colour, continuationPrefix, continuationFirst)
             if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
 
             -- Re-inject the pulled-back parts, then the current token.
             for _, mp in ipairs(movedParts) do
+                local mpVis = TokenVisibleBytes(mp)
                 parts[#parts + 1] = mp
-                size = size + #mp
+                size  = size + mpVis
+                invis = invis + #mp - mpVis
             end
             if #movedParts > 0 then
                 local mpb1, mpb2 = string_byte(movedParts[1], 1, 2)
@@ -536,15 +591,15 @@ function Chunking:Split(text, limit, opts)
             end
 
             parts[#parts + 1] = token
-            size = size + #token
+            size  = size + visLen
+            invis = invis + invLen
 
         -- Plain text too large -- word-level split
         else
             local remaining = token
 
             while true do
-                suffixCost = #delineator + (colour and 2 or 0)
-                effective  = limit - suffixCost
+                effective = limit - #delineator
                 local space = effective - size
 
                 if #remaining <= space then
@@ -564,8 +619,8 @@ function Chunking:Split(text, limit, opts)
                     local nextOpen = InjectContClose(parts, tokens, i)
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
-                    parts, size = FlushChunk(chunks, parts)
-                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
+                    parts, size, invis = FlushChunk(chunks, parts)
+                    size, invis = StartNewChunk(parts, size, invis, prefix, colour, continuationPrefix, continuationFirst)
                     if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                     -- Recalculate and loop.
                 else
@@ -592,8 +647,8 @@ function Chunking:Split(text, limit, opts)
                     local nextOpen = InjectContClose(parts, tokens, i)
                     if colour then parts[#parts + 1] = "|r" end
                     if delineator ~= "" then parts[#parts + 1] = delineator end
-                    parts, size = FlushChunk(chunks, parts)
-                    size = StartNewChunk(parts, size, prefix, colour, continuationPrefix, continuationFirst)
+                    parts, size, invis = FlushChunk(chunks, parts)
+                    size, invis = StartNewChunk(parts, size, invis, prefix, colour, continuationPrefix, continuationFirst)
                     if nextOpen then parts[#parts + 1] = nextOpen; size = size + #nextOpen end
                 end
             end
@@ -611,4 +666,18 @@ function Chunking:Split(text, limit, opts)
     end
 
     return chunks
+end
+
+--- Measure a message against WoW's two-axis budget.
+--- @param text string
+--- @return number visible    rendered bytes counting toward CHARACTER_LIMIT
+--- @return number invisible  markup bytes counting toward INVISIBLE_LIMIT
+function Chunking:Measure(text)
+    local vis, inv = 0, 0
+    for _, token in ipairs(Tokenise(text)) do
+        local v = TokenVisibleBytes(token)
+        vis = vis + v
+        inv = inv + #token - v
+    end
+    return vis, inv
 end
