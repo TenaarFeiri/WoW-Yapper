@@ -1082,13 +1082,20 @@ function Spellcheck:GetSuggestions(word)
     local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
     -- YAS bias injection: learned corrections go straight into the pool so
-    -- they aren't starved by shard caps.
+    -- they aren't starved by shard caps.  Targets pass through
+    -- IsWordCorrect first: they are stored in Clean()ed form (punctuation
+    -- stripped), so "i'm" was recorded as "im" and non-dictionary tokens
+    -- can linger from past sessions — emitting any of them would suggest
+    -- a word that still flags as misspelled once applied.  The bias pair
+    -- itself still boosts the real dictionary candidate via GetBonus.
     local learnedCandidates                = {}
     if self.YAS and self.YAS.GetBiasTargets then
         local targets = self.YAS:GetBiasTargets(lower, locale)
         if targets then
             for _, t in ipairs(targets) do
-                table.insert(learnedCandidates, t)
+                if self:IsWordCorrect(t) then
+                    table.insert(learnedCandidates, t)
+                end
             end
         end
     end
