@@ -58,8 +58,16 @@ YapperTable.WHATS_NEW = {
             "Older learned vocabulary and personal dictionary entries were being migrated into a storage "
                 .. "partition nothing could read. That data is now recovered and merged into the correct "
                 .. "language automatically."),
+        note("More than two links per post",
+            "A link now only spends its displayed name against the message limit, so several can share "
+                .. "one post."),
+        note("No more duplicate posts",
+            "A late server echo -- a framerate hitch, a slow Discord-guild backend -- could make Yapper "
+                .. "repost a chunk that had delivered. Late echoes are now recognised and stale resends "
+                .. "dropped."),
         note("Bug fixes",
-            "- Suggestion cache now refreshes when YAS learns, so rejected corrections stop immediately reappearing.\n\n"
+            "- Autocorrect and toast toggles moved to the General tab.\n\n"
+                .. "- Suggestion cache now refreshes when YAS learns, so rejected corrections stop immediately reappearing.\n\n"
                 .. "- Learned-word sanity checks now respect the configured n-gram size instead of silently disabling themselves.\n\n"
                 .. "- YAS phonetic learning and phonetic autocomplete now work -- the function they called never existed.\n\n"
                 .. "- Phonetic suggestions in the regional English dictionaries (US/GB/AU) were dead -- their "

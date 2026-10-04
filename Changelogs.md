@@ -18,6 +18,7 @@
 - Autocomplete now weighs context: YAS remembers which words you usually type after a given word, so the completion for "the quick br" prefers your habits over raw frequency.
 - The What's New and welcome popups now offer spellcheck, autocomplete, adaptive learning, and autocorrect toggles. Enabling spellcheck asks which dictionary language to load first. Autocorrect stays greyed out until spellcheck and adaptive learning are both on, in settings too.
 - Player names are recognised for free: Yapper keeps a session-only list of character names it sees (party, raid, friends, guild, Battle.net, and people chatting around you) and treats them as vocabulary -- party member names are no longer flagged as typos or rewritten by autocorrect, and autocomplete can finish a name you've seen this session. Nothing is saved to disk, name handling is Forever-aware (Firstname Lastname counts, realm suffixes don't), and all harvesting stops completely during combat and addon restrictions.
+- You may now post more than two links in a single post.
 
 ### Technical Changes
 - Removed the built-in English fallback engine. All language behaviour now flows through the registered engine contract, and dictionaries ship their own engine which controls spellchecking logic.
@@ -26,6 +27,8 @@
 - Autocorrect scaffolding from earlier betas is now live: confidence tiers, vetoes, a bounded shadow decision log, and an undo ring, plus the `Autocorrect` block in the engine contract (dictionaries can supply compound splitting, confusion-pair seeds, vetoes, and confidence ceilings). The English engine ships a confusion-pair seed and a `ClassifyBoundary` implementation that exercises the contract while deferring to core defaults.
 - Dictionary bundles are now contract-validated at registration: phonetic postings must be 1-based indices into the bundle's own word list, and malformed data rejects the dictionary loudly instead of silently degrading suggestions.
 - `Src/Names.lua`: a bounded (256-entry) session-only ring of observed player names. Every ingress is gated through `Utils:IsSecret`, no collection runs while `InCombatLockdown()` or any `Enum.AddOnRestrictionType` is active, and entering a restricted state purges the buffer. `Spellcheck:IsWordCorrect` treats a known name as correct, which also makes it untouchable to autocorrect's split/join fixes.
+- Message splitting now follows WoW's real two-axis budget: `ChatFrameEditBoxTemplate` budgets 255 *visible* bytes plus 1023 *invisible* (markup) bytes, so a hyperlink only spends its displayed `[name]` against the limit and colour/link markup is charged separately. `Chunking:Measure` reports both axes and `Chat:SendPosts` validates against them.
+- Queue hardening for delayed chat confirmations: stalled-and-requeued entries are timestamped (`_stalledAt`), a matching late echo consumes the requeued copy instead of resending it, and a requeued head older than 20 seconds is dropped as presumed-delivered. `CHAT_MSG_GUILD` and `CHAT_MSG_GUILD_DISCORD` now satisfy each other's acknowledgements (Discord-integrated guilds can echo either event), guild sends use a 3x stall window matching the slower community backend, and a readable sender-GUID mismatch now rejects an event before the secret-payload shortcut can consume it.
 
 ### Bug Fixes
 - Notification toasts no longer jump to the bottom-right corner when the chat window sits near the top of the screen; the placement solver can now also settle below or beside the chat frame.
@@ -51,6 +54,8 @@
 - A merge-ordering bug in personal-dictionary migration could silently discard stranded migrated words instead of folding them in.
 - Forwarded `/join`, `/channel`, and `/chan` no longer run Blizzard's slash handler, which writes the channel name into the chat frame's channel list -- doing that write inside Yapper's tainted execution caused "secret value" chat errors in delves and other restricted content. Yapper now joins via the client API directly; joining works the same, and a freshly-joined custom channel may not display messages until the chat config next refreshes (reload or zone change).
 - Arrow-key history recall no longer eats your draft: pressing Up with text already in the box stashes it, and pressing Down past the newest entry restores it -- text, cursor, and the channel or whisper target it was being written in.
+- Moved Autocorrect and Toast toggles to the General tab.
+- Fixed duplicate chat posts when a server echo is delayed, caused by things like a framerate hitch or a slow Discord-integrated guild backend.
 
 # 2.4.5
 

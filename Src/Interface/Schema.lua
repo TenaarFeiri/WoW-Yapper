@@ -243,6 +243,9 @@ local CATEGORIES                    = {
             "Spellcheck.MaxCandidates",
             "Spellcheck.ReshuffleAttempts",
             "Spellcheck.MaxWrongLetters",
+            -- Autocorrect (dependency-gated: needs spellcheck + adaptive learning)
+            "Spellcheck.AutocorrectEnabled",
+            "Spellcheck.AutocorrectToast",
             -- Sticky channel behaviour
             "EditBox.StickyChannel",
             "EditBox.StickyGroupChannel",
@@ -317,8 +320,6 @@ local CATEGORIES                    = {
         icon   = nil,
         paths  = {
             "Spellcheck.YASEnabled",
-            "Spellcheck.AutocorrectEnabled",
-            "Spellcheck.AutocorrectToast",
             "Spellcheck.LearnToastEnabled",
             "Spellcheck.YASFreqCap",
             "Spellcheck.YASBiasCap",
