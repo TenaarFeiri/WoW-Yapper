@@ -500,6 +500,11 @@ local function DefaultStrip(engine, word, dict)
         local rE = root .. "e"
         if dict:Contains(rE) then return rE end
         if dict:Contains(root) then return root end
+        -- y-fold: cozier / coziest -> cozy (SFX R/T: y -> ier/iest)
+        if root:sub(-1) == "i" then
+            local rY = root:sub(1, -2) .. "y"
+            if dict:Contains(rY) then return rY end
+        end
     end
 
     -- s / es / ies (Flag S)
@@ -539,6 +544,29 @@ local function DefaultStrip(engine, word, dict)
     if #word >= 3 and word:sub(-2) == "'s" then
         local root = word:sub(1, -3)
         if dict:Contains(root) then return root end
+    end
+
+    -- ive (Flag V: e -> ive on e-ending roots, 0 -> ive otherwise, so
+    -- "ale" -> "alive" and "adopt" -> "adoptive"; reverse both branches).
+    if #word >= 5 and word:sub(-3) == "ive" then
+        local root = word:sub(1, -4)
+        local rE = root .. "e"
+        if dict:Contains(rE) then return rE end
+        if dict:Contains(root) then return root end
+    end
+
+    -- able (Flag B: 0 -> able on consonant- or ee-ending stems,
+    -- e -> able on consonant+e stems; reverse all three branches).
+    if #word >= 6 and word:sub(-4) == "able" then
+        local root = word:sub(1, -5)
+        local last = root:sub(-1)
+        if last:match("[^aeiou]") then
+            local rE = root .. "e"
+            if dict:Contains(rE) then return rE end
+            if dict:Contains(root) then return root end
+        elseif root:sub(-2) == "ee" and dict:Contains(root) then
+            return root
+        end
     end
 
     -- 2. Try Prefixes (if enabled)
