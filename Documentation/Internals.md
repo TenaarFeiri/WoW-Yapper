@@ -164,8 +164,10 @@ SavedVariables.
 
 Safety model is fail-closed:
 
-- Every ingress passes `Utils:IsSecret`; secret values are never stored,
-  compared, or persisted.
+- Every ingress passes `Utils:IsSecret` *before any comparison or string
+  operation* — comparing a secret string (even `== ""`) raises an error
+  in tainted execution — and the combat/restriction gate precedes even
+  that. Secret values are never stored, compared, or persisted.
 - No harvesting during combat (`InCombatLockdown`) — an absolute stop,
   including "safe" combat where APIs still return data.
 - No harvesting while any `Enum.AddOnRestrictionType` is enforced.
@@ -185,11 +187,11 @@ Safety model is fail-closed:
   - `_retryScheduled: boolean` a catch-up-sweep retry timer is queued.
 - Methods:
   - `Names:Add(raw) → nil`: Store a raw name after secret/combat/restriction gates; strips BattleTag discrims and normalises via `Utils:NormaliseCharName` (Forever `Firstname-Lastname`/`Firstname Lastname` → `firstname lastname`, each part indexed). Rejects oversized inputs (>128 raw / >64 normalised bytes) and strings with no letter-ish byte, bounding stored-key size and keeping punctuation/digit junk out of the ring. ([`../Src/Names.lua#L114`](../Src/Names.lua#L114))
-  - `Names:IsName(token) → boolean`: True when a token is a known player name, case-insensitive. ([`../Src/Names.lua#L152`](../Src/Names.lua#L152))
-  - `Names:FindByPrefix(lowerPrefix) → string|nil`: First stored name extending the prefix; autocomplete tier source. ([`../Src/Names.lua#L159`](../Src/Names.lua#L159))
-  - `Names:Clear() → nil`: Purge the registry. ([`../Src/Names.lua#L172`](../Src/Names.lua#L172))
-  - `Names:SweepRoster() → nil`: Harvest self/group/friends/guild/Battle.net rosters; defers while unsafe. ([`../Src/Names.lua#L184`](../Src/Names.lua#L184))
-  - `Names:Init() → nil`: Register chat-sender, roster, regen-flush, and restriction-transition handlers, then sweep. Idempotent — all registrations are keyed `handlerId "Names"`, so re-calling it (e.g. `OverrideYapper` re-enable after `UnregisterAll`) restores handlers rather than duplicating them. ([`../Src/Names.lua#L277`](../Src/Names.lua#L277))
+  - `Names:IsName(token) → boolean`: True when a token is a known player name, case-insensitive. ([`../Src/Names.lua#L155`](../Src/Names.lua#L155))
+  - `Names:FindByPrefix(lowerPrefix) → string|nil`: First stored name extending the prefix; autocomplete tier source. ([`../Src/Names.lua#L163`](../Src/Names.lua#L163))
+  - `Names:Clear() → nil`: Purge the registry. ([`../Src/Names.lua#L177`](../Src/Names.lua#L177))
+  - `Names:SweepRoster() → nil`: Harvest self/group/friends/guild/Battle.net rosters; defers while unsafe. ([`../Src/Names.lua#L189`](../Src/Names.lua#L189))
+  - `Names:Init() → nil`: Register chat-sender, roster, regen-flush, and restriction-transition handlers, then sweep. Idempotent — all registrations are keyed `handlerId "Names"`, so re-calling it (e.g. `OverrideYapper` re-enable after `UnregisterAll`) restores handlers rather than duplicating them. ([`../Src/Names.lua#L282`](../Src/Names.lua#L282))
 
 ## Spellcheck
 
@@ -293,7 +295,7 @@ Runs during suggestion/recolour rebuild.
   - `ResolveImplicitTrace` [`../Src/Spellcheck/Engine.lua#L300`](../Src/Spellcheck/Engine.lua#L300)
   - `UpdateActiveWord` [`../Src/Spellcheck/Engine.lua#L341`](../Src/Spellcheck/Engine.lua#L341)
   - `GetWordAtCursor` [`../Src/Spellcheck/Engine.lua#L444`](../Src/Spellcheck/Engine.lua#L444)
-  - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L1000`](../Src/Spellcheck/Engine.lua#L1000)
+  - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L1000`](../Src/Spellcheck/Engine.lua#L1000) — YAS-learned bias targets are injected as priority candidates, but only after clearing `IsWordCorrect`: targets are stored `Clean()`ed (punctuation stripped), so a learned "i'm" resurfaces as "im" and non-dictionary corrections can linger in `db.bias`; emitting them would suggest words that still flag once applied. The bias pair still boosts the real dictionary candidate via `GetBonus`.
   - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1350`](../Src/Spellcheck/Engine.lua#L1350)
   - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1421`](../Src/Spellcheck/Engine.lua#L1421)
 - Filters run:

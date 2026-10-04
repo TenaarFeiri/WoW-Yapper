@@ -1,14 +1,13 @@
 # TODO
 
-## Awaiting an answer
+Nothing outstanding.
 
-Should we add a real-dictionary smoke suite to the gating tests?
+## Resolved
 
-Shared harness loading each shipped dictionary + engine, with a
-per-language typo->expected case table (enUS: "tihs" -> "this",
-"doign" -> "doing"; deDE needs a QWERTZ-appropriate pair). The
-reshuffle-starvation bug ("doign" never generating "doing") survived
-because no gating test drove the full suggestion pipeline against a real
-dictionary -- this would close that hole.
-
-Answer: yes / no / later.
+- Real-dictionary smoke suite: added `tools/2.0testsuites/test_dict_smoke.lua`
+  (gating). Covers high-frequency word presence per shipped locale (enUS,
+  enGB, enAU, deDE), affix-resolved forms, known typo->correction cases
+  ("tihs"->"this", "doign"->"doing" [reshuffle starvation regression],
+  "udn"->"und", "nihct"->"nicht"), and the every-word-suggestion-is-correct
+  invariant. Loads real dicts + engines through the actual registration
+  path, so a malformed or regressed dictionary generation fails the gate.
