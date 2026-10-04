@@ -741,11 +741,14 @@ Called from `Chat:SendPosts` for every post, oversized or not, so that `PRE_CHUN
 
 - Description: UTF-8 aware message splitting.
 - Methods:
-  - `Chunking:Split(text, limit, opts?) → string[]|nil` ([`../Src/Chunking.lua#L373`](../Src/Chunking.lua#L373))
+  - `Chunking:Split(text, limit, opts?) → string[]|nil` ([`../Src/Chunking.lua#L416`](../Src/Chunking.lua#L416))
     - `opts`: `{ ignoreParagraphMerging?, useDelineators?, delineator?, chatType?, language? }`
     - Fires the `PRE_CHUNK` filter once per contiguous text unit (after paragraph isolation). Returns `nil` when a filter cancels the send.
     - Honours `payload.continuationPrefix` set by a `PRE_CHUNK` filter, charging it against the byte budget of every chunk after the first.
     - Continuation chunks are assembled as `<delineator><continuationPrefix><text>`, or `<continuationPrefix><delineator><text>` when the filter sets `payload.continuationPrefixFirst`.
+  - `Chunking:Measure(text) → number, number` ([`../Src/Chunking.lua#L675`](../Src/Chunking.lua#L675)) — returns visible bytes (counted toward `CHARACTER_LIMIT`) and invisible markup bytes (counted toward `INVISIBLE_LIMIT`), matching WoW's `visibleBytes`/`invisibleBytes` editbox budgets.
+- Invariants:
+  - `limit` is a *visible*-byte budget: pipe escapes (`|c`, `|r`, `|T`, `|A`, `|h`/`|H` wrappers) cost nothing; a hyperlink costs only its `[display]` text. Markup is separately capped at `INVISIBLE_LIMIT` (1023) per chunk, mirroring `ChatFrameEditBoxTemplate`'s `bytes="1280" visibleBytes="255" invisibleBytes="1023"`.
 
 ## Queue
 
@@ -820,8 +823,8 @@ Initialised on `PLAYER_ENTERING_WORLD` by `Yapper.lua`.
 - Methods:
   - `Chat:Init() → nil` ([`../Src/Chat.lua#L55`](../Src/Chat.lua#L55))
   - `Chat:SendPosts(posts, chatType, language, target) → boolean, string|nil, number|nil, string|nil` ([`../Src/Chat.lua#L144`](../Src/Chat.lua#L144))
-  - `Chat:OnSend(text, chatType, language, target) → boolean` ([`../Src/Chat.lua#L258`](../Src/Chat.lua#L258))
-  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L273`](../Src/Chat.lua#L273))
+  - `Chat:OnSend(text, chatType, language, target) → boolean` ([`../Src/Chat.lua#L259`](../Src/Chat.lua#L259))
+  - `Chat:DirectSend(msg, chatType, language, target) → nil` ([`../Src/Chat.lua#L274`](../Src/Chat.lua#L274))
 - Invariants:
   - `Chat:SendPosts` is the only send pipeline. `Chat:OnSend` (single-line overlay) and `Multiline:Submit` both funnel into it, so history, `PRE_SEND`, chunking, `PRE_CHUNK`, lockdown checks and stalled-queue recovery behave identically in both modes.
   - Every post is chunked, then the whole composition is enqueued as **one** ordered sequence so ack tracking cannot interleave.
