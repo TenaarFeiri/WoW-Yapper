@@ -189,12 +189,14 @@ h.Queue.StrictAckMatching = true
 h.Queue:Flush(false)
 h:fire_next_timer()
 check("wrong-text echo does not acknowledge strict queue", h.Queue.PendingEntry ~= nil)
--- Force the stall, then send a late correct echo while stalled.
+-- Force the stall, then send a late correct echo while stalled: the stalled
+-- head already delivered, so the echo consumes it instead of being ignored.
 drain(h, 1)
 check("wrong-text echo causes a stall", h.Queue.NeedsContinue == true)
 h.Queue.StrictAckMatching = false
 h:emit("CHAT_MSG_EMOTE", "strict text", nil, nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
-check("late echo is harmless after stall", h.Queue.PendingEntry == nil and h.Queue.NeedsContinue == true)
+check("late echo consumes the requeued head", h.Queue.PendingEntry == nil
+    and h.Queue.NeedsContinue == false and #h.Queue.Entries == 0)
 
 h:reset()
 h.server:set_behavior("wrong-event")
@@ -204,6 +206,60 @@ h:fire_next_timer()
 check("wrong event does not acknowledge pending entry", h.Queue.PendingEntry ~= nil)
 drain(h, 1)
 check("wrong event eventually stalls", h.Queue.NeedsContinue == true)
+
+-- ===========================================================================
+-- 5b. Duplicate-delivery protection for stalled entries
+-- ===========================================================================
+print("\nContract 5b: Stalled entries are consumed, not resent twice")
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "guild dup one", "guild dup two" }, "GUILD", "Common", nil)
+h.Queue:Flush(true)
+check("guild chunk dispatched", h:sent_count() == 1)
+h:fire_timers()   -- stall requeues the head
+check("guild stall requeues head", h.Queue.NeedsContinue == true and #h.Queue.Entries == 2)
+-- The real echo arrives late, while the prompt is still up.
+h:emit("CHAT_MSG_GUILD", "guild dup one",
+    nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
+check("late ack consumes stalled head", #h.Queue.Entries == 1 and h:sent_count() == 1)
+h.server:set_behavior("echo")
+h.Queue:OnOpenChat()
+check("resume sends the second chunk", h:sent_count() == 2 and h:last_sent().message == "guild dup two")
+h:fire_timers()
+check("guild sequence completes without dup", h:queue_state().pending == 0 and h:sent_count() == 2)
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "stale guild" }, "GUILD", "Common", nil)
+h.Queue:Flush(true)
+h:fire_timers()   -- stall requeues the head
+h.now = h.now + 60
+h.server:set_behavior("echo")
+h.Queue:OnOpenChat()
+check("stale head consumed on resume", h:sent_count() == 1 and h:queue_state().pending == 0)
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "guild sibling" }, "GUILD", "Common", nil)
+h.Queue:Flush(true)
+h:emit("CHAT_MSG_GUILD_DISCORD", "guild sibling",
+    nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
+check("discord echo acks guild send", h.Queue.PendingEntry == nil and not h.Queue:IsActive())
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "discord sibling" }, "GUILD_DISCORD", "Common", nil)
+h.Queue:Flush(true)
+h:emit("CHAT_MSG_GUILD", "discord sibling",
+    nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
+check("guild echo acks discord send", h.Queue.PendingEntry == nil and not h.Queue:IsActive())
+
+h:reset()
+h.server:set_behavior("drop")
+h:enqueue({ "guild stall" }, "GUILD", "Common", nil)
+h.Queue:Flush(true)
+check("guild stall timer uses multiplier", h.timers[#h.timers].duration == h.Queue.StallTimeout * 3)
 
 -- ===========================================================================
 -- 6. Hard API failure contract

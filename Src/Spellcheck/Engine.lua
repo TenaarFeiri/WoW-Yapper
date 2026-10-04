@@ -127,6 +127,58 @@ function Spellcheck:ShouldCheckWord(word, minLen, engine)
     return true
 end
 
+-- Punctuation that "closes" a word in the core default: a committed boundary
+-- AND a snap-back target (an auto-inserted space hops after it).
+local SNAPBACK_BYTES = {
+    [46] = true, -- .
+    [44] = true, -- ,
+    [33] = true, -- !
+    [63] = true, -- ?
+    [59] = true, -- ;
+    [58] = true, -- :
+}
+
+--- Classify the byte at `pos` (1-based) of canonical `text` for word-boundary
+--- purposes.  An engine may override via the optional ClassifyBoundary
+--- contract field; nil/"" means "no opinion" and falls through to the core
+--- default below, which encodes English conventions:
+---
+---   "commit" — boundary that completes a word (space, newline)
+---   "close"  — commit boundary that also snaps an auto-inserted space to
+---              AFTER itself (.,!?;: and a parity-closing '"')
+---   "open"   — opens a quote/span; not a word boundary; an auto-inserted
+---              space before it stays (opening '"' under English parity)
+---   "none"   — any other byte; not a word boundary
+---
+--- '"' is ambiguous in English: it opens or closes a quotation.  Parity of
+--- the '"' bytes before `pos` decides — odd means one is unclosed, so this
+--- one closes (boundary); even means it opens (not a boundary).  Completed
+--- quote pairs earlier in the text cancel out automatically.
+function Spellcheck:ClassifyBoundary(text, pos)
+    if type(text) ~= "string" or type(pos) ~= "number" then return "none" end
+    local engine = self:GetActiveEngine()
+    if engine and engine.ClassifyBoundary then
+        local r = self:_SafeEngineCall(engine, "ClassifyBoundary", false, text, pos)
+        if r == "commit" or r == "close" or r == "open" or r == "none" then
+            return r
+        end
+        -- nil/""/invalid: no opinion — core default below.
+    end
+    local b = string_byte(text, pos)
+    if not b then return "none" end
+    if b == 32 or b == 10 or b == 13 then return "commit" end
+    if SNAPBACK_BYTES[b] then return "close" end
+    if b == 34 then -- '"'
+        local parity = 0
+        for i = 1, pos - 1 do
+            if string_byte(text, i) == 34 then parity = 1 - parity end
+        end
+        if parity == 1 then return "close" end
+        return "open"
+    end
+    return "none"
+end
+
 function Spellcheck:GetIgnoredRanges(text)
     -- Called twice per spellcheck pass on identical text and does five
     -- full-text scans, so memoize on the text itself; the one-entry cache
@@ -211,6 +263,13 @@ function Spellcheck:IsWordCorrect(word)
 
     -- 1. Check user dictionary overrides (Manual Add/Ignore)
     if (addedSet and addedSet[norm]) or (ignoredSet and ignoredSet[norm]) then
+        return true
+    end
+
+    -- 1.5 Known player names are vocabulary, not typos. Session-only
+    --     (Src/Names.lua); consults a normalised lowercase set.
+    local names = YapperTable.Names
+    if names and names.IsName and (names:IsName(norm) or names:IsName(word)) then
         return true
     end
 
@@ -303,6 +362,8 @@ function Spellcheck:UpdateActiveWord()
         self:ResolveImplicitTrace(false)
     end
 
+    self._revertCorrection = nil
+
     if not wordInfo then
         self.ActiveWord = nil
         self.ActiveRange = nil
@@ -311,10 +372,18 @@ function Spellcheck:UpdateActiveWord()
     end
 
     if YapperAPI:CheckWord(wordInfo.word) then
-        self.ActiveWord = nil
-        self.ActiveRange = nil
-        self:HideSuggestions()
-        return
+        -- A word we autocorrected stays "active" so the suggestion popup
+        -- can offer "Restore '<original>'" while the correction is live.
+        local ac = self.Autocorrect
+        local corr = ac and ac.LiveCorrectionAt
+            and ac:LiveCorrectionAt(self.EditBox, wordInfo.startPos, wordInfo.endPos)
+        if not corr then
+            self.ActiveWord = nil
+            self.ActiveRange = nil
+            self:HideSuggestions()
+            return
+        end
+        self._revertCorrection = corr
     end
 
     self.ActiveWord = wordInfo.word
@@ -337,7 +406,7 @@ function Spellcheck:UpdateActiveWord()
 
         local suggestions = nil
         if needCompute then
-            suggestions = self:GetSuggestions(self.ActiveWord)
+            suggestions = self:_WithRevertEntry(self:GetSuggestions(self.ActiveWord))
             self._lastSuggestionsText = currentText
             self._lastSuggestionsLocale = locale
             self._lastSuggestionsUserRev = userRev
@@ -358,6 +427,18 @@ function Spellcheck:UpdateActiveWord()
             self:ShowSuggestions()
         end
     end
+end
+
+--- Prepend a "Restore '<original>'" row when the active word sits inside a
+--- live autocorrection.  Always copies — GetSuggestions may return a cached
+--- table shared across callers.
+function Spellcheck:_WithRevertEntry(suggestions)
+    if type(suggestions) ~= "table" then suggestions = {} end
+    local corr = self._revertCorrection
+    if not corr then return suggestions end
+    local out = { { kind = "revert", value = corr.original } }
+    for i = 1, #suggestions do out[#out + 1] = suggestions[i] end
+    return out
 end
 
 function Spellcheck:GetWordAtCursor(text, cursor)
@@ -661,6 +742,10 @@ end
 
 --- Score a single candidate and append to the output list if it passes.
 local function ScoreCandidate(ctx, out, candidate, dist, isPhonetic)
+    -- Phonetic membership is a property of the word, not the generator that
+    -- found it: a reshuffle variant that shares the input's hash still earns
+    -- the phonetic bonus even though the phonetic pool was skipped.
+    isPhonetic = isPhonetic or (ctx.phoneticSet ~= nil and ctx.phoneticSet[candidate] == true)
     local lower = ctx.lower
     local lowerLen = ctx.lowerLen
     local candidateLen = #candidate
@@ -806,6 +891,11 @@ local function TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap,
     local maxDist = (ctx.lowerLen <= 4) and 2 or 3
     local attempts = self:GetReshuffleAttempts() or 0
     if attempts <= 0 then return checks end
+    -- Adjacent transpositions and single deletions are bounded by word
+    -- length and are the classic mechanical slips; always cover them
+    -- fully.  The configured budget applies to the substitution sweep
+    -- on top of those.
+    attempts = attempts + ((ctx.lowerLen - 1) + ctx.lowerLen)
 
     local variants = self._scratchVariants
     if not variants then
@@ -992,13 +1082,20 @@ function Spellcheck:GetSuggestions(word)
     local phoneticCandidates, phoneticHash = GatherPhoneticCandidates(dict, lower, engine)
 
     -- YAS bias injection: learned corrections go straight into the pool so
-    -- they aren't starved by shard caps.
+    -- they aren't starved by shard caps.  Targets pass through
+    -- IsWordCorrect first: they are stored in Clean()ed form (punctuation
+    -- stripped), so "i'm" was recorded as "im" and non-dictionary tokens
+    -- can linger from past sessions — emitting any of them would suggest
+    -- a word that still flags as misspelled once applied.  The bias pair
+    -- itself still boosts the real dictionary candidate via GetBonus.
     local learnedCandidates                = {}
     if self.YAS and self.YAS.GetBiasTargets then
         local targets = self.YAS:GetBiasTargets(lower, locale)
         if targets then
             for _, t in ipairs(targets) do
-                table.insert(learnedCandidates, t)
+                if self:IsWordCorrect(t) then
+                    table.insert(learnedCandidates, t)
+                end
             end
         end
     end
@@ -1013,6 +1110,11 @@ function Spellcheck:GetSuggestions(word)
     local inputBag, inputBigrams = BuildInputMeta(self, lower)
     local ctx = MakeScoringContext(self, dict, lower, inputBag, inputBigrams, phoneticHash, locale, engine)
     ctx.prevWord = prevNorm ~= "" and prevNorm or nil
+    if #phoneticCandidates > 0 then
+        local set = {}
+        for _, c in ipairs(phoneticCandidates) do set[c] = true end
+        ctx.phoneticSet = set
+    end
 
     local addedSet, ignoredSet, userBlockedSet = self:GetUserSets(self:GetLocale())
     local _, _, engineHashes, engineHashFn = self:GetBlockData(locale)
@@ -1079,17 +1181,26 @@ function Spellcheck:GetSuggestions(word)
         end
     end
 
-    -- 2. Phonetic candidates (high priority)
+    -- 2. Reshuffles (mechanical slips: transposes, deletes, near-key
+    --    replacements).  Highest-precision structural candidates, run
+    --    before phonetics and the broad prefix sweep — on a large
+    --    dictionary those pools can exhaust the shared check budget and
+    --    reshuffles would never run.
+    if not aborted and #out < maxCount and checks < dynamicCap then
+        checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
+    end
+
+    -- 3. Phonetic candidates (high priority)
     if not aborted and #phoneticCandidates > 0 then
         aborted = tryCandidates(phoneticCandidates, true)
     end
 
-    -- 3. Direct locale variant injection (only when the active engine has variant rules)
+    -- 4. Direct locale variant injection (only when the active engine has variant rules)
     if ctx.isVariantLocale then
         InjectLocaleVariants(ctx, out, seenCandidates, engineHashes, engineHashFn)
     end
 
-    -- 4. Bucket prefix candidates (2-char > 1-char > other)
+    -- 5. Bucket prefix candidates (2-char > 1-char > other)
     local pref2 = {}
     local pref1 = {}
     local other = {}
@@ -1114,20 +1225,15 @@ function Spellcheck:GetSuggestions(word)
             #pref2, #pref1, #other, dynamicCap, maxDist, maxLenDiff))
     end
 
-    -- 5. N-gram candidates
+    -- 6. N-gram candidates
     if not aborted and ngramCandidates and #ngramCandidates > 0 then
         aborted = tryCandidates(ngramCandidates)
     end
 
-    -- 6. Prefix buckets (ordered by relevance)
+    -- 7. Prefix buckets (ordered by relevance)
     if not aborted then aborted = tryCandidates(pref2) end
     if not aborted then aborted = tryCandidates(pref1) end
     if not aborted then tryCandidates(other) end
-
-    -- 7. Reshuffle fallback
-    if not aborted and #out < maxCount and checks < dynamicCap then
-        checks = TryReshuffles(self, ctx, out, seenCandidates, checks, dynamicCap, engineHashes, engineHashFn)
-    end
 
     if IsDebugEnabled() then
         self:Notify("Spellcheck:GetSuggestions finished checks=" ..
@@ -1329,6 +1435,7 @@ function Spellcheck:FormatSuggestionLabel(entry, index)
         if entry.kind == "split"  then return index .. ". Split: " .. v end
         if entry.kind == "add"    then return index .. ". Add \"" .. v .. "\" to dictionary" end
         if entry.kind == "ignore" then return index .. ". Ignore \"" .. v .. "\"" end
+        if entry.kind == "revert" then return index .. ". Restore \"" .. v .. "\"" end
         return index .. ". " .. v
     end
     if type(entry) == "string" then
@@ -1345,6 +1452,9 @@ function Spellcheck:FormatSuggestionLabel(entry, index)
     end
     if entry.kind == "ignore" then
         return L:Get("ui.spellcheck.ignore", index, entry.value or "")
+    end
+    if entry.kind == "revert" then
+        return L:Get("ui.spellcheck.revert", index, entry.value or "")
     end
     return L:Get("ui.spellcheck.row", index, entry.value or entry.word or "")
 end

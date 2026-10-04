@@ -101,6 +101,7 @@ function EditBox:SetupOverlayScripts()
         if strbyte(text, 1) ~= 47 then -- '/'
             self.HistoryIndex = nil
             self.HistoryCache = nil
+            self.HistoryDraft = nil
             if YapperTable.Emotes then
                 YapperTable.Emotes:HideHint()
                 YapperTable.Emotes:HideMenu()
@@ -711,6 +712,7 @@ function EditBox:SetupOverlayScripts()
     frame:SetScript("OnHide", function()
         self.HistoryIndex = nil
         self.HistoryCache = nil
+        self.HistoryDraft = nil
 
         if YapperTable.IconGallery and YapperTable.IconGallery.Active then
             YapperTable.IconGallery:Hide()

@@ -717,6 +717,20 @@ function Interface:CreateYASLearningPage(parent, cursor)
         StaticPopup_Show("YAPPER_CONFIRM_RESET_LEARNING", locale or "All")
     end)
     self:AddControl(resetAllBtn)
+
+    -- Toast preview: fires the same code path as a real learned-word
+    -- notification so users can see where the card lands on their layout.
+    local previewBtn = self:AcquireWidget("YASToastPreview", parent, "UIPanelButtonTemplate", "Button")
+    previewBtn:SetSize(Interface._ScaleButtonWidth(180), 24)
+    previewBtn:SetPoint("TOPLEFT", resetAllBtn, "TOPRIGHT", 10, 0)
+    previewBtn:SetText("Preview Learned-Word Toast")
+    self:AttachTooltip(previewBtn, "Show the toast Yapper displays when YAS learns a new word. Nothing is learned.")
+    previewBtn:SetScript("OnClick", function()
+        if YapperTable.Toast and YapperTable.Toast.ShowLearned then
+            YapperTable.Toast:ShowLearned("exampleword", locale)
+        end
+    end)
+    self:AddControl(previewBtn)
     cursor:Advance(30)
 end
 

@@ -242,6 +242,16 @@ end
 --     StripAffixes(engine, word, dict) -> string|nil
 --     ShouldCheckWord(word, minLen)    -> boolean
 --     MatchCase(input, suggestion)     -> string   casing mirror for results
+--     ClassifyBoundary(text, pos)      -> string|nil  boundary treatment for
+--                                      the byte at pos: "commit" (word ends,
+--                                      no snap), "close" (word ends AND an
+--                                      auto-inserted space snaps after it),
+--                                      "open" (not a boundary; keep space
+--                                      before), "none" (not a boundary), or
+--                                      nil/"" for "no opinion" -> core default
+--                                      (space/newline commit; .,!?;: and a
+--                                      parity-closing '"' are "close"; an
+--                                      opening '"' is "open").
 --     IsSaneWord(word)                 -> boolean  extra YAS learning veto
 --     HasVariantRules + VariantRules   { {from, to}, ... } spelling variants
 --     ScoreWeights                     subset of SCORE_WEIGHTS keys, numeric
@@ -287,6 +297,7 @@ local ENGINE_OPTIONAL = {
     StripAffixes    = "function",
     ShouldCheckWord = "function",
     MatchCase       = "function",
+    ClassifyBoundary = "function",
     IsSaneWord      = "function",
     HasVariantRules = "boolean",
     VariantRules    = "table",
@@ -563,6 +574,20 @@ function Spellcheck:_ValidateEngineContract(familyId, engine)
         local ok, r = pcall(engine.IsSaneWord, "test")
         if not ok or type(r) ~= "boolean" then
             return false, "IsSaneWord must return a boolean"
+        end
+    end
+    if engine.ClassifyBoundary then
+        -- The pathway must exist even when the engine has no opinion, so it
+        -- is probed at registration: nil/"" mean "no opinion" while any
+        -- other value must be a member of the boundary enum.
+        local ok, r = pcall(engine.ClassifyBoundary, 'say "hello" ', 12)
+        if not ok then
+            return false, "ClassifyBoundary errored on probe: " .. tostring(r)
+        end
+        if r ~= nil and r ~= "" and r ~= "commit" and r ~= "close"
+            and r ~= "open" and r ~= "none" then
+            return false, "ClassifyBoundary must return nil, \"\", or one of"
+                .. " commit/close/open/none (got " .. tostring(r) .. ")"
         end
     end
 
@@ -1050,6 +1075,11 @@ function Spellcheck:AddUserWord(locale, word)
     end
     self:TouchUserDict(dict)
     self:ClearSuggestionCache()
+    -- An explicit add reverses any earlier Unlearn re-learn block.
+    local yas = self.YAS
+    if yas and yas.ClearReject then
+        yas:ClearReject(word, locale)
+    end
     if YapperTable.API then
         YapperTable.API:Fire("SPELLCHECK_WORD_ADDED", word, locale)
     end
@@ -1077,6 +1107,26 @@ function Spellcheck:IgnoreWord(locale, word)
     if YapperTable.API then
         YapperTable.API:Fire("SPELLCHECK_WORD_IGNORED", word, locale)
     end
+end
+
+--- Remove a word from the user dictionary's AddedWords list (Unlearn).
+--- Normalised match, same domain as AddUserWord.  No-op when absent.
+function Spellcheck:RemoveUserWord(locale, word)
+    if type(word) ~= "string" or word == "" then return end
+    local dict = self:GetUserDict(locale)
+    if not dict then return end
+    local normFn = self:_NormForLocale(locale)
+    local norm = normFn(word)
+    local removed = false
+    for i = #dict.AddedWords, 1, -1 do
+        if normFn(dict.AddedWords[i]) == norm then
+            table_remove(dict.AddedWords, i)
+            removed = true
+        end
+    end
+    if not removed then return end
+    self:TouchUserDict(dict)
+    self:ClearSuggestionCache()
 end
 
 --- Completely invalidates the suggestion cache and resets the O(1) counter.

@@ -53,8 +53,19 @@ Strings._enUS = {
     ["ui.spellcheck.add"]         = "%d. Add \"%s\" to dictionary",
     ["ui.spellcheck.ignore"]      = "%d. Ignore \"%s\"",
     ["ui.spellcheck.split"]       = "%d. Split: %s",
+    ["ui.spellcheck.revert"]      = "%d. Restore \"%s\"",
     ["ui.spellcheck.row"]         = "%d. %s",
     ["ui.spellcheck.row.empty"]   = "%d. -",
+
+    -- Toast notifications (Toast.lua): autocorrect undo + learned-word card.
+    ["ui.toast.autocorrected"]    = "Autocorrected",
+    ["ui.toast.autocorrectBody"]  = "\"%s\" -> \"%s\"",
+    ["ui.toast.undo"]             = "Undo",
+    ["ui.toast.learned"]          = "Yapper learned a word",
+    ["ui.toast.learnedBody"]      = "\"%s\" added to your %s dictionary",
+    ["ui.toast.keep"]             = "Keep",
+    ["ui.toast.unlearn"]          = "Unlearn",
+    ["ui.toast.ignore"]           = "Ignore",
 
     -- Emote picker (Emotes.lua).  Emote commands themselves come from
     -- Blizzard's locale-bound globals and are already client-localised.

@@ -5,9 +5,11 @@
 	Data cascade:
 		Tier 1 - YAS personal lexicon (freq table)
 		         Prioritises the user's own vocabulary: character names,
-		         guild jargon, favourite descriptors.
+		         guild jargon, favourite descriptors.  A YAS bigram bonus
+		         (what follows the previous word) boosts contextual picks.
 		Tier 2 - Spellcheck dictionary (sorted array, binary search)
-		         Falls back to the full dictionary when YAS has no match.
+		         Falls back to the full dictionary when YAS has no match;
+		         the same bigram bonus applies inside ScoreCandidate.
 
 	Ghost text:
 		A non-interactive FontString overlaid on the EditBox, rendered in a
@@ -92,6 +94,12 @@ local MIN_PREFIX_LEN        = 2
 local SCAN_SHORT            = 12 -- wider net when prefix is short
 local SCAN_MEDIUM           = 8
 local SCAN_LONG             = 4
+
+-- Score units per observed prev->next transition (YAS bigram).  Context is
+-- the strongest "what word comes next" signal, so a handful of observed
+-- transitions outweighs a large raw-frequency gap.
+local BIGRAM_WEIGHT         = 5
+local BIGRAM_BONUS_CAP      = 60 -- cap so ancient mass context can't bury everything
 
 -- Pixel gap between the caret and the first character of ghost text.
 -- Prevents the caret from visually swallowing the first ghost letter.
@@ -253,7 +261,7 @@ end
 ---@param yasFreq   table|nil  yas.db.freq table, or nil.
 ---@param yasNeg    table|nil  yas.db.negBias table, or nil.
 ---@return number
-local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg)
+local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg, yasCtx)
 	local score = prefixLen * 10
 
 	-- Penalise length: shorter completions are preferred.
@@ -284,6 +292,16 @@ local function ScoreCandidate(word, lowerPrefix, prefixLen, yasFreq, yasNeg)
 		end
 	end
 
+	-- Bigram context: words the user habitually types after the previous
+	-- word.  yasCtx is the resolved bigram bucket for the previous word.
+	if yasCtx then
+		local e = yasCtx[lword:gsub("[%p%c%s]", "")]
+		local c = type(e) == "table" and (e.c or 0) or (type(e) == "number" and e or 0)
+		if c > 0 then
+			score = score + math_min(c * BIGRAM_WEIGHT, BIGRAM_BONUS_CAP)
+		end
+	end
+
 	return score
 end
 
@@ -299,9 +317,10 @@ end
 ---@param userBlockedSet table|nil  Optional set of user-blocked words.
 ---@param engineHashes table|nil  Optional set of engine-blocked hashes.
 ---@param engineHashFn function|nil  Optional hashing function.
+---@param yasCtx    table|nil  Resolved bigram bucket for the previous word.
 ---@return string?
 function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg, broad, addedSet, userBlockedSet,
-									   engineHashes, engineHashFn)
+									   engineHashes, engineHashFn, yasCtx)
 	if not words or #words == 0 then return nil end
 
 	local sc = YapperTable.Spellcheck
@@ -362,7 +381,7 @@ function Autocomplete:SearchDictionary(words, phonetics, prefix, yasFreq, yasNeg
 			end
 
 			if not isBlocked then
-				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yasFreq, yasNeg)
+				local s = ScoreCandidate(w, lowerPrefix, prefixLen, yasFreq, yasNeg, yasCtx)
 				if s > bestScore then
 					bestScore = s
 					bestWord  = w
@@ -380,10 +399,13 @@ end
 
 --- Run the full tiered lookup: YAS first, then dictionary with
 --- confidence-narrowing based on prefix length.
----@param prefix string        The partial word the user is typing.
----@param broad  boolean|nil   When true, force widest scan + phonetics (direction-change retry).
----@return string?             The best completion, or nil.
-function Autocomplete:GetSuggestion(prefix, broad)
+---@param prefix   string        The partial word the user is typing.
+---@param broad    boolean|nil   When true, force widest scan + phonetics (direction-change retry).
+---@param prevWord string|nil    The completed word before the prefix; feeds
+---                              the YAS bigram context bonus.  nil resolves
+---                              to the "<s>" sentence-initial bucket.
+---@return string?               The best completion, or nil.
+function Autocomplete:GetSuggestion(prefix, broad, prevWord)
 	if not prefix or string_len(prefix) < MIN_PREFIX_LEN then return nil end
 
 	-- Mirror the capitalisation of the first letter back onto the suggestion.
@@ -399,6 +421,19 @@ function Autocomplete:GetSuggestion(prefix, broad)
 	local yas = sc and sc.YAS
 	local yasDB = yas and yas:GetLocaleDB(locale, true)
 	local yasNeg = yasDB and yasDB.negBias or nil
+
+	-- Bigram context: the bucket for the completed word before the prefix.
+	-- No preceding word resolves to "<s>" (sentence-initial transitions).
+	local yasCtx
+	if yasDB and type(yasDB.bigram) == "table" then
+		local ctxKey
+		if type(prevWord) == "string" and prevWord ~= "" then
+			local pw = (sc and sc.NormaliseWord and sc.NormaliseWord(prevWord))
+				or string_lower(prevWord)
+			ctxKey = pw:gsub("[%p%c%s]", "")
+		end
+		yasCtx = yasDB.bigram[(ctxKey and ctxKey ~= "") and ctxKey or "<s>"]
+	end
 
 	-- Tier 1: personal lexicon (YAS) -- exact prefix scan.
 	local yasFreq = yasDB and yasDB.freq or nil
@@ -457,9 +492,13 @@ function Autocomplete:GetSuggestion(prefix, broad)
 				if not isBlocked then
 					local entry = yasFreq[word]
 					local freq = type(entry) == "table" and (entry.c or 0) or (type(entry) == "number" and entry or 0)
-					if freq > bestScore then
-						bestScore = freq
-						bestWord = word
+					local ctxE  = yasCtx and yasCtx[word]
+					local ctxC  = type(ctxE) == "table" and (ctxE.c or 0)
+						or (type(ctxE) == "number" and ctxE or 0)
+					local score = freq + ctxC * BIGRAM_WEIGHT
+					if score > bestScore then
+						bestScore = score
+						bestWord  = word
 					end
 				end
 			end
@@ -485,13 +524,23 @@ function Autocomplete:GetSuggestion(prefix, broad)
 		end
 	end
 
+	-- Tier 1c: known player names (session-only, Src/Names.lua).  Below
+	-- learned vocabulary, above the base dictionary.
+	local names = YapperTable.Names
+	if names and names.FindByPrefix then
+		local hit = names:FindByPrefix(cleanPrefix ~= "" and cleanPrefix or lowerPrefix)
+		if hit then
+			return prefixIsCapital and CapFirst(hit) or hit
+		end
+	end
+
 	-- Tier 2: dictionary with confidence-narrowing.
 	if not sc or not sc.GetDictionary then return nil end
 	local dict = sc:GetDictionary()
 	if not dict then return nil end
 
 	local hit = self:SearchDictionary(dict.words, dict.phonetics, prefix, yasFreq, yasNeg, broad, addedSet,
-		userBlockedSet, engineHashes, engineHashFn)
+		userBlockedSet, engineHashes, engineHashFn, yasCtx)
 	if hit then
 		return prefixIsCapital and CapFirst(hit) or hit
 	end
@@ -501,7 +550,7 @@ function Autocomplete:GetSuggestion(prefix, broad)
 		local base = sc.Dictionaries[dict.extends]
 		if base and type(base.words) == "table" then
 			hit = self:SearchDictionary(base.words, base.phonetics, prefix, yasFreq, yasNeg, broad, addedSet,
-				userBlockedSet, engineHashes, engineHashFn)
+				userBlockedSet, engineHashes, engineHashFn, yasCtx)
 		end
 	end
 
@@ -568,9 +617,23 @@ function Autocomplete:_InstallCursorHook(editBox)
 		ac._caretX = x
 		ac._caretY = y
 		ac._caretH = h
+		-- NOTE: _pendingSnap is intentionally NOT cleared here.  WoW does not
+		-- guarantee whether OnCursorChanged or OnTextChanged fires first for a
+		-- typed char; the marker self-invalidates via its exact position check
+		-- and is consumed by the next text change either way.
 		if existing then existing(self, x, y, w, h) end
 		if ac.Active and ac.GhostFS then
-			ac:PositionGhost()
+			-- The ghost is only valid at the canonical caret position it was
+			-- computed for (string_len(PrefixText)).  Any caret move -- arrow
+			-- keys, clicks, Home/End -- invalidates it; without this check the
+			-- suffix would re-render at the new caret, inside an already-
+			-- committed word.
+			local cursor = YapperTable.Recolour.CanonicalCursor(self)
+			if ac.PrefixText and cursor == string_len(ac.PrefixText) then
+				ac:PositionGhost()
+			else
+				ac:HideGhost()
+			end
 		end
 	end)
 
@@ -680,10 +743,48 @@ function Autocomplete:OnTextChanged(editBox)
 
 	local text, pos      = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
 
+	-- Snap-back: if the previous keystroke was our auto-inserted trailing
+	-- space and THIS keystroke is a "close" boundary (.,!?;: or a
+	-- parity-closing '"'), the space hops after the punctuation —
+	-- "hello " + "." -> "hello. ".  The marker lives for exactly one
+	-- keystroke and only ever applies to a space we inserted, never one
+	-- the user typed.
+	local snap = self._pendingSnap
+	self._pendingSnap = nil
+	if snap and snap.box == editBox and pos - 1 == snap.spacePos
+		and string_sub(text, snap.spacePos, snap.spacePos) == " " then
+		local sc = YapperTable.Spellcheck
+		local cls = sc and sc.ClassifyBoundary and sc:ClassifyBoundary(text, pos) or "none"
+		if cls == "close" then
+			local ch = string_sub(text, pos, pos)
+			local newText = string_sub(text, 1, snap.spacePos - 1)
+				.. ch .. " " .. string_sub(text, pos + 1)
+			editBox:SetText(newText)
+			editBox:SetCursorPosition(math_min(snap.spacePos + 2, string_len(newText)))
+			if YapperTable.API then
+				YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
+			end
+			text, pos = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
+		end
+	end
+
 	local word, startIdx = self:ExtractWordAtCursor(text, pos)
 	if not word then
 		YapperAPI:HideGhostText()
 		return
+	end
+
+	-- Mid-word suppression: a word byte right after the caret means the
+	-- user is editing inside a token — ghost text must not suggest a
+	-- completion that would collide with the following characters.
+	local afterByte = string_byte(text, pos + 1)
+	if afterByte then
+		local sc = YapperTable.Spellcheck
+		local isWord = sc and sc.IsWordByte and sc.IsWordByte(afterByte)
+		if isWord then
+			YapperAPI:HideGhostText()
+			return
+		end
 	end
 
 	-- Don't autocomplete a first-word slash command while the emote picker
@@ -748,9 +849,23 @@ function Autocomplete:OnTextChanged(editBox)
 		end
 	end
 
-	local suggestion = YapperAPI:GetAutocompleteSuggestion(word)
+	-- Bigram context: the last completed word before the prefix feeds the
+	-- YAS next-word bonus.  IterWords finds it regardless of the punctuation
+	-- between; absent (text start) resolves to the "<s>" bucket downstream.
+	local prevWord
+	if startIdx and startIdx > 1 then
+		local sc = YapperTable.Spellcheck
+		if sc and sc.IterWords then
+			for s0, _, w in sc.IterWords(text) do
+				if s0 >= startIdx then break end
+				prevWord = w
+			end
+		end
+	end
+
+	local suggestion = YapperAPI:GetAutocompleteSuggestion(word, prevWord)
 	if not suggestion and isDirChange then
-		suggestion = self:GetSuggestion(word, true) -- broad retry (internal method for now)
+		suggestion = self:GetSuggestion(word, true, prevWord) -- broad retry (internal method for now)
 	end
 
 	if suggestion then
@@ -779,13 +894,30 @@ function Autocomplete:OnTabPressed(editBox)
 	end
 
 	-- Replace the partial word with the full suggestion.  Append a space
-	-- so the user can continue typing without manually inserting one.
+	-- only when the next character is a word byte or the caret is at
+	-- end-of-text — never before punctuation (the snap-back marker in
+	-- OnTextChanged will instead move the space after a "close" boundary
+	-- if the user immediately types one).
 	local before  = string_sub(text, 1, wordStart - 1)
 	local after   = string_sub(text, pos + 1)
-	local trail   = (after:sub(1, 1) ~= " ") and " " or ""
+	local nextB   = string_byte(after, 1)
+	local sc      = YapperTable.Spellcheck
+	local trail   = ""
+	if not nextB or (sc and sc.IsWordByte and sc.IsWordByte(nextB)) then
+		trail = " "
+	end
+	local spacePos = wordStart - 1 + string_len(self.CurrentSugg) + 1
 	local newText = before .. self.CurrentSugg .. trail .. after
 	editBox:SetText(newText)
 	editBox:SetCursorPosition(wordStart - 1 + string_len(self.CurrentSugg) + string_len(trail))
+
+	-- Snap-back marker: valid for the next keystroke only, and only when
+	-- the space is ours.
+	if trail == " " then
+		self._pendingSnap = { box = editBox, spacePos = spacePos }
+	else
+		self._pendingSnap = nil
+	end
 
 	if YapperTable.API then
 		YapperTable.API:Fire("EDITBOX_TEXT_CHANGED", newText, true, editBox)
@@ -793,7 +925,6 @@ function Autocomplete:OnTabPressed(editBox)
 
 	-- Record the acceptance in YAS: strong bias signal (prefix -> suggestion)
 	-- in addition to frequency so the same completion surfaces faster.
-	local sc = YapperTable.Spellcheck
 	local yas = sc and sc.YAS
 	if yas then
 		local locale = ActiveLocale()
@@ -809,6 +940,7 @@ end
 
 --- Called when the overlay hides or loses focus.
 function Autocomplete:OnOverlayHide()
+	self._pendingSnap = nil
 	YapperAPI:HideGhostText()
 end
 

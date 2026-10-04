@@ -500,6 +500,11 @@ local function DefaultStrip(engine, word, dict)
         local rE = root .. "e"
         if dict:Contains(rE) then return rE end
         if dict:Contains(root) then return root end
+        -- y-fold: cozier / coziest -> cozy (SFX R/T: y -> ier/iest)
+        if root:sub(-1) == "i" then
+            local rY = root:sub(1, -2) .. "y"
+            if dict:Contains(rY) then return rY end
+        end
     end
 
     -- s / es / ies (Flag S)
@@ -541,6 +546,29 @@ local function DefaultStrip(engine, word, dict)
         if dict:Contains(root) then return root end
     end
 
+    -- ive (Flag V: e -> ive on e-ending roots, 0 -> ive otherwise, so
+    -- "ale" -> "alive" and "adopt" -> "adoptive"; reverse both branches).
+    if #word >= 5 and word:sub(-3) == "ive" then
+        local root = word:sub(1, -4)
+        local rE = root .. "e"
+        if dict:Contains(rE) then return rE end
+        if dict:Contains(root) then return root end
+    end
+
+    -- able (Flag B: 0 -> able on consonant- or ee-ending stems,
+    -- e -> able on consonant+e stems; reverse all three branches).
+    if #word >= 6 and word:sub(-4) == "able" then
+        local root = word:sub(1, -5)
+        local last = root:sub(-1)
+        if last:match("[^aeiou]") then
+            local rE = root .. "e"
+            if dict:Contains(rE) then return rE end
+            if dict:Contains(root) then return root end
+        elseif root:sub(-2) == "ee" and dict:Contains(root) then
+            return root
+        end
+    end
+
     -- 2. Try Prefixes (if enabled)
     if PREFIX_STRIPPING_ENABLED then
         -- un- (Flag I)
@@ -580,6 +608,28 @@ local function StripAffixes(engine, word, dict)
     return DefaultStrip(engine, word, dict)
 end
 
+-- ---------------------------------------------------------------------------
+-- ClassifyBoundary (optional contract field)
+--
+-- The pathway MUST exist even when the engine has no opinion: Yapper calls
+-- it for every boundary byte it needs to classify (autocorrect commit and
+-- autocomplete snap-back).  Valid return values:
+--   "commit" — the byte completes a word (e.g. space)
+--   "close"  — completes a word AND an auto-inserted space snaps after it
+--              (e.g. .,!?;: or a parity-closing '"')
+--   "open"   — opens a quotation/span; not a commit boundary, and a space
+--              before it stays (e.g. an opening '"' under English parity)
+--   "none"   — any other byte; not a boundary
+--   nil or "" — no opinion; core defaults apply (English conventions)
+--
+-- English uses the core defaults, so this returns nil.  Other languages
+-- differ — e.g. French uses « » guillemets with spaces inside, German uses
+-- „low-high" quotes — a future engine can implement those rules here.
+-- ---------------------------------------------------------------------------
+local function ClassifyBoundary(text, pos)
+    return nil
+end
+
 local ok = YapperAPI:RegisterLanguageEngine("en", {
     -- ===== Required contract fields =======================================
     -- Canonical lookup form + vowel model + tokenisation
@@ -610,6 +660,29 @@ local ok = YapperAPI:RegisterLanguageEngine("en", {
     -- Locales served by this family + display name
     Locales                = { "enBase", "enUS", "enGB", "enAU" },
     DisplayName            = "English",
+
+    -- Boundary classification: English defers to core defaults (the field
+    -- exists so the contract pathway is exercised — see above).
+    ClassifyBoundary       = ClassifyBoundary,
+
+    -- Autocorrect language data: seed the user's habitual-confusion profile
+    -- with common English single-letter substitutions (a>e for
+    -- "definately"-class slips, i<>e for receive-class, etc.).
+    Autocorrect            = {
+        ConfusionPairs = {
+            ["a>e"] = 4, ["e>a"] = 4,
+            ["i>e"] = 4, ["e>i"] = 4,
+            ["i>a"] = 2, ["a>i"] = 2,
+            ["o>a"] = 2, ["a>o"] = 2,
+            ["o>u"] = 2, ["u>o"] = 2,
+            ["c>s"] = 3, ["s>c"] = 3,
+            ["c>k"] = 2, ["k>c"] = 2,
+            ["s>z"] = 2, ["z>s"] = 2,
+            ["f>v"] = 2, ["t>d"] = 2,
+            ["i>y"] = 2, ["y>i"] = 2,
+            ["l>r"] = 1, ["n>m"] = 1,
+        },
+    },
 
     -- No ScoreWeights override — English uses the core defaults
     ScoreWeights           = nil,

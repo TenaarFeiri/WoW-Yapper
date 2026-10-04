@@ -73,6 +73,11 @@ function Chat:Init()
     if YapperTable.Router then YapperTable.Router:Init() end
     if YapperTable.Queue then YapperTable.Queue:Init() end
 
+    -- Toast notifications (learned-word card, autocorrect undo card).
+    if YapperTable.Toast and YapperTable.Toast.Init then
+        YapperTable.Toast:Init()
+    end
+
     -- Hard recovery slash commands.
     _G.SLASH_YAPPERFIX1 = "/yapperfix"
     _G.SLASH_YAPPERFIX2 = "/yapperrefocus"
@@ -81,6 +86,38 @@ function Chat:Init()
         if YapperTable.EditBox and YapperTable.EditBox.HardRefocus then
             YapperTable.EditBox:HardRefocus()
             YapperTable.Utils:Print("Hard focus reclaim initiated.")
+        end
+    end
+
+    -- Dev/test hooks for the toast + YAS learning pipeline.
+    --   /yappertest toast            preview the learned-word toast
+    --   /yappertest learn <word>     drive the real learning path until YAS
+    --                                auto-promotes the word (fires the real
+    --                                YAS_WORD_LEARNED event + toast)
+    _G.SLASH_YAPPERTEST1 = "/yappertest"
+    _G.SLASH_YAPPERTEST2 = "/ytest"
+    SlashCmdList["YAPPERTEST"] = function(msg)
+        local sc = YapperTable.Spellcheck
+        local cmd, arg = strmatch(strtrim(msg or ""), "^(%S*)%s*(.-)%s*$")
+        if cmd == "toast" then
+            if YapperTable.Toast and YapperTable.Toast.ShowLearned then
+                local word = (arg ~= "" and arg) or "exampleword"
+                YapperTable.Toast:ShowLearned(word, sc and sc.GetLocale and sc:GetLocale())
+            end
+        elseif cmd == "learn" and arg and arg ~= "" then
+            local yas = sc and sc.YAS
+            local locale = sc and sc.GetLocale and sc:GetLocale()
+            if yas and yas.RecordIgnored then
+                local threshold = (yas.GetAutoThreshold and yas:GetAutoThreshold()) or 10
+                for _ = 1, threshold do
+                    yas:RecordIgnored(arg, locale)
+                end
+                YapperTable.Utils:Print("Drove organic learning for '" .. arg .. "' (" .. threshold .. " sends).")
+            else
+                YapperTable.Utils:Print("YAS unavailable.")
+            end
+        else
+            YapperTable.Utils:Print("Usage: /yappertest toast | learn <word>")
         end
     end
 end

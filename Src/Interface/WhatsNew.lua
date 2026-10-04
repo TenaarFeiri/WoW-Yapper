@@ -24,16 +24,29 @@ YapperTable.WHATS_NEW = {
     ["2.4.6"] = release(
         note("Dictionaries control their own language",
             "Spellchecking logic is no longer hardcoded for English. Each dictionary addon now supplies its own "
-                .. "language engine — tokenisation, phonetics, affixes, casing rules, keyboard layouts, and "
-                .. "blocked-word lists — through a validated contract, so anyone can build a dictionary that "
+                .. "language engine -- tokenisation, phonetics, affixes, casing rules, keyboard layouts, and "
+                .. "blocked-word lists -- through a validated contract, so anyone can build a dictionary that "
                 .. "teaches Yapper a new language. Faulting engines are safely purged rather than breaking "
                 .. "your spellcheck."),
         note("YAS is actually adaptive now",
-            "Adaptive Learning now notices the difference between a slip and a choice — words you knowingly "
+            "Adaptive Learning now notices the difference between a slip and a choice -- words you knowingly "
                 .. "send unchanged (like an RP name) stop being flagged, while your habitual slip patterns and "
                 .. "the words you tend to pair together shape future suggestions. Suggestion scoring also "
                 .. "learns from your picks instead of using fixed weights, and dials itself back if its "
                 .. "promotions keep getting re-corrected."),
+        note("Autocorrect (opt-in)",
+            "Yapper can now fix typos the moment you finish a word -- but only corrections Adaptive Learning "
+                .. "is highly confident about, and only if you turn it on in Settings. Changed your mind? "
+                .. "Tap Backspace right after a correction, hit Ctrl+Z, click Undo on the toast card, or pick "
+                .. "\"Restore\" from the suggestion popup -- a correction you revert is never re-applied that session."),
+        note("Toast notifications",
+            "A small card now tells you when Yapper learns a word into your dictionary, with Keep / Unlearn / "
+                .. "Ignore choices, and offers Undo after every autocorrection. It positions itself out of the "
+                .. "way of your chat, the edit box, and the storyteller editor, and waits while you hover it."),
+        note("Smarter autocomplete spacing",
+            "Accepting a suggestion only adds a space when one belongs, and if you immediately type "
+                .. "punctuation the space hops after it -- like a phone keyboard. Ghost text also no longer "
+                .. "appears while you're editing mid-word."),
         note("YAS opt-out now actually opts out",
             "Disabling Adaptive Learning previously still scanned your outgoing chat, recorded misspellings, "
                 .. "and could silently add words to your personal dictionary. The toggle now stops all "
@@ -48,11 +61,15 @@ YapperTable.WHATS_NEW = {
         note("Bug fixes",
             "- Suggestion cache now refreshes when YAS learns, so rejected corrections stop immediately reappearing.\n\n"
                 .. "- Learned-word sanity checks now respect the configured n-gram size instead of silently disabling themselves.\n\n"
-                .. "- YAS phonetic learning and phonetic autocomplete now work — the function they called never existed.\n\n"
-                .. "- Phonetic suggestions in the regional English dictionaries (US/GB/AU) were dead — their "
+                .. "- YAS phonetic learning and phonetic autocomplete now work -- the function they called never existed.\n\n"
+                .. "- Phonetic suggestions in the regional English dictionaries (US/GB/AU) were dead -- their "
                 .. "indices pointed past their own word lists. All three were regenerated and verified.\n\n"
                 .. "- Blocked-word filtering now catches apostrophe, digit, and leetspeak variants "
-                .. "that used to slip through.")
+                .. "that used to slip through.\n\n"
+                .. "- Pressing Up to recall sent messages no longer loses text you had already typed. "
+                .. "It comes back when you navigate past the newest entry.\n\n"
+                .. "- Fixed 'secret value' chat errors in delves: /join and /channel now go through "
+                .. "the client directly instead of Blizzard's slash handler.")
     ),
     ["2.4.5"] = release(
         note("World of Warcraft: Forever support",

@@ -56,6 +56,7 @@ local VALID_CALLBACKS = {
     SPELLCHECK_WORD_ADDED           = true, -- (word, locale) word added to user dictionary
     SPELLCHECK_WORD_IGNORED         = true, -- (word, locale) word marked as ignored
     YAS_WORD_LEARNED                = true, -- (word, locale) YAS auto-promoted a word
+    AUTOCORRECT_APPLIED             = true, -- (original, replacement) autocorrect rewrote a word
     QUEUE_STALL                     = true, -- (chatType, policyClass, chunksRemaining) ack stall detected
     QUEUE_COMPLETE                  = true, -- () queue finished delivering all chunks
     ICON_GALLERY_SHOW               = true, -- (query) raid-icon gallery opened
@@ -1288,11 +1289,13 @@ end
 
 --- Returns the best autocomplete suggestion for the given partial word.
 ---@param word string
+---@param prevWord string|nil  The completed word before the caret; enables
+---       the YAS bigram context bonus (nil = sentence-initial context).
 ---@return string|nil
-function YapperAPI:GetAutocompleteSuggestion(word)
+function YapperAPI:GetAutocompleteSuggestion(word, prevWord)
     local ac = YapperTable.Autocomplete
     if not ac or not ac.GetSuggestion then return nil end
-    return ac:GetSuggestion(word)
+    return ac:GetSuggestion(word, nil, prevWord)
 end
 
 --- Returns the current pixel offset of the cursor/caret within an EditBox.

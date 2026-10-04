@@ -1,12 +1,13 @@
 # TODO
 
-## Deferred from forever-support review (revisit after more in-game testing)
+Nothing outstanding.
 
-- Enter fallback commits unverifiable partial target when extractor returns nil
-  (`Src/EditBox/Handlers.lua` ~L331).
-- UnitPopup fallback not byte-identical to Blizzard's `GetFullPlayerName`
-  (rare fallback-only paths).
-- Retail intent matching can equate differing realm suffixes after
-  normalisation (`20_EditBoxHooks.lua` ~L293).
-- `Utils:IsForeverClient()` currently unused — keep or cut.
-- Missing coverage: Enter-padding and nil-adoption paths.
+## Resolved
+
+- Real-dictionary smoke suite: added `tools/2.0testsuites/test_dict_smoke.lua`
+  (gating). Covers high-frequency word presence per shipped locale (enUS,
+  enGB, enAU, deDE), affix-resolved forms, known typo->correction cases
+  ("tihs"->"this", "doign"->"doing" [reshuffle starvation regression],
+  "udn"->"und", "nihct"->"nicht"), and the every-word-suggestion-is-correct
+  invariant. Loads real dicts + engines through the actual registration
+  path, so a malformed or regressed dictionary generation fails the gate.

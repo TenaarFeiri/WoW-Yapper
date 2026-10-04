@@ -301,6 +301,172 @@ do
     check("Phonetic: in-range posting registers", SC.Dictionaries.enBase ~= nil)
 end
 
+do
+    -- Regression: the reshuffle budget used to cap ALL generated variants,
+    -- so for "doign" only the first three transpositions (odign, diogn,
+    -- dogin) were tried and "doing" (swap at position 4) never existed.
+    -- Mechanical slips (all transposes + all deletions) are bounded by
+    -- word length and must always be covered; the configured budget
+    -- applies to the substitution sweep on top.
+    local SC = newHarness()
+    SC._SCORE_WEIGHTS = {
+        prefix = 1, lenDiff = 1, longerPenalty = 1, firstCharBias = 1,
+        letterBag = 1, bigram = 1, vowelBonus = 1, kbProximity = 1,
+    }
+    SC._RAID_ICONS = {}
+    SC.GetDictionary = function(self) return self.Dictionaries.enUS end
+    SC.GetLocale = function() return "enUS" end
+    SC.GetMaxSuggestions = function() return 10 end
+    SC.GetMaxCandidates = function() return 100 end
+    SC.GetMaxWrongLetters = function() return 4 end
+    SC.GetMinWordLength = function() return 2 end
+    SC.GetReshuffleAttempts = function() return 3 end
+    SC.GetNgramTopCandidates = function() return 500 end
+    SC.GetSuggestionCacheSize = function() return 500 end
+    SC.GetIgnoredRanges = function() return {} end
+    SC.GetUserDict = function() return { AddedWords = {} } end
+    SC.GetUserSets = function() return {}, {} end
+    SC.GetBlockData = function() return nil, nil, nil, nil end
+    SC.GetMeta = function(_, _, word)
+        local bag = {}
+        for i = 1, #word do
+            local byte = string.byte(word, i)
+            bag[byte] = (bag[byte] or 0) + 1
+        end
+        return { bag = bag, bigrams = {} }
+    end
+    SC.GetActiveEngine = function()
+        return {
+            GetPhoneticHash = function() return "" end,
+            NormaliseWord = function(w) return (w or ""):lower() end,
+            NormaliseVowels = function(word) return word:gsub("[aeiouy]", "*") end,
+        }
+    end
+
+    local runtime = {
+        Config = { Spellcheck = { UseNgramIndex = true } },
+        Spellcheck = SC,
+        Utils = { Print = function() end },
+    }
+    local engineFile = assert(loadfile("Src/Spellcheck/Engine.lua") or loadfile("../../Src/Spellcheck/Engine.lua"))
+    engineFile("Yapper", runtime)
+
+    SC:RegisterDictionary("enUS", {
+        words = { "doing", "deign", "dog", "dig", "don", "dozing" },
+        languageFamily = "en", engine = {},
+    })
+
+    local suggestions = SC:GetSuggestions("doign")
+    local foundDoing = false
+    for _, suggestion in ipairs(suggestions) do
+        if suggestion.kind == "word" and suggestion.value == "doing" then
+            foundDoing = true
+            break
+        end
+    end
+    check("Reshuffle: late transposition candidate generated", foundDoing)
+end
+
+do
+    -- Regression: YAS bias targets are stored Clean()ed (punctuation
+    -- stripped), so a learned correction "i'm" resurfaces as "im", and
+    -- non-dictionary corrections can linger in db.bias.  Emitting those
+    -- verbatim produced suggestions that still flagged once applied —
+    -- the user picked "the option underneath the split" and had to add
+    -- the word manually.  Learned candidates must clear IsWordCorrect
+    -- before entering the pool.
+    local SC = newHarness()
+    SC._SCORE_WEIGHTS = {
+        prefix = 1, lenDiff = 1, longerPenalty = 1, firstCharBias = 1,
+        letterBag = 1, bigram = 1, vowelBonus = 1, kbProximity = 1,
+    }
+    SC._RAID_ICONS = {}
+    SC.GetDictionary = function(self) return self.Dictionaries.enUS end
+    SC.GetLocale = function() return "enUS" end
+    SC.GetMaxSuggestions = function() return 10 end
+    SC.GetMaxCandidates = function() return 100 end
+    SC.GetMaxWrongLetters = function() return 4 end
+    SC.GetMinWordLength = function() return 2 end
+    SC.GetReshuffleAttempts = function() return 0 end
+    SC.GetNgramTopCandidates = function() return 500 end
+    SC.GetSuggestionCacheSize = function() return 500 end
+    SC.GetIgnoredRanges = function() return {} end
+    SC.GetUserDict = function() return { AddedWords = {} } end
+    SC.GetUserSets = function() return {}, {} end
+    SC.GetBlockData = function() return nil, nil, nil, nil end
+    SC.IsWordBlocked = function() return false end
+    SC.GetMeta = function(_, _, word)
+        local bag = {}
+        for i = 1, #word do
+            local byte = string.byte(word, i)
+            bag[byte] = (bag[byte] or 0) + 1
+        end
+        return { bag = bag, bigrams = {} }
+    end
+    SC.GetActiveEngine = function()
+        return {
+            GetPhoneticHash = function() return "" end,
+            NormaliseWord = function(w) return (w or ""):lower() end,
+            NormaliseVowels = function(word) return word:gsub("[aeiouy]", "*") end,
+        }
+    end
+    -- Bias targets: "im" is the Cleaned husk of a learned "i'm" (not in
+    -- the set); "cat" is a real dictionary word.
+    SC.YAS = {
+        GetBiasTargets = function() return { "im", "cat" } end,
+        GetLocaleDB = function() return nil end,
+    }
+
+    local runtime = {
+        Config = { Spellcheck = {} },
+        Spellcheck = SC,
+        Utils = { Print = function() end },
+    }
+    assert(loadfile("Src/Spellcheck/Engine.lua") or loadfile("../../Src/Spellcheck/Engine.lua"))("Yapper", runtime)
+
+    SC:RegisterDictionary("enUS", {
+        words = { "cat", "cta", "i'm", "tired" },
+        languageFamily = "en", engine = {},
+    })
+
+    local suggestions = SC:GetSuggestions("cta")
+    local foundCat, foundIm = false, false
+    for _, s in ipairs(suggestions) do
+        if s.kind == "word" then
+            if s.value == "cat" then foundCat = true end
+            if s.value == "im" then foundIm = true end
+        end
+    end
+    check("Learned: dictionary target still suggested", foundCat)
+    check("Learned: unrecognised Cleaned target filtered", not foundIm)
+
+    -- Invariant: every emitted word suggestion must pass IsWordCorrect —
+    -- a suggestion that still flags after application is worse than none.
+    local allCorrect = true
+    for _, s in ipairs(suggestions) do
+        if s.kind == "word" and not SC:IsWordCorrect(s.value) then
+            allCorrect = false
+        end
+    end
+    check("Learned: every word suggestion passes IsWordCorrect", allCorrect)
+
+    -- User scenario: split entry above, the flagged word itself offered
+    -- underneath (a stale phBias/bias target matching the input).  Picking
+    -- it changed nothing and still flagged.  "cattired" splits into
+    -- "cat tired"; "cattired" also arrives as a learned target.
+    SC.YAS.GetBiasTargets = function() return { "im", "cattired" } end
+    suggestions = SC:GetSuggestions("cattired")
+    local foundSplit, foundSelf = false, false
+    for _, s in ipairs(suggestions) do
+        if s.kind == "split" and s.value == "cat tired" then foundSplit = true end
+        if s.kind == "word" and s.value == "cattired" then foundSelf = true end
+        if s.kind == "word" and s.value == "im" then foundIm = true end
+    end
+    check("Learned: split suggestion emitted above words", foundSplit)
+    check("Learned: flagged word not re-offered as its own correction", not foundSelf)
+    check("Learned: Cleaned husk still filtered under split", not foundIm)
+end
+
 if failures > 0 then
     print(("FAILED: %d checks failed"):format(failures))
     os.exit(1)

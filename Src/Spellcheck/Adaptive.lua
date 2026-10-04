@@ -22,6 +22,9 @@ local CONF_CAP = 200       -- Max confusion-pair entries in errProfile
 local CONSOLIDATION_CHUNK = 200 -- Entries per background-consolidation tick
 local DECAY_AGE = 30 * 86400   -- Entries cold this long get halved on sweep
 local INTENT_STALE_AGE = 60 * 86400 -- Unclassified intent older than this is dropped
+-- Unlearned words (toast "Unlearn") are blocked from organic re-learning for
+-- this horizon; "Ignore" remains the permanent path.
+local REJECT_BLOCK_AGE = 30 * 86400
 -- Intent classification thresholds (session-clock values, not persisted):
 -- a word sent unchanged INTENT_CONSISTENT_N times with no correction events
 -- is INTENTIONAL (typos vary; names/consistent spellings don't).  A send
@@ -461,6 +464,7 @@ function YAS:GetLocaleDB(locale, noCreate)
             negBias = {}, -- typo:word -> { c, t }
             intent = {},  -- token -> intent record (Phase 1: see _ClassifyRecord)
             intentCount = 0,
+            rejected = {},-- word -> { t } unlearned recently; blocks re-learn
             bigram = {},  -- prev -> { [next] = { c, t } } context transitions
             bigramCount = 0,
             errProfile = { ops = {}, conf = {} }, -- habitual error classes
@@ -472,6 +476,7 @@ function YAS:GetLocaleDB(locale, noCreate)
     db.freq = Utils:EnsureTable(db.freq)
     -- Retrofit post-Phase-0 tables onto partitions created before they existed.
     db.intent = Utils:EnsureTable(db.intent)
+    db.rejected = Utils:EnsureTable(db.rejected)
     db.bigram = Utils:EnsureTable(db.bigram)
     db.errProfile = Utils:EnsureTable(db.errProfile)
     db.errProfile.ops = Utils:EnsureTable(db.errProfile.ops)
@@ -620,6 +625,64 @@ local function FeatureVector(db, t, c, cand, prevWord, typoPhHash)
     end
 
     return f
+end
+
+--- Is `a` -> `b` a clean mechanical edit?  Returns a confidence prior.
+--- The caller already vetted `a` as misspelled, so an adjacent transposition
+--- or a true distance-1 edit is an obvious correction even on a cold
+--- profile ("tihs" -> "this").  Deliberately stricter than ClassifyEdit:
+--- insert/delete requires the remainder to match exactly, and substitute
+--- requires exactly one differing byte.
+-- kbDist (optional): flat 676-entry distance table from the engine's active
+-- keyboard layout; gates the substitution prior on key adjacency.
+local function MechanicalTypoPrior(a, b, kbDist)
+    if a == b then return 0 end
+    local la, lb = #a, #b
+    if la == lb then
+        local d1, d2
+        for i = 1, la do
+            if a:byte(i) ~= b:byte(i) then
+                if not d1 then d1 = i
+                elseif not d2 then d2 = i
+                else return 0 end -- 3+ differing bytes: not a clean single op
+            end
+        end
+        if d1 and d2 then
+            if d2 == d1 + 1 and a:byte(d1) == b:byte(d2) and a:byte(d2) == b:byte(d1) then
+                return 0.85 -- adjacent transposition
+            end
+            return 0 -- two substitutions: not obvious
+        end
+        if d1 then
+            -- Single substitution: a plausible slip only when the two keys
+            -- sit next to each other on the active layout.  Distant keys
+            -- are weaker evidence, not zero.
+            if la >= 5 and kbDist then
+                local i1 = a:byte(d1) - 97
+                local i2 = b:byte(d1) - 97
+                local kd = kbDist[i1 * 26 + i2 + 1]
+                if kd then
+                    return (kd <= 1.5) and 0.80 or 0.50
+                end
+            end
+            return (la >= 5) and 0.80 or 0.35
+        end
+        return 0
+    end
+    if lb == la + 1 or la == lb + 1 then
+        -- Length delta of 1: single insertion or deletion, and only when the
+        -- remaining bytes all match.
+        local long  = (lb > la) and b or a
+        local short = (lb > la) and a or b
+        for i = 1, #short do
+            if short:byte(i) ~= long:byte(i) then
+                if short:sub(i) ~= long:sub(i + 1) then return 0 end
+                break
+            end
+        end
+        return (#short >= 4) and 0.80 or 0.45
+    end
+    return 0
 end
 
 --- Checks if a word passes sanity filters for learning (length, consonant
@@ -944,6 +1007,23 @@ function YAS:RecordSelection(typo, correction, utilityGain, locale)
         if gain > 0 then entry.u = math_min((entry.u or 1) + gain, 5.0) end
     end
 
+    -- A manual pick of a previously auto-reverted pair cancels the
+    -- rejection: drop the negBias entry and lift the session suppression so
+    -- the correction returns to autocorrect eligibility.
+    if db.negBias and db.negBias[key] then
+        db.negBias[key] = nil
+        db.negBiasCount = math_max(0, (db.negBiasCount or 1) - 1)
+    end
+    -- A user-driven correction of the token works off one revert's caution
+    -- (gain 0 = an auto-apply recording, not user endorsement).
+    if gain > 0 and rec and (rec.autoReverted or 0) > 0 then
+        rec.autoReverted = rec.autoReverted - 1
+    end
+    local ac = sc and sc.Autocorrect
+    if ac and ac.ClearSuppression then
+        ac:ClearSuppression(typo, correction)
+    end
+
     -- Bump revision so the suggestion cache knows to recompute scores.
     db._rev = (db._rev or 0) + 1
 
@@ -1210,6 +1290,15 @@ function YAS:RecordIgnored(word, locale)
         end
     end
 
+    -- Recently unlearned words get a re-learn holiday; permanently ignored
+    -- words must never auto-promote back into the dictionary.
+    local rej = db.rejected and db.rejected[w]
+    if rej and (now - (rej.t or 0)) < REJECT_BLOCK_AGE then return end
+    do
+        local _, ignoredSet = sc and sc.GetUserSets and sc:GetUserSets(locale)
+        if ignoredSet and ignoredSet[w] then return end
+    end
+
     if not db.auto[w] then
         db.auto[w] = { c = 1, t = now }
         db.autoCount = (db.autoCount or 0) + 1
@@ -1348,10 +1437,15 @@ end
 ---   vetoReasons: { intentional, waiver, recentRecorrect, engineVeto }
 --- INTENTIONAL/WAIVER intent is a hard veto forever; engine AutocorrectVeto
 --- and MaxConfidence are respected; self-eval suspends the AUTO tier.
+--- recentRecorrect halves confidence while auto-reverts on the token
+--- outnumber the user's manual corrections of it.
 function YAS:ClassifySuggestion(typo, candidate, locale, prevWord)
     if not self:IsEnabled() then return nil end
     if type(typo) ~= "string" or type(candidate) ~= "string" then return nil end
-    local db = self:GetLocaleDB(locale, true)
+    -- Not a pure read: autocorrect decisions and their reverts write into
+    -- this partition, so a missing one is created rather than returning nil
+    -- (a fresh profile could otherwise never reach the AUTO tier).
+    local db = self:GetLocaleDB(locale)
     if not db then return nil end
 
     local t = Clean(typo)
@@ -1374,7 +1468,11 @@ function YAS:ClassifySuggestion(typo, candidate, locale, prevWord)
         elseif cls == "WAIVER" then
             veto.waiver = true
         end
-        if (rec.corrected or 0) > 0 then
+        -- autoReverted counts unresolved autocorrect reverts on this token:
+        -- each revert adds one, each user-driven correction works one off.
+        -- (Not `corrected` — that also counts manual retypes, which are
+        -- accident evidence in favour of correcting, and only ever grows.)
+        if (rec.autoReverted or 0) > 0 then
             veto.recentRecorrect = true
         end
     end
@@ -1404,6 +1502,18 @@ function YAS:ClassifySuggestion(typo, candidate, locale, prevWord)
                + math_min(f.freq * 0.05, 0.15)
                + math_min(f.ph * 0.10, 0.15)
                + math_min(f.bigram * 0.04, 0.10)
+               - math_min(f.neg * 0.15, 0.50)  -- persistent rejection penalty
+
+    -- Mechanical-typo prior: obvious single-op corrections reach AUTO even
+    -- with no learned evidence; vetoes and self-eval suspension still apply.
+    -- Substitutions are gated on keyboard adjacency when the engine ships
+    -- layout data (doign->doing is a slip; doign->deign is not).
+    local kbDist
+    local kbLayouts = engine and engine.KBLayouts
+    if kbLayouts and sc.GetKeyboardLayout then
+        kbDist = sc:_GetKBDistFromLayouts(kbLayouts, sc:GetKeyboardLayout())
+    end
+    conf = conf + MechanicalTypoPrior(t, c, kbDist)
     if veto.recentRecorrect then
         conf = conf * 0.5   -- a re-corrected pair earns half trust
     end
@@ -1494,6 +1604,132 @@ function YAS:PopUndo()
     local e = u[#u]
     u[#u] = nil
     return e
+end
+
+--- Peek at the most recent reversion record without removing it.  Toasts use
+--- this to validate that their Undo still targets the newest correction
+--- before committing to a revert.
+function YAS:PeekUndo()
+    if not self:IsEnabled() then return nil end
+    local u = self._undoRing
+    if not u or #u == 0 then return nil end
+    return u[#u]
+end
+
+-- ---------------------------------------------------------------------------
+-- Autocorrect application feedback
+-- ---------------------------------------------------------------------------
+
+--- The user reverted an applied autocorrection (Backspace-immediately-after,
+--- Ctrl+Z, suggestion "Restore", or toast Undo).  This is a strong negative
+--- signal: the correction was wrong for this user.
+---@param typo string       the original (user-typed) word
+---@param correction string the correction that was applied and reverted
+function YAS:RecordAutoReject(typo, correction, locale)
+    if not self:IsEnabled() then return end
+    local db = self:GetLocaleDB(locale)
+    if not db then return end
+    local t = Clean(typo)
+    local c = Clean(correction)
+    if t == "" or c == "" then return end
+
+    local now = time()
+    local wrote = false
+
+    -- Intent bookkeeping: a reverted correction is correction evidence on
+    -- the typo token (blocks INTENTIONAL promotion of the typo), plus a
+    -- dedicated revert tally that halves confidence until the user works
+    -- it off by manually correcting the token again (see RecordSelection).
+    local rec = GetIntentRecord(db, t)
+    if rec then
+        rec.corrected = rec.corrected + 1
+        rec.autoReverted = (rec.autoReverted or 0) + 1
+        rec.c = rec.c + 1
+        rec.lastSeen = now
+        rec.t = now
+    end
+
+    -- Negative bias on the rejected pair, same shape as RecordRejection.
+    local key = t .. ":" .. c
+    if not db.negBias[key] then
+        db.negBiasCount = (db.negBiasCount or 0) + 1
+        if db.negBiasCount >= self:GetNegBiasCap() then
+            self:Prune("negBias", self:GetNegBiasCap(), locale)
+            local count = 0
+            for _ in pairs(db.negBias) do count = count + 1 end
+            db.negBiasCount = count
+        end
+        db.negBias[key] = { c = 1, t = now, u = 1.0 }
+    else
+        local entry = db.negBias[key]
+        entry.c = entry.c + 1
+        entry.t = now
+        entry.u = math_min((entry.u or 1.0) + 0.2, 5.0)
+    end
+    wrote = true
+
+    -- Self-eval: a reverted promoted correction counts as a re-correct.
+    local m = db.model
+    if m and m.eval then
+        m.eval.retypeAfterPromoted = (m.eval.retypeAfterPromoted or 0) + 1
+    end
+
+    -- Learned scorer: dampen the features that endorsed this pair.
+    local sc = YapperTable.Spellcheck
+    local ph = sc and sc.GetPhoneticHash and sc.GetPhoneticHash(t)
+    ModelUpdate(db, FeatureVector(db, t, c, c, nil, ph), -1)
+
+    if wrote then db._rev = (db._rev or 0) + 1 end
+end
+
+--- Forget a word entirely: remove it from the user dictionary (if present)
+--- and from YAS frequency/auto-learn tracking, then block organic re-learning
+--- for REJECT_BLOCK_AGE.  The permanent opt-out path is Ignore Word.
+---@return boolean changed  true when something was actually removed
+function YAS:UnlearnWord(word, locale)
+    if not self:IsEnabled() then return false end
+    if type(word) ~= "string" or word == "" then return false end
+    local db = self:GetLocaleDB(locale)
+    if not db then return false end
+    local w = Clean(word)
+    if w == "" then return false end
+
+    local sc = YapperTable.Spellcheck
+    if sc and sc.RemoveUserWord then
+        sc:RemoveUserWord(locale, word)
+    end
+
+    local changed = false
+    if db.freq and db.freq[w] then
+        db.freq[w] = nil
+        db.total = math_max(0, (db.total or 1) - 1)
+        db.freqSortedDirty = true
+        changed = true
+    end
+    if db.auto and db.auto[w] then
+        db.auto[w] = nil
+        db.autoCount = math_max(0, (db.autoCount or 1) - 1)
+        changed = true
+    end
+
+    -- Long re-learn block regardless: even if nothing was stored, the user
+    -- explicitly said "don't learn this".
+    db.rejected[w] = { t = time() }
+    db._rev = (db._rev or 0) + 1
+    return changed
+end
+
+--- Lift an Unlearn re-learn block: an explicit Add-to-Dictionary is the user
+--- reversing their earlier rejection.  Called by Spellcheck:AddUserWord.
+function YAS:ClearReject(word, locale)
+    if not self:IsEnabled() then return end
+    local db = self:GetLocaleDB(locale, true)
+    if not db or not db.rejected then return end
+    local w = Clean(word)
+    if db.rejected[w] then
+        db.rejected[w] = nil
+        db._rev = (db._rev or 0) + 1
+    end
 end
 
 -- ---------------------------------------------------------------------------

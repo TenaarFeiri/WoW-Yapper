@@ -37,6 +37,7 @@ EditBox.ChannelName        = nil
 EditBox.LastUsed           = {}
 EditBox.HistoryIndex       = nil
 EditBox.HistoryCache       = nil
+EditBox.HistoryDraft       = nil
 EditBox.PreShowCheck       = nil
 EditBox._attrCache         = {}
 

@@ -21,8 +21,8 @@ Source of truth: [`Src/API.lua`](../Src/API.lua).
 
 ### Registration
 
-- `YapperAPI:RegisterFilter(hookPoint: string, callback: function, priority?: number) → number|nil` ([`Src/API.lua#L410`](../Src/API.lua#L419))
-- `YapperAPI:UnregisterFilter(handle: number) → nil` ([`Src/API.lua#L481`](../Src/API.lua#L474))
+- `YapperAPI:RegisterFilter(hookPoint: string, callback: function, priority?: number) → number|nil` ([`Src/API.lua#L410`](../Src/API.lua#L420))
+- `YapperAPI:UnregisterFilter(handle: number) → nil` ([`Src/API.lua#L481`](../Src/API.lua#L475))
 
 `callback` receives one payload table. A filter may:
 
@@ -113,8 +113,8 @@ Source of truth: [`Src/API.lua`](../Src/API.lua).
 
 ### Registration
 
-- `YapperAPI:RegisterCallback(event: string, callback: function) → number|nil` ([`Src/API.lua#L499`](../Src/API.lua#L492))
-- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L559`](../Src/API.lua#L538))
+- `YapperAPI:RegisterCallback(event: string, callback: function) → number|nil` ([`Src/API.lua#L499`](../Src/API.lua#L493))
+- `YapperAPI:UnregisterCallback(handle: number) → nil` ([`Src/API.lua#L559`](../Src/API.lua#L539))
 
 Callbacks receive event-specific arguments. Return values are ignored. Unknown event names are rejected. Each event allows at most 50 registered callbacks.
 
@@ -133,6 +133,7 @@ Callbacks receive event-specific arguments. Return values are ignored. Unknown e
 - `SPELLCHECK_SUGGESTION(word, suggestions)` — fires when the suggestion popup is shown. `suggestions` is the displayed array of strings.
 - `SPELLCHECK_SUGGESTION_HIGHLIGHTED(text, index, total)` — fires when a suggestion is highlighted. `text` has colour codes stripped; `index` is one-based.
 - `SPELLCHECK_APPLIED(original, replacement)` — fires when a suggestion is applied.
+- `AUTOCORRECT_APPLIED(original, replacement)` — fires when the editing-stage autocorrect silently rewrites a completed word. Both arguments are the raw surface forms (pre-`MatchCase` original, post-`MatchCase` replacement).
 - `SPELLCHECK_CLOSED()` — fires when the suggestion popup closes.
 - `SPELLCHECK_WORD_ADDED(word, locale)` — fires when a word is added to the current user dictionary.
 - `SPELLCHECK_WORD_IGNORED(word, locale)` — fires when a word is marked ignored.
@@ -163,49 +164,49 @@ All methods below are members of `_G.YapperAPI` and use colon-call syntax.
 
 ### Core, configuration, and lifecycle
 
-- `YapperAPI:GetVersion() → string` ([`Src/API.lua#L554`](../Src/API.lua#L554)) — returns addon metadata version, or `"unknown"` if the core is unavailable.
-- `YapperAPI:GetCurrentTheme() → string|nil` ([`Src/API.lua#L583`](../Src/API.lua#L562)) — returns the active theme name.
-- `YapperAPI:IsOverlayShown() → boolean` ([`Src/API.lua#L594`](../Src/API.lua#L573)) — reports whether the single-line overlay is visible.
-- `YapperAPI:OpenBlizzardChat() → nil` ([`Src/API.lua#L604`](../Src/API.lua#L583)) — requests the Blizzard editbox path, equivalent to the Bypass Yapper keybind.
-- `YapperAPI:GetConfig(path: string) → any|nil` ([`Src/API.lua#L612`](../Src/API.lua#L591)) — reads a dot-delimited path. Returned tables are deep copies. `Spellcheck.UnderlineColor` is a deprecated alias for `Spellcheck.MisspellingColour`.
-- `YapperAPI:GetDelineator() → string|nil` ([`Src/API.lua#L643`](../Src/API.lua#L619)) — returns `Chat.DELINEATOR`, falling back to the legacy `Chat.PREFIX` key.
+- `YapperAPI:GetVersion() → string` ([`Src/API.lua#L555`](../Src/API.lua#L555)) — returns addon metadata version, or `"unknown"` if the core is unavailable.
+- `YapperAPI:GetCurrentTheme() → string|nil` ([`Src/API.lua#L583`](../Src/API.lua#L563)) — returns the active theme name.
+- `YapperAPI:IsOverlayShown() → boolean` ([`Src/API.lua#L594`](../Src/API.lua#L574)) — reports whether the single-line overlay is visible.
+- `YapperAPI:OpenBlizzardChat() → nil` ([`Src/API.lua#L604`](../Src/API.lua#L584)) — requests the Blizzard editbox path, equivalent to the Bypass Yapper keybind.
+- `YapperAPI:GetConfig(path: string) → any|nil` ([`Src/API.lua#L612`](../Src/API.lua#L592)) — reads a dot-delimited path. Returned tables are deep copies. `Spellcheck.UnderlineColor` is a deprecated alias for `Spellcheck.MisspellingColour`.
+- `YapperAPI:GetDelineator() → string|nil` ([`Src/API.lua#L643`](../Src/API.lua#L620)) — returns `Chat.DELINEATOR`, falling back to the legacy `Chat.PREFIX` key.
 
 ### State and frames
 
-- `YapperAPI:GetState() → string` ([`Src/API.lua#L652`](../Src/API.lua#L628))
-- `YapperAPI:IsState(state: string) → boolean` ([`Src/API.lua#L661`](../Src/API.lua#L637))
-- `YapperAPI:GetStates() → string[]` ([`Src/API.lua#L670`](../Src/API.lua#L646)) — sorted valid states are `INITIALISING`, `IDLE`, `EDITING`, `MULTILINE`, `SENDING`, `STALLED`, `LOCKDOWN`, and `CONFIG`.
-- `YapperAPI:GetStateLogs() → table` ([`Src/API.lua#L684`](../Src/API.lua#L660)) — returns a copy of the circular buffer, capped at 200 entries.
-- `YapperAPI:GetStateLog(index: number) → table|nil` ([`Src/API.lua#L694`](../Src/API.lua#L670)) — returns a copy of the entry at an index.
-- `YapperAPI:GetStateLogCount() → number` ([`Src/API.lua#L703`](../Src/API.lua#L679)).
-- `YapperAPI:SetState(stateName: string, ...) → boolean` ([`Src/API.lua#L730`](../Src/API.lua#L706)) — deprecated compatibility escape hatch. It emits a one-time deprecation warning and `API_ERROR` notification when first used. It returns false for an invalid state; otherwise requests the transition and returns true. Extra arguments are forwarded as `STATE_CHANGED` metadata. Avoid new usage because forced transitions can bypass internal safety logic.
-- `YapperAPI:ListFrames() → table` ([`Src/API.lua#L752`](../Src/API.lua#L728)) — returns flat keys `Overlay`, `OverlayEdit`, `LabelBg`, `SuggestionFrame`, `HintFrame`, `SuggestionClickCatcher`, `MultilineFrame`, `MultilineEdit`, and `MultilineScroll`, plus `All`, the categorized live frame registry.
+- `YapperAPI:GetState() → string` ([`Src/API.lua#L652`](../Src/API.lua#L629))
+- `YapperAPI:IsState(state: string) → boolean` ([`Src/API.lua#L661`](../Src/API.lua#L638))
+- `YapperAPI:GetStates() → string[]` ([`Src/API.lua#L670`](../Src/API.lua#L647)) — sorted valid states are `INITIALISING`, `IDLE`, `EDITING`, `MULTILINE`, `SENDING`, `STALLED`, `LOCKDOWN`, and `CONFIG`.
+- `YapperAPI:GetStateLogs() → table` ([`Src/API.lua#L684`](../Src/API.lua#L661)) — returns a copy of the circular buffer, capped at 200 entries.
+- `YapperAPI:GetStateLog(index: number) → table|nil` ([`Src/API.lua#L694`](../Src/API.lua#L671)) — returns a copy of the entry at an index.
+- `YapperAPI:GetStateLogCount() → number` ([`Src/API.lua#L703`](../Src/API.lua#L680)).
+- `YapperAPI:SetState(stateName: string, ...) → boolean` ([`Src/API.lua#L730`](../Src/API.lua#L707)) — deprecated compatibility escape hatch. It emits a one-time deprecation warning and `API_ERROR` notification when first used. It returns false for an invalid state; otherwise requests the transition and returns true. Extra arguments are forwarded as `STATE_CHANGED` metadata. Avoid new usage because forced transitions can bypass internal safety logic.
+- `YapperAPI:ListFrames() → table` ([`Src/API.lua#L752`](../Src/API.lua#L729)) — returns flat keys `Overlay`, `OverlayEdit`, `LabelBg`, `SuggestionFrame`, `HintFrame`, `SuggestionClickCatcher`, `MultilineFrame`, `MultilineEdit`, and `MultilineScroll`, plus `All`, the categorized live frame registry.
 
 State log entries have `{ time, old, new, file, func, line }`. `GetStateLogs` and `GetStateLog` return copied data. `ListFrames` intentionally exposes live frame objects so addons can re-parent or restyle them; callers should not replace or mutate the registry structure itself.
 
 ### Spellcheck helpers
 
-- `YapperAPI:IsSpellcheckEnabled() → boolean` ([`Src/API.lua#L785`](../Src/API.lua#L761))
-- `YapperAPI:CheckWord(word: string) → boolean` ([`Src/API.lua#L794`](../Src/API.lua#L770))
-- `YapperAPI:GetSuggestions(word: string) → string[]|nil` ([`Src/API.lua#L804`](../Src/API.lua#L780)) — unwraps internal suggestion records to public word strings.
-- `YapperAPI:GetSpellcheckLocale() → string|nil` ([`Src/API.lua#L825`](../Src/API.lua#L801))
-- `YapperAPI:AddToDictionary(word: string) → boolean` ([`Src/API.lua#L835`](../Src/API.lua#L811))
-- `YapperAPI:IgnoreWord(word: string) → boolean` ([`Src/API.lua#L848`](../Src/API.lua#L824))
-- `YapperAPI:IsSuggestionOpen() → boolean` ([`Src/API.lua#L860`](../Src/API.lua#L836))
-- `YapperAPI:HideSuggestions() → boolean` ([`Src/API.lua#L869`](../Src/API.lua#L845)) — true means spellcheck was available and the hide operation was called; it does not necessarily mean a visible popup existed.
-- `YapperAPI:ApplySuggestion(index: number) → boolean` ([`Src/API.lua#L880`](../Src/API.lua#L859)) — accepts a one-based suggestion row.
-- `YapperAPI:FindMisspellings(text: string) → table[]|nil` ([`Src/API.lua#L893`](../Src/API.lua#L869)) — returns nil when disabled, unavailable, or empty; entries are `{ startPos, endPos, word }`.
-- `YapperAPI:ClearSuggestionCache() → boolean` ([`Src/API.lua#L1369`](../Src/API.lua#L1384)) — returns true when the spellcheck service cleared its cache.
+- `YapperAPI:IsSpellcheckEnabled() → boolean` ([`Src/API.lua#L785`](../Src/API.lua#L762))
+- `YapperAPI:CheckWord(word: string) → boolean` ([`Src/API.lua#L794`](../Src/API.lua#L771))
+- `YapperAPI:GetSuggestions(word: string) → string[]|nil` ([`Src/API.lua#L804`](../Src/API.lua#L781)) — unwraps internal suggestion records to public word strings.
+- `YapperAPI:GetSpellcheckLocale() → string|nil` ([`Src/API.lua#L825`](../Src/API.lua#L802))
+- `YapperAPI:AddToDictionary(word: string) → boolean` ([`Src/API.lua#L835`](../Src/API.lua#L812))
+- `YapperAPI:IgnoreWord(word: string) → boolean` ([`Src/API.lua#L848`](../Src/API.lua#L825))
+- `YapperAPI:IsSuggestionOpen() → boolean` ([`Src/API.lua#L860`](../Src/API.lua#L837))
+- `YapperAPI:HideSuggestions() → boolean` ([`Src/API.lua#L869`](../Src/API.lua#L846)) — true means spellcheck was available and the hide operation was called; it does not necessarily mean a visible popup existed.
+- `YapperAPI:ApplySuggestion(index: number) → boolean` ([`Src/API.lua#L880`](../Src/API.lua#L857)) — accepts a one-based suggestion row.
+- `YapperAPI:FindMisspellings(text: string) → table[]|nil` ([`Src/API.lua#L893`](../Src/API.lua#L870)) — returns nil when disabled, unavailable, or empty; entries are `{ startPos, endPos, word }`.
+- `YapperAPI:ClearSuggestionCache() → boolean` ([`Src/API.lua#L1369`](../Src/API.lua#L1387)) — returns true when the spellcheck service cleared its cache.
 
 These wrappers return false or nil when spellcheck is unavailable or arguments are invalid.
 
 ### Dictionary and language engines
 
-- `YapperAPI:RegisterDictionary(locale: string, data: table|function) → boolean` ([`Src/API.lua#L914`](../Src/API.lua#L892)) — accepts a dictionary data table or lazy builder function. Tables may provide `words`, `phonetics`, `extends`, `languageFamily`, `affixRules`, and an optional `engine`. Every dictionary must resolve to a `languageFamily` whose engine is already registered — there is no implicit default. Delta status is inferred from `extends`; an `isDelta` field is not used by the implementation. A true result means dispatch completed without a Lua error; internal contract validation may still reject the data.
-- `YapperAPI:RegisterLanguageEngine(familyId: string, engine: table) → boolean` ([`Src/API.lua#L932`](../Src/API.lua#L919)) — registers an engine under a strict contract. Required: `NormaliseWord`, `NormaliseVowels`, `GetPhoneticHash`, `HashWord`, `BlockedHashes`, `WordBytes`, `WordStartBytes`. Optional: `StripAffixes`, `ShouldCheckWord`, `MatchCase`, `IsSaneWord`, `HasVariantRules`, `VariantRules`, `ScoreWeights`, `KBLayouts`, `DefaultLayout`, `Locales`, `DisplayName`. Unknown keys are rejected (`X_`-prefixed keys are allowed as vendor extensions). Engines are owner-locked per family, validated with runtime probes, and purged together with their bound dictionaries if they throw at runtime. Full contract, limits, and examples: [Dictionaries.md](Dictionaries.md).
-- `YapperAPI:IsLanguageEngineRegistered(familyId: string) → boolean` ([`Src/API.lua#L947`](../Src/API.lua#L968)).
-- `YapperAPI:GetLanguageEngine(familyId: string) → table|nil` ([`Src/API.lua#L955`](../Src/API.lua#L976)) — returns a deep copy of the registered engine; functions remain callable, but nested tables are not live registry data.
-- `YapperAPI:RegisterLocaleAddon(locale: string, addonName: string) → boolean` ([`Src/API.lua#L966`](../Src/API.lua#L986)) — maps a load-on-demand dictionary addon to a locale and retries `EnsureLocale` immediately when that locale is active.
+- `YapperAPI:RegisterDictionary(locale: string, data: table|function) → boolean` ([`Src/API.lua#L914`](../Src/API.lua#L893)) — accepts a dictionary data table or lazy builder function. Tables may provide `words`, `phonetics`, `extends`, `languageFamily`, `affixRules`, and an optional `engine`. Every dictionary must resolve to a `languageFamily` whose engine is already registered — there is no implicit default. Delta status is inferred from `extends`; an `isDelta` field is not used by the implementation. A true result means dispatch completed without a Lua error; internal contract validation may still reject the data.
+- `YapperAPI:RegisterLanguageEngine(familyId: string, engine: table) → boolean` ([`Src/API.lua#L932`](../Src/API.lua#L920)) — registers an engine under a strict contract. Required: `NormaliseWord`, `NormaliseVowels`, `GetPhoneticHash`, `HashWord`, `BlockedHashes`, `WordBytes`, `WordStartBytes`. Optional: `StripAffixes`, `ShouldCheckWord`, `MatchCase`, `IsSaneWord`, `HasVariantRules`, `VariantRules`, `ScoreWeights`, `KBLayouts`, `DefaultLayout`, `Locales`, `DisplayName`. Unknown keys are rejected (`X_`-prefixed keys are allowed as vendor extensions). Engines are owner-locked per family, validated with runtime probes, and purged together with their bound dictionaries if they throw at runtime. Full contract, limits, and examples: [Dictionaries.md](Dictionaries.md).
+- `YapperAPI:IsLanguageEngineRegistered(familyId: string) → boolean` ([`Src/API.lua#L947`](../Src/API.lua#L969)).
+- `YapperAPI:GetLanguageEngine(familyId: string) → table|nil` ([`Src/API.lua#L955`](../Src/API.lua#L977)) — returns a deep copy of the registered engine; functions remain callable, but nested tables are not live registry data.
+- `YapperAPI:RegisterLocaleAddon(locale: string, addonName: string) → boolean` ([`Src/API.lua#L966`](../Src/API.lua#L987)) — maps a load-on-demand dictionary addon to a locale and retries `EnsureLocale` immediately when that locale is active.
 
 ### UI strings (localisation)
 
@@ -218,49 +219,49 @@ Call sites should resolve at render time rather than caching text: dictionary ad
 
 ### Queue, delivery, and text handling
 
-- `YapperAPI:InsertText(text: string) → boolean` ([`Src/API.lua#L1007`](../Src/API.lua#L1027)) — inserts non-empty text into the active Yapper editbox. Multiline has priority; false means no active Yapper editbox.
-- `YapperAPI:GetQueueState() → table` ([`Src/API.lua#L1030`](../Src/API.lua#L1049)) — returns `active`, `stalled`, `chatType`, `policyClass`, `pending`, and `inFlight`. `expectedAckEvent` is removed as an internal field. When Queue is unavailable, the fallback contains `active=false`, `stalled=false`, `pending=0`, and `inFlight=0`.
-- `YapperAPI:CancelQueue() → number` ([`Src/API.lua#L1043`](../Src/API.lua#L1062)) — cancels the active queue and returns the number of discarded chunks; returns 0 when there is nothing to cancel.
-- `YapperAPI:ResolvePost(handle: number) → boolean` ([`Src/API.lua#L1218`](../Src/API.lua#L1235)) — clears an active `POST_CLAIMED` delegation claim before its timeout.
-- `YapperAPI:RegisterAtomicPattern(pattern: string) → boolean` ([`Src/API.lua#L991`](../Src/API.lua#L1011)) — registers a non-empty Lua string pattern that the chunker treats as atomic. Duplicate patterns are allowed.
-- `YapperAPI:GetRegisteredAtomicPatterns() → string[]` ([`Src/API.lua#L998`](../Src/API.lua#L1018)) — returns a copy of the registry array.
+- `YapperAPI:InsertText(text: string) → boolean` ([`Src/API.lua#L1007`](../Src/API.lua#L1028)) — inserts non-empty text into the active Yapper editbox. Multiline has priority; false means no active Yapper editbox.
+- `YapperAPI:GetQueueState() → table` ([`Src/API.lua#L1030`](../Src/API.lua#L1050)) — returns `active`, `stalled`, `chatType`, `policyClass`, `pending`, and `inFlight`. `expectedAckEvent` is removed as an internal field. When Queue is unavailable, the fallback contains `active=false`, `stalled=false`, `pending=0`, and `inFlight=0`.
+- `YapperAPI:CancelQueue() → number` ([`Src/API.lua#L1043`](../Src/API.lua#L1063)) — cancels the active queue and returns the number of discarded chunks; returns 0 when there is nothing to cancel.
+- `YapperAPI:ResolvePost(handle: number) → boolean` ([`Src/API.lua#L1218`](../Src/API.lua#L1236)) — clears an active `POST_CLAIMED` delegation claim before its timeout.
+- `YapperAPI:RegisterAtomicPattern(pattern: string) → boolean` ([`Src/API.lua#L991`](../Src/API.lua#L1012)) — registers a non-empty Lua string pattern that the chunker treats as atomic. Duplicate patterns are allowed.
+- `YapperAPI:GetRegisteredAtomicPatterns() → string[]` ([`Src/API.lua#L998`](../Src/API.lua#L1019)) — returns a copy of the registry array.
 
 ### Themes and utility helpers
 
-- `YapperAPI:RegisterTheme(name: string, data: table) → boolean` ([`Src/API.lua#L1060`](../Src/API.lua#L1079)) — registers a deep copy of a theme table containing fields such as `inputBg`, `labelBg`, `textColor`, `borderColor`, `border`, `allowRoundedCorners`, `allowDropShadow`, `font`, and optional `OnApply`.
-- `YapperAPI:SetTheme(name: string) → boolean` ([`Src/API.lua#L1070`](../Src/API.lua#L1089)) — activates and persists a registered theme, updates live UI, and emits `THEME_CHANGED`.
-- `YapperAPI:GetRegisteredThemes() → string[]` ([`Src/API.lua#L1078`](../Src/API.lua#L1097)) — returns names sorted alphabetically.
-- `YapperAPI:GetTheme(name?: string) → table|nil` ([`Src/API.lua#L1086`](../Src/API.lua#L1105)) — returns a deep copy; nil selects the active theme.
-- `YapperAPI:IsChatLockdown() → boolean` ([`Src/API.lua#L1097`](../Src/API.lua#L1116)).
-- `YapperAPI:IsSecret(value: any) → boolean` ([`Src/API.lua#L1110`](../Src/API.lua#L1129)) — uses Blizzard secret/accessibility predicates, with `|K` and empty-string fallbacks; nil and false are treated as secret.
-- `YapperAPI:Deleet(word: string) → string` ([`Src/API.lua#L1121`](../Src/API.lua#L1140)) — converts common leetspeak substitutions to letters.
-- `YapperAPI:GetChatParent() → Frame` ([`Src/API.lua#L1131`](../Src/API.lua#L1150)).
-- `YapperAPI:MakeFullscreenAware(frame: Frame) → nil` ([`Src/API.lua#L1141`](../Src/API.lua#L1160)) — hooks reparenting across fullscreen panel changes.
+- `YapperAPI:RegisterTheme(name: string, data: table) → boolean` ([`Src/API.lua#L1060`](../Src/API.lua#L1080)) — registers a deep copy of a theme table containing fields such as `inputBg`, `labelBg`, `textColor`, `borderColor`, `border`, `allowRoundedCorners`, `allowDropShadow`, `font`, and optional `OnApply`.
+- `YapperAPI:SetTheme(name: string) → boolean` ([`Src/API.lua#L1070`](../Src/API.lua#L1090)) — activates and persists a registered theme, updates live UI, and emits `THEME_CHANGED`.
+- `YapperAPI:GetRegisteredThemes() → string[]` ([`Src/API.lua#L1078`](../Src/API.lua#L1098)) — returns names sorted alphabetically.
+- `YapperAPI:GetTheme(name?: string) → table|nil` ([`Src/API.lua#L1086`](../Src/API.lua#L1106)) — returns a deep copy; nil selects the active theme.
+- `YapperAPI:IsChatLockdown() → boolean` ([`Src/API.lua#L1097`](../Src/API.lua#L1117)).
+- `YapperAPI:IsSecret(value: any) → boolean` ([`Src/API.lua#L1110`](../Src/API.lua#L1130)) — uses Blizzard secret/accessibility predicates, with `|K` and empty-string fallbacks; nil and false are treated as secret.
+- `YapperAPI:Deleet(word: string) → string` ([`Src/API.lua#L1121`](../Src/API.lua#L1141)) — converts common leetspeak substitutions to letters.
+- `YapperAPI:GetChatParent() → Frame` ([`Src/API.lua#L1131`](../Src/API.lua#L1151)).
+- `YapperAPI:MakeFullscreenAware(frame: Frame) → nil` ([`Src/API.lua#L1141`](../Src/API.lua#L1161)) — hooks reparenting across fullscreen panel changes.
 
 ### Icon gallery
 
-- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`Src/API.lua#L1240`](../Src/API.lua#L1256)) — anchors to `anchorFrame` or `editBox`; invalid editbox values are ignored. `PRE_ICON_GALLERY_SHOW` may rewrite the editbox/query or cancel.
-- `YapperAPI:HideIconGallery() → nil` ([`Src/API.lua#L1248`](../Src/API.lua#L1264)).
-- `YapperAPI:IsIconGalleryShown() → boolean` ([`Src/API.lua#L1254`](../Src/API.lua#L1270)).
-- `YapperAPI:GetRaidIconData() → table[]` ([`Src/API.lua#L1261`](../Src/API.lua#L1277)) — returns eight newly-created `{ index, text, code }` metadata tables for `star/rt1` through `skull/rt8`.
+- `YapperAPI:ShowIconGallery(editBox: EditBox, anchorFrame?: Frame, query?: string) → nil` ([`Src/API.lua#L1240`](../Src/API.lua#L1257)) — anchors to `anchorFrame` or `editBox`; invalid editbox values are ignored. `PRE_ICON_GALLERY_SHOW` may rewrite the editbox/query or cancel.
+- `YapperAPI:HideIconGallery() → nil` ([`Src/API.lua#L1248`](../Src/API.lua#L1265)).
+- `YapperAPI:IsIconGalleryShown() → boolean` ([`Src/API.lua#L1254`](../Src/API.lua#L1271)).
+- `YapperAPI:GetRaidIconData() → table[]` ([`Src/API.lua#L1261`](../Src/API.lua#L1278)) — returns eight newly-created `{ index, text, code }` metadata tables for `star/rt1` through `skull/rt8`.
 
 ### Autocomplete and ghost text
 
-- `YapperAPI:GetAutocompleteSuggestion(word: string) → string|nil` ([`Src/API.lua#L1276`](../Src/API.lua#L1292)).
-- `YapperAPI:GetCaretOffset(editBox: EditBox) → number, number, number` ([`Src/API.lua#L1286`](../Src/API.lua#L1302)) — returns logical-pixel `x, y, height`, or `0, 0, 0` when the editbox is not the currently hooked one.
-- `YapperAPI:GetGhostFrame() → FontString|nil` ([`Src/API.lua#L1303`](../Src/API.lua#L1319)).
-- `YapperAPI:ShowGhostText(text: string, editBox: EditBox, prefix?: string, textUpToCursor?: string) → nil` ([`Src/API.lua#L1315`](../Src/API.lua#L1331)).
-- `YapperAPI:HideGhostText() → nil` ([`Src/API.lua#L1331`](../Src/API.lua#L1346)).
-- `YapperAPI:SetGhostTextOffset(offsetX: number, offsetY: number) → nil` ([`Src/API.lua#L1340`](../Src/API.lua#L1355)).
-- `YapperAPI:SyncGhostTextFont() → nil` ([`Src/API.lua#L1348`](../Src/API.lua#L1363)).
-- `YapperAPI:SetSpellcheckTooltipOffset(hintX?: number, hintY?: number, suggestX?: number, suggestY?: number) → nil` ([`Src/API.lua#L1360`](../Src/API.lua#L1375)).
+- `YapperAPI:GetAutocompleteSuggestion(word: string) → string|nil` ([`Src/API.lua#L1276`](../Src/API.lua#L1295)).
+- `YapperAPI:GetCaretOffset(editBox: EditBox) → number, number, number` ([`Src/API.lua#L1286`](../Src/API.lua#L1305)) — returns logical-pixel `x, y, height`, or `0, 0, 0` when the editbox is not the currently hooked one.
+- `YapperAPI:GetGhostFrame() → FontString|nil` ([`Src/API.lua#L1303`](../Src/API.lua#L1322)).
+- `YapperAPI:ShowGhostText(text: string, editBox: EditBox, prefix?: string, textUpToCursor?: string) → nil` ([`Src/API.lua#L1315`](../Src/API.lua#L1334)).
+- `YapperAPI:HideGhostText() → nil` ([`Src/API.lua#L1331`](../Src/API.lua#L1349)).
+- `YapperAPI:SetGhostTextOffset(offsetX: number, offsetY: number) → nil` ([`Src/API.lua#L1340`](../Src/API.lua#L1358)).
+- `YapperAPI:SyncGhostTextFont() → nil` ([`Src/API.lua#L1348`](../Src/API.lua#L1366)).
+- `YapperAPI:SetSpellcheckTooltipOffset(hintX?: number, hintY?: number, suggestX?: number, suggestY?: number) → nil` ([`Src/API.lua#L1360`](../Src/API.lua#L1378)).
 
 ### Settings categories
 
-- `YapperAPI:RegisterSettingsCategory(id: string, label: string, options: table) → boolean` ([`Src/API.lua#L1460`](../Src/API.lua#L1473)) — rejects invalid or duplicate IDs and caps registrations at 20. `options.render` must be a function when present; `options.schema` must be a table when present. At least one of `render`, `schema`, or the internal `_internal` flag is required. `options.internal = true` marks the category hidden from `GetRegisteredSettingsCategories()`.
-- `YapperAPI:UnregisterSettingsCategory(id: string) → nil` ([`Src/API.lua#L1500`](../Src/API.lua#L1510)) — ignores invalid or unknown IDs.
-- `YapperAPI:GetRegisteredSettingsCategories() → { { id: string, label: string } }` ([`Src/API.lua#L1518`](../Src/API.lua#L1527)) — returns newly-created `{ id, label }` tables for categories not marked `internal`.
-- `YapperAPI:OpenSettingsCategory(id: string) → boolean` ([`Src/API.lua#L1531`](../Src/API.lua#L1540)) — returns false for a non-string ID or unavailable Interface module. It passes string IDs to `Interface:OpenToCategory` and does not verify that a category with that ID exists.
+- `YapperAPI:RegisterSettingsCategory(id: string, label: string, options: table) → boolean` ([`Src/API.lua#L1460`](../Src/API.lua#L1476)) — rejects invalid or duplicate IDs and caps registrations at 20. `options.render` must be a function when present; `options.schema` must be a table when present. At least one of `render`, `schema`, or the internal `_internal` flag is required. `options.internal = true` marks the category hidden from `GetRegisteredSettingsCategories()`.
+- `YapperAPI:UnregisterSettingsCategory(id: string) → nil` ([`Src/API.lua#L1500`](../Src/API.lua#L1513)) — ignores invalid or unknown IDs.
+- `YapperAPI:GetRegisteredSettingsCategories() → { { id: string, label: string } }` ([`Src/API.lua#L1518`](../Src/API.lua#L1530)) — returns newly-created `{ id, label }` tables for categories not marked `internal`.
+- `YapperAPI:OpenSettingsCategory(id: string) → boolean` ([`Src/API.lua#L1531`](../Src/API.lua#L1543)) — returns false for a non-string ID or unavailable Interface module. It passes string IDs to `Interface:OpenToCategory` and does not verify that a category with that ID exists.
 
 ## Grouped aliases
 

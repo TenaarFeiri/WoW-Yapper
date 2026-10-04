@@ -212,6 +212,11 @@ local DEFAULTS = {
         KeyboardLayout      = "QWERTY",
         Dict                = KEEP_TABLE_CONTENTS,
         YASEnabled          = true,
+        -- Autocorrect (editing-stage): applies only corrections YAS
+        -- classifies as AUTO tier.  Off by default — opt-in.
+        AutocorrectEnabled  = false,
+        AutocorrectToast    = true,  -- brief "Autocorrected" card with Undo
+        LearnToastEnabled   = true,  -- toast when YAS auto-learns a word
         -- YAS adaptive learning data caps
         YASFreqCap          = 2000, -- Max unique vocabulary words tracked
         YASBiasCap          = 500,  -- Max typo->correction pairs stored

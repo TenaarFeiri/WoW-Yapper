@@ -528,6 +528,7 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
     cb:SetChecked(val == true)
 
     local disabled = self:IsPathDisabledByTheme(path)
+        or (self.IsPathDependencyDisabled and self:IsPathDependencyDisabled(path))
     if disabled then
         cb:SetEnabled(false)
         text:SetTextColor(0.5, 0.5, 0.5, 1)
@@ -544,6 +545,13 @@ function Interface:CreateCheckBox(parent, label, path, cursor)
             core:SetVerbose(checked)
         else
             Interface:SetLocalPath(path, checked)
+        end
+        -- Dependency-gated rows (autocorrect et al.) must refresh when a
+        -- prerequisite toggles.
+        local full = JoinPath(path)
+        if full == "Spellcheck.Enabled" or full == "Spellcheck.YASEnabled"
+            or full == "Spellcheck.AutocorrectEnabled" then
+            Interface:BuildConfigUI()
         end
     end)
 

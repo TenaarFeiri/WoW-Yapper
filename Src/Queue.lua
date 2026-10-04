@@ -36,6 +36,21 @@ local function NormaliseName(name)
     return Utils:NormaliseCharName(name) or ""
 end
 
+local function IsSecretValue(value)
+    return value ~= nil and Utils and Utils.IsSecret
+        and Utils:IsSecret(value) == true
+end
+
+local function HasSecretAckPayload(...)
+    for _, index in ipairs(ACK_SECRET_ARG_INDICES) do
+        local value = select(index, ...)
+        if value ~= nil and value ~= "" and IsSecretValue(value) then
+            return true
+        end
+    end
+    return false
+end
+
 local POLICY_CLASS = {
     OPEN_WORLD_LOCAL    = "OPEN_WORLD_LOCAL",
     HARDWARE_RESTRICTED = "HARDWARE_RESTRICTED",
@@ -74,6 +89,7 @@ local SEND_POLICIES = {
         autoUntilThrottle = false,
         requiresHardwareEvent = true,
         ackEvent = "CHAT_MSG_GUILD_DISCORD",
+        stallMultiplier = 3,   -- discord stream rides the slow club backend
     },
     [POLICY_CLASS.GUILD] = {
         promptEveryChunk = true,
@@ -83,6 +99,7 @@ local SEND_POLICIES = {
             GUILD = "CHAT_MSG_GUILD",
             OFFICER = "CHAT_MSG_OFFICER",
         },
+        stallMultiplier = 3,   -- discord-integrated guilds relay via the club backend
     },
     [POLICY_CLASS.INSTANCE_LOCAL] = {
         promptEveryChunk = false,
@@ -150,6 +167,12 @@ local ACK_SIBLING = {
     CHAT_MSG_RAID_LEADER          = "CHAT_MSG_RAID",
     CHAT_MSG_INSTANCE_CHAT        = "CHAT_MSG_INSTANCE_CHAT_LEADER",
     CHAT_MSG_INSTANCE_CHAT_LEADER = "CHAT_MSG_INSTANCE_CHAT",
+
+    -- A GUILD send inside a Discord-integrated guild may echo under the
+    -- Discord stream's event (and vice versa).  The sender GUID check in
+    -- AckPayloadMatches still filters out other people's messages.
+    CHAT_MSG_GUILD         = "CHAT_MSG_GUILD_DISCORD",
+    CHAT_MSG_GUILD_DISCORD = "CHAT_MSG_GUILD",
 }
 
 local ALL_CONFIRM_EVENTS = {
@@ -199,6 +222,11 @@ Queue.StrictAckMatching     = false
 
 Queue._lastEscTime  = 0
 local DOUBLE_ESC_WINDOW = 0.4
+
+-- A head requeued by a stall this old almost certainly delivered already;
+-- resuming would post it a second time.  Echoes beyond this window are
+-- treated as impossible and the entry is consumed instead of resent.
+local STALE_RESEND_WINDOW = 20
 
 Queue.ContinueFrame = nil
 
@@ -432,6 +460,16 @@ function Queue:SendNext(inHardwareEvent)
     end
 
     local entry = self.Entries[1]
+
+    -- A head requeued by a long-past stall almost certainly delivered
+    -- already; resuming would post it again.  Consume it and move on.
+    if entry._stalledAt and (GetTime() - entry._stalledAt) > STALE_RESEND_WINDOW then
+        entry._stalledAt = nil
+        table_remove(self.Entries, 1)
+        Utils:DebugPrint("  Dropped stale requeued entry (original send presumed delivered)")
+        return self:SendNext(inHardwareEvent)
+    end
+
     local policy = self:GetPolicy(entry)
     if not policy then
         self:Reset()
@@ -473,6 +511,7 @@ function Queue:BeginEntry(entry)
         return
     end
 
+    entry._stalledAt = nil
     self:RawSend(entry)
 
     local expectedEvent = self.PendingAckEvent
@@ -563,73 +602,18 @@ function Queue:IsAcceptableAck(expected, received)
     return false
 end
 
-function Queue:OnChatEvent(event, ...)
-    -- PendingEntry is the queue's ownership signal. UI state may change when
-    -- another addon opens an editbox, but a pending entry must still be
-    -- allowed to consume its ack.
-    if not self.PendingEntry then return end
-
+--- Verify an event's payload belongs to our send.  A present, readable,
+--- mismatched sender GUID rejects outright -- even when the rest of the
+--- payload is secret -- so another player's message can never consume the
+--- ack just because its text is obfuscated.  Event-name matching is the
+--- caller's job (IsAcceptableAck).
+---@param event string
+---@param entry table|nil   Queue entry the ack is being matched to.
+---@param expectedText string|nil
+---@param ... any           CHAT_MSG_* event args
+---@return boolean
+function Queue:AckPayloadMatches(event, entry, expectedText, ...)
     local msgText = select(1, ...)
-    if not self:IsAcceptableAck(self.PendingAckEvent, event) then
-        return
-    end
-
-    local function IsSecretValue(value)
-        return value ~= nil and Utils and Utils.IsSecret
-            and Utils:IsSecret(value) == true
-    end
-
-    local function HasSecretAckPayload(...)
-        for _, index in ipairs(ACK_SECRET_ARG_INDICES) do
-            local value = select(index, ...)
-            if value ~= nil and value ~= "" and IsSecretValue(value) then
-                return true
-            end
-        end
-        return false
-    end
-
-    if HasSecretAckPayload(...) then
-        self:HandleAck()
-        return
-    end
-
-    -- Strict mode also requires the echoed text to match. Some events
-    -- (notably whispers) lack a sender GUID in the usual arg slot, so the
-    -- GUID check below only rejects on a present-but-different value.
-    if self.StrictAckMatching and self.PendingAckText
-        and msgText ~= self.PendingAckText then
-        Utils:DebugPrint("  REJECTED: StrictAckMatching",
-                "#sent=" .. #(self.PendingAckText or ""),
-                "#echo=" .. #(msgText or ""))
-        return
-    end
-
-    -- Recipient matching for whispers (arg2 is the target name)
-    if event == "CHAT_MSG_WHISPER_INFORM" and self.PendingEntry.target then
-        local targetName = select(2, ...)
-        if targetName and targetName ~= "" and not IsSecretValue(targetName) then
-            if NormaliseName(targetName) ~= NormaliseName(self.PendingEntry.target) then
-                Utils:DebugPrint("  REJECTED: Recipient mismatch",
-                        tostring(targetName), "vs", tostring(self.PendingEntry.target))
-                return
-            end
-        end
-    elseif event == "CHAT_MSG_BN_WHISPER_INFORM" and self.PendingEntry.target then
-        -- arg13 = presenceID for BN whispers
-        local presenceID = select(13, ...)
-        local targetID   = tonumber(self.PendingEntry.target)
-        if presenceID and not IsSecretValue(presenceID)
-            and targetID and tonumber(presenceID) ~= targetID then
-            Utils:DebugPrint("  REJECTED: BNet Recipient mismatch",
-                    tostring(presenceID), "vs", tostring(targetID))
-            return
-        end
-    end
-
-    -- arg12 = sender GUID when present. Whisper inform events may carry the
-    -- target's GUID (or none) here, and the recipient match above already
-    -- covers them, so they're exempt from the sender check.
     local guid = select(12, ...)
     local isWhisperInform = (event == "CHAT_MSG_WHISPER_INFORM" or event == "CHAT_MSG_BN_WHISPER_INFORM")
 
@@ -637,14 +621,99 @@ function Queue:OnChatEvent(event, ...)
         self.PlayerGUID = UnitGUID("player")
     end
 
+    -- arg12 = sender GUID when present. Whisper inform events may carry the
+    -- target's GUID (or none) here, and the recipient match below already
+    -- covers them, so they're exempt from the sender check.
     if guid and not IsSecretValue(guid) and self.PlayerGUID
         and guid ~= self.PlayerGUID and not isWhisperInform then
         Utils:DebugPrint("  REJECTED: GUID mismatch",
                 tostring(guid), "vs", tostring(self.PlayerGUID))
+        return false
+    end
+
+    if HasSecretAckPayload(...) then
+        return true
+    end
+
+    -- Strict mode also requires the echoed text to match. Some events
+    -- (notably whispers) lack a sender GUID in the usual arg slot, so the
+    -- GUID check above only rejects on a present-but-different value.
+    if self.StrictAckMatching and expectedText
+        and msgText ~= expectedText then
+        Utils:DebugPrint("  REJECTED: StrictAckMatching",
+                "#sent=" .. #(expectedText or ""),
+                "#echo=" .. #(msgText or ""))
+        return false
+    end
+
+    -- Recipient matching for whispers (arg2 is the target name)
+    if event == "CHAT_MSG_WHISPER_INFORM" and entry and entry.target then
+        local targetName = select(2, ...)
+        if targetName and targetName ~= "" and not IsSecretValue(targetName) then
+            if NormaliseName(targetName) ~= NormaliseName(entry.target) then
+                Utils:DebugPrint("  REJECTED: Recipient mismatch",
+                        tostring(targetName), "vs", tostring(entry.target))
+                return false
+            end
+        end
+    elseif event == "CHAT_MSG_BN_WHISPER_INFORM" and entry and entry.target then
+        -- arg13 = presenceID for BN whispers
+        local presenceID = select(13, ...)
+        local targetID   = tonumber(entry.target)
+        if presenceID and not IsSecretValue(presenceID)
+            and targetID and tonumber(presenceID) ~= targetID then
+            Utils:DebugPrint("  REJECTED: BNet Recipient mismatch",
+                    tostring(presenceID), "vs", tostring(targetID))
+            return false
+        end
+    end
+
+    return true
+end
+
+function Queue:OnChatEvent(event, ...)
+    -- PendingEntry is the queue's ownership signal. UI state may change when
+    -- another addon opens an editbox, but a pending entry must still be
+    -- allowed to consume its ack.
+    if not self.PendingEntry then
+        self:TryConsumeLateAck(event, ...)
         return
     end
 
-    self:HandleAck()
+    if not self:IsAcceptableAck(self.PendingAckEvent, event) then
+        return
+    end
+
+    if self:AckPayloadMatches(event, self.PendingEntry, self.PendingAckText, ...) then
+        self:HandleAck()
+    end
+end
+
+--- While stalled, the requeued head was already sent once and its echo may
+--- still be in flight.  A matching ack arriving now is that late echo:
+--- consume the entry instead of letting the resume send it a second time.
+function Queue:TryConsumeLateAck(event, ...)
+    if not self.NeedsContinue then return end
+    local head = self.Entries[1]
+    if not head or not head._stalledAt then return end
+
+    local expected = self:GetConfirmEventForEntry(head)
+    if not expected or not self:IsAcceptableAck(expected, event) then
+        return
+    end
+    if not self:AckPayloadMatches(event, head, head.text, ...) then
+        return
+    end
+
+    table_remove(self.Entries, 1)
+    head._stalledAt = nil
+    Utils:DebugPrint("  Late ACK consumed stalled head; entry already delivered")
+
+    if #self.Entries == 0 then
+        self:Complete()
+    else
+        self:ShowContinuePrompt()
+    end
 end
 
 -- ===========================================================================
@@ -708,6 +777,7 @@ function Queue:OnStallTimeout()
     if not self.PendingEntry then return end
     local entry        = self.PendingEntry
     local policyClass  = self.PendingAckPolicyClass  -- capture before ClearPendingAck
+    entry._stalledAt   = GetTime()
     table_insert(self.Entries, 1, entry)
     self.PendingEntry = nil
     self:ClearPendingAck()

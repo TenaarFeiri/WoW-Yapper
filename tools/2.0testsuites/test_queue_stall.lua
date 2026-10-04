@@ -61,7 +61,10 @@ local function FireAllTimers()
     end
 end
 
-_G.GetTime = function() return 0 end
+-- Mutable so tests can age a stalled entry past the stale-resend window;
+-- Queue.lua localises GetTime at load, so this must go through an upvalue.
+local mockNow = 0
+_G.GetTime = function() return mockNow end
 _G.UnitGUID = function() return "Player-1-AABBCCDD" end
 _G.IsInInstance = function() return false end  -- open world by default
 
@@ -409,6 +412,59 @@ check("Chunk B sent after ack", #sentMessages == 3)
 SimulateAckEvent("CHAT_MSG_SAY", "Chunk B.")
 check("Queue complete after all acks", QueueIdle())
 check("QUEUE_COMPLETE fired once", completeCount == 1)
+
+-- ===========================================================================
+-- 2b. Stall → late ACK consumes the requeued head (no duplicate resend)
+-- ===========================================================================
+print("\nTest 2b: stall → late ACK consumes head; resume sends next chunk")
+
+_G.IsInInstance = function() return true end
+ResetAll()
+
+EnqueueSAY({ "Late ack A.", "Late ack B." })
+Queue:Flush(false)
+check("Late-ack A sent", #sentMessages == 1)
+
+FireAllTimers()   -- stall: A requeued at head
+check("Stall requeues A", Queue.NeedsContinue == true and #Queue.Entries == 2)
+
+-- The server echo arrives while still stalled: A already delivered, so the
+-- requeued copy must be consumed rather than resent on the next Enter.
+SimulateAckEvent("CHAT_MSG_SAY", "Late ack A.")
+check("Late ACK consumes requeued A", #Queue.Entries == 1 and Queue.Entries[1].text == "Late ack B.")
+check("No duplicate resend of A", #sentMessages == 1)
+
+Queue:OnOpenChat()
+check("Resume sends B, not A again", #sentMessages == 2 and sentMessages[2].text == "Late ack B.")
+
+SimulateAckEvent("CHAT_MSG_SAY", "Late ack B.")
+check("Queue completes without duplicates", QueueIdle() and #sentMessages == 2)
+
+-- ===========================================================================
+-- 2c. Stale requeued head is consumed on resume instead of resent
+-- ===========================================================================
+print("\nTest 2c: resume long after stall drops the presumed-delivered head")
+
+_G.IsInInstance = function() return true end
+ResetAll()
+
+mockNow = 0
+EnqueueSAY({ "Stale A.", "Stale B." })
+Queue:Flush(false)
+check("Stale-test A sent", #sentMessages == 1)
+
+FireAllTimers()   -- stall at t=0
+check("Stale-test A requeued", #Queue.Entries == 2)
+
+mockNow = 60      -- user resumes long after the stall
+Queue:OnOpenChat()
+check("Stale head consumed, not resent", #sentMessages == 2 and sentMessages[2].text == "Stale B.")
+check("A never posted twice", sentMessages[1].text == "Stale A." and sentMessages[2].text ~= "Stale A.")
+
+SimulateAckEvent("CHAT_MSG_SAY", "Stale B.")
+check("Queue completes after stale drop", QueueIdle())
+
+mockNow = 0
 
 -- ===========================================================================
 -- 3. OPEN_WORLD_LOCAL requires hardware event from the start

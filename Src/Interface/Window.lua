@@ -332,9 +332,9 @@ end
 ---@param tip    string? Tooltip text.
 ---@param y      number  Vertical offset from parent top.
 ---@return CheckButton cb, FontString fs, number nextY
-local function CreatePopupToggle(parent, path, label, tip, y)
+local function CreatePopupToggle(parent, path, label, tip, y, opts)
     local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    cb:SetPoint("LEFT", parent, "LEFT", 24, 0)
+    cb:SetPoint("LEFT", parent, "LEFT", (opts and opts.x) or 24, 0)
     cb:SetPoint("TOP", parent, "TOP", 0, y)
     cb:SetSize(26, 26)
 
@@ -342,7 +342,14 @@ local function CreatePopupToggle(parent, path, label, tip, y)
     cb:SetChecked(current == true)
 
     cb:SetScript("OnClick", function(self)
-        Interface:SetLocalPath(path, self:GetChecked() == true)
+        local checked = self:GetChecked() == true
+        if opts and opts.onSet then
+            -- Interceptor owns the config write (e.g. spellcheck prompts
+            -- for a language before enabling) and may revert the checkmark.
+            opts.onSet(self, checked)
+        else
+            Interface:SetLocalPath(path, checked)
+        end
         if cb.OnToggle then cb:OnToggle(self:GetChecked() == true) end
     end)
 
@@ -367,6 +374,94 @@ local function CreatePopupToggle(parent, path, label, tip, y)
     end
 
     return cb, fs, y - 30
+end
+
+-- ---------------------------------------------------------------------------
+-- Spellcheck locale prompt (welcome / What's New opt-in flow)
+-- ---------------------------------------------------------------------------
+
+-- Friendly labels for shipped dictionary locales; unknown codes display raw.
+local LOCALE_LABELS = {
+    enUS = "English (US)",
+    enGB = "English (UK)",
+    enAU = "English (Australia)",
+    deDE = "German",
+}
+
+--- Small chooser shown when spellcheck is enabled from a popup before any
+--- dictionary exists: the user picks which locale to load rather than
+--- silently pulling in the configured default.
+--- @param parent Frame   Popup frame to anchor over.
+--- @param onDone function?  Called with true after a locale is picked and
+---                          enabled, false on cancel.
+function Interface:ShowSpellcheckLocalePrompt(parent, onDone)
+    if self.LocalePrompt then self.LocalePrompt:Hide() end
+
+    local spell = YapperTable.Spellcheck
+    local locales = {}
+    for _, locale in ipairs((spell and spell.KnownLocales) or {}) do
+        local usable = (spell.IsLocaleAvailable and spell:IsLocaleAvailable(locale))
+            or (spell.CanLoadLocale and spell:CanLoadLocale(locale))
+        if usable then
+            locales[#locales + 1] = locale
+        end
+    end
+    if #locales == 0 then locales = { "enUS" } end
+
+    local BTN_H = 24
+    local PAD   = 16
+    local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    frame:SetSize(260, PAD * 2 + 30 + #locales * (BTN_H + 6) + 34)
+    frame:SetPoint("CENTER", parent, "CENTER")
+    frame:SetFrameStrata("FULLSCREEN_DIALOG")
+    frame:SetFrameLevel(parent:GetFrameLevel() + 10)
+    frame:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 14,
+        insets   = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    frame:SetBackdropColor(0.08, 0.08, 0.08, 0.97)
+    frame:SetBackdropBorderColor(0.55, 0.55, 0.55, 1)
+
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOP", frame, "TOP", 0, -PAD)
+    title:SetText("Choose your spellcheck language")
+    title:SetTextColor(1, 0.82, 0, 1)
+
+    local function finish(picked)
+        frame:Hide()
+        frame:SetParent(nil)
+        if self.LocalePrompt == frame then self.LocalePrompt = nil end
+        if onDone then onDone(picked) end
+    end
+
+    local y = -PAD - 26
+    for _, locale in ipairs(locales) do
+        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        btn:SetSize(220, BTN_H)
+        btn:SetPoint("TOP", frame, "TOP", 0, y)
+        btn:SetText(LOCALE_LABELS[locale] or locale)
+        local loc = locale
+        btn:SetScript("OnClick", function()
+            -- Order matters: store the locale while spellcheck is still off
+            -- (ApplyState then skips loading), then flip Enabled so the
+            -- config-changed path loads exactly this dictionary.
+            Interface:SetLocalPath({ "Spellcheck", "Locale" }, loc)
+            Interface:SetLocalPath({ "Spellcheck", "Enabled" }, true)
+            finish(true)
+        end)
+        y = y - (BTN_H + 6)
+    end
+
+    local cancel = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    cancel:SetSize(220, BTN_H)
+    cancel:SetPoint("TOP", frame, "TOP", 0, y)
+    cancel:SetText("Cancel")
+    cancel:SetScript("OnClick", function() finish(false) end)
+
+    self.LocalePrompt = frame
+    frame:Show()
 end
 
 -- ---------------------------------------------------------------------------
@@ -499,16 +594,44 @@ function Interface:CreateWelcomeChoiceFrame()
     featureLabel:SetTextColor(1, 0.82, 0, 1)
     toggleY = toggleY - 24
 
-    local spellToggle, _, nextY = CreatePopupToggle(
+    local spellToggle, acToggle, acLabel, yasToggle, yasLabel, corrToggle, corrLabel
+    local function updateSubToggles()
+        local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" }) == true
+        local yasEnabled   = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" }) == true
+        acToggle:SetEnabled(spellEnabled)
+        acLabel:SetTextColor(spellEnabled and 0.9 or 0.5, spellEnabled and 0.9 or 0.5, spellEnabled and 0.9 or 0.5, 1)
+        yasToggle:SetEnabled(spellEnabled)
+        yasLabel:SetTextColor(spellEnabled and 0.9 or 0.5, spellEnabled and 0.9 or 0.5, spellEnabled and 0.9 or 0.5, 1)
+        local corrOk = spellEnabled and yasEnabled
+        corrToggle:SetEnabled(corrOk)
+        corrLabel:SetTextColor(corrOk and 0.9 or 0.5, corrOk and 0.9 or 0.5, corrOk and 0.9 or 0.5, 1)
+    end
+
+    spellToggle = CreatePopupToggle(
         frame,
         { "Spellcheck", "Enabled" },
         "Enable spellcheck  |cFF888888(per-locale dictionaries with adaptive learning)|r",
         "Turns on real-time spellchecking and colours misspelled words. "
-        .. "The dictionary for your selected locale will be loaded on the next reload.",
-        toggleY
+        .. "You will be asked which dictionary language to load.",
+        toggleY,
+        { onSet = function(cb, checked)
+            if checked then
+                -- Don't load a dictionary sight unseen: ask which language.
+                cb:SetChecked(false)
+                Interface:ShowSpellcheckLocalePrompt(frame, function(picked)
+                    if picked then
+                        cb:SetChecked(true)
+                        updateSubToggles()
+                    end
+                end)
+            else
+                Interface:SetLocalPath({ "Spellcheck", "Enabled" }, false)
+            end
+        end }
     )
+    local nextY = toggleY - 30
 
-    local acToggle, acLabel, nextY2 = CreatePopupToggle(
+    acToggle, acLabel, nextY = CreatePopupToggle(
         frame,
         { "EditBox", "AutocompleteEnabled" },
         "Enable autocomplete / ghost text  |cFF888888(requires spellcheck)|r",
@@ -517,31 +640,27 @@ function Interface:CreateWelcomeChoiceFrame()
         nextY
     )
 
-    local yasToggle, yasLabel = CreatePopupToggle(
+    yasToggle, yasLabel, nextY = CreatePopupToggle(
         frame,
         { "Spellcheck", "YASEnabled" },
         "Enable adaptive learning  |cFF888888(requires spellcheck)|r",
         "Tracks your vocabulary and correction preferences to improve "
         .. "suggestion accuracy over time.",
-        nextY2
+        nextY
     )
 
-    local function updateSubToggles()
-        local spellEnabled = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
-        if spellEnabled then
-            acToggle:Enable()
-            acLabel:SetTextColor(0.9, 0.9, 0.9, 1)
-            yasToggle:Enable()
-            yasLabel:SetTextColor(0.9, 0.9, 0.9, 1)
-        else
-            acToggle:Disable()
-            acLabel:SetTextColor(0.5, 0.5, 0.5, 1)
-            yasToggle:Disable()
-            yasLabel:SetTextColor(0.5, 0.5, 0.5, 1)
-        end
-    end
+    corrToggle, corrLabel = CreatePopupToggle(
+        frame,
+        { "Spellcheck", "AutocorrectEnabled" },
+        "Enable autocorrect  |cFF888888(requires spellcheck + adaptive learning)|r",
+        "Fixes typos the moment you finish a word, but only corrections adaptive "
+        .. "learning is highly confident about. Undo instantly with Backspace, "
+        .. "Ctrl+Z, or the Undo toast.",
+        nextY
+    )
 
     spellToggle.OnToggle = updateSubToggles
+    yasToggle.OnToggle = updateSubToggles
     updateSubToggles()
 
     frame.BlizzPreview  = blizzPreview
@@ -643,53 +762,78 @@ function Interface:CreateWhatsNewFrame()
         end
     end)
 
-    if spellEnabled ~= true or acEnabled ~= true or yasEnabled ~= true then
+    local corrEnabled = Interface:GetConfigPath({ "Spellcheck", "AutocorrectEnabled" })
+
+    if spellEnabled ~= true or acEnabled ~= true or yasEnabled ~= true or corrEnabled ~= true then
         local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         togLabel:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", PAD + 4, 120)
         togLabel:SetText("New Features — Try Them Out")
         togLabel:SetTextColor(1, 0.82, 0, 1)
         toggleCursor = toggleCursor - 24
 
-        local acT, acL, yasT, yasL, spellT
+        -- Two columns: dependencies (spellcheck, adaptive) on the left,
+        -- dependent features (autocomplete, autocorrect) on the right.
+        local COL2_X = 280
+        local acT, acL, yasT, yasL, spellT, corrT, corrL
+        local leftY = toggleCursor
+        local rightY = toggleCursor
 
-        if spellEnabled ~= true then
-            local st, _, ny = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck",
-                "Turns on real-time spellchecking.", toggleCursor)
-            spellT = st
-            toggleCursor = ny
-        end
-        if acEnabled ~= true then
-            local at, al, ny = CreatePopupToggle(frame, { "EditBox", "AutocompleteEnabled" },
-                "Enable autocomplete / ghost text", "Shows ghost-text predictions as you type.", toggleCursor)
-            acT, acL = at, al
-            toggleCursor = ny
-        end
-        if yasEnabled ~= true then
-            local yt, yl, ny = CreatePopupToggle(frame, { "Spellcheck", "YASEnabled" }, "Enable adaptive learning",
-                "Tracks your vocabulary to improve suggestion accuracy.", toggleCursor)
-            yasT, yasL = yt, yl
-            toggleCursor = ny
+        local function setEnabled(cb, label, on)
+            if not cb then return end
+            cb:SetEnabled(on)
+            label:SetTextColor(on and 0.9 or 0.5, on and 0.9 or 0.5, on and 0.9 or 0.5, 1)
         end
 
         local function update()
-            local activeSpell = Interface:GetConfigPath({ "Spellcheck", "Enabled" })
-            if activeSpell then
-                if acT then
-                    acT:Enable(); acL:SetTextColor(0.9, 0.9, 0.9, 1)
-                end
-                if yasT then
-                    yasT:Enable(); yasL:SetTextColor(0.9, 0.9, 0.9, 1)
-                end
-            else
-                if acT then
-                    acT:Disable(); acL:SetTextColor(0.5, 0.5, 0.5, 1)
-                end
-                if yasT then
-                    yasT:Disable(); yasL:SetTextColor(0.5, 0.5, 0.5, 1)
-                end
-            end
+            local spell = Interface:GetConfigPath({ "Spellcheck", "Enabled" }) == true
+            local yas   = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" }) == true
+            setEnabled(acT, acL, spell)
+            setEnabled(yasT, yasL, spell)
+            setEnabled(corrT, corrL, spell and yas)
         end
+
+        if spellEnabled ~= true then
+            spellT = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck",
+                "Turns on real-time spellchecking. You will be asked which "
+                .. "dictionary language to load.", leftY,
+                { onSet = function(cb, checked)
+                    if checked then
+                        cb:SetChecked(false)
+                        Interface:ShowSpellcheckLocalePrompt(frame, function(picked)
+                            if picked then
+                                cb:SetChecked(true)
+                                update()
+                            end
+                        end)
+                    else
+                        Interface:SetLocalPath({ "Spellcheck", "Enabled" }, false)
+                    end
+                end })
+            leftY = leftY - 30
+        end
+        if yasEnabled ~= true then
+            yasT, yasL = CreatePopupToggle(frame, { "Spellcheck", "YASEnabled" }, "Enable adaptive learning",
+                "Tracks your vocabulary to improve suggestion accuracy. Requires spellcheck.", leftY)
+            leftY = leftY - 30
+        end
+        if acEnabled ~= true then
+            acT, acL = CreatePopupToggle(frame, { "EditBox", "AutocompleteEnabled" },
+                "Enable autocomplete", "Shows ghost-text predictions as you type. Requires spellcheck.",
+                rightY, { x = COL2_X })
+            rightY = rightY - 30
+        end
+        if corrEnabled ~= true then
+            corrT, corrL = CreatePopupToggle(frame, { "Spellcheck", "AutocorrectEnabled" },
+                "Enable autocorrect",
+                "Fixes typos as you finish a word, only when adaptive learning "
+                .. "is highly confident. Undo with Backspace, Ctrl+Z, or the "
+                .. "toast. Requires spellcheck and adaptive learning.",
+                rightY, { x = COL2_X })
+            rightY = rightY - 30
+        end
+
         if spellT then spellT.OnToggle = update end
+        if yasT then yasT.OnToggle = update end
         update()
     end
 
