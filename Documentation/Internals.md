@@ -296,8 +296,8 @@ Runs during suggestion/recolour rebuild.
   - `UpdateActiveWord` [`../Src/Spellcheck/Engine.lua#L341`](../Src/Spellcheck/Engine.lua#L341)
   - `GetWordAtCursor` [`../Src/Spellcheck/Engine.lua#L444`](../Src/Spellcheck/Engine.lua#L444)
   - `GetSuggestions` [`../Src/Spellcheck/Engine.lua#L1000`](../Src/Spellcheck/Engine.lua#L1000) — YAS-learned bias targets are injected as priority candidates, but only after clearing `IsWordCorrect`: targets are stored `Clean()`ed (punctuation stripped), so a learned "i'm" resurfaces as "im" and non-dictionary corrections can linger in `db.bias`; emitting them would suggest words that still flag once applied. The bias pair still boosts the real dictionary candidate via `GetBonus`.
-  - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1350`](../Src/Spellcheck/Engine.lua#L1350)
-  - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1421`](../Src/Spellcheck/Engine.lua#L1421)
+  - `EditDistance` [`../Src/Spellcheck/Engine.lua#L1357`](../Src/Spellcheck/Engine.lua#L1357)
+  - `FormatSuggestionLabel` [`../Src/Spellcheck/Engine.lua#L1428`](../Src/Spellcheck/Engine.lua#L1428)
 - Filters run:
   - `PRE_SPELLCHECK` via `API:RunFilter`.
 
@@ -487,11 +487,12 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 ## EditBox
 - Methods:
   - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L463`](../Src/EditBox.lua#L463))
+  - `EditBox:ResolveWhisperFrameTarget(chatFrame) → string|nil chatType, any target`: Resolve a temporary whisper tab's routing into a Yapper-usable pair. Plain chatTargets pass through SanitizeTarget; BN_WHISPER tabs carrying a `|K`-protected token or secret chatTarget are recovered via `BNet_GetBNetIDAccount` as a numeric account ID, which `Router:Send` consumes directly. ([`../Src/EditBox.lua#L498`](../Src/EditBox.lua#L498))
   - `EditBox:GetActiveEditor() → table|nil`: Return Yapper's currently visible chat editor, preferring multiline while it is open and falling back to the single-line overlay. ([`../Src/EditBox.lua#L95`](../Src/EditBox.lua#L95))
-  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L661`](../Src/EditBox.lua#L661))
-  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L639`](../Src/EditBox.lua#L639))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L760`](../Src/EditBox.lua#L760))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L750`](../Src/EditBox.lua#L750))
+  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L702`](../Src/EditBox.lua#L702))
+  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L680`](../Src/EditBox.lua#L680))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L801`](../Src/EditBox.lua#L801))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L791`](../Src/EditBox.lua#L791))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L108`](../Src/EditBox.lua#L108))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
@@ -535,7 +536,7 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `NextReplyTarget` ([`../Src/EditBox.lua#L158`](../Src/EditBox.lua#L158))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L488`](../Src/EditBox.lua#L488))
   - `SetOnSend` ([`../Src/EditBox.lua#L683`](../Src/EditBox.lua#L683))
-  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L691`](../Src/EditBox.lua#L691))
+  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L732`](../Src/EditBox.lua#L732))
   - `SetPreShowCheck` ([`../Src/EditBox.lua#L745`](../Src/EditBox.lua#L745))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
@@ -588,9 +589,9 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
-  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1049`](../Src/Hooks/ShowHide.lua#L1049))
-  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1000`](../Src/Hooks/ShowHide.lua#L1000))
-  - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L987`](../Src/Hooks/ShowHide.lua#L987))
+  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1083`](../Src/Hooks/ShowHide.lua#L1083))
+  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1034`](../Src/Hooks/ShowHide.lua#L1034))
+  - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L1021`](../Src/Hooks/ShowHide.lua#L1021))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
   - `EditBox:HandoffToBlizzard(silent?, bypassOpen?, isMultiline?)` - Lockdown handoff.
@@ -877,9 +878,10 @@ Binds to overlay (or multiline) editbox when available.
   - `_isMultiline` [`../Src/Autocomplete.lua#L66`](../Src/Autocomplete.lua#L66)
 - Methods:
   - `Autocomplete:SetOffset(x, y) → nil`: Set a manual pixel offset for the ghost-text positioning. ([`../Src/Autocomplete.lua#L687`](../Src/Autocomplete.lua#L687))
+  - `Autocomplete:MarkPendingSnap(editBox, spacePos) → nil`: Mark an addon-inserted trailing space as snap-back eligible for the next keystroke. Shared by autocomplete acceptance and `IconGallery:Select`. ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua))
   - `IsEnabled`, `ExtractWordAtCursor`, `SearchDictionary`, `GetSuggestion`, `GetGhostFS`, `_InstallCursorHook`, `PositionGhost`, `ShowGhost`, `HideGhost`, `OnTextChanged`, `OnTabPressed`, `OnOverlayHide`, `SyncFont`, `SyncGhostFont`, `BindMultiline`, `UnbindMultiline` ([`../Src/Autocomplete.lua`](../Src/Autocomplete.lua)).
 - Notes:
-  - Accepting a completion only appends a space when the next byte is a word byte or end-of-text; when it does, the space position is remembered in `_pendingSnap`. If the very next keystroke is a `"close"` boundary (see `Spellcheck:ClassifyBoundary`), the space hops after the punctuation (`"hello "` + `.` → `"hello. "`) — the mobile-keyboard behaviour. The marker self-invalidates by position match, so caret moves can't trigger a stray snap.
+  - Accepting a completion only appends a space when the next byte is a word byte or end-of-text; when it does, the space position is remembered in `_pendingSnap`. If the very next keystroke is a `"close"` boundary (see `Spellcheck:ClassifyBoundary`), the space hops after the punctuation (`"hello "` + `.` → `"hello. "`) — the mobile-keyboard behaviour. The marker self-invalidates by position match, so caret moves can't trigger a stray snap. `IconGallery:Select` marks its appended space the same way, and the snap check runs before the `IsEnabled` gate so it works even with autocomplete off.
   - Ghost text is suppressed while the caret sits mid-word (a word byte directly after the caret).
 
 ## Toast
@@ -977,10 +979,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L369`](../Src/Interface/Schema.lua#L369)
-  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L510`](../Src/Interface/Schema.lua#L510)
-  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L518`](../Src/Interface/Schema.lua#L518)
-  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L524`](../Src/Interface/Schema.lua#L524)
+  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L370`](../Src/Interface/Schema.lua#L370)
+  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L511`](../Src/Interface/Schema.lua#L511)
+  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L519`](../Src/Interface/Schema.lua#L519)
+  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L525`](../Src/Interface/Schema.lua#L525)
 
 ## Interface.Config
 

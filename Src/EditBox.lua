@@ -484,6 +484,47 @@ function EditBox:ResolveWhisperTarget(chatType, source, fallback)
     return fallback, false
 end
 
+--- Resolve a temporary whisper tab's routing into a Yapper-usable
+--- (chatType, target) pair.  The tab carries its context in
+--- chatFrame.chatType/chatTarget, but BN_WHISPER tabs can hold a
+--- "|K...|k" presence token or a secret value there — both become nil once
+--- SanitizeTarget rejects them.  For BN_WHISPER the account ID is still
+--- recoverable via BNet_GetBNetIDAccount: it's a secure C call that
+--- consumes the raw (Lua-unreadable) value, and a numeric ID is all
+--- Router:Send needs.
+--- @param chatFrame table  Blizzard chat frame (e.g. from a tab click).
+--- @return string|nil chatType  "WHISPER"/"BN_WHISPER" when resolvable.
+--- @return any        target    Player name or numeric BNet account ID.
+function EditBox:ResolveWhisperFrameTarget(chatFrame)
+    if not chatFrame or not chatFrame.isTemporary then
+        return nil, nil
+    end
+    local chatType = chatFrame.chatType
+    if chatType ~= "WHISPER" and chatType ~= "BN_WHISPER" then
+        return nil, nil
+    end
+
+    local target = Utils:SanitizeTarget(chatFrame.chatTarget)
+    if target and target ~= "" then
+        return chatType, target
+    end
+
+    -- BN whisper tabs commonly carry a |K-protected presence token (or a
+    -- secret value under addon restrictions).  The C side of
+    -- BNet_GetBNetIDAccount resolves either to a numeric account ID;
+    -- pcall contains environments where even that fails.
+    if chatType == "BN_WHISPER" then
+        local resolve = _G.BNet_GetBNetIDAccount
+        if type(resolve) == "function" then
+            local ok, id = pcall(resolve, chatFrame.chatTarget)
+            if ok and type(id) == "number" and id > 0 then
+                return chatType, id
+            end
+        end
+    end
+    return nil, nil
+end
+
 --- Bypass Yapper and go straight to Blizzard's editbox.
 function EditBox:OpenBlizzardChat()
     UserBypassingYapper = true

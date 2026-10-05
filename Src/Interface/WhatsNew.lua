@@ -66,6 +66,7 @@ YapperTable.WHATS_NEW = {
                 .. "repost a chunk that had delivered. Late echoes are now recognised and stale resends "
                 .. "dropped."),
         note("Bug fixes",
+            "- BNet whispers should now work correctly in tabs.\n\n",
             "- Autocorrect and toast toggles moved to the General tab.\n\n"
                 .. "- Suggestion cache now refreshes when YAS learns, so rejected corrections stop immediately reappearing.\n\n"
                 .. "- Learned-word sanity checks now respect the configured n-gram size instead of silently disabling themselves.\n\n"

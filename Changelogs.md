@@ -31,6 +31,7 @@
 - Queue hardening for delayed chat confirmations: stalled-and-requeued entries are timestamped (`_stalledAt`), a matching late echo consumes the requeued copy instead of resending it, and a requeued head older than 20 seconds is dropped as presumed-delivered. `CHAT_MSG_GUILD` and `CHAT_MSG_GUILD_DISCORD` now satisfy each other's acknowledgements (Discord-integrated guilds can echo either event), guild sends use a 3x stall window matching the slower community backend, and a readable sender-GUID mismatch now rejects an event before the secret-payload shortcut can consume it.
 
 ### Bug Fixes
+- BNet whispers should now work correctly in tabs.
 - Notification toasts no longer jump to the bottom-right corner when the chat window sits near the top of the screen; the placement solver can now also settle below or beside the chat frame.
 - Mechanical-typo candidates (transposed or dropped letters) were starved by the suggestion budget on large dictionaries -- "doign" never produced "doing" until you had already taught YAS the correction. Autocorrect also weighs keyboard distance now, so a far-apart letter swap like "deign" no longer wins on confidence alone.
 - Phonetic matches now keep their score boost no matter which suggestion path surfaced them, so "tihs" ranks "this" first instead of behind looser sound-alikes like "thus".

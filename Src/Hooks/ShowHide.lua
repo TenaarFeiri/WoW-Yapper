@@ -399,6 +399,13 @@ function EditBox:Show(origEditBox)
             -- SanitizeTarget: chatTarget can be a secret value under forced
             -- addon restrictions; downstream code compares/normalises it.
             frameChatTarget = Utils:SanitizeTarget(liveFrame.chatTarget)
+            if not frameChatTarget
+                and (liveType == "WHISPER" or liveType == "BN_WHISPER") then
+                -- |K-token/secret chatTarget on whisper tabs: the helper
+                -- resolves a numeric BNet account ID when possible.
+                local _, wtTarget = self:ResolveWhisperFrameTarget(liveFrame)
+                frameChatTarget = wtTarget
+            end
             if frameChatType == "CHANNEL" and frameChatTarget then
                 frameChannelName = ResolveChannelName(tonumber(frameChatTarget))
             end
@@ -408,22 +415,49 @@ function EditBox:Show(origEditBox)
     -- Fallback for IM/undocked whisper windows: if attribute cache missed the
     -- target this frame, prefer the chatFrame's live chatType/chatTarget over
     -- LastUsed so active DM tabs don't collapse back to SAY.
-    if not blizzHasTarget and origEditBox then
-        local liveFrame = origEditBox.chatFrame
-            or (origEditBox.GetParent and origEditBox:GetParent())
-        if liveFrame then
-            local liveType = liveFrame.chatType
-            local liveTarget = Utils:SanitizeTarget(liveFrame.chatTarget)
-            if (liveType == "WHISPER" or liveType == "BN_WHISPER")
-                and liveFrame.isTemporary
-                and liveTarget and liveTarget ~= "" then
-                blizzType = liveType
-                blizzTell = liveTarget
-                blizzHasTarget = true
-            elseif liveType == "CHANNEL" and liveTarget and liveTarget ~= "" then
-                blizzType = "CHANNEL"
-                blizzChan = liveTarget
-                blizzHasTarget = true
+    -- Classic-mode opens always land on the main editbox, so when the box's
+    -- own frame has no target also consult the chat window the user is
+    -- actually looking at (selected window / dock-selected tab).  Only
+    -- whisper context is adopted from those — channel stickiness stays
+    -- scoped to the box's own frame.
+    if not blizzHasTarget then
+        local ownFrame = origEditBox
+            and (origEditBox.chatFrame
+                or (origEditBox.GetParent and origEditBox:GetParent()))
+        local candidates = {}
+        if ownFrame then candidates[#candidates + 1] = ownFrame end
+        if _G.SELECTED_CHAT_FRAME then candidates[#candidates + 1] = _G.SELECTED_CHAT_FRAME end
+        if GENERAL_CHAT_DOCK and FCFDock_GetSelectedWindow then
+            local ok, dockSel = pcall(FCFDock_GetSelectedWindow, GENERAL_CHAT_DOCK)
+            if ok and dockSel then candidates[#candidates + 1] = dockSel end
+        end
+
+        local seen = {}
+        for _, liveFrame in ipairs(candidates) do
+            if liveFrame and not seen[liveFrame] then
+                seen[liveFrame] = true
+                -- Frames other than the editbox's own must be visible so a
+                -- minimized/hidden whisper tab can't hijack a normal open.
+                if liveFrame == ownFrame
+                    or (liveFrame.IsShown and liveFrame:IsShown()) then
+                    local liveType, liveTarget = self:ResolveWhisperFrameTarget(liveFrame)
+                    if liveType and liveTarget then
+                        blizzType = liveType
+                        blizzTell = liveTarget
+                        blizzHasTarget = true
+                        break
+                    end
+                    if liveFrame == ownFrame then
+                        local ct = liveFrame.chatType
+                        local cv = Utils:SanitizeTarget(liveFrame.chatTarget)
+                        if ct == "CHANNEL" and cv and cv ~= "" then
+                            blizzType = "CHANNEL"
+                            blizzChan = cv
+                            blizzHasTarget = true
+                            break
+                        end
+                    end
+                end
             end
         end
     end

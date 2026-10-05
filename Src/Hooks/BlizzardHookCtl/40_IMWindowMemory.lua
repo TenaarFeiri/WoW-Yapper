@@ -22,16 +22,14 @@ end
 --- in _pendingTabSwitch to be consumed on the next open.
 function EditBox:_IMApplyWindowMemory(chatFrame)
     if not chatFrame then return end
-    local cfType   = chatFrame.chatType
-    -- SanitizeTarget: secret chatTarget is treated as targetless so it never
-    -- reaches the `~= ""` comparison or the pending-switch payload.
-    local cfTarget = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget) or nil
-    -- Whisper frames: use Blizzard's live chatTarget.
-    if cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
-        and cfTarget and cfTarget ~= "" then
+    -- Whisper frames: use the tab's live routing.  ResolveWhisperFrameTarget
+    -- additionally recovers BN_WHISPER |K-token/secret chatTargets as a
+    -- numeric BNet account ID (plain SanitizeTarget must reject those).
+    local wtType, wtTarget = self:ResolveWhisperFrameTarget(chatFrame)
+    if wtType and wtTarget then
         self._pendingTabSwitch = {
-            chatType  = cfType,
-            target    = cfTarget,
+            chatType  = wtType,
+            target    = wtTarget,
             chatFrame = chatFrame,
             editBox   = chatFrame.editBox,
         }

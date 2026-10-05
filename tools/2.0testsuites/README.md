@@ -36,6 +36,7 @@ and exit non-zero on failure.
 | test_queue_stall | Queue + real State machine, stall/ack/cancel | repo root |
 | test_keybinds | Keybind open path, keydown open semantics, slash-prefill regression | repo root |
 | test_lockdown_fsm | Lockdown handoff FSM, focus-override lifecycle | repo root |
+| test_whisper_tab_target | Whisper/BNet whisper tab target resolution + Show() adoption | repo root |
 | test_sticky_sync | Blizzard stickyType sync + post-lockdown LastUsed restore | repo root |
 | test_recolour | Recolour canonical/display translation + Apply/Clear engine | repo root |
 | test_engine_contract | Language-engine contract: validation, owner lock, purge, dictionary family binding | repo root |

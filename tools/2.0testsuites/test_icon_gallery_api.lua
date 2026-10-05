@@ -176,6 +176,75 @@ local staticData = YapperAPI:GetRaidIconData()
 check("GetRaidIconData returns 8 entries when gallery is present", type(staticData) == "table" and #staticData == 8)
 check("GetRaidIconData entries contain text and code", staticData[8].text == "skull" and staticData[8].code == "rt8")
 
+-- ---------------------------------------------------------------------------
+-- Snap-back: the space IconGallery:Select appends must behave like the
+-- autocomplete-inserted space — a "close" punctuation as the very next
+-- keystroke hops it after itself ("{star} " + "." -> "{star}. ").
+-- ---------------------------------------------------------------------------
+print("\nTest 7: snap-back after icon selection")
+
+-- Minimal Spellcheck surface Autocomplete's snap path needs.
+YapperTable.Spellcheck = {
+    IsEnabled    = function() return true end,
+    Dictionaries = { enUS = {} },
+    IsWordByte   = function(_, b)
+        return (b >= 65 and b <= 90) or (b >= 97 and b <= 122)
+            or b == 39 or b == 45 or (b >= 48 and b <= 57)
+    end,
+    ClassifyBoundary = function(_, text, pos)
+        local b = text and pos and string.byte(text, pos)
+        if not b then return "none" end
+        if b == 32 or b == 10 or b == 13 then return "commit" end
+        -- . , ! ? ; :
+        if b == 46 or b == 44 or b == 33 or b == 63 or b == 59 or b == 58 then
+            return "close"
+        end
+        return "none"
+    end,
+}
+
+local ac_loader, ac_err = loadfile("Src/Autocomplete.lua")
+assert(ac_loader, "failed to load Src/Autocomplete.lua: " .. tostring(ac_err))
+ac_loader("Yapper", YapperTable)
+local AC = YapperTable.Autocomplete
+
+raw = makeRawEditBox("Hello {s", 8)
+YapperAPI:ShowIconGallery(raw, UIParent, "s")
+ig:Select(1)
+check("select marks the inserted space for snap-back",
+    AC._pendingSnap and AC._pendingSnap.box == raw and AC._pendingSnap.spacePos == 13)
+check("caret lands right after the inserted space", raw:GetCursorPosition() == 13)
+
+-- Simulate the user typing "." as the next keystroke.
+raw:SetText("Hello {star} .")
+raw:SetCursorPosition(14)
+AC:OnTextChanged(raw)
+check("close punctuation hops the space after it", raw:GetText() == "Hello {star}. ")
+check("caret ends up after '. '", raw:GetCursorPosition() == 14)
+check("snap marker consumed", AC._pendingSnap == nil)
+
+-- A non-close keystroke consumes the marker without snapping.
+raw = makeRawEditBox("Hello {s", 8)
+YapperAPI:ShowIconGallery(raw, UIParent, "s")
+ig:Select(1)
+raw:SetText("Hello {star} x")
+raw:SetCursorPosition(14)
+AC:OnTextChanged(raw)
+check("letter keystroke does not snap", raw:GetText() == "Hello {star} x")
+check("marker cleared after keystroke", AC._pendingSnap == nil)
+
+-- Snap-back also works when autocomplete is disabled: the icon gallery
+-- inserted the space, so its one-keystroke marker still applies.
+AC.Enabled = false
+raw = makeRawEditBox("Hello {s", 8)
+YapperAPI:ShowIconGallery(raw, UIParent, "s")
+ig:Select(1)
+raw:SetText("Hello {star} !")
+raw:SetCursorPosition(14)
+AC:OnTextChanged(raw)
+check("snap-back works with autocomplete disabled", raw:GetText() == "Hello {star}! ")
+AC.Enabled = true
+
 print(string.rep("-", 60))
 print(string.format("Results: %d/%d passed", TESTS - FAILURES, TESTS))
 if FAILURES > 0 then

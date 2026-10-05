@@ -732,15 +732,20 @@ end
 -- Event hooks (to be wired by EditBox)
 -- ---------------------------------------------------------------------------
 
+--- Mark an addon-inserted trailing space as eligible for snap-back: if the
+--- very next keystroke is a "close" boundary the space hops after it.
+--- Shared by autocomplete acceptance and icon-gallery insertion; consumed
+--- (and always cleared) by the next OnTextChanged.
+---@param editBox  table   The EditBox the space was inserted into.
+---@param spacePos number  1-based byte index of the inserted space.
+function Autocomplete:MarkPendingSnap(editBox, spacePos)
+	self._pendingSnap = { box = editBox, spacePos = spacePos }
+end
+
 --- Called on every keystroke (OnTextChanged).
 --- Computes and displays the ghost-text suggestion.
 ---@param editBox table  The overlay EditBox widget.
 function Autocomplete:OnTextChanged(editBox)
-	if not self:IsEnabled() then
-		YapperAPI:HideGhostText()
-		return
-	end
-
 	local text, pos      = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
 
 	-- Snap-back: if the previous keystroke was our auto-inserted trailing
@@ -748,7 +753,8 @@ function Autocomplete:OnTextChanged(editBox)
 	-- parity-closing '"'), the space hops after the punctuation —
 	-- "hello " + "." -> "hello. ".  The marker lives for exactly one
 	-- keystroke and only ever applies to a space we inserted, never one
-	-- the user typed.
+	-- the user typed.  Runs before the IsEnabled gate so spaces inserted
+	-- by the icon gallery snap even when autocomplete itself is off.
 	local snap = self._pendingSnap
 	self._pendingSnap = nil
 	if snap and snap.box == editBox and pos - 1 == snap.spacePos
@@ -766,6 +772,11 @@ function Autocomplete:OnTextChanged(editBox)
 			end
 			text, pos = YapperTable.Recolour.CanonicalTextAndCursor(editBox)
 		end
+	end
+
+	if not self:IsEnabled() then
+		YapperAPI:HideGhostText()
+		return
 	end
 
 	local word, startIdx = self:ExtractWordAtCursor(text, pos)
@@ -914,7 +925,7 @@ function Autocomplete:OnTabPressed(editBox)
 	-- Snap-back marker: valid for the next keystroke only, and only when
 	-- the space is ours.
 	if trail == " " then
-		self._pendingSnap = { box = editBox, spacePos = spacePos }
+		self:MarkPendingSnap(editBox, spacePos)
 	else
 		self._pendingSnap = nil
 	end

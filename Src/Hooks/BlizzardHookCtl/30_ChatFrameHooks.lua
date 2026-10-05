@@ -848,12 +848,14 @@ function EditBox:HookAllChatFrames()
             local cfTarget = YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget)
             YapperTable.Utils:VerbosePrint("Tab click: chatFrame="..(chatFrame:GetName() or "nil").." chatType="..SafeToString(cfType).." chatTarget="..SafeToString(cfTarget))
 
-            if chatFrame.isTemporary and cfType and (cfType == "WHISPER" or cfType == "BN_WHISPER")
-                and cfTarget and cfTarget ~= "" then
-                -- Whisper tab: restore from Blizzard's chatTarget.
+            -- Whisper tab: restore from Blizzard's chatTarget.  The helper
+            -- also resolves BN_WHISPER |K-token/secret targets to a numeric
+            -- BNet account ID so the whisper doesn't collapse to SAY.
+            local whisperType, whisperTarget = editBox:ResolveWhisperFrameTarget(chatFrame)
+            if whisperType and whisperTarget then
                 ApplyOrStashSwitch(chatFrame, {
-                    chatType = cfType,
-                    target   = cfTarget,
+                    chatType = whisperType,
+                    target   = whisperTarget,
                 })
             else
                 -- Non-whisper tab: restore from per-tab memory if available,

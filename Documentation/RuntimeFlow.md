@@ -166,7 +166,12 @@ paths deliberately bypass or complicate it:
   defers its own `Show()` call to the next frame.
 - **Tab clicks:** `FCF_Tab_OnClick` either applies a switch through `Show()` or
   stores `_pendingTabSwitch` for the next open. This preserves per-tab channel
-  memory without overwriting text already being composed.
+  memory without overwriting text already being composed. Whisper tabs resolve
+  their target through `EditBox:ResolveWhisperFrameTarget`, which recovers
+  BNet `|K`-token or secret `chatTarget`s as a numeric account ID via
+  `BNet_GetBNetIDAccount`; when the attribute cache misses a target, `Show()`
+  also consults the currently selected chat window so a whisper tab keeps its
+  routing instead of collapsing to `SAY`.
 - **External whispers:** `SendTell()` and `SendBNetTell()` snapshot Blizzard's
   whisper context before hiding the native box, then reopen Yapper with the
   target forced as the final authority.

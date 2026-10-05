@@ -157,7 +157,16 @@ function IconGallery:Select(index)
         local after = text:sub(pos + 1)
         local tag = "{" .. data.text .. "}"
         eb:SetText(before .. tag .. " " .. after)
-        eb:SetCursorPosition(startPos + #tag + 1)
+        -- Caret lands just after the inserted space (0-based position =
+        -- the space's 1-based index, same convention Autocomplete uses).
+        eb:SetCursorPosition(startPos + #tag)
+        -- Snap-back marker (shared with autocomplete): typing a "close"
+        -- punctuation as the very next keystroke hops our trailing space
+        -- after it — "{star} " + "." -> "{star}. ".
+        local ac = YapperTable.Autocomplete
+        if ac and type(ac.MarkPendingSnap) == "function" then
+            ac:MarkPendingSnap(eb, startPos + #tag)
+        end
     end
 
     if YapperTable.API then

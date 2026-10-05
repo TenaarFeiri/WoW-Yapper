@@ -522,11 +522,21 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                         self.ChannelLabel.chatFrame = blizzEditBox.chatFrame
                     end
                 end
-                local chatFrame = blizzEditBox:GetParent() or blizzEditBox.chatFrame
+                -- chatFrame field first: GetParent() is UIParent (Blizzard
+                -- reparents editboxes in ChatFrameEditBoxMixin:OnLoad).
+                local chatFrame = blizzEditBox.chatFrame
+                    or (blizzEditBox.GetParent and blizzEditBox:GetParent())
                 if chatFrame then
                     local cfType = chatFrame.chatType
                     -- SanitizeTarget: secret chatTarget must not enter self.Target.
                     local cfTarget = YapperTable.Utils:SanitizeTarget(chatFrame.chatTarget)
+                    -- Whisper tabs can carry a |K-token/secret chatTarget;
+                    -- resolve those to a numeric BNet account ID.
+                    if not cfTarget
+                        and (cfType == "WHISPER" or cfType == "BN_WHISPER") then
+                        local _, wtTarget = self:ResolveWhisperFrameTarget(chatFrame)
+                        cfTarget = wtTarget
+                    end
                     if cfType then
                         self.ChatType = cfType
                     end
@@ -536,9 +546,13 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
                         if self.ChatType == "CHANNEL" then
                             self.ChannelName = ResolveChannelName(tonumber(cfTarget))
                         end
-                    elseif self.ChatType ~= "WHISPER"
-                        and self.ChatType ~= "BN_WHISPER"
-                        and self.ChatType ~= "CHANNEL" then
+                    elseif self.ChatType == "WHISPER" or self.ChatType == "BN_WHISPER" then
+                        -- Whisper tab without a usable target must not keep
+                        -- the previous whisper target (misdirected send).
+                        self.Target = nil
+                        self._secureReplySource = nil
+                        self.ChannelName = nil
+                    elseif self.ChatType ~= "CHANNEL" then
                         -- Switching from a whisper/channel tab to a non-target
                         -- tab (e.g. General/SAY) must clear stale targets,
                         -- otherwise PersistLastUsed can cling to old whispers.

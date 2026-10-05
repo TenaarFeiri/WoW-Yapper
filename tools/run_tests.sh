@@ -36,6 +36,7 @@ GATING_FROM_ROOT=(
     test_keybinds
     test_slash_forwarding
     test_lockdown_fsm
+    test_whisper_tab_target
     test_sticky_sync
     test_forever_names
     test_recolour
