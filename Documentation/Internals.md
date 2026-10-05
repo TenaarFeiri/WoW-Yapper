@@ -478,9 +478,9 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
   - `Hide` ([`../Src/IconGallery.lua#L107`](../Src/IconGallery.lua#L107))
   - `Filter` ([`../Src/IconGallery.lua#L119`](../Src/IconGallery.lua#L119))
   - `Select` ([`../Src/IconGallery.lua#L145`](../Src/IconGallery.lua#L145))
-  - `HandleKeyDown` ([`../Src/IconGallery.lua#L170`](../Src/IconGallery.lua#L170))
-  - `_GetIconMeta` ([`../Src/IconGallery.lua#L213`](../Src/IconGallery.lua#L213))
-  - `OnTextChanged` ([`../Src/IconGallery.lua#L224`](../Src/IconGallery.lua#L224))
+  - `HandleKeyDown` ([`../Src/IconGallery.lua#L179`](../Src/IconGallery.lua#L179))
+  - `_GetIconMeta` ([`../Src/IconGallery.lua#L222`](../Src/IconGallery.lua#L222))
+  - `OnTextChanged` ([`../Src/IconGallery.lua#L233`](../Src/IconGallery.lua#L233))
 - Callbacks fired:
   - `ICON_GALLERY_SHOW`, `ICON_GALLERY_HIDE`, `ICON_GALLERY_SELECT`.
 
@@ -534,10 +534,10 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L80`](../Src/EditBox.lua#L80))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L133`](../Src/EditBox.lua#L133))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L158`](../Src/EditBox.lua#L158))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L488`](../Src/EditBox.lua#L488))
-  - `SetOnSend` ([`../Src/EditBox.lua#L683`](../Src/EditBox.lua#L683))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L529`](../Src/EditBox.lua#L529))
+  - `SetOnSend` ([`../Src/EditBox.lua#L724`](../Src/EditBox.lua#L724))
   - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L732`](../Src/EditBox.lua#L732))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L745`](../Src/EditBox.lua#L745))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L786`](../Src/EditBox.lua#L786))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
