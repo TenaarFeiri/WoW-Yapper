@@ -486,19 +486,19 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L463`](../Src/EditBox.lua#L463))
-  - `EditBox:ResolveWhisperFrameTarget(chatFrame) → string|nil chatType, any target`: Resolve a temporary whisper tab's routing into a Yapper-usable pair. Plain chatTargets pass through SanitizeTarget; BN_WHISPER tabs carrying a `|K`-protected token or secret chatTarget are recovered via `BNet_GetBNetIDAccount` as a numeric account ID, which `Router:Send` consumes directly. ([`../Src/EditBox.lua#L498`](../Src/EditBox.lua#L498))
+  - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L469`](../Src/EditBox.lua#L469))
+  - `EditBox:ResolveWhisperFrameTarget(chatFrame) → string|nil chatType, any target`: Resolve a temporary whisper tab's routing into a Yapper-usable pair. Plain chatTargets pass through SanitizeTarget; BN_WHISPER tabs carrying a `|K`-protected token or secret chatTarget are recovered via `BNet_GetBNetIDAccount` as a numeric account ID, which `Router:Send` consumes directly. ([`../Src/EditBox.lua#L504`](../Src/EditBox.lua#L504))
   - `EditBox:GetActiveEditor() → table|nil`: Return Yapper's currently visible chat editor, preferring multiline while it is open and falling back to the single-line overlay. ([`../Src/EditBox.lua#L95`](../Src/EditBox.lua#L95))
-  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L702`](../Src/EditBox.lua#L702))
-  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L680`](../Src/EditBox.lua#L680))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L801`](../Src/EditBox.lua#L801))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L791`](../Src/EditBox.lua#L791))
+  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L708`](../Src/EditBox.lua#L708))
+  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L686`](../Src/EditBox.lua#L686))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L807`](../Src/EditBox.lua#L807))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L797`](../Src/EditBox.lua#L797))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L108`](../Src/EditBox.lua#L108))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateNewcomerEditBoxHint`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
-  - `box:ParseText(send) → nil`: Execute slash lines through Yapper's forwarding path while leaving plain text for Blizzard's SendText dispatch. ([`../Src/EditBoxCompat.lua#L91`](../Src/EditBoxCompat.lua#L91))
+  - `box:ParseText(send) → nil`: Execute slash lines through Yapper's forwarding path while leaving plain text for Blizzard's SendText dispatch. ([`../Src/EditBoxCompat.lua#L101`](../Src/EditBoxCompat.lua#L101))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
   - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
@@ -536,7 +536,7 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `NextReplyTarget` ([`../Src/EditBox.lua#L158`](../Src/EditBox.lua#L158))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L529`](../Src/EditBox.lua#L529))
   - `SetOnSend` ([`../Src/EditBox.lua#L724`](../Src/EditBox.lua#L724))
-  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L732`](../Src/EditBox.lua#L732))
+  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L738`](../Src/EditBox.lua#L738))
   - `SetPreShowCheck` ([`../Src/EditBox.lua#L786`](../Src/EditBox.lua#L786))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
@@ -850,15 +850,15 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` [`../Src/Multiline.lua#L62`](../Src/Multiline.lua#L62)
   - `Target` [`../Src/Multiline.lua#L63`](../Src/Multiline.lua#L63)
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1082`](../Src/Multiline.lua#L1082))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1041`](../Src/Multiline.lua#L1041))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1086`](../Src/Multiline.lua#L1086))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1045`](../Src/Multiline.lua#L1045))
   - `UpdateLabelGap` [`../Src/Multiline.lua#L168`](../Src/Multiline.lua#L168)
   - `CreateFrame` [`../Src/Multiline.lua#L199`](../Src/Multiline.lua#L199)
-  - `Enter` [`../Src/Multiline.lua#L637`](../Src/Multiline.lua#L637)
-  - `Exit` [`../Src/Multiline.lua#L783`](../Src/Multiline.lua#L783)
-  - `Submit` [`../Src/Multiline.lua#L907`](../Src/Multiline.lua#L907)
-  - `Cancel` [`../Src/Multiline.lua#L1008`](../Src/Multiline.lua#L1008)
-  - `ApplyTheme` [`../Src/Multiline.lua#L1101`](../Src/Multiline.lua#L1101)
+  - `Enter` [`../Src/Multiline.lua#L641`](../Src/Multiline.lua#L641)
+  - `Exit` [`../Src/Multiline.lua#L787`](../Src/Multiline.lua#L787)
+  - `Submit` [`../Src/Multiline.lua#L911`](../Src/Multiline.lua#L911)
+  - `Cancel` [`../Src/Multiline.lua#L1012`](../Src/Multiline.lua#L1012)
+  - `ApplyTheme` [`../Src/Multiline.lua#L1105`](../Src/Multiline.lua#L1105)
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -1178,7 +1178,9 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 ## EditBoxCompat
 
 - Methods:
-  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Toggle Blizzard GetActiveWindow/FocusActiveWindow compatibility wrappers on or off during lockdown handoff and recovery. The wrappers route active-window queries to Yapper while safe and fall back to native behavior during lockdown/bypass. ([`../Src/EditBoxCompat.lua#L197`](../Src/EditBoxCompat.lua#L197))
+  - `EditBox:_SyncActiveChatWindow() → nil`: Align Blizzard's `ACTIVE_CHAT_EDIT_BOX` global with the visible Yapper editor (overlay or multiline), releasing through `DeactivateChat` when Yapper closes, is bypassed, or lockdown hands off. `GetActiveWindow`/`FocusActiveWindow` are never wrapped -- an addon function in those slots taints secure call chains (e.g. `InsertLink` -> `GetActiveWindow` inside a map-pin click, which since 12.1 is followed by the protected `CopyToClipboard` and fails with ADDON_ACTION_FORBIDDEN). ([`../Src/EditBoxCompat.lua#L174`](../Src/EditBoxCompat.lua#L174))
+  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Gate `_SyncActiveChatWindow` during lockdown handoff and recovery so a visible-but-handing-off editor can never claim `ACTIVE_CHAT_EDIT_BOX`. ([`../Src/EditBoxCompat.lua#L217`](../Src/EditBoxCompat.lua#L217))
+  - `EditBox:RegisterFocusWatcher(editBox, onGained, onLost) → nil`: Register an editbox for focus-edge callbacks delivered from a `C_Timer` poll of `HasFocus` instead of `OnEditFocusGained`/`OnEditFocusLost` scripts. Frame scripts run inside whatever stack drove the focus change -- e.g. `InsertLink` -> `SetFocus` inside a map-pin CHATLINK click -- and addon Lua there taints the remainder of the stack (12.1's protected `CopyToClipboard` then fails `ADDON_ACTION_FORBIDDEN` on the click that moves focus). `hooksecurefunc` post-hooks are trampoline-isolated and stay safe; script handlers are not. ([`../Src/EditBoxCompat.lua#L238`](../Src/EditBoxCompat.lua#L238))
 
 ## WhisperMessengerBridge
 

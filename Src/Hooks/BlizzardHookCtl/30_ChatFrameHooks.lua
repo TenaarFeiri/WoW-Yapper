@@ -549,6 +549,23 @@ function EditBox:HookAllChatFrames()
             if self._closing then return end
             if self.OrigEditBox == editBox and self.Overlay and self.Overlay:IsShown() then
                 self:EnsureProxyBackgroundShown()
+                return
+            end
+            -- Blizzard auto-deactivated our ACTIVE editor (e.g. world click):
+            -- re-sync ownership next frame unless Yapper is closing/bypassed
+            -- (closing paths clear _chatCompatEnabled before we get here).
+            if editBox == self.OverlayEdit
+                or (YapperTable.Multiline and editBox == YapperTable.Multiline.EditBox) then
+                local after = C_Timer and C_Timer.After
+                if after and self._chatCompatEnabled ~= false then
+                    after(0, function()
+                        if not (self.GetActiveEditor and self:GetActiveEditor()) then return end
+                        if self._chatCompatEnabled == false then return end
+                        if UserBypassingYapper() then return end
+                        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+                        self:UpdateFocusOverride()
+                    end)
+                end
             end
         end)
         self._deactivateChatHooked = true
@@ -558,6 +575,17 @@ function EditBox:HookAllChatFrames()
     -- paths (e.g. direct EditBox:SetFocus).
     if ChatFrameUtil and ChatFrameUtil.ActivateChat and not self._activateChatHooked then
         hooksecurefunc(ChatFrameUtil, "ActivateChat", function(editBox)
+            -- A Yapper editor activated via a native path (FocusActiveWindow
+            -- on our ACTIVE_CHAT_EDIT_BOX, IM-mode ChooseBoxForSend):
+            -- ActivateChat clears CHAT_FOCUS_OVERRIDE internally, so re-sync
+            -- it here.
+            if editBox == self.OverlayEdit
+                or (YapperTable.Multiline and editBox == YapperTable.Multiline.EditBox) then
+                if self.UpdateFocusOverride then
+                    self:UpdateFocusOverride()
+                end
+                return
+            end
             if not editBox or not editBox.GetName then return end
             local name = editBox:GetName()
             if not name or not name:match("ChatFrame%d+EditBox") then return end
@@ -567,7 +595,23 @@ function EditBox:HookAllChatFrames()
             end
             if UserBypassingYapper() then return end
             if self._suppressActivateChatHook then return end
-            if self.Overlay and self.Overlay:IsShown() then return end
+            if self.Overlay and self.Overlay:IsShown() then
+                -- Native code activated a Blizzard box while our editor is
+                -- up; reclaim ACTIVE_CHAT_EDIT_BOX next frame so
+                -- GetActiveWindow keeps returning the overlay (the old
+                -- GetActiveWindow wrapper's semantics).
+                local after = C_Timer and C_Timer.After
+                if after then
+                    after(0, function()
+                        if not (self.Overlay and self.Overlay:IsShown()) then return end
+                        if self._chatCompatEnabled == false then return end
+                        if UserBypassingYapper() then return end
+                        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+                        self:UpdateFocusOverride()
+                    end)
+                end
+                return
+            end
 
             -- IM mode: the editbox is always shown, so our Show hook never
             -- fires for a user open (IsShown was already true). ActivateChat
@@ -762,6 +806,119 @@ function EditBox:HookAllChatFrames()
             hooksecurefunc("ChatEdit_InsertLink", OnInsertLink)
         end
         self._insertLinkHooked = true
+    end
+
+    -- Try to work around the fact that waypoint pins now attempt copytoclipboard when
+    -- shift-clicked. thanks blizz
+    local function NeutralizeWaypointClipboardCopy()
+        if self._waypointClipboardNeutralized or not WaypointLocationPinMixin then
+            return
+        end
+        local copyFrame
+        local function ShowWaypointSlashCommand()
+            local waypoint = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+            if not waypoint then return end
+            -- POSITION_FACTOR in WaypointLocationDataProvider.lua: 0..1 -> 0..100.
+            local slashCommand = SLASH_MAPPIN1 .. string.format(" %d %.1f %.1f",
+                waypoint.uiMapID,
+                waypoint.position.x * 100,
+                waypoint.position.y * 100)
+            if not copyFrame then
+                copyFrame = CreateFrame("Frame", "YapperWaypointCopyFrame", UIParent, "BackdropTemplate")
+                copyFrame:SetSize(360, 64)
+                copyFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 220)
+                copyFrame:SetFrameStrata("DIALOG")
+                copyFrame:EnableMouse(true)
+                copyFrame:SetBackdrop({
+                    bgFile = "Interface/ChatFrame/ChatFrameBackground",
+                    edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+                    edgeSize = 16,
+                    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+                })
+                copyFrame:SetBackdropColor(0, 0, 0, 0.9)
+                -- Breathing border glow to draw the eye.
+                local glow = CreateFrame("Frame", nil, copyFrame, "BackdropTemplate")
+                glow:SetPoint("TOPLEFT", -2, 2)
+                glow:SetPoint("BOTTOMRIGHT", 2, -2)
+                glow:SetBackdrop({
+                    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+                    edgeSize = 14,
+                    insets = { left = 3, right = 3, top = 3, bottom = 3 },
+                })
+                glow:SetBackdropBorderColor(1, 0.82, 0, 1)
+                glow:SetFrameLevel(copyFrame:GetFrameLevel() + 1)
+                local glowTime = 0
+                glow:SetScript("OnUpdate", function(_, elapsed)
+                    glowTime = glowTime + elapsed
+                    glow:SetAlpha(0.55 + 0.45 * math.sin(glowTime * 4))
+                end)
+                glow:Hide()
+                copyFrame.glow = glow
+                local title = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                title:SetPoint("TOP", 0, -8)
+                title:SetText("Waypoint command -- press Ctrl+C to copy")
+                local eb = CreateFrame("EditBox", nil, copyFrame)
+                eb:SetPoint("CENTER", 0, -10)
+                eb:SetSize(320, 20)
+                eb:SetFontObject(GameFontHighlight)
+                eb:SetAutoFocus(false)
+                eb:SetScript("OnEscapePressed", function(b) b:ClearFocus() copyFrame:Hide() end)
+                eb:SetScript("OnEnterPressed", function(b) b:ClearFocus() copyFrame:Hide() end)
+                eb:SetScript("OnKeyDown", function(_, key)
+                    if key == "C" and IsControlKeyDown() then
+                        -- Let the native copy land first, then dismiss.
+                        C_Timer.After(0.05, function() copyFrame:Hide() end)
+                    end
+                end)
+                copyFrame.editBox = eb
+                copyFrame:SetScript("OnShow", function()
+                    copyFrame.glow:Show()
+                    if SOUNDKIT and SOUNDKIT.UI_BNET_TOAST then
+                        PlaySound(SOUNDKIT.UI_BNET_TOAST)
+                    end
+                end)
+                -- Hand keyboard focus back to the chat editor on dismiss.
+                copyFrame:SetScript("OnHide", function()
+                    copyFrame.glow:Hide()
+                    local editor = self.GetActiveEditor and self:GetActiveEditor()
+                    if editor and editor.SetFocus then editor:SetFocus() end
+                end)
+                tinsert(UISpecialFrames, "YapperWaypointCopyFrame")
+            end
+            copyFrame.editBox:SetText(slashCommand)
+            copyFrame:Show()
+            copyFrame.editBox:SetFocus()
+            copyFrame.editBox:HighlightText()
+        end
+        WaypointLocationPinMixin.CopySlashCommandToClipboard = ShowWaypointSlashCommand
+        -- Pins copy mixin fields at creation; patch instances already in
+        -- the map's pin pool (active AND released).
+        local pool = WorldMapFrame
+            and WorldMapFrame.pinPools
+            and WorldMapFrame.pinPools["WaypointLocationPinTemplate"]
+        if pool then
+            for pin in pool:EnumerateActive() do
+                pin.CopySlashCommandToClipboard = ShowWaypointSlashCommand
+            end
+            if pool.EnumerateInactive then
+                for pin in pool:EnumerateInactive() do
+                    pin.CopySlashCommandToClipboard = ShowWaypointSlashCommand
+                end
+            end
+        end
+        self._waypointClipboardNeutralized = true
+    end
+    NeutralizeWaypointClipboardCopy()
+    -- Blizzard_SharedMapDataProviders is LoadOnDemand: retry on its load.
+    if not self._waypointAddonLoadedHooked and CreateFrame then
+        local addonFrame = CreateFrame("Frame")
+        addonFrame:RegisterEvent("ADDON_LOADED")
+        addonFrame:SetScript("OnEvent", function(_, _, addonName)
+            if addonName == "Blizzard_SharedMapDataProviders" then
+                NeutralizeWaypointClipboardCopy()
+            end
+        end)
+        self._waypointAddonLoadedHooked = true
     end
 
     -- Tab clicks don't trigger the editbox Show() hook, so hook the tab UI.

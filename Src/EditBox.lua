@@ -106,6 +106,12 @@ end
 --- Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE
 --- based on the currently visible Yapper editor, lockdown, and bypass state.
 function EditBox:UpdateFocusOverride()
+    -- Keep ACTIVE_CHAT_EDIT_BOX aligned too: Blizzard's GetActiveWindow must
+    -- return the visible editor natively (EditBoxCompat.lua explains why we
+    -- can't wrap the query).
+    if self._SyncActiveChatWindow then
+        self:_SyncActiveChatWindow()
+    end
     if ChatFrameUtil and ChatFrameUtil.SetChatFocusOverride then
         local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
         local inCombat = InCombatLockdown and InCombatLockdown()

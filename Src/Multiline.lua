@@ -401,30 +401,34 @@ function Multiline:CreateFrame()
 		end
 	end)
 
-	-- Snapshot on focus lost (mirrors the overlay's OnEditFocusLost hook).
-	edit:HookScript("OnEditFocusLost", function(box)
-		-- Don't re-save if we're closing clean (sent).
-		local editBox = YapperTable.EditBox
-		if editBox and editBox._closedClean then
-			return
-		end
+	-- Snapshot on focus lost (mirrors the overlay's focus watcher). Polled,
+	-- not scripted: OnEditFocus* handlers run inside whatever stack moved
+	-- focus (e.g. InsertLink's SetFocus in a map-pin CHATLINK click) and
+	-- addon Lua there taints the remainder -- see EditBoxCompat.lua
+	-- RegisterFocusWatcher.
+	local yapperEditBox = YapperTable.EditBox
+	if yapperEditBox and yapperEditBox.RegisterFocusWatcher then
+		yapperEditBox:RegisterFocusWatcher(edit, function(box)
+			-- Resume typing signals when clicking back in.
+			if State and State:IsIdle() then
+				State:ToMultiline()
+			end
+		end, function(box)
+			-- Don't re-save if we're closing clean (sent).
+			if yapperEditBox._closedClean then
+				return
+			end
 
-		if YapperTable.History then
-			YapperTable.History:AddSnapshot(box, true)
-		end
+			if YapperTable.History then
+				YapperTable.History:AddSnapshot(box, true)
+			end
 
-		-- If focus is lost (e.g. clicked game world), stop typing signals.
-		if State and State:IsMultiline() then
-			State:ToIdle()
-		end
-	end)
-
-	edit:HookScript("OnEditFocusGained", function(box)
-		-- Resume typing signals when clicking back in.
-		if State and State:IsIdle() then
-			State:ToMultiline()
-		end
-	end)
+			-- If focus is lost (e.g. clicked game world), stop typing signals.
+			if State and State:IsMultiline() then
+				State:ToIdle()
+			end
+		end)
+	end
 
 	-- Mirror the overlay's OnChar suppression: after a suggestion hotkey
 	-- (1-6), the digit must not reach the EditBox text. HandleKeyDown sets
