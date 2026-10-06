@@ -649,6 +649,24 @@ Blizzard editbox hooks (taint-free).
   - `EDITBOX_SHOW`, `EDITBOX_HIDE`, `EDITBOX_CHANNEL_CHANGED`.
 - Invariants:
   - `_inBlizzShowHook` and deferred focus handoff guard reentrancy (issue #21 fix).
+  - `NeutralizeWaypointClipboardCopy` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L813`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L813)) replaces `WaypointLocationPinMixin.CopySlashCommandToClipboard`: 12.1 calls protected `CopyToClipboard` after `InsertLink` inside the map-pin CHATLINK click, which is unreachable from any stack carrying addon taint. The replacement rebuilds the `/way` command (same `SLASH_MAPPIN1`/x100 formula) and shows `YapperWaypointCopyFrame` for manual Ctrl+C; under combat lockdown/pet battles it prints the command to chat instead. Future pins inherit the override via `mixin=`; pins already pooled get patched directly (active AND inactive); `Blizzard_SharedMapDataProviders` is LoadOnDemand so an `ADDON_LOADED` retry covers late loads.
+
+## Taint surface
+
+Taint spreads two ways, and both matter when auditing a change:
+
+- **Binding write -> read-side reintroduction.** Any Blizzard-owned binding written by addon code is marked tainted. Any stack that *reads* that binding becomes insecure at the read -- before whatever the value points to even runs. If a protected call sits downstream of that read, it is denied and the original writer is blamed (the journal reports each blamed binding roughly once per taint introduction, so "first click only" is throttling, not flaky repro).
+- **Execution tail.** Once addon Lua runs inside a stack, everything after it executes insecure. `hooksecurefunc` post-hooks are trampoline-isolated and do not do this; `SetScript`/`HookScript` handlers and replaced function fields do.
+
+Load-bearing writes we make into Blizzard-owned state (each is a potential reintroduction point -- enumerate its readers and confirm no protected call can sit downstream):
+
+- `ACTIVE_CHAT_EDIT_BOX` / `LAST_ACTIVE_CHAT_EDIT_BOX` -- claimed via `_SyncActiveChatWindow` so `ChatFrameUtil.GetActiveWindow()` returns the visible Yapper editor (required by bag `InsertLink` return semantics, TRP3's active-editbox check, and the map-pin link path). This taint infected the waypoint click via `InsertLink` -> `GetActiveWindow` -> `CopyToClipboard` in 12.1; the mixin override removes the protected call rather than the ownership.
+- `CHAT_FOCUS_OVERRIDE` -- pointed at the overlay so `OpenChat` routes to Yapper; cleared during lockdown handoff.
+- `WaypointLocationPinMixin.CopySlashCommandToClipboard` (+ pooled pin fields) -- read only inside `OnMouseClickAction`; nothing protected follows it in the 12.1 dispatch (`PlaySound`, then unwind). Re-audit on each PTR: if Blizzard ever places a protected call after that method call, the tainted field breaks it identically.
+- `UISpecialFrames` -- `CloseSpecialWindows` is explicitly written for tainted values and invoked via `securecall`; safe by design.
+- Named frames under `_G` and chat-buffer writes (`AddMessage`) -- same designed-for category.
+
+Rules of thumb for new code: never write a Blizzard-owned binding unless the value-flow audit above has been done; never call `ActivateChat`/`DeactivateChat`/`CopyToClipboard` or other protected-adjacent Blizzard functions from addon context (writes inside them execute under our context); prefer `hooksecurefunc` over field replacement unless the point is to *remove* a protected call.
 
 ## GopherBridge
 
