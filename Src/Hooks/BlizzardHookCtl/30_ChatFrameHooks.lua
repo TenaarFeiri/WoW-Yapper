@@ -823,6 +823,16 @@ function EditBox:HookAllChatFrames()
                 waypoint.uiMapID,
                 waypoint.position.x * 100,
                 waypoint.position.y * 100)
+            -- Restricted contexts (combat lockdown, pet battles): don't pop
+            -- UI at all; leave the command in chat where it can be seen.
+            if InCombatLockdown()
+                or (C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle())
+            then
+                if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+                    DEFAULT_CHAT_FRAME:AddMessage(slashCommand)
+                end
+                return
+            end
             if not copyFrame then
                 copyFrame = CreateFrame("Frame", "YapperWaypointCopyFrame", UIParent, "BackdropTemplate")
                 copyFrame:SetSize(360, 64)
