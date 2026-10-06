@@ -837,6 +837,7 @@ function EditBox:HookAllChatFrames()
                 copyFrame = CreateFrame("Frame", "YapperWaypointCopyFrame", UIParent, "BackdropTemplate")
                 copyFrame:SetSize(360, 64)
                 copyFrame:SetFrameStrata("DIALOG")
+                copyFrame:SetClampedToScreen(true)
                 copyFrame:EnableMouse(true)
                 copyFrame:SetBackdrop({
                     bgFile = "Interface/ChatFrame/ChatFrameBackground",
@@ -929,12 +930,23 @@ function EditBox:HookAllChatFrames()
             end
             copyFrame.command = slashCommand
             copyFrame.editBox:SetText(slashCommand)
-            -- Under the map while it is windowed; centre screen otherwise.
+            -- Under the map while it is windowed; flip above when the space
+            -- below is too tight; centre screen when no map is up.
+            -- ClampedToScreen covers any remaining edge overlap.
             copyFrame:ClearAllPoints()
+            local margin = 8
+            local needed = copyFrame:GetHeight() + margin
             if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown()
                 and not (WorldMapFrame.IsMaximized and WorldMapFrame:IsMaximized())
             then
-                copyFrame:SetPoint("TOP", WorldMapFrame, "BOTTOM", 0, -8)
+                if (WorldMapFrame:GetBottom() or 0) >= needed then
+                    copyFrame:SetPoint("TOP", WorldMapFrame, "BOTTOM", 0, -margin)
+                elseif ((UIParent:GetTop() or 0) - (WorldMapFrame:GetTop() or 0)) >= needed then
+                    copyFrame:SetPoint("BOTTOM", WorldMapFrame, "TOP", 0, margin)
+                else
+                    -- No clean side; stay under and let the clamp pull it in.
+                    copyFrame:SetPoint("TOP", WorldMapFrame, "BOTTOM", 0, -margin)
+                end
             else
                 copyFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 220)
             end
