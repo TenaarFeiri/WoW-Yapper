@@ -836,7 +836,6 @@ function EditBox:HookAllChatFrames()
             if not copyFrame then
                 copyFrame = CreateFrame("Frame", "YapperWaypointCopyFrame", UIParent, "BackdropTemplate")
                 copyFrame:SetSize(360, 64)
-                copyFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 220)
                 copyFrame:SetFrameStrata("DIALOG")
                 copyFrame:EnableMouse(true)
                 copyFrame:SetBackdrop({
@@ -867,8 +866,23 @@ function EditBox:HookAllChatFrames()
                 local title = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
                 title:SetPoint("TOP", 0, -8)
                 title:SetText("Waypoint command -- press Ctrl+C to copy")
+                local countdown = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+                countdown:SetPoint("BOTTOM", 0, 6)
+                countdown:Hide()
+                copyFrame.countdown = countdown
+                -- Once armed by a focus loss, closes 10s later even if the
+                -- user refocuses the field.
+                copyFrame:SetScript("OnUpdate", function()
+                    if not copyFrame.closeDeadline then return end
+                    local remaining = copyFrame.closeDeadline - GetTime()
+                    if remaining <= 0 then
+                        copyFrame:Hide()
+                    else
+                        countdown:SetFormattedText("Closing in %d...", math.ceil(remaining))
+                    end
+                end)
                 local eb = CreateFrame("EditBox", nil, copyFrame)
-                eb:SetPoint("CENTER", 0, -10)
+                eb:SetPoint("CENTER", 0, -4)
                 eb:SetSize(320, 20)
                 eb:SetFontObject(GameFontHighlight)
                 eb:SetAutoFocus(false)
@@ -880,9 +894,25 @@ function EditBox:HookAllChatFrames()
                         C_Timer.After(0.05, function() copyFrame:Hide() end)
                     end
                 end)
+                -- Clicking into the field re-selects the whole command, and
+                -- any user edit is undone: this is a copy box, not an editor.
+                eb:SetScript("OnEditFocusGained", function(b) b:HighlightText() end)
+                eb:SetScript("OnMouseUp", function(b) b:HighlightText() end)
+                eb:SetScript("OnEditFocusLost", function()
+                    copyFrame.closeDeadline = GetTime() + 10
+                    countdown:Show()
+                end)
+                eb:SetScript("OnTextChanged", function(b, userInput)
+                    if userInput and copyFrame.command and b:GetText() ~= copyFrame.command then
+                        b:SetText(copyFrame.command)
+                        b:HighlightText()
+                    end
+                end)
                 copyFrame.editBox = eb
                 copyFrame:SetScript("OnShow", function()
                     copyFrame.glow:Show()
+                    copyFrame.closeDeadline = nil
+                    countdown:Hide()
                     if SOUNDKIT and SOUNDKIT.UI_BNET_TOAST then
                         PlaySound(SOUNDKIT.UI_BNET_TOAST)
                     end
@@ -890,12 +920,24 @@ function EditBox:HookAllChatFrames()
                 -- Hand keyboard focus back to the chat editor on dismiss.
                 copyFrame:SetScript("OnHide", function()
                     copyFrame.glow:Hide()
+                    copyFrame.closeDeadline = nil
+                    countdown:Hide()
                     local editor = self.GetActiveEditor and self:GetActiveEditor()
                     if editor and editor.SetFocus then editor:SetFocus() end
                 end)
                 tinsert(UISpecialFrames, "YapperWaypointCopyFrame")
             end
+            copyFrame.command = slashCommand
             copyFrame.editBox:SetText(slashCommand)
+            -- Under the map while it is windowed; centre screen otherwise.
+            copyFrame:ClearAllPoints()
+            if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown()
+                and not (WorldMapFrame.IsMaximized and WorldMapFrame:IsMaximized())
+            then
+                copyFrame:SetPoint("TOP", WorldMapFrame, "BOTTOM", 0, -8)
+            else
+                copyFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 220)
+            end
             copyFrame:Show()
             copyFrame.editBox:SetFocus()
             copyFrame.editBox:HighlightText()
