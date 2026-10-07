@@ -808,12 +808,16 @@ function EditBox:HookAllChatFrames()
         self._insertLinkHooked = true
     end
 
-    -- Try to work around the fact that waypoint pins now attempt copytoclipboard when
-    -- shift-clicked. thanks blizz
-    local function NeutralizeWaypointClipboardCopy()
-        if self._waypointClipboardNeutralized or not WaypointLocationPinMixin then
-            return
-        end
+    -- Work around waypoint pins attempting copytoclipboard on shift-click
+    -- (thanks blizz). Rather than patching WaypointLocationPinMixin -- a write
+    -- onto pooled pin frames that gets blamed for unrelated combat-protected
+    -- calls like SetPassThroughButtons during pin refresh -- consume CHATLINK
+    -- clicks through MapCanvas's taint-aware global pin handler registry:
+    -- handlers run before OnMouseClickAction and a truthy return skips it, so
+    -- the protected CopyToClipboard is never reached and no Blizzard object
+    -- is written.
+    local OnWaypointPinMouseAction
+    do
         local copyFrame
         local function ShowWaypointSlashCommand()
             local waypoint = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
@@ -954,32 +958,48 @@ function EditBox:HookAllChatFrames()
             copyFrame.editBox:SetFocus()
             copyFrame.editBox:HighlightText()
         end
-        WaypointLocationPinMixin.CopySlashCommandToClipboard = ShowWaypointSlashCommand
-        -- Pins copy mixin fields at creation; patch instances already in
-        -- the map's pin pool (active AND released).
-        local pool = WorldMapFrame
-            and WorldMapFrame.pinPools
-            and WorldMapFrame.pinPools["WaypointLocationPinTemplate"]
-        if pool then
-            for pin in pool:EnumerateActive() do
-                pin.CopySlashCommandToClipboard = ShowWaypointSlashCommand
+        -- Consume CHATLINK clicks on the waypoint pin: do InsertLink + share
+        -- sound + copy frame ourselves, then skip OnMouseClickAction (and the
+        -- protected CopyToClipboard inside it) by returning true.
+        local function WaypointChatLinkHandler(mapCanvas, mouseAction, button)
+            local click = MapCanvasMixin and MapCanvasMixin.MouseAction
+                and MapCanvasMixin.MouseAction.Click
+            if mouseAction ~= click or button ~= "LeftButton"
+                or not IsModifiedClick("CHATLINK") then
+                return false
             end
-            if pool.EnumerateInactive then
-                for pin in pool:EnumerateInactive() do
-                    pin.CopySlashCommandToClipboard = ShowWaypointSlashCommand
+            for pin in mapCanvas:EnumeratePinsByTemplate("WaypointLocationPinTemplate") do
+                if pin:IsMouseOver() then
+                    ChatFrameUtil.InsertLink(C_Map.GetUserWaypointHyperlink())
+                    ShowWaypointSlashCommand()
+                    if SOUNDKIT and SOUNDKIT.UI_MAP_WAYPOINT_CHAT_SHARE then
+                        PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_CHAT_SHARE)
+                    end
+                    return true
                 end
             end
+            return false
         end
-        self._waypointClipboardNeutralized = true
+        OnWaypointPinMouseAction = WaypointChatLinkHandler
     end
-    NeutralizeWaypointClipboardCopy()
-    -- Blizzard_SharedMapDataProviders is LoadOnDemand: retry on its load.
+    local function RegisterWaypointChatLinkHandler()
+        if self._waypointChatLinkHooked then return end
+        if not (WorldMapFrame and WorldMapFrame.AddGlobalPinMouseActionHandler) then
+            return
+        end
+        -- Default priority: run after the waypoint provider's own handler
+        -- (90) so Ctrl+click / toggle-mode placement keeps stock semantics.
+        WorldMapFrame:AddGlobalPinMouseActionHandler(OnWaypointPinMouseAction)
+        self._waypointChatLinkHooked = true
+    end
+    RegisterWaypointChatLinkHandler()
+    -- WorldMapFrame may not exist until the map addon loads: retry then.
     if not self._waypointAddonLoadedHooked and CreateFrame then
         local addonFrame = CreateFrame("Frame")
         addonFrame:RegisterEvent("ADDON_LOADED")
         addonFrame:SetScript("OnEvent", function(_, _, addonName)
-            if addonName == "Blizzard_SharedMapDataProviders" then
-                NeutralizeWaypointClipboardCopy()
+            if addonName == "Blizzard_WorldMap" then
+                RegisterWaypointChatLinkHandler()
             end
         end)
         self._waypointAddonLoadedHooked = true
