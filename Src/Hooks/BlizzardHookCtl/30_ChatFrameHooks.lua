@@ -987,9 +987,10 @@ function EditBox:HookAllChatFrames()
         if not (WorldMapFrame and WorldMapFrame.AddGlobalPinMouseActionHandler) then
             return
         end
-        -- Default priority: run after the waypoint provider's own handler
-        -- (90) so Ctrl+click / toggle-mode placement keeps stock semantics.
-        WorldMapFrame:AddGlobalPinMouseActionHandler(OnWaypointPinMouseAction)
+        -- Far-lowest priority: every other registered handler (debug 100,
+        -- the provider's placement logic at 90, third-party observers) sees
+        -- the click first; we only consume a CHATLINK click nobody claimed.
+        WorldMapFrame:AddGlobalPinMouseActionHandler(OnWaypointPinMouseAction, -1000)
         self._waypointChatLinkHooked = true
     end
     RegisterWaypointChatLinkHandler()
