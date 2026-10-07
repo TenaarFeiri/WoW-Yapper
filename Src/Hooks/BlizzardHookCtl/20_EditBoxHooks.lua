@@ -633,8 +633,11 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     end)
 
     -- clear bypass if focus leaves the bypassed editbox without a Hide.
-    if blizzEditBox and blizzEditBox.HookScript then
-        blizzEditBox:HookScript("OnEditFocusLost", function(eb)
+    -- Polled, not scripted: OnEditFocusLost runs inside whatever stack
+    -- moved focus and addon Lua there taints the remainder -- see
+    -- EditBoxCompat.lua RegisterFocusWatcher.
+    if blizzEditBox and self.RegisterFocusWatcher then
+        self:RegisterFocusWatcher(blizzEditBox, nil, function(eb)
             if UserBypassingYapper() then
                 SetBypassEditBox(nil)
                 SetUserBypassingYapper(false)

@@ -74,6 +74,16 @@ function YapperTable.InstallCompatMethods(box)
     box.UpdateHeader = box.UpdateHeader or function() end
     box.SetFocusRegionsShown = box.SetFocusRegionsShown or function() end
     box.UpdateNewcomerEditBoxHint = box.UpdateNewcomerEditBoxHint or function() end
+    -- Write-through setters: native paths that land on the overlay as the
+    -- active/last-active window (FocusActiveWindow -> ActivateChat ->
+    -- LAST_ACTIVE_CHAT_EDIT_BOX, then IM-mode SendTell/SendBNetTell via
+    -- ChooseBoxForSend) call these expecting a full Blizzard editbox.
+    -- Mirroring the GetAttribute/GetChatType getters keeps the state pair
+    -- consistent; targets are sanitized again at send time.
+    box.SetChatType = box.SetChatType or function(_, chatType) EditBox.ChatType = chatType end
+    box.SetTellTarget = box.SetTellTarget or function(_, target) EditBox.Target = target end
+    box.SetStickyType = box.SetStickyType or function() end
+    box.GetStickyType = box.GetStickyType or function() return "SAY" end
     -- Deprecated wrappers like ChatEdit_SendText(editBox) drive Blizzard's
     -- SendText path, which expects these mixin methods. ParseText must be
     -- real (below); the rest stay harmless no-ops.
@@ -138,84 +148,124 @@ if Multiline and Multiline.EditBox then
     YapperTable.InstallCompatMethods(Multiline.EditBox)
 end
 
--- Return Yapper's editor from Blizzard's active-window queries while we own
--- an editor, so paste/link addons work on it. Wrappers fall back to native
--- during lockdown or bypass so the overlay never enters Blizzard's
--- lockdown path.
-local ENABLE_WINDOW_REPLACEMENTS = true
+-- Blizzard's active-window ownership.
+--
+-- GetActiveWindow/FocusActiveWindow are deliberately left UNTOUCHED. The
+-- previous implementation swapped in Yapper wrappers so Blizzard's queries
+-- returned our editor, but any addon function inside a Blizzard call stack
+-- taints the rest of that stack: ChatFrameUtil.InsertLink calls
+-- GetActiveWindow internally, and since 12.1 a waypoint pin's
+-- OnMouseClickAction calls the protected CopyToClipboard right after
+-- InsertLink -- the wrapper made every shift-clicked map pin raise
+-- ADDON_ACTION_FORBIDDEN blamed on Yapper.
+--
+-- Instead we own the real ACTIVE_CHAT_EDIT_BOX global (a plain value slot;
+-- writing it doesn't taint -- only addon FUNCTIONS in the call stack do).
+-- GetActiveWindow then returns our editor with a fully secure call chain,
+-- and InsertLink's Insert/SetFocus are C methods, so the whole path stays
+-- untainted while still landing links in our editor.
+--
+-- DeactivateChat is used to release: it clears the global through
+-- Blizzard's own bookkeeping and calls our stubbed Deactivate. We do NOT
+-- go through ActivateChat to claim: it would also write
+-- LAST_ACTIVE_CHAT_EDIT_BOX, letting IM-mode ChooseBoxForSend hand the
+-- overlay to SendTell paths that expect full native editboxes.
 
-local origGetActiveWindow = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
-local origFocusActiveWindow = ChatFrameUtil and ChatFrameUtil.FocusActiveWindow
-local compatGetActiveWindow
-local compatFocusActiveWindow
+function EditBox:_SyncActiveChatWindow()
+    if not (ChatFrameUtil and ChatFrameUtil.GetActiveWindow) then return end
 
-if ENABLE_WINDOW_REPLACEMENTS and origGetActiveWindow then
-    compatGetActiveWindow = function()
-        local eb = YapperTable.EditBox
-        local activeEditor = eb and eb.GetActiveEditor and eb:GetActiveEditor()
-        if activeEditor then
-            local bypass = eb._UserBypassingYapper and eb._UserBypassingYapper()
-            local preShow = eb._preShowSuppressed
-            if not bypass and not preShow and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                return activeEditor
+    local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
+    local desired = activeEditor
+    if self._chatCompatEnabled == false
+        or (self._lockdown and self._lockdown.handedOff)
+        or (self._UserBypassingYapper and self._UserBypassingYapper())
+        or (self._BypassEditBox and self._BypassEditBox())
+        or (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+        desired = nil
+    end
+
+    local current = ChatFrameUtil.GetActiveWindow()
+    if current == desired then return end
+
+    if desired then
+        if current then
+            -- Displace the previous holder through Blizzard's own path so
+            -- its Deactivate bookkeeping still runs.
+            if ChatFrameUtil.DeactivateChat then
+                pcall(ChatFrameUtil.DeactivateChat, current)
             end
         end
-        return origGetActiveWindow()
-    end
-    ChatFrameUtil.GetActiveWindow = compatGetActiveWindow
-    -- Also redirect the deprecated global when Blizzard shipped it
-    -- (loadDeprecationFallbacks) so legacy addons see the overlay; never
-    -- create it ourselves if the fallback wasn't loaded.
-    if _G.ChatEdit_GetActiveWindow then
-        _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
-    end
-end
-
-if ENABLE_WINDOW_REPLACEMENTS and origFocusActiveWindow then
-    compatFocusActiveWindow = function()
-        local eb = YapperTable.EditBox
-        -- Focus the visible Yapper editor directly: Blizzard's path calls
-        -- ActivateChat() which clears CHAT_FOCUS_OVERRIDE, undoing the
-        -- active-editor migration.
-        local activeEditor = eb and eb.GetActiveEditor and eb:GetActiveEditor()
-        if activeEditor then
-            local bypass = eb._UserBypassingYapper and eb._UserBypassingYapper()
-            local preShow = eb._preShowSuppressed
-            if not bypass and not preShow and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-                activeEditor:SetFocus()
-                return -- Preserve the override for the active Yapper editor.
-            end
-        end
-        return origFocusActiveWindow()
-    end
-    ChatFrameUtil.FocusActiveWindow = compatFocusActiveWindow
-end
-
--- Enable/disable the wrappers. Native reply/deactivation must not run
--- through our tainted wrappers while secrets are active during lockdown, so
--- lifecycle callers disable before handoff and re-enable after recovery.
-function EditBox:SetChatCompatibilityEnabled(enabled)
-    if not ENABLE_WINDOW_REPLACEMENTS then return end
-    if not ChatFrameUtil then return end
-    if enabled then
-        if compatGetActiveWindow then
-            ChatFrameUtil.GetActiveWindow = compatGetActiveWindow
-            if _G.ChatEdit_GetActiveWindow then
-                _G.ChatEdit_GetActiveWindow = compatGetActiveWindow
-            end
-        end
-        if compatFocusActiveWindow then
-            ChatFrameUtil.FocusActiveWindow = compatFocusActiveWindow
-        end
+        _G.ACTIVE_CHAT_EDIT_BOX = desired
     else
-        if origGetActiveWindow then
-            ChatFrameUtil.GetActiveWindow = origGetActiveWindow
-            if _G.ChatEdit_GetActiveWindow then
-                _G.ChatEdit_GetActiveWindow = origGetActiveWindow
+        -- Only release ownership when WE hold the slot; never touch a
+        -- genuinely active Blizzard editbox.
+        local multilineEdit = YapperTable.Multiline and YapperTable.Multiline.EditBox
+        if current == self.OverlayEdit or (multilineEdit and current == multilineEdit) then
+            if ChatFrameUtil.DeactivateChat then
+                pcall(ChatFrameUtil.DeactivateChat, current)
+            else
+                _G.ACTIVE_CHAT_EDIT_BOX = nil
             end
         end
-        if origFocusActiveWindow then
-            ChatFrameUtil.FocusActiveWindow = origFocusActiveWindow
+    end
+end
+
+-- Lockdown/close ownership of the active-window slot. Lifecycle callers
+-- disable before handoff and re-enable after recovery; the flag is the
+-- gate _SyncActiveChatWindow consults so a hidden/bypassed editor can
+-- never claim ACTIVE_CHAT_EDIT_BOX.
+function EditBox:SetChatCompatibilityEnabled(enabled)
+    self._chatCompatEnabled = enabled and true or false
+    if self._SyncActiveChatWindow then
+        self:_SyncActiveChatWindow()
+    end
+end
+
+-- Focus-edge watching without frame scripts.
+--
+-- OnEditFocusGained/OnEditFocusLost installed via SetScript/HookScript
+-- execute inside whatever call stack drove the focus change -- e.g.
+-- InsertLink's activeWindow:SetFocus() inside a map-pin CHATLINK click --
+-- and any addon Lua there taints the remainder of that stack (12.1 follows
+-- InsertLink with the protected CopyToClipboard, which then errors
+-- ADDON_ACTION_FORBIDDEN, but only on the click that actually moves
+-- focus). hooksecurefunc post-hooks are invoked through the secure
+-- trampoline and do not taint the caller; frame scripts have no such
+-- isolation, so focus transitions are detected by polling HasFocus from a
+-- ticker -- timer callbacks always run outside foreign stacks.
+local FOCUS_POLL_INTERVAL = 0.05
+
+function EditBox:RegisterFocusWatcher(editBox, onGained, onLost)
+    if not editBox then return end
+    local watchers = self._focusWatchers
+    if not watchers then
+        watchers = {}
+        self._focusWatchers = watchers
+    end
+    watchers[#watchers + 1] = {
+        box = editBox,
+        focused = editBox.HasFocus and editBox:HasFocus() and true or false,
+        onGained = onGained,
+        onLost = onLost,
+    }
+    if not self._focusPollTicker and C_Timer and C_Timer.NewTicker then
+        self._focusPollTicker = C_Timer.NewTicker(FOCUS_POLL_INTERVAL, function()
+            self:_PollFocusWatchers()
+        end)
+    end
+end
+
+function EditBox:_PollFocusWatchers()
+    local watchers = self._focusWatchers
+    if not watchers then return end
+    for i = 1, #watchers do
+        local w = watchers[i]
+        local box = w.box
+        local focused = box and box.HasFocus and box:HasFocus() and true or false
+        if focused ~= w.focused then
+            w.focused = focused
+            local fn = focused and w.onGained or w.onLost
+            if fn then fn(box) end
         end
     end
 end

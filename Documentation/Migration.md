@@ -61,10 +61,12 @@ engine contract (see [Dictionaries.md](Dictionaries.md)):
 
 ### 2.1.18+ Active Chat Window Hijack (`ChatEdit_GetActiveWindow`)
 
-In Yapper 2.1.18 and newer, Yapper hooks `_G.ChatEdit_GetActiveWindow` and `ChatFrameUtil.GetActiveWindow` to return Yapper's active editor (`YapperOverlayEditBox` or `Multiline.EditBox` in multiline mode) while active.
+Since 2.4.6_beta_4: Yapper no longer wraps the query functions at all -- it owns Blizzard's real `ACTIVE_CHAT_EDIT_BOX` slot while a Yapper editor is visible, so `ChatFrameUtil.GetActiveWindow()`/`ChatEdit_GetActiveWindow()` remain the native untainted implementations and simply return the active Yapper editbox (`YapperOverlayEditBox`, or `Multiline.EditBox` in multiline mode). This keeps addon lookup behavior identical while staying out of secure call chains (addon functions in those slots taint the whole stack; since 12.1, waypoint-pin linking hits the protected `CopyToClipboard` right after `InsertLink` and failed with ADDON_ACTION_FORBIDDEN).
+
+In Yapper 2.1.18 and newer, Yapper routes active-window queries to Yapper's active editor (`YapperOverlayEditBox` or `Multiline.EditBox` in multiline mode) while active.
 
 * **Impact**:
-  * Standard helper functions like `ChatEdit_GetActiveWindow()` and `GetCurrentKeyBoardFocus()` will return the active Yapper editbox (`YapperOverlayEditBox`) instead of Blizzard's native `ChatFrame1EditBox` etc.
+  * Standard helper functions like `ChatEdit_GetActiveWindow()` and `GetCurrentKeyBoardFocus()` will return the active Yapper editbox (`YapperOverlayEditBox`) instead of Blizzard's native `ChatFrame1EditBox` etc. *(No longer true for `GetActiveWindow` as of 2.4.6_beta_5 -- see above; `CHAT_FOCUS_OVERRIDE` still routes `OpenChat` to the Yapper editor.)*
   * If your addon relies on resolving the native/source Blizzard edit box that Yapper is overlaying, checks like `isBlizzardChatEditBox(editBox)` will return `false`.
   * **Immediate Hide Timing**: Because modern Yapper hides the native Blizzard edit box synchronously on show, any visibility-based loops (e.g. checking `editBox:IsShown()`) will fail to find the active native box.
 * **Migration & Best Practices**:

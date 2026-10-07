@@ -482,17 +482,22 @@ function History:HookOverlayEditBox()
         end
     end)
 
-    -- Snapshot on focus lost.
-    eb:HookScript("OnEditFocusLost", function(box)
-        if YapperTable.YAPPER_DISABLED then return end
-        
-        -- Don't re-save a draft when closing after a send -- prevents the
-        -- "zombie draft" where a sent message reappears via focus-loss save.
-        local editBox = YapperTable.EditBox
-        if editBox and editBox._closedClean then
-            return
-        end
+    -- Snapshot on focus lost. Polled, not scripted: OnEditFocus* handlers
+    -- execute inside whatever stack moved focus (e.g. InsertLink's
+    -- SetFocus in a map-pin CHATLINK click) and addon Lua there taints the
+    -- remainder -- see EditBox:RegisterFocusWatcher in EditBoxCompat.lua.
+    if YapperTable.EditBox and YapperTable.EditBox.RegisterFocusWatcher then
+        YapperTable.EditBox:RegisterFocusWatcher(eb, nil, function(box)
+            if YapperTable.YAPPER_DISABLED then return end
 
-        self:AddSnapshot(box, true)
-    end)
+            -- Don't re-save a draft when closing after a send -- prevents the
+            -- "zombie draft" where a sent message reappears via focus-loss save.
+            local editBox = YapperTable.EditBox
+            if editBox and editBox._closedClean then
+                return
+            end
+
+            self:AddSnapshot(box, true)
+        end)
+    end
 end

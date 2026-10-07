@@ -549,6 +549,23 @@ function EditBox:HookAllChatFrames()
             if self._closing then return end
             if self.OrigEditBox == editBox and self.Overlay and self.Overlay:IsShown() then
                 self:EnsureProxyBackgroundShown()
+                return
+            end
+            -- Blizzard auto-deactivated our ACTIVE editor (e.g. world click):
+            -- re-sync ownership next frame unless Yapper is closing/bypassed
+            -- (closing paths clear _chatCompatEnabled before we get here).
+            if editBox == self.OverlayEdit
+                or (YapperTable.Multiline and editBox == YapperTable.Multiline.EditBox) then
+                local after = C_Timer and C_Timer.After
+                if after and self._chatCompatEnabled ~= false then
+                    after(0, function()
+                        if not (self.GetActiveEditor and self:GetActiveEditor()) then return end
+                        if self._chatCompatEnabled == false then return end
+                        if UserBypassingYapper() then return end
+                        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+                        self:UpdateFocusOverride()
+                    end)
+                end
             end
         end)
         self._deactivateChatHooked = true
@@ -558,6 +575,17 @@ function EditBox:HookAllChatFrames()
     -- paths (e.g. direct EditBox:SetFocus).
     if ChatFrameUtil and ChatFrameUtil.ActivateChat and not self._activateChatHooked then
         hooksecurefunc(ChatFrameUtil, "ActivateChat", function(editBox)
+            -- A Yapper editor activated via a native path (FocusActiveWindow
+            -- on our ACTIVE_CHAT_EDIT_BOX, IM-mode ChooseBoxForSend):
+            -- ActivateChat clears CHAT_FOCUS_OVERRIDE internally, so re-sync
+            -- it here.
+            if editBox == self.OverlayEdit
+                or (YapperTable.Multiline and editBox == YapperTable.Multiline.EditBox) then
+                if self.UpdateFocusOverride then
+                    self:UpdateFocusOverride()
+                end
+                return
+            end
             if not editBox or not editBox.GetName then return end
             local name = editBox:GetName()
             if not name or not name:match("ChatFrame%d+EditBox") then return end
@@ -567,7 +595,23 @@ function EditBox:HookAllChatFrames()
             end
             if UserBypassingYapper() then return end
             if self._suppressActivateChatHook then return end
-            if self.Overlay and self.Overlay:IsShown() then return end
+            if self.Overlay and self.Overlay:IsShown() then
+                -- Native code activated a Blizzard box while our editor is
+                -- up; reclaim ACTIVE_CHAT_EDIT_BOX next frame so
+                -- GetActiveWindow keeps returning the overlay (the old
+                -- GetActiveWindow wrapper's semantics).
+                local after = C_Timer and C_Timer.After
+                if after then
+                    after(0, function()
+                        if not (self.Overlay and self.Overlay:IsShown()) then return end
+                        if self._chatCompatEnabled == false then return end
+                        if UserBypassingYapper() then return end
+                        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+                        self:UpdateFocusOverride()
+                    end)
+                end
+                return
+            end
 
             -- IM mode: the editbox is always shown, so our Show hook never
             -- fires for a user open (IsShown was already true). ActivateChat
@@ -762,6 +806,204 @@ function EditBox:HookAllChatFrames()
             hooksecurefunc("ChatEdit_InsertLink", OnInsertLink)
         end
         self._insertLinkHooked = true
+    end
+
+    -- Work around waypoint pins attempting copytoclipboard on shift-click
+    -- (thanks blizz). Rather than patching WaypointLocationPinMixin -- a write
+    -- onto pooled pin frames that gets blamed for unrelated combat-protected
+    -- calls like SetPassThroughButtons during pin refresh -- consume CHATLINK
+    -- clicks through MapCanvas's taint-aware global pin handler registry:
+    -- handlers run before OnMouseClickAction and a truthy return skips it, so
+    -- the protected CopyToClipboard is never reached and no Blizzard object
+    -- is written.
+    local OnWaypointPinMouseAction
+    do
+        local copyFrame
+        local function ShowWaypointSlashCommand()
+            local waypoint = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+            if not waypoint then return end
+            -- POSITION_FACTOR in WaypointLocationDataProvider.lua: 0..1 -> 0..100.
+            local slashCommand = SLASH_MAPPIN1 .. string.format(" %d %.1f %.1f",
+                waypoint.uiMapID,
+                waypoint.position.x * 100,
+                waypoint.position.y * 100)
+            -- Restricted contexts (combat lockdown, pet battles): don't pop
+            -- UI at all; leave the command in chat where it can be seen.
+            if InCombatLockdown()
+                or (C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle())
+            then
+                if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+                    DEFAULT_CHAT_FRAME:AddMessage(slashCommand)
+                end
+                return
+            end
+            if not copyFrame then
+                copyFrame = CreateFrame("Frame", "YapperWaypointCopyFrame", UIParent, "BackdropTemplate")
+                copyFrame:SetSize(360, 64)
+                copyFrame:SetFrameStrata("DIALOG")
+                copyFrame:SetClampedToScreen(true)
+                copyFrame:EnableMouse(true)
+                copyFrame:SetBackdrop({
+                    bgFile = "Interface/ChatFrame/ChatFrameBackground",
+                    edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+                    edgeSize = 16,
+                    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+                })
+                copyFrame:SetBackdropColor(0, 0, 0, 0.9)
+                -- Breathing border glow to draw the eye.
+                local glow = CreateFrame("Frame", nil, copyFrame, "BackdropTemplate")
+                glow:SetPoint("TOPLEFT", -2, 2)
+                glow:SetPoint("BOTTOMRIGHT", 2, -2)
+                glow:SetBackdrop({
+                    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+                    edgeSize = 14,
+                    insets = { left = 3, right = 3, top = 3, bottom = 3 },
+                })
+                glow:SetBackdropBorderColor(1, 0.82, 0, 1)
+                glow:SetFrameLevel(copyFrame:GetFrameLevel() + 1)
+                local glowTime = 0
+                glow:SetScript("OnUpdate", function(_, elapsed)
+                    glowTime = glowTime + elapsed
+                    glow:SetAlpha(0.55 + 0.45 * math.sin(glowTime * 4))
+                end)
+                glow:Hide()
+                copyFrame.glow = glow
+                local title = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+                title:SetPoint("TOP", 0, -8)
+                title:SetText("Waypoint command -- press Ctrl+C to copy")
+                local countdown = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+                countdown:SetPoint("BOTTOM", 0, 6)
+                countdown:Hide()
+                copyFrame.countdown = countdown
+                -- Once armed by a focus loss, closes 10s later even if the
+                -- user refocuses the field.
+                copyFrame:SetScript("OnUpdate", function()
+                    if not copyFrame.closeDeadline then return end
+                    local remaining = copyFrame.closeDeadline - GetTime()
+                    if remaining <= 0 then
+                        copyFrame:Hide()
+                    else
+                        countdown:SetFormattedText("Closing in %d...", math.ceil(remaining))
+                    end
+                end)
+                local eb = CreateFrame("EditBox", nil, copyFrame)
+                eb:SetPoint("CENTER", 0, -4)
+                eb:SetSize(320, 20)
+                eb:SetFontObject(GameFontHighlight)
+                eb:SetAutoFocus(false)
+                eb:SetScript("OnEscapePressed", function(b) b:ClearFocus() copyFrame:Hide() end)
+                eb:SetScript("OnEnterPressed", function(b) b:ClearFocus() copyFrame:Hide() end)
+                eb:SetScript("OnKeyDown", function(_, key)
+                    if key == "C" and IsControlKeyDown() then
+                        -- Let the native copy land first, then dismiss.
+                        C_Timer.After(0.05, function() copyFrame:Hide() end)
+                    end
+                end)
+                -- Clicking into the field re-selects the whole command, and
+                -- any user edit is undone: this is a copy box, not an editor.
+                eb:SetScript("OnEditFocusGained", function(b) b:HighlightText() end)
+                eb:SetScript("OnMouseUp", function(b) b:HighlightText() end)
+                eb:SetScript("OnEditFocusLost", function()
+                    copyFrame.closeDeadline = GetTime() + 10
+                    countdown:Show()
+                end)
+                eb:SetScript("OnTextChanged", function(b, userInput)
+                    if userInput and copyFrame.command and b:GetText() ~= copyFrame.command then
+                        b:SetText(copyFrame.command)
+                        b:HighlightText()
+                    end
+                end)
+                copyFrame.editBox = eb
+                copyFrame:SetScript("OnShow", function()
+                    copyFrame.glow:Show()
+                    copyFrame.closeDeadline = nil
+                    countdown:Hide()
+                    if SOUNDKIT and SOUNDKIT.UI_BNET_TOAST then
+                        PlaySound(SOUNDKIT.UI_BNET_TOAST)
+                    end
+                end)
+                -- Hand keyboard focus back to the chat editor on dismiss.
+                copyFrame:SetScript("OnHide", function()
+                    copyFrame.glow:Hide()
+                    copyFrame.closeDeadline = nil
+                    countdown:Hide()
+                    local editor = self.GetActiveEditor and self:GetActiveEditor()
+                    if editor and editor.SetFocus then editor:SetFocus() end
+                end)
+                tinsert(UISpecialFrames, "YapperWaypointCopyFrame")
+            end
+            copyFrame.command = slashCommand
+            copyFrame.editBox:SetText(slashCommand)
+            -- Under the map while it is windowed; flip above when the space
+            -- below is too tight; centre screen when no map is up.
+            -- ClampedToScreen covers any remaining edge overlap.
+            copyFrame:ClearAllPoints()
+            local margin = 8
+            local needed = copyFrame:GetHeight() + margin
+            if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown()
+                and not (WorldMapFrame.IsMaximized and WorldMapFrame:IsMaximized())
+            then
+                if (WorldMapFrame:GetBottom() or 0) >= needed then
+                    copyFrame:SetPoint("TOP", WorldMapFrame, "BOTTOM", 0, -margin)
+                elseif ((UIParent:GetTop() or 0) - (WorldMapFrame:GetTop() or 0)) >= needed then
+                    copyFrame:SetPoint("BOTTOM", WorldMapFrame, "TOP", 0, margin)
+                else
+                    -- No clean side; stay under and let the clamp pull it in.
+                    copyFrame:SetPoint("TOP", WorldMapFrame, "BOTTOM", 0, -margin)
+                end
+            else
+                copyFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 220)
+            end
+            copyFrame:Show()
+            copyFrame.editBox:SetFocus()
+            copyFrame.editBox:HighlightText()
+        end
+        -- Consume CHATLINK clicks on the waypoint pin: do InsertLink + share
+        -- sound + copy frame ourselves, then skip OnMouseClickAction (and the
+        -- protected CopyToClipboard inside it) by returning true.
+        local function WaypointChatLinkHandler(mapCanvas, mouseAction, button)
+            local click = MapCanvasMixin and MapCanvasMixin.MouseAction
+                and MapCanvasMixin.MouseAction.Click
+            if mouseAction ~= click or button ~= "LeftButton"
+                or not IsModifiedClick("CHATLINK") then
+                return false
+            end
+            for pin in mapCanvas:EnumeratePinsByTemplate("WaypointLocationPinTemplate") do
+                if pin:IsMouseOver() then
+                    ChatFrameUtil.InsertLink(C_Map.GetUserWaypointHyperlink())
+                    ShowWaypointSlashCommand()
+                    if SOUNDKIT and SOUNDKIT.UI_MAP_WAYPOINT_CHAT_SHARE then
+                        PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_CHAT_SHARE)
+                    end
+                    return true
+                end
+            end
+            return false
+        end
+        OnWaypointPinMouseAction = WaypointChatLinkHandler
+    end
+    local function RegisterWaypointChatLinkHandler()
+        if self._waypointChatLinkHooked then return end
+        if not (WorldMapFrame and WorldMapFrame.AddGlobalPinMouseActionHandler) then
+            return
+        end
+        -- Far-lowest priority: every other registered handler (debug 100,
+        -- the provider's placement logic at 90, third-party observers) sees
+        -- the click first; we only consume a CHATLINK click nobody claimed.
+        WorldMapFrame:AddGlobalPinMouseActionHandler(OnWaypointPinMouseAction, -1000)
+        self._waypointChatLinkHooked = true
+    end
+    RegisterWaypointChatLinkHandler()
+    -- WorldMapFrame may not exist until the map addon loads: retry then.
+    if not self._waypointAddonLoadedHooked and CreateFrame then
+        local addonFrame = CreateFrame("Frame")
+        addonFrame:RegisterEvent("ADDON_LOADED")
+        addonFrame:SetScript("OnEvent", function(_, _, addonName)
+            if addonName == "Blizzard_WorldMap" then
+                RegisterWaypointChatLinkHandler()
+            end
+        end)
+        self._waypointAddonLoadedHooked = true
     end
 
     -- Tab clicks don't trigger the editbox Show() hook, so hook the tab UI.

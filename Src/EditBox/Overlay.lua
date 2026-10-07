@@ -761,10 +761,19 @@ function EditBox:CreateOverlay()
         YapperTable.Spellcheck:Bind(edit, frame)
     end
 
-    -- Entering multiline hides the overlay directly, so the hint lifecycle
-    -- is tied to this frame's OnHide.
+    -- Visibility drives ACTIVE_CHAT_EDIT_BOX ownership both ways: OnShow
+    -- claims it (covers opens that skip the UpdateFocusOverride funnel),
+    -- OnHide releases it (covers external hides from bridges/multiline).
+    frame:HookScript("OnShow", function()
+        if self.UpdateFocusOverride then
+            self:UpdateFocusOverride()
+        end
+    end)
     frame:HookScript("OnHide", function()
         self:HideMultilineHint()
+        if self._SyncActiveChatWindow then
+            self:_SyncActiveChatWindow()
+        end
     end)
 
     -- Mirror Blizzard-side sends into our channel state during lockdown
