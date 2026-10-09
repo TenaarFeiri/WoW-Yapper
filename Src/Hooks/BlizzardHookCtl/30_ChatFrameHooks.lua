@@ -895,8 +895,12 @@ function EditBox:HookAllChatFrames()
                 eb:SetScript("OnEnterPressed", function(b) b:ClearFocus() copyFrame:Hide() end)
                 eb:SetScript("OnKeyDown", function(_, key)
                     if key == "C" and IsControlKeyDown() then
-                        -- Let the native copy land first, then dismiss.
-                        C_Timer.After(0.05, function() copyFrame:Hide() end)
+                        -- Let the native copy land first, then dismiss --
+                        -- unless a newer command was shown in the meantime.
+                        local copied = copyFrame.command
+                        C_Timer.After(0.05, function()
+                            if copyFrame.command == copied then copyFrame:Hide() end
+                        end)
                     end
                 end)
                 -- Clicking into the field re-selects the whole command, and
@@ -970,7 +974,8 @@ function EditBox:HookAllChatFrames()
             end
             for pin in mapCanvas:EnumeratePinsByTemplate("WaypointLocationPinTemplate") do
                 if pin:IsMouseOver() then
-                    ChatFrameUtil.InsertLink(C_Map.GetUserWaypointHyperlink())
+                    local link = C_Map.GetUserWaypointHyperlink()
+                    if link then ChatFrameUtil.InsertLink(link) end
                     ShowWaypointSlashCommand()
                     if SOUNDKIT and SOUNDKIT.UI_MAP_WAYPOINT_CHAT_SHARE then
                         PlaySound(SOUNDKIT.UI_MAP_WAYPOINT_CHAT_SHARE)
