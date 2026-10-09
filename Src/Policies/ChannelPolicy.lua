@@ -22,6 +22,19 @@ local function IsTargetedType(ct)
     return IsWhisperType(ct) or ct == "CHANNEL"
 end
 
+-- Pseudo-types Blizzard marks on frames/boxes that are never valid compose
+-- targets: the voice-transcription output box and the pet-battle log tab.
+-- They can leak in through attribute caches, frame context, or sticky state.
+local UNSENDABLE_CHAT_TYPES = {
+    VOICE_TEXT = true,
+    PET_BATTLE_COMBAT_LOG = true,
+}
+
+function ChannelPolicy:IsSendableChatType(chatType)
+    return type(chatType) == "string" and chatType ~= ""
+        and not UNSENDABLE_CHAT_TYPES[chatType]
+end
+
 local function SanitizeTarget(value)
     local utils = YapperTable and YapperTable.Utils
     if utils and type(utils.SanitizeTarget) == "function" then
@@ -50,7 +63,7 @@ end
 
 local function BuildSelection(chatType, language, target, channelName)
     target = SanitizeTarget(target)
-    if not chatType or chatType == "" then
+    if not ChannelPolicy:IsSendableChatType(chatType) then
         chatType = "SAY"
     end
 
@@ -104,7 +117,7 @@ function ChannelPolicy:BuildPersistedLastUsed(current, previous, cfg, groupChatT
 
     local ct = current.chatType
     local currentTarget = SanitizeTarget(current.target)
-    if not ct or ct == "" then
+    if not ChannelPolicy:IsSendableChatType(ct) then
         return nil
     end
 
