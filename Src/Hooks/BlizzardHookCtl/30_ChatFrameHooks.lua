@@ -784,7 +784,12 @@ function EditBox:HookAllChatFrames()
             local routedEditor = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
                 and ChatFrameUtil.GetActiveWindow()
             if activeEditor and routedEditor == activeEditor then
-                if activeEditor.SetFocus then
+                -- Blizzard's InsertLink can return true via special targets
+                -- (macro editor, professions search, communities box) before
+                -- ever touching a chat window; only re-assert focus when it
+                -- is free or already ours, never steal it mid-edit.
+                local focusOwner = GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus()
+                if activeEditor.SetFocus and (not focusOwner or focusOwner == activeEditor) then
                     activeEditor:SetFocus()
                 end
                 return
