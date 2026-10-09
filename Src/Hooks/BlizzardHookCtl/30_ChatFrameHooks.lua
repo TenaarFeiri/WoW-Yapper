@@ -977,6 +977,10 @@ function EditBox:HookAllChatFrames()
                 or not IsModifiedClick("CHATLINK") then
                 return false
             end
+            -- Tested: yielding to Blizzard's own share path under
+            -- lockdown made no difference -- the ACTIVE_CHAT_EDIT_BOX
+            -- binding read inside InsertLink stays tainted regardless, so
+            -- we always consume and do the insert + copy card ourselves.
             -- IsMouseOver alone can misfire when another pin overlaps the
             -- waypoint pin; GetMouseFocus identifies the actual click target.
             local mouseFocus = GetMouseFocus and GetMouseFocus()
