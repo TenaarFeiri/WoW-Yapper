@@ -1004,7 +1004,19 @@ function EditBox:SetupOverlayScripts()
                         -- Allow Show-hook lockdown logic to run again.
                         self._lockdown.showHandled = false
                         self:UpdateFocusOverride()
-                        YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
+                        -- ADDON_RESTRICTION_STATE_CHANGED fires once per
+                        -- restriction type, so a single lift can run this
+                        -- recovery several times; coalesce the user-facing
+                        -- notice behind a timer so it prints once.
+                        if not self._lockdown.resumeNoticePending then
+                            self._lockdown.resumeNoticePending = true
+                            C_Timer.After(0.1, function()
+                                self._lockdown.resumeNoticePending = false
+                                if not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+                                    YapperTable.Utils:Print("info", "Lockdown ended — press Enter to resume typing.")
+                                end
+                            end)
+                        end
                         ticker:Cancel()
                         return
                     end
