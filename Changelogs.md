@@ -19,6 +19,8 @@
 - The What's New and welcome popups now offer spellcheck, autocomplete, adaptive learning, and autocorrect toggles. Enabling spellcheck asks which dictionary language to load first. Autocorrect stays greyed out until spellcheck and adaptive learning are both on, in settings too.
 - Player names are recognised for free: Yapper keeps a session-only list of character names it sees (party, raid, friends, guild, Battle.net, and people chatting around you) and treats them as vocabulary -- party member names are no longer flagged as typos or rewritten by autocorrect, and autocomplete can finish a name you've seen this session. Nothing is saved to disk, name handling is Forever-aware (Firstname Lastname counts, realm suffixes don't), and all harvesting stops completely during combat and addon restrictions.
 - You may now post more than two links in a single post.
+- Map pin sharing workaround: shift-clicking a waypoint pin still posts the waypoint link into chat like always, and since 12.1's clipboard copy can't run while a chat addon is installed, Yapper shows a small card with the /way command preselected instead -- Ctrl+C to copy, Esc to dismiss. It never appears during combat or a pet battle.
+- Links from bags, TRP3, map pins, and other addons now insert into Yapper exactly as they would into the default chat box -- while the editor is open, Yapper claims Blizzard's active-editbox slot so the standard link-routing code finds it.
 
 ### Technical Changes
 - Removed the built-in English fallback engine. All language behaviour now flows through the registered engine contract, and dictionaries ship their own engine which controls spellchecking logic.
@@ -29,6 +31,7 @@
 - `Src/Names.lua`: a bounded (256-entry) session-only ring of observed player names. Every ingress is gated through `Utils:IsSecret`, no collection runs while `InCombatLockdown()` or any `Enum.AddOnRestrictionType` is active, and entering a restricted state purges the buffer. `Spellcheck:IsWordCorrect` treats a known name as correct, which also makes it untouchable to autocorrect's split/join fixes.
 - Message splitting now follows WoW's real two-axis budget: `ChatFrameEditBoxTemplate` budgets 255 *visible* bytes plus 1023 *invisible* (markup) bytes, so a hyperlink only spends its displayed `[name]` against the limit and colour/link markup is charged separately. `Chunking:Measure` reports both axes and `Chat:SendPosts` validates against them.
 - Queue hardening for delayed chat confirmations: stalled-and-requeued entries are timestamped (`_stalledAt`), a matching late echo consumes the requeued copy instead of resending it, and a requeued head older than 20 seconds is dropped as presumed-delivered. `CHAT_MSG_GUILD` and `CHAT_MSG_GUILD_DISCORD` now satisfy each other's acknowledgements (Discord-integrated guilds can echo either event), guild sends use a 3x stall window matching the slower community backend, and a readable sender-GUID mismatch now rejects an event before the secret-payload shortcut can consume it.
+- Chat compatibility rework: instead of wrapping `GetActiveWindow`/`FocusActiveWindow` -- addon functions in those slots taint every stack that reads them, which is what 12.1's protected `CopyToClipboard` blamed on the map-pin click -- Yapper now claims `ACTIVE_CHAT_EDIT_BOX` directly while visible and clears `CHAT_FOCUS_OVERRIDE` on every hide path. Focus transitions are polled rather than script-handled, so addon Lua never runs inside a foreign protected stack. The waypoint intercept goes through the map canvas's `AddGlobalPinMouseActionHandler` registry, the taint-aware extension point Blizzard built for this -- no Blizzard mixin or pin-frame fields are written. The full taint model and the write inventory are documented in `Documentation/Internals.md`.
 
 ### Bug Fixes
 - BNet whispers should now work correctly in tabs.
@@ -57,6 +60,9 @@
 - Arrow-key history recall no longer eats your draft: pressing Up with text already in the box stashes it, and pressing Down past the newest entry restores it -- text, cursor, and the channel or whisper target it was being written in.
 - Moved Autocorrect and Toast toggles to the General tab.
 - Fixed duplicate chat posts when a server echo is delayed, caused by things like a framerate hitch or a slow Discord-integrated guild backend.
+- Clicking an item link while editing a macro, searching a profession recipe, or typing in the Communities chat box no longer yanks focus into chat -- those editors handled the link themselves and keep it.
+- Closing the editor through the multiline view or an external addon no longer leaves Blizzard's chat-focus override pointed at a hidden editbox, which could silently eat Enter presses.
+- Punctuating right after inserting an icon from the gallery now snaps the trailing space correctly, and typing in another editbox no longer cancels a pending snap on the first one.
 
 # 2.4.5
 
