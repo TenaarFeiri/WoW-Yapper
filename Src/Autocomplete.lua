@@ -756,7 +756,11 @@ function Autocomplete:OnTextChanged(editBox)
 	-- the user typed.  Runs before the IsEnabled gate so spaces inserted
 	-- by the icon gallery snap even when autocomplete itself is off.
 	local snap = self._pendingSnap
-	self._pendingSnap = nil
+	if snap and snap.box == editBox then
+		-- Consume only on a keystroke in the box that owns the marker; a
+		-- keystroke in another editbox must not eat it.
+		self._pendingSnap = nil
+	end
 	if snap and snap.box == editBox and pos - 1 == snap.spacePos
 		and string_sub(text, snap.spacePos, snap.spacePos) == " " then
 		local sc = YapperTable.Spellcheck
