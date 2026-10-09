@@ -538,6 +538,18 @@ function EditBox:Show(origEditBox)
         self._secureReplySource = nil
     end
 
+    -- Safety net: pseudo-types like VOICE_TEXT (transcription box) and
+    -- PET_BATTLE_COMBAT_LOG are never valid compose targets; they can leak
+    -- in through attribute caches, frame context, or sticky state.
+    local sendablePolicy = YapperTable.ChannelPolicy
+    if sendablePolicy and type(sendablePolicy.IsSendableChatType) == "function"
+        and not sendablePolicy:IsSendableChatType(self.ChatType) then
+        self.ChatType = "SAY"
+        self.Target = nil
+        self._secureReplySource = nil
+        self.ChannelName = nil
+    end
+
     -- Safety net: non-target chat types must not carry stale whisper/channel targets.
     if self.ChatType ~= "WHISPER" and self.ChatType ~= "BN_WHISPER" and self.ChatType ~= "CHANNEL" then
         self.Target = nil
