@@ -65,6 +65,11 @@ YapperTable.WHATS_NEW = {
             "A late server echo -- a framerate hitch, a slow Discord-guild backend -- could make Yapper "
                 .. "repost a chunk that had delivered. Late echoes are now recognised and stale resends "
                 .. "dropped."),
+        note("Map pin sharing",
+            "Shift-clicking a map pin still drops the waypoint link into chat like always. Blizzard also "
+                .. "tries to copy the /way command to your clipboard now, which never works when a chat "
+                .. "addon is involved, so Yapper just shows a small card with the command preselected. "
+                .. "Ctrl+C to copy it, Esc to dismiss."),
         note("Bug fixes",
             "- BNet whispers should now work correctly in tabs.\n\n",
             "- Autocorrect and toast toggles moved to the General tab.\n\n"
@@ -78,7 +83,11 @@ YapperTable.WHATS_NEW = {
                 .. "- Pressing Up to recall sent messages no longer loses text you had already typed. "
                 .. "It comes back when you navigate past the newest entry.\n\n"
                 .. "- Fixed 'secret value' chat errors in delves: /join and /channel now go through "
-                .. "the client directly instead of Blizzard's slash handler.")
+                .. "the client directly instead of Blizzard's slash handler.\n\n"
+                .. "- Links from bags, TRP3, map pins and other addons insert into Yapper the same way "
+                .. "they would into the default chat box.\n\n"
+                .. "- Punctuating right after inserting an icon from the gallery snaps the space over "
+                .. "correctly now, same as autocomplete.")
     ),
     ["2.4.5"] = release(
         note("World of Warcraft: Forever support",
