@@ -532,12 +532,12 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - Internal helper exports: `SetFrameFillColour` [`../Src/EditBox.lua#L613`](../Src/EditBox.lua#L613)
 - Methods:
   - `ClearLockdownState` ([`../Src/EditBox.lua#L80`](../Src/EditBox.lua#L80))
-  - `AddReplyTarget` ([`../Src/EditBox.lua#L133`](../Src/EditBox.lua#L133))
-  - `NextReplyTarget` ([`../Src/EditBox.lua#L158`](../Src/EditBox.lua#L158))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L529`](../Src/EditBox.lua#L529))
-  - `SetOnSend` ([`../Src/EditBox.lua#L724`](../Src/EditBox.lua#L724))
+  - `AddReplyTarget` ([`../Src/EditBox.lua#L139`](../Src/EditBox.lua#L139))
+  - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L535`](../Src/EditBox.lua#L535))
+  - `SetOnSend` ([`../Src/EditBox.lua#L730`](../Src/EditBox.lua#L730))
   - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L738`](../Src/EditBox.lua#L738))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L786`](../Src/EditBox.lua#L786))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L792`](../Src/EditBox.lua#L792))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -570,8 +570,8 @@ Bound by `SetupOverlayScripts` when overlay is created.
 
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
-  - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L41`](../Src/EditBox/Handlers.lua#L41)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1132`](../Src/EditBox/Handlers.lua#L1132)).
+  - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L44`](../Src/EditBox/Handlers.lua#L44)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1152`](../Src/EditBox/Handlers.lua#L1152)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -589,9 +589,9 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
-  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1083`](../Src/Hooks/ShowHide.lua#L1083))
-  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1034`](../Src/Hooks/ShowHide.lua#L1034))
-  - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L1021`](../Src/Hooks/ShowHide.lua#L1021))
+  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1095`](../Src/Hooks/ShowHide.lua#L1095))
+  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1046`](../Src/Hooks/ShowHide.lua#L1046))
+  - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L1033`](../Src/Hooks/ShowHide.lua#L1033))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
   - `EditBox:HandoffToBlizzard(silent?, bypassOpen?, isMultiline?)` - Lockdown handoff.
@@ -650,7 +650,7 @@ Blizzard editbox hooks (taint-free).
 - Invariants:
   - `_inBlizzShowHook` and deferred focus handoff guard reentrancy (issue #21 fix).
   - The `InsertLink` post-hook (`OnInsertLink`, [`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L779`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L779)) re-focuses the routed Yapper editor only when keyboard focus is free or already ours -- Blizzard's `InsertLink` can return true through special targets (macro editor, professions search, communities box) before ever touching a chat window, so an unconditional `SetFocus` would yank focus out of that editor mid-edit. When a link routed nowhere while the overlay is hidden but holds `CHAT_FOCUS_OVERRIDE`, the post-hook re-opens the overlay so the link lands somewhere.
-  - `WaypointChatLinkHandler` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L964`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L964)) intercepts waypoint-pin CHATLINK clicks via `WorldMapFrame:AddGlobalPinMouseActionHandler` -- MapCanvas's purpose-built taint-aware registry (handlers run under `securecallfunction` isolation in `Blizzard_MapCanvasSecureUtil`). A truthy return consumes the click before `OnMouseClickAction`, so 12.1's protected `CopyToClipboard` after `InsertLink` is skipped; the handler performs the InsertLink + share sound itself and shows `YapperWaypointCopyFrame` with the `/way` command for manual Ctrl+C (chat print fallback under combat lockdown/pet battles). Consumption requires the waypoint pin to be the actual click target (`GetMouseFocus`) -- `IsMouseOver` alone can be true for a waypoint under an overlapping pin, which would steal that pin's click. Registered at priority -1000 so every other handler (debug 100, the provider's placement logic at 90, third-party observers) sees the click first and we only consume what nobody claimed; `ADDON_LOADED` retry covers late `WorldMapFrame`. An earlier iteration wrote `WaypointLocationPinMixin.CopySlashCommandToClipboard` + pooled pin fields -- that write got blamed for combat-protected `SetPassThroughButtons` during pin refresh (even on plain map open in combat), which is why interception now goes through the registry instead.
+  - `WaypointChatLinkHandler` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L973`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L973)) intercepts waypoint-pin CHATLINK clicks via `WorldMapFrame:AddGlobalPinMouseActionHandler` -- MapCanvas's purpose-built taint-aware registry (handlers run under `securecallfunction` isolation in `Blizzard_MapCanvasSecureUtil`). A truthy return consumes the click before `OnMouseClickAction`, so 12.1's protected `CopyToClipboard` after `InsertLink` is skipped; the handler performs the InsertLink + share sound itself and shows `YapperWaypointCopyFrame` with the `/way` command for manual Ctrl+C (chat print fallback under combat lockdown/pet battles). Consumption requires the waypoint pin to be the actual click target (`GetMouseFocus`) -- `IsMouseOver` alone can be true for a waypoint under an overlapping pin, which would steal that pin's click. Registered at priority -1000 so every other handler (debug 100, the provider's placement logic at 90, third-party observers) sees the click first and we only consume what nobody claimed; `ADDON_LOADED` retry covers late `WorldMapFrame`. An earlier iteration wrote `WaypointLocationPinMixin.CopySlashCommandToClipboard` + pooled pin fields -- that write got blamed for combat-protected `SetPassThroughButtons` during pin refresh (even on plain map open in combat), which is why interception now goes through the registry instead.
 
 ## Taint surface
 
@@ -719,6 +719,8 @@ Initialised by `Chat:Init`.
   - `Init` [`../Src/Bridges/WIMBridge.lua#L51`](../Src/Bridges/WIMBridge.lua#L51)
 
 ## Policies
+- Methods:
+  - [NEW] `ChannelPolicy:IsSendableChatType() → nil`: No description provided. ([`../Src/Policies/ChannelPolicy.lua#L33`](../Src/Policies/ChannelPolicy.lua#L33))
 
 Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
 
@@ -733,8 +735,8 @@ Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
   - `LockdownPolicy:HasAddOnRestrictionAPI() → boolean`: Returns true when the client exposes the WoW 12.x `C_RestrictedActions` / `Enum.AddOnRestrictionType` surface. ([`../Src/Policies/LockdownPolicy.lua#L18`](../Src/Policies/LockdownPolicy.lua#L18))
   - `LockdownPolicy:IsAddOnRestrictionActive(restrictionType) → boolean`: Returns true when a single `Enum.AddOnRestrictionType` is enforced. ([`../Src/Policies/LockdownPolicy.lua#L28`](../Src/Policies/LockdownPolicy.lua#L28))
   - `LockdownPolicy:IsAnyAddOnRestrictionActive() → boolean`: Returns true while any addon restriction type is enforced; non-chat restrictions leave messaging usable but poison Blizzard-produced data with secret values, so tainted calls into Blizzard handlers can error on secret comparisons. ([`../Src/Policies/LockdownPolicy.lua#L42`](../Src/Policies/LockdownPolicy.lua#L42))
-  - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L100`](../Src/Policies/ChannelPolicy.lua#L100))
-  - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L182`](../Src/Policies/ChannelPolicy.lua#L182))
+  - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L113`](../Src/Policies/ChannelPolicy.lua#L113))
+  - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L195`](../Src/Policies/ChannelPolicy.lua#L195))
 
 ## Router
 
@@ -744,7 +746,7 @@ Initialised by `Chat:Init`.
 - Fields:
   - `SendChatMessage`, `BNSendWhisper`, `ClubSendMessage` cached function refs ([`../Src/Router.lua#L26-L28`](../Src/Router.lua#L26-L28)).
 - Methods:
-  - `ChannelPolicy:SanitizeCommittedSelection(current) → table|nil`: Normalize a runtime channel selection before persistence or commit, removing unusable secret or unavailable targets. ([`../Src/Policies/ChannelPolicy.lua#L165`](../Src/Policies/ChannelPolicy.lua#L165))
+  - `ChannelPolicy:SanitizeCommittedSelection(current) → table|nil`: Normalize a runtime channel selection before persistence or commit, removing unusable secret or unavailable targets. ([`../Src/Policies/ChannelPolicy.lua#L178`](../Src/Policies/ChannelPolicy.lua#L178))
   - `ResolveBnetTarget` [`../Src/Router.lua#L63`](../Src/Router.lua#L63)
   - `_ResolveBnetTargetUncached` [`../Src/Router.lua#L84`](../Src/Router.lua#L84)
   - `ResolveBnetDisplay` [`../Src/Router.lua#L117`](../Src/Router.lua#L117)
