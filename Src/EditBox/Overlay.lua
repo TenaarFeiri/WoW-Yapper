@@ -771,8 +771,10 @@ function EditBox:CreateOverlay()
     end)
     frame:HookScript("OnHide", function()
         self:HideMultilineHint()
-        if self._SyncActiveChatWindow then
-            self:_SyncActiveChatWindow()
+        -- UpdateFocusOverride, not just _SyncActiveChatWindow: external hides
+        -- must also drop CHAT_FOCUS_OVERRIDE or OpenChat focuses a hidden box.
+        if self.UpdateFocusOverride then
+            self:UpdateFocusOverride()
         end
     end)
 
