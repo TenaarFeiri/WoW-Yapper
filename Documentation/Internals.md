@@ -719,8 +719,6 @@ Initialised by `Chat:Init`.
   - `Init` [`../Src/Bridges/WIMBridge.lua#L51`](../Src/Bridges/WIMBridge.lua#L51)
 
 ## Policies
-- Methods:
-  - [NEW] `ChannelPolicy:IsSendableChatType() → nil`: No description provided. ([`../Src/Policies/ChannelPolicy.lua#L33`](../Src/Policies/ChannelPolicy.lua#L33))
 
 Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
 
@@ -737,6 +735,7 @@ Passive rule modules loaded from `Src/Policies/` and invoked by owner modules.
   - `LockdownPolicy:IsAnyAddOnRestrictionActive() → boolean`: Returns true while any addon restriction type is enforced; non-chat restrictions leave messaging usable but poison Blizzard-produced data with secret values, so tainted calls into Blizzard handlers can error on secret comparisons. ([`../Src/Policies/LockdownPolicy.lua#L42`](../Src/Policies/LockdownPolicy.lua#L42))
   - `ChannelPolicy:BuildPersistedLastUsed(...) → table|nil`: Produces the sticky persisted last-used payload while preserving current selection semantics. ([`../Src/Policies/ChannelPolicy.lua#L113`](../Src/Policies/ChannelPolicy.lua#L113))
   - `ChannelPolicy:ResolveOpenSelection(context) → table`: Resolves the open channel selection from the current show/handoff context. ([`../Src/Policies/ChannelPolicy.lua#L195`](../Src/Policies/ChannelPolicy.lua#L195))
+  - `ChannelPolicy:IsSendableChatType(chatType) → boolean`: Returns true when a chat type is a valid compose target; excludes Blizzard pseudo-types that leak through attribute caches, frame context, or sticky state (VOICE_TEXT transcription output, PET_BATTLE_COMBAT_LOG). Enforced in `BuildSelection`, `BuildPersistedLastUsed`, and the `Show` safety net. ([`../Src/Policies/ChannelPolicy.lua#L33`](../Src/Policies/ChannelPolicy.lua#L33))
 
 ## Router
 
