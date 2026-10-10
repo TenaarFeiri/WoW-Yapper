@@ -66,7 +66,10 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
         -- precedence).
         if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
             local ct = c.chatType or (eb.GetAttribute and eb:GetAttribute("chatType"))
-            if ct and ct ~= "BN_WHISPER" then
+            -- A whisper sent through the native box under restriction can
+            -- poison it whole-secret; comparing a secret chatType is a Lua
+            -- error, so screen it the same way targets are screened.
+            if ct and not YapperTable.Utils:IsSecret(ct) and ct ~= "BN_WHISPER" then
                 -- The cache is already secret-quarantined; the raw GetAttribute
                 -- fallbacks are not, so sanitize them before the value can reach
                 -- LastUsed (and later comparisons/persistence).
