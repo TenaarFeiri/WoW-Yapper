@@ -386,6 +386,16 @@ check("GetLastToldTargetInfo returns no target on secret error",
 _G.ChatFrameUtil.GetLastTellTarget = nil
 _G.ChatFrameUtil.GetLastToldTarget = nil
 
+-- Under chat lockdown the whole reader bails: the overlay and reply keys are
+-- inactive in that state, so nothing should resolve targets at all.
+EditBox.ReplyQueue = { { name = "PersonB", kind = "WHISPER" } }
+chatLockdown = true
+local ldType, ldTarget = EditBox.GetLastTellTargetInfo()
+check("GetLastTellTargetInfo bails under lockdown",
+    ldType == nil and ldTarget == nil)
+EditBox.ReplyQueue = {}
+chatLockdown = false
+
 -- Multiline takes ownership while its frame is visible, then returns it to
 -- the overlay when the frame closes.
 local multilineFrame = MockFrame("YapperMultilineFrame")

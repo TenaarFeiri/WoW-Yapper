@@ -370,6 +370,90 @@ check("no stash: LastUsed unchanged",
 check("no stash: stash still nil", Keybinds._preLockdownLastUsed == nil)
 
 -- ===========================================================================
+-- Layer 3: Lockdown reply routing + post-regen resync guard
+-- ===========================================================================
+print("\nLayer 3: lockdown reply dead-key + live-composition resync guard")
+
+-- 3a: REPLY during chat lockdown must stay a dead key. Sending a whisper
+-- through the native box under restriction writes a secret tellTarget and
+-- poisons the whole editbox; every later UpdateHeader reached via a tainted
+-- chain then errors until /reload. Guard: no OpenChat call for any target
+-- kind while IsChatLockdown holds.
+do
+    local openChatArg = nil
+    local origOpenChat = _G.ChatFrameUtil.OpenChat
+    _G.ChatFrameUtil.OpenChat = function(text) openChatArg = text end
+
+    YapperTable2.EditBox.GetLastTellTargetInfo = function()
+        return "WHISPER", "PersonB"
+    end
+    chatLockdown = true
+    clickBinding("REPLY")
+    check("lockdown REPLY: native box not opened (dead key)",
+        openChatArg == nil)
+
+    openChatArg = nil
+    YapperTable2.EditBox.GetLastTellTargetInfo = function()
+        return "BN_WHISPER", "BNetFriend"
+    end
+    clickBinding("REPLY")
+    check("lockdown REPLY: BN target also dead-keyed", openChatArg == nil)
+
+    openChatArg = nil
+    YapperTable2.EditBox.GetLastToldTargetInfo = function()
+        return "WHISPER", "PersonA"
+    end
+    clickBinding("REPLYTELL2")
+    check("lockdown REPLYTELL2: dead-keyed too", openChatArg == nil)
+
+    chatLockdown = false
+    YapperTable2.EditBox.GetLastTellTargetInfo = nil
+    YapperTable2.EditBox.GetLastToldTargetInfo = nil
+    _G.ChatFrameUtil.OpenChat = origOpenChat
+end
+
+-- 3b: ResyncFromBlizzardAfterLockdown must never retarget a live composition.
+-- The native box is never told about whisper state, so its attributes lag;
+-- regen-end used to overwrite ChatType/Target mid-compose (reply composed to
+-- a whisper sent to /say, or to the previous whisper partner).
+do
+    local blizz = MockBlizzEditBox("ChatFrame1EditBox")
+    blizz._attrs["chatType"] = "SAY"      -- stale pre-combat channel
+    blizz._attrs["tellTarget"] = nil
+    EditBox.OrigEditBox = blizz
+    EditBox.ChatType = "WHISPER"
+    EditBox.Target = "PersonB"
+    EditBox.ChannelName = nil
+    EditBox._secureReplySource = "tell"
+    EditBox.Language = nil
+
+    local persisted = 0
+    EditBox.PersistLastUsed = function() persisted = persisted + 1 end
+
+    -- Overlay visible mid-composition: resync must bail.
+    EditBox.GetActiveEditor = function() return {} end
+    local ran = EditBox:ResyncFromBlizzardAfterLockdown()
+    check("regen resync: live composition not retargeted",
+        ran == false and EditBox.ChatType == "WHISPER" and EditBox.Target == "PersonB")
+    check("regen resync: no sticky persist on guarded path", persisted == 0)
+    check("regen resync: secure reply source kept", EditBox._secureReplySource == "tell")
+
+    -- Whisper-tab variant: native box holds WHISPER->PersonA context.
+    blizz._attrs["chatType"] = "WHISPER"
+    blizz._attrs["tellTarget"] = "PersonA"
+    ran = EditBox:ResyncFromBlizzardAfterLockdown()
+    check("regen resync: whisper target not swapped to prior partner",
+        ran == false and EditBox.Target == "PersonB")
+
+    -- No Yapper editor: resync still adopts native state (bypass/lockdown sessions).
+    EditBox.GetActiveEditor = function() return nil end
+    ran = EditBox:ResyncFromBlizzardAfterLockdown()
+    check("regen resync: native state adopted when no editor",
+        ran == true and EditBox.ChatType == "WHISPER" and EditBox.Target == "PersonA"
+            and persisted == 1)
+end
+
+-- ===========================================================================
 -- Results
 -- ===========================================================================
 print(("\nResults: %d/%d passed"):format(TESTS - FAILURES, TESTS))
