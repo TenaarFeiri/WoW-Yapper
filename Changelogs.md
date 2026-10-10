@@ -1,3 +1,9 @@
+# 2.4.7
+
+### Bug Fixes
+- Fixed a misdirected send when a message was started during combat and sent after combat ended: the post-combat channel resync was pulling the native editbox's stale attributes over the open composition, so a whisper composed mid-fight could go out to /say or to the previous whisper partner. The resync now leaves a visible Yapper editor's channel alone.
+- Hardened native editbox attribute reads against a whole-secret editbox: a whisper sent through Blizzard's box while addon restrictions are active (M+, delves) can leave every attribute secret, and unscreened comparisons could then error on each subsequent attribute write.
+
 # 2.4.6
 
 ### New Features
