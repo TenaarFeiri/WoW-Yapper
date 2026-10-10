@@ -378,6 +378,14 @@ end
 --- Returns the subset of _TAB_CYCLE entries currently available to the player.
 --- Pull safe native channel state back into Yapper after lockdown recovery.
 function EditBox:ResyncFromBlizzardAfterLockdown()
+    -- A visible Yapper editor owns its channel: the native box is never told
+    -- about whisper state (SyncAttributesToBlizzard skips whispers), so
+    -- pulling its attributes now would silently retarget an in-progress
+    -- composition onto the pre-combat channel.
+    if self.GetActiveEditor and self:GetActiveEditor() then
+        return false
+    end
+
     local blizzEditBox = self.OrigEditBox
         or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
         or _G.ChatFrame1EditBox
