@@ -86,6 +86,11 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
     if isReply and inLockdown then
         -- Do not call Blizzard's ReplyTell from this tainted click path. Its
         -- remembered-target comparison is not safe when the target is secret.
+        -- A "/tell <name> " text prefill is not safe either: sending it
+        -- writes a secret tellTarget into the native editbox under
+        -- restriction, and that poisons the box (whole-editbox secrecy) for
+        -- the rest of the session -- every later UpdateHeader reached via a
+        -- tainted chain errors on secret arithmetic until /reload.
         LogVerbose((isRewhisper and "REPLYTELL2" or "REPLY")
             .. " keybind: reply unavailable during lockdown; ignoring.")
         return
