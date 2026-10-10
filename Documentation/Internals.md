@@ -534,10 +534,10 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L80`](../Src/EditBox.lua#L80))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L139`](../Src/EditBox.lua#L139))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L535`](../Src/EditBox.lua#L535))
-  - `SetOnSend` ([`../Src/EditBox.lua#L730`](../Src/EditBox.lua#L730))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L537`](../Src/EditBox.lua#L537))
+  - `SetOnSend` ([`../Src/EditBox.lua#L732`](../Src/EditBox.lua#L732))
   - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L738`](../Src/EditBox.lua#L738))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L792`](../Src/EditBox.lua#L792))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L794`](../Src/EditBox.lua#L794))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -604,10 +604,10 @@ Channel label and tab cycling.
 - Description: RefreshLabel(), CycleChatType(), RecordTabChannel(), PersistLastUsed(), OnTabPressed().
 - File: [`../Src/Hooks/Label.lua`](../Src/Hooks/Label.lua)
 - Methods:
-  - `EditBox:ResyncFromBlizzardAfterLockdown() → boolean`: Pull safe native channel state (chatType, tellTarget, channelTarget, language) back into Yapper from Blizzard's editbox attributes after lockdown recovery. Returns false when attributes are missing or secret-tainted. Called from the lockdown-recovery path in Handlers. ([`../Src/Hooks/Label.lua#L380`](../Src/Hooks/Label.lua#L380))
+  - `EditBox:ResyncFromBlizzardAfterLockdown() → boolean`: Pull safe native channel state (chatType, tellTarget, channelTarget, language) back into Yapper from Blizzard's editbox attributes after lockdown recovery. Bails early while a Yapper editor is visible — native attributes lag whisper state by design, so pulling them would retarget a live composition onto the pre-combat channel. Returns false when attributes are missing or secret-tainted. Called from the lockdown-recovery path in Handlers. ([`../Src/Hooks/Label.lua#L380`](../Src/Hooks/Label.lua#L380))
   - `EditBox:ResetSyncedAttributes() → nil`: Inverse of SyncAttributesToBlizzard: restore the Blizzard editbox to a neutral state and clear cached native attributes. ([`../Src/Hooks/Label.lua#L335`](../Src/Hooks/Label.lua#L335))
   - `EditBox:SyncAttributesToBlizzard(allowLockdown) → nil`: Push Yapper's current chatType, target, channel and language into Blizzard's native editbox when safe. Whisper attributes remain owned by Blizzard to avoid taint. ([`../Src/Hooks/Label.lua#L245`](../Src/Hooks/Label.lua#L245))
-  - `EditBox:GetAvailableChatTypes() → table`: Return the subset of TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L422`](../Src/Hooks/Label.lua#L422))
+  - `EditBox:GetAvailableChatTypes() → table`: Return the subset of TAB_CYCLE entries currently available to the player. ([`../Src/Hooks/Label.lua#L430`](../Src/Hooks/Label.lua#L430))
   - `EditBox:RefreshLabel()` - Update channel label text/color.
   - `EditBox:CycleChatType(direction)` - Cycle through available chat types.
   - `EditBox:RecordTabChannel(entry?)` - Store per-tab channel memory.
@@ -1212,7 +1212,7 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 ## EditBox.Keybinds
 
 - Methods:
-  - `Keybinds:SyncContextYields() → nil`: Re-apply override bindings so keys claimed by an active binding context (e.g. housing editor modes) stay yielded; unlike `RefreshOverrides` it intentionally runs during combat/chat lockdown since override set/clear is not a protected operation. Called by binding-context and housing-selection change triggers. ([`../Src/EditBox/Keybinds.lua#L503`](../Src/EditBox/Keybinds.lua#L503))
+  - `Keybinds:SyncContextYields() → nil`: Re-apply override bindings so keys claimed by an active binding context (e.g. housing editor modes) stay yielded; unlike `RefreshOverrides` it intentionally runs during combat/chat lockdown since override set/clear is not a protected operation. Called by binding-context and housing-selection change triggers. ([`../Src/EditBox/Keybinds.lua#L508`](../Src/EditBox/Keybinds.lua#L508))
 
 ## Strings
 
