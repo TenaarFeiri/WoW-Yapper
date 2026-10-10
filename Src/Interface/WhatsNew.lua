@@ -21,6 +21,13 @@ end
 
 YapperTable.WHATS_NEW = {
     -- New entries can use the helpers above to keep the data compact.
+    ["2.4.7"] = release(
+        note("Bug fixes",
+            "- Fixed a misdirected send when a message was started during combat but sent after combat ended -- "
+                .. "a reply composed mid-fight could go out to /say or to the previous whisper partner.\n\n"
+                .. "- Hardened editbox attribute reads against a fully-secret native editbox, "
+                .. "which can occur when whispers are sent under addon restrictions (M+, delves).")
+    ),
     ["2.4.6"] = release(
         note("Dictionaries control their own language",
             "Spellchecking logic is no longer hardcoded for English. Each dictionary addon now supplies its own "
