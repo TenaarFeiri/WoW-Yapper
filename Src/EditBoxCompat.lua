@@ -74,6 +74,31 @@ function YapperTable.InstallCompatMethods(box)
     box.UpdateHeader = box.UpdateHeader or function() end
     box.SetFocusRegionsShown = box.SetFocusRegionsShown or function() end
     box.UpdateNewcomerEditBoxHint = box.UpdateNewcomerEditBoxHint or function() end
+
+    -- This box is never a real "window" for Blizzard's activation
+    -- bookkeeping: ActivateChat/SetLastActiveWindow must early-return on
+    -- it. Without the flag, FocusActiveWindow (static popups, TRP3's
+    -- chat-link inserter, pet journal) activates the overlay while we own
+    -- ACTIVE_CHAT_EDIT_BOX and writes LAST_ACTIVE_CHAT_EDIT_BOX, which is
+    -- never cleared (the mixin OnHide that resets it does not exist on a
+    -- plain editbox). Under chatStyle=="im" every later
+    -- SetLastActiveWindow then calls previousValue:Hide() -- hiding the
+    -- input widget while the overlay frame stays up. A hidden editbox
+    -- still takes SetFocus and fires OnEnterPressed, so users typed blind
+    -- while sends kept working. disableActivate also preserves
+    -- CHAT_FOCUS_OVERRIDE, which ActivateChat clears (the pre-ownership
+    -- FocusActiveWindow wrapper existed to prevent exactly that).
+    box.disableActivate = true
+
+    -- The widget's visibility is owned by its parent frame; nothing may
+    -- hide the editbox itself. LAST_ACTIVE_CHAT_EDIT_BOX writes that
+    -- bypass ActivateChat/SetLastActiveWindow (direct global writes) can
+    -- still expose the box to previousValue:Hide(), and addons may call
+    -- Hide() on the "active window" outright. Post-hook re-show so addon
+    -- code never runs inside the caller's stack.
+    if hooksecurefunc then
+        hooksecurefunc(box, "Hide", function() box:Show() end)
+    end
     -- Write-through setters: native paths that land on the overlay as the
     -- active/last-active window (FocusActiveWindow -> ActivateChat ->
     -- LAST_ACTIVE_CHAT_EDIT_BOX, then IM-mode SendTell/SendBNetTell via
@@ -174,6 +199,18 @@ end
 function EditBox:_SyncActiveChatWindow()
     if not (ChatFrameUtil and ChatFrameUtil.GetActiveWindow) then return end
 
+    local multilineEdit = YapperTable.Multiline and YapperTable.Multiline.EditBox
+
+    -- LAST_ACTIVE_CHAT_EDIT_BOX must never hold our editor either:
+    -- im-mode ChooseBoxForSend/SetLastActiveWindow paths treat it as a
+    -- real window box (including previousValue:Hide()). disableActivate
+    -- blocks Blizzard's writers, but a direct global write can still land
+    -- here -- hand it back to the default box when we spot it.
+    local lastActive = _G.LAST_ACTIVE_CHAT_EDIT_BOX
+    if lastActive == self.OverlayEdit or (multilineEdit and lastActive == multilineEdit) then
+        _G.LAST_ACTIVE_CHAT_EDIT_BOX = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox or nil
+    end
+
     local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
     local desired = activeEditor
     if self._chatCompatEnabled == false
@@ -199,7 +236,6 @@ function EditBox:_SyncActiveChatWindow()
     else
         -- Only release ownership when WE hold the slot; never touch a
         -- genuinely active Blizzard editbox.
-        local multilineEdit = YapperTable.Multiline and YapperTable.Multiline.EditBox
         if current == self.OverlayEdit or (multilineEdit and current == multilineEdit) then
             if ChatFrameUtil.DeactivateChat then
                 pcall(ChatFrameUtil.DeactivateChat, current)
@@ -219,6 +255,28 @@ function EditBox:SetChatCompatibilityEnabled(enabled)
     if self._SyncActiveChatWindow then
         self:_SyncActiveChatWindow()
     end
+end
+
+-- Refocus the visible editor after Blizzard's FocusActiveWindow.
+-- ActivateChat early-returns on our boxes (disableActivate above), which
+-- is what the bookkeeping needs, but static-popup/link-insert flows call
+-- FocusActiveWindow to hand chat focus back to the user -- the
+-- pre-ownership wrapper refocused our editor directly. A post-hook
+-- restores that without tainting the caller's stack.
+if ChatFrameUtil and ChatFrameUtil.FocusActiveWindow and hooksecurefunc then
+    hooksecurefunc(ChatFrameUtil, "FocusActiveWindow", function()
+        local activeEditor = EditBox.GetActiveEditor and EditBox:GetActiveEditor()
+        if activeEditor
+            and ChatFrameUtil.GetActiveWindow
+            and ChatFrameUtil.GetActiveWindow() == activeEditor
+            and not EditBox._preShowSuppressed
+            and not (EditBox._UserBypassingYapper and EditBox._UserBypassingYapper())
+            and not (EditBox._BypassEditBox and EditBox._BypassEditBox())
+            and not (YapperTable.Utils and YapperTable.Utils:IsChatLockdown())
+            and activeEditor.SetFocus then
+            activeEditor:SetFocus()
+        end
+    end)
 end
 
 -- Focus-edge watching without frame scripts.

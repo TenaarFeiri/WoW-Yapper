@@ -623,6 +623,16 @@ function EditBox:Show(origEditBox)
     overlay:SetHeight(origHeight)
     overlay:Show()  -- ensure visible (CEBE may have hidden it on close)
 
+    -- The edit widget's visibility is owned by the overlay frame; foreign
+    -- active-window bookkeeping can still clear its shown flag (im-mode
+    -- SetLastActiveWindow -> previousValue:Hide(), addon
+    -- ACTIVE_CHAT_EDIT_BOX:Hide()). A hidden editbox still takes focus
+    -- and fires OnEnterPressed -- that is how the invisible-typing bug
+    -- presented -- so re-assert here.
+    if self.OverlayEdit and self.OverlayEdit.Show then
+        self.OverlayEdit:Show()
+    end
+
     -- Font: config overrides Blizzard's; otherwise inherit.
     local cfgFace  = cfg.FontFace
     local cfgSize  = cfg.FontSize or 0

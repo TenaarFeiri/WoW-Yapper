@@ -494,11 +494,11 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
   - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L807`](../Src/EditBox.lua#L807))
   - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L797`](../Src/EditBox.lua#L797))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L108`](../Src/EditBox.lua#L108))
-  - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
+  - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. Also sets `box.disableActivate` (keeps `ActivateChat`/`SetLastActiveWindow` -- and therefore `LAST_ACTIVE_CHAT_EDIT_BOX` -- off our boxes) and installs a `Hide` post-hook that re-shows the widget, since its visibility is owned by the parent frame. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
   - `box.SetFocusRegionsShown`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateNewcomerEditBoxHint`: no-op stub installed by `InstallCompatMethods`. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
-  - `box:ParseText(send) → nil`: Execute slash lines through Yapper's forwarding path while leaving plain text for Blizzard's SendText dispatch. ([`../Src/EditBoxCompat.lua#L101`](../Src/EditBoxCompat.lua#L101))
+  - `box:ParseText(send) → nil`: Execute slash lines through Yapper's forwarding path while leaving plain text for Blizzard's SendText dispatch. ([`../Src/EditBoxCompat.lua#L126`](../Src/EditBoxCompat.lua#L126))
   - `box:GetAttribute() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L46`](../Src/EditBoxCompat.lua#L46))
   - `box:GetLanguage() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L44`](../Src/EditBoxCompat.lua#L44))
   - `box:GetTellTarget() → nil`: No description provided. ([`../Src/EditBoxCompat.lua#L42`](../Src/EditBoxCompat.lua#L42))
@@ -534,10 +534,10 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L80`](../Src/EditBox.lua#L80))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L139`](../Src/EditBox.lua#L139))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L537`](../Src/EditBox.lua#L537))
-  - `SetOnSend` ([`../Src/EditBox.lua#L732`](../Src/EditBox.lua#L732))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L535`](../Src/EditBox.lua#L535))
+  - `SetOnSend` ([`../Src/EditBox.lua#L730`](../Src/EditBox.lua#L730))
   - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L738`](../Src/EditBox.lua#L738))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L794`](../Src/EditBox.lua#L794))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L792`](../Src/EditBox.lua#L792))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -589,9 +589,9 @@ Show/hide lifecycle and overlay management.
 - Description: Show(), Hide(), HandoffToBlizzard(), ApplyConfigToLiveOverlay().
 - File: [`../Src/Hooks/ShowHide.lua`](../Src/Hooks/ShowHide.lua)
 - Methods:
-  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1095`](../Src/Hooks/ShowHide.lua#L1095))
-  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1046`](../Src/Hooks/ShowHide.lua#L1046))
-  - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L1033`](../Src/Hooks/ShowHide.lua#L1033))
+  - `EditBox:RecordFallbackSend(editBox) → nil`: Record a message sent through Blizzard's native editbox during lockdown, bypass, or handoff fallback into persistent history. ([`../Src/Hooks/ShowHide.lua#L1105`](../Src/Hooks/ShowHide.lua#L1105))
+  - `EditBox:RetargetOpenWhisper(target, blizzBox, chatType) → boolean`: Retarget the already-open overlay onto an external transient whisper; supports character names and numeric Battle.net account IDs. ([`../Src/Hooks/ShowHide.lua#L1056`](../Src/Hooks/ShowHide.lua#L1056))
+  - `EditBox:IsNativeChatEditBox(eb) → boolean`: True only for Blizzard's native ChatFrameN editboxes (never our overlay). ([`../Src/Hooks/ShowHide.lua#L1043`](../Src/Hooks/ShowHide.lua#L1043))
   - `EditBox:Show(origEditBox)` - Present overlay in place of Blizzard editbox.
   - `EditBox:Hide(isHandoff)` - Close overlay, save state.
   - `EditBox:HandoffToBlizzard(silent?, bypassOpen?, isMultiline?)` - Lockdown handoff.
@@ -661,7 +661,8 @@ Taint spreads two ways, and both matter when auditing a change:
 
 Load-bearing writes we make into Blizzard-owned state (each is a potential reintroduction point -- enumerate its readers and confirm no protected call can sit downstream):
 
-- `ACTIVE_CHAT_EDIT_BOX` / `LAST_ACTIVE_CHAT_EDIT_BOX` -- claimed via `_SyncActiveChatWindow` so `ChatFrameUtil.GetActiveWindow()` returns the visible Yapper editor (required by bag `InsertLink` return semantics, TRP3's active-editbox check, and the map-pin link path). This taint infected the waypoint click via `InsertLink` -> `GetActiveWindow` -> `CopyToClipboard` in 12.1; the `AddGlobalPinMouseActionHandler` interception consumes the click before the protected call is reached rather than touching the ownership.
+- `ACTIVE_CHAT_EDIT_BOX` -- claimed via `_SyncActiveChatWindow` so `ChatFrameUtil.GetActiveWindow()` returns the visible Yapper editor (required by bag `InsertLink` return semantics, TRP3's active-editbox check, and the map-pin link path). This taint infected the waypoint click via `InsertLink` -> `GetActiveWindow` -> `CopyToClipboard` in 12.1; the `AddGlobalPinMouseActionHandler` interception consumes the click before the protected call is reached rather than touching the ownership.
+- `LAST_ACTIVE_CHAT_EDIT_BOX` -- NEVER allowed to hold a Yapper editor. `ActivateChat`/`SetLastActiveWindow` would write it and (im `chatStyle`) every later `SetLastActiveWindow` calls `previousValue:Hide()` -- hiding the input widget while the overlay frame stays up; hidden editboxes still take `SetFocus` and fire `OnEnterPressed`, so users typed blind while sends kept working. `InstallCompatMethods` sets `disableActivate` so both paths early-return on our boxes, `_SyncActiveChatWindow` hands a polluted global back to the default box, and a `Hide` post-hook re-shows the widget as a backstop.
 - `CHAT_FOCUS_OVERRIDE` -- pointed at the overlay so `OpenChat` routes to Yapper; cleared during lockdown handoff and on every overlay-hide path. `OnHide` routes through `UpdateFocusOverride` rather than `_SyncActiveChatWindow` alone, so external hides (bridges, multiline entry) can't strand the override pointed at a hidden frame -- that eats Enter presses via `OpenChat`.
 - `WaypointLocationPinMixin.CopySlashCommandToClipboard` -- NO LONGER WRITTEN; writing it (and patching pooled pin frames) made pin frames carry a tainted field, which got blamed for the combat-protected `SetPassThroughButtons` inside `AcquirePin`/`CheckMouseButtonPassthrough` on any pin refresh in combat. Interception moved to `AddGlobalPinMouseActionHandler`, the taint-aware registry Blizzard built for exactly this.
 - `UISpecialFrames` -- `CloseSpecialWindows` is explicitly written for tainted values and invoked via `securecall`; safe by design.
@@ -1198,9 +1199,9 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 ## EditBoxCompat
 
 - Methods:
-  - `EditBox:_SyncActiveChatWindow() → nil`: Align Blizzard's `ACTIVE_CHAT_EDIT_BOX` global with the visible Yapper editor (overlay or multiline), releasing through `DeactivateChat` when Yapper closes, is bypassed, or lockdown hands off. `GetActiveWindow`/`FocusActiveWindow` are never wrapped -- an addon function in those slots taints secure call chains (e.g. `InsertLink` -> `GetActiveWindow` inside a map-pin click, which since 12.1 is followed by the protected `CopyToClipboard` and fails with ADDON_ACTION_FORBIDDEN). ([`../Src/EditBoxCompat.lua#L174`](../Src/EditBoxCompat.lua#L174))
-  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Gate `_SyncActiveChatWindow` during lockdown handoff and recovery so a visible-but-handing-off editor can never claim `ACTIVE_CHAT_EDIT_BOX`. ([`../Src/EditBoxCompat.lua#L217`](../Src/EditBoxCompat.lua#L217))
-  - `EditBox:RegisterFocusWatcher(editBox, onGained, onLost) → nil`: Register an editbox for focus-edge callbacks delivered from a `C_Timer` poll of `HasFocus` instead of `OnEditFocusGained`/`OnEditFocusLost` scripts. Frame scripts run inside whatever stack drove the focus change -- e.g. `InsertLink` -> `SetFocus` inside a map-pin CHATLINK click -- and addon Lua there taints the remainder of the stack (12.1's protected `CopyToClipboard` then fails `ADDON_ACTION_FORBIDDEN` on the click that moves focus). `hooksecurefunc` post-hooks are trampoline-isolated and stay safe; script handlers are not. ([`../Src/EditBoxCompat.lua#L238`](../Src/EditBoxCompat.lua#L238))
+  - `EditBox:_SyncActiveChatWindow() → nil`: Align Blizzard's `ACTIVE_CHAT_EDIT_BOX` global with the visible Yapper editor (overlay or multiline), releasing through `DeactivateChat` when Yapper closes, is bypassed, or lockdown hands off. `GetActiveWindow`/`FocusActiveWindow` are never wrapped -- an addon function in those slots taints secure call chains (e.g. `InsertLink` -> `GetActiveWindow` inside a map-pin click, which since 12.1 is followed by the protected `CopyToClipboard` and fails with ADDON_ACTION_FORBIDDEN). ([`../Src/EditBoxCompat.lua#L199`](../Src/EditBoxCompat.lua#L199))
+  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Gate `_SyncActiveChatWindow` during lockdown handoff and recovery so a visible-but-handing-off editor can never claim `ACTIVE_CHAT_EDIT_BOX`. ([`../Src/EditBoxCompat.lua#L253`](../Src/EditBoxCompat.lua#L253))
+  - `EditBox:RegisterFocusWatcher(editBox, onGained, onLost) → nil`: Register an editbox for focus-edge callbacks delivered from a `C_Timer` poll of `HasFocus` instead of `OnEditFocusGained`/`OnEditFocusLost` scripts. Frame scripts run inside whatever stack drove the focus change -- e.g. `InsertLink` -> `SetFocus` inside a map-pin CHATLINK click -- and addon Lua there taints the remainder of the stack (12.1's protected `CopyToClipboard` then fails `ADDON_ACTION_FORBIDDEN` on the click that moves focus). `hooksecurefunc` post-hooks are trampoline-isolated and stay safe; script handlers are not. ([`../Src/EditBoxCompat.lua#L296`](../Src/EditBoxCompat.lua#L296))
 
 ## WhisperMessengerBridge
 

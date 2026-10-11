@@ -23,7 +23,9 @@ YapperTable.WHATS_NEW = {
     -- New entries can use the helpers above to keep the data compact.
     ["2.4.7"] = release(
         note("Bug fixes",
-            "- Fixed a misdirected send when a message was started during combat but sent after combat ended -- "
+            "- Fixed invisible typed text under \"IM Style\" chat: Blizzard's window bookkeeping could hide "
+                .. "Yapper's input widget -- the box looked blank but still typed and sent.\n\n"
+                .. "- Fixed a misdirected send when a message was started during combat but sent after combat ended -- "
                 .. "a reply composed mid-fight could go out to /say or to the previous whisper partner.\n\n"
                 .. "- Hardened editbox attribute reads against a fully-secret native editbox, "
                 .. "which can occur when whispers are sent under addon restrictions (M+, delves).")

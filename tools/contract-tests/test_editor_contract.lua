@@ -46,6 +46,21 @@ _G.ChatFrame1EditBox = _G.DEFAULT_CHAT_FRAME.editBox
 _G.C_Timer = { After = function(_, callback) callback() end }
 _G.CreateFrame = function() return frame("compat-header") end
 _G.ChatEdit_GetActiveWindow = function() return _G.ACTIVE_CHAT_EDIT_BOX end
+_G.GetCVar = function(key)
+    if key == "chatStyle" then return "im" end
+    return ""
+end
+_G.hooksecurefunc = function(target, method, callback)
+    if type(target) == "table" then
+        local original = target[method]
+        target[method] = function(...)
+            local result
+            if original then result = original(...) end
+            callback(...)
+            return result
+        end
+    end
+end
 
 local focusOverride
 _G.ChatFrameUtil = {
@@ -53,15 +68,33 @@ _G.ChatFrameUtil = {
     -- is NEVER reassigned by Yapper -- an addon function in this slot taints
     -- every secure call chain that queries it (map-pin CopyToClipboard, 12.1).
     GetActiveWindow = function() return _G.ACTIVE_CHAT_EDIT_BOX end,
-    -- Mirrors Blizzard's ActivateChat: clears the focus override, deactivates
-    -- the previous window, claims ACTIVE_CHAT_EDIT_BOX, shows and focuses.
+    GetLastActiveWindow = function() return _G.LAST_ACTIVE_CHAT_EDIT_BOX end,
+    -- Mirrors Blizzard's ActivateChat: early-returns on disableActivate
+    -- boxes, clears the focus override, deactivates the previous window,
+    -- claims ACTIVE_CHAT_EDIT_BOX, writes LAST_ACTIVE_CHAT_EDIT_BOX,
+    -- shows and focuses.
     ActivateChat = function(editBox)
+        if editBox.disableActivate then return end
         focusOverride = nil
         local prev = _G.ACTIVE_CHAT_EDIT_BOX
         if prev and prev ~= editBox and prev.Deactivate then prev:Deactivate() end
         _G.ACTIVE_CHAT_EDIT_BOX = editBox
+        ChatFrameUtil.SetLastActiveWindow(editBox)
         if editBox.Show then editBox:Show() end
         if editBox.SetFocus then editBox:SetFocus() end
+    end,
+    -- Mirrors Blizzard's SetLastActiveWindow: early-returns on
+    -- disableActivate boxes; under chatStyle=="im" it hides the PREVIOUS
+    -- window's editbox -- the vector that hid our input widget while the
+    -- overlay frame stayed up (invisible typing, Enter still sent).
+    SetLastActiveWindow = function(editBox)
+        if editBox ~= nil and editBox.disableActivate then return end
+        local prev = _G.LAST_ACTIVE_CHAT_EDIT_BOX
+        if prev and not prev.isGM and prev ~= editBox
+            and _G.GetCVar("chatStyle") == "im" then
+            if prev.Hide then prev:Hide() end
+        end
+        _G.LAST_ACTIVE_CHAT_EDIT_BOX = editBox
     end,
     DeactivateChat = function(editBox)
         if _G.ACTIVE_CHAT_EDIT_BOX == editBox then _G.ACTIVE_CHAT_EDIT_BOX = nil end
@@ -162,7 +195,9 @@ check("OpenChat targets multiline via focus override", ChatFrameUtil.OpenChat("d
     and YapperTable.Multiline.EditBox:GetText() == "draft")
 YapperTable.Multiline.EditBox:ClearFocus()
 ChatFrameUtil.FocusActiveWindow()
-check("FocusActiveWindow focuses multiline", YapperTable.Multiline.EditBox:HasFocus())
+check("FocusActiveWindow refocuses multiline via post-hook", YapperTable.Multiline.EditBox:HasFocus())
+check("FocusActiveWindow did not pollute LAST_ACTIVE", _G.LAST_ACTIVE_CHAT_EDIT_BOX ~= YapperTable.Multiline.EditBox)
+check("focus override survives FocusActiveWindow", focusOverride == YapperTable.Multiline.EditBox)
 check("InsertLink reaches multiline", ChatFrameUtil.InsertLink(link)
     and YapperTable.Multiline.EditBox:GetText() == "draft" .. link)
 
@@ -203,6 +238,31 @@ EditBox:_PollFocusWatchers()
 check("focus-gain edge fires", gained == 1 and lost == 1)
 EditBox:_PollFocusWatchers()
 check("focus-gain fires once only", gained == 1 and lost == 1)
+
+print("\nContract 5: IM-mode bookkeeping cannot hide the input widget")
+-- 2.4.6 regression: ActivateChat(overlay) wrote LAST_ACTIVE_CHAT_EDIT_BOX
+-- and every later im-mode SetLastActiveWindow called
+-- previousValue:Hide() on it -- hiding the input widget while the overlay
+-- frame stayed visible. Hidden editboxes still take focus and fire
+-- OnEnterPressed, so users typed blind but sends kept working.
+EditBox.Overlay:Show()
+EditBox.OverlayEdit:SetFocus()
+EditBox:UpdateFocusOverride()
+check("overlay is active editor", EditBox:GetActiveEditor() == EditBox.OverlayEdit)
+check("overlay editbox opts out of activation", EditBox.OverlayEdit.disableActivate == true)
+check("multiline editbox opts out of activation", YapperTable.Multiline.EditBox.disableActivate == true)
+ChatFrameUtil.FocusActiveWindow()
+check("FocusActiveWindow leaves LAST_ACTIVE alone", _G.LAST_ACTIVE_CHAT_EDIT_BOX ~= EditBox.OverlayEdit)
+check("focus override still points to overlay", focusOverride == EditBox.OverlayEdit)
+
+-- Even if the global is polluted by a direct write, the widget-hide is
+-- vetoed and the next sync hands LAST_ACTIVE back to a native box.
+_G.LAST_ACTIVE_CHAT_EDIT_BOX = EditBox.OverlayEdit
+ChatFrameUtil.SetLastActiveWindow(_G.DEFAULT_CHAT_FRAME.editBox)
+check("widget Hide() is vetoed", EditBox.OverlayEdit:IsShown())
+_G.LAST_ACTIVE_CHAT_EDIT_BOX = EditBox.OverlayEdit
+EditBox:UpdateFocusOverride()
+check("polluted LAST_ACTIVE handed back to native", _G.LAST_ACTIVE_CHAT_EDIT_BOX == _G.DEFAULT_CHAT_FRAME.editBox)
 
 print("\n" .. string.rep("-", 60))
 print(("Results: %d/%d passed"):format(TESTS - FAILURES, TESTS))
