@@ -1,3 +1,8 @@
+# 2.4.7_1
+
+### Bug Fixes
+- Fixed Prat being very violent with Yapper. It should work now.
+
 # 2.4.7
 
 ### Bug Fixes

@@ -99,6 +99,35 @@ function YapperTable.InstallCompatMethods(box)
     if hooksecurefunc then
         hooksecurefunc(box, "Hide", function() box:Show() end)
     end
+    -- Same ownership invariant for alpha and mouse: editbox-skinning
+    -- addons (Prat's Editbox module, Chatter) secure-hook
+    -- ChatFrameUtil.DeactivateChat and fade + mouse-disable whatever
+    -- frame is deactivated -- including our editors when they release
+    -- ACTIVE_CHAT_EDIT_BOX on close, while they are still shown. Alpha
+    -- and mouse state persist across hide/show and nothing re-asserts
+    -- them, so the first deactivate left every later open
+    -- invisible-but-focused (typing, sends, and channel switches all
+    -- worked blind). Yapper never fades or mouse-disables its own
+    -- editors, so re-assert unconditionally; the flags stop recursion
+    -- from our own re-invocation.
+    if hooksecurefunc then
+        local reassertingAlpha = false
+        hooksecurefunc(box, "SetAlpha", function(_, alpha)
+            if reassertingAlpha then return end
+            if type(alpha) == "number" and alpha > 0 then return end
+            reassertingAlpha = true
+            box:SetAlpha(1)
+            reassertingAlpha = false
+        end)
+        local reassertingMouse = false
+        hooksecurefunc(box, "EnableMouse", function(_, enabled)
+            if reassertingMouse then return end
+            if enabled then return end
+            reassertingMouse = true
+            box:EnableMouse(true)
+            reassertingMouse = false
+        end)
+    end
     -- Write-through setters: native paths that land on the overlay as the
     -- active/last-active window (FocusActiveWindow -> ActivateChat ->
     -- LAST_ACTIVE_CHAT_EDIT_BOX, then IM-mode SendTell/SendBNetTell via
