@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Yapper Dictionary — Deutsch
 ## Notes: German language engine and dictionary for Yapper.
 ## Version: 1.0.0
