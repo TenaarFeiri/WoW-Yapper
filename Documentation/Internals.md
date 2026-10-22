@@ -307,10 +307,10 @@ Bound when overlay exists; reacts to text/cursor updates.
 
 - Description: UI state machine for recolour refresh, hint, and suggestions.
 - Methods:
-  - `Spellcheck:GetScrollOffset() → number`: Derive the horizontal scroll offset of a single-line EditBox. ([`../Src/Spellcheck/UI.lua#L1269`](../Src/Spellcheck/UI.lua#L1269))
-  - `Spellcheck:MeasureText(text) → number`: Measure text width using a FontString matching the editbox's current font and spacing. ([`../Src/Spellcheck/UI.lua#L1243`](../Src/Spellcheck/UI.lua#L1243))
-  - `Spellcheck:ApplyOverlayFont(fontString, maxSize) → number`: Apply the editbox's font to a FontString, optionally clamped to maxSize. Returns the effective size. ([`../Src/Spellcheck/UI.lua#L1229`](../Src/Spellcheck/UI.lua#L1229))
-  - `Spellcheck:GetCaretXOffset() → number`: Compute the X offset of the caret for tooltip positioning, clamped to the visible text area. ([`../Src/Spellcheck/UI.lua#L1202`](../Src/Spellcheck/UI.lua#L1202))
+  - `Spellcheck:GetScrollOffset() → number`: Derive the horizontal scroll offset of a single-line EditBox. ([`../Src/Spellcheck/UI.lua#L1276`](../Src/Spellcheck/UI.lua#L1276))
+  - `Spellcheck:MeasureText(text) → number`: Measure text width using a FontString matching the editbox's current font and spacing. ([`../Src/Spellcheck/UI.lua#L1250`](../Src/Spellcheck/UI.lua#L1250))
+  - `Spellcheck:ApplyOverlayFont(fontString, maxSize) → number`: Apply the editbox's font to a FontString, optionally clamped to maxSize. Returns the effective size. ([`../Src/Spellcheck/UI.lua#L1236`](../Src/Spellcheck/UI.lua#L1236))
+  - `Spellcheck:GetCaretXOffset() → number`: Compute the X offset of the caret for tooltip positioning, clamped to the visible text area. ([`../Src/Spellcheck/UI.lua#L1209`](../Src/Spellcheck/UI.lua#L1209))
   - `Spellcheck:SetSpellcheckOffset(hintX, hintY, suggestX, suggestY) → nil`: Set manual pixel offsets for spellcheck tooltips. ([`../Src/Spellcheck/UI.lua#L578`](../Src/Spellcheck/UI.lua#L578))
   - `Bind` [`../Src/Spellcheck/UI.lua#L35`](../Src/Spellcheck/UI.lua#L35)
   - `BindMultiline` [`../Src/Spellcheck/UI.lua#L72`](../Src/Spellcheck/UI.lua#L72)
@@ -334,14 +334,14 @@ Bound when overlay exists; reacts to text/cursor updates.
   - `UpdateHint` [`../Src/Spellcheck/UI.lua#L629`](../Src/Spellcheck/UI.lua#L629)
   - `IsSuggestionOpen` [`../Src/Spellcheck/UI.lua#L652`](../Src/Spellcheck/UI.lua#L652)
   - `IsSuggestionEligible` [`../Src/Spellcheck/UI.lua#L656`](../Src/Spellcheck/UI.lua#L656)
-  - `HandleKeyDown` [`../Src/Spellcheck/UI.lua#L663`](../Src/Spellcheck/UI.lua#L663)
-  - `MoveSelection` [`../Src/Spellcheck/UI.lua#L724`](../Src/Spellcheck/UI.lua#L724)
-  - `RefreshSuggestionSelection` [`../Src/Spellcheck/UI.lua#L746`](../Src/Spellcheck/UI.lua#L746)
-  - `OpenOrCycleSuggestions` [`../Src/Spellcheck/UI.lua#L778`](../Src/Spellcheck/UI.lua#L778)
-  - `ShowSuggestions` [`../Src/Spellcheck/UI.lua#L809`](../Src/Spellcheck/UI.lua#L809)
-  - `NextSuggestionsPage` [`../Src/Spellcheck/UI.lua#L944`](../Src/Spellcheck/UI.lua#L944)
-  - `HideSuggestions` [`../Src/Spellcheck/UI.lua#L971`](../Src/Spellcheck/UI.lua#L971)
-  - `ApplySuggestion` [`../Src/Spellcheck/UI.lua#L995`](../Src/Spellcheck/UI.lua#L995)
+  - `HandleKeyDown` [`../Src/Spellcheck/UI.lua#L670`](../Src/Spellcheck/UI.lua#L670)
+  - `MoveSelection` [`../Src/Spellcheck/UI.lua#L731`](../Src/Spellcheck/UI.lua#L731)
+  - `RefreshSuggestionSelection` [`../Src/Spellcheck/UI.lua#L753`](../Src/Spellcheck/UI.lua#L753)
+  - `OpenOrCycleSuggestions` [`../Src/Spellcheck/UI.lua#L785`](../Src/Spellcheck/UI.lua#L785)
+  - `ShowSuggestions` [`../Src/Spellcheck/UI.lua#L816`](../Src/Spellcheck/UI.lua#L816)
+  - `NextSuggestionsPage` [`../Src/Spellcheck/UI.lua#L951`](../Src/Spellcheck/UI.lua#L951)
+  - `HideSuggestions` [`../Src/Spellcheck/UI.lua#L978`](../Src/Spellcheck/UI.lua#L978)
+  - `ApplySuggestion` [`../Src/Spellcheck/UI.lua#L1002`](../Src/Spellcheck/UI.lua#L1002)
 - Fields:
   - `HintDelay: number` ([`../Src/Spellcheck/UI.lua#L551`](../Src/Spellcheck/UI.lua#L551)).
 - Callbacks fired:
@@ -486,13 +486,13 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
 
 ## EditBox
 - Methods:
-  - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L469`](../Src/EditBox.lua#L469))
-  - `EditBox:ResolveWhisperFrameTarget(chatFrame) → string|nil chatType, any target`: Resolve a temporary whisper tab's routing into a Yapper-usable pair. Plain chatTargets pass through SanitizeTarget; BN_WHISPER tabs carrying a `|K`-protected token or secret chatTarget are recovered via `BNet_GetBNetIDAccount` as a numeric account ID, which `Router:Send` consumes directly. ([`../Src/EditBox.lua#L504`](../Src/EditBox.lua#L504))
+  - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L510`](../Src/EditBox.lua#L510))
+  - `EditBox:ResolveWhisperFrameTarget(chatFrame) → string|nil chatType, any target`: Resolve a temporary whisper tab's routing into a Yapper-usable pair. Plain chatTargets pass through SanitizeTarget; BN_WHISPER tabs carrying a `|K`-protected token or secret chatTarget are recovered via `BNet_GetBNetIDAccount` as a numeric account ID, which `Router:Send` consumes directly. ([`../Src/EditBox.lua#L573`](../Src/EditBox.lua#L573))
   - `EditBox:GetActiveEditor() → table|nil`: Return Yapper's currently visible chat editor, preferring multiline while it is open and falling back to the single-line overlay. ([`../Src/EditBox.lua#L95`](../Src/EditBox.lua#L95))
-  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L708`](../Src/EditBox.lua#L708))
-  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L686`](../Src/EditBox.lua#L686))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L807`](../Src/EditBox.lua#L807))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L797`](../Src/EditBox.lua#L797))
+  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L777`](../Src/EditBox.lua#L777))
+  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L755`](../Src/EditBox.lua#L755))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L876`](../Src/EditBox.lua#L876))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L866`](../Src/EditBox.lua#L866))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L108`](../Src/EditBox.lua#L108))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. Also sets `box.disableActivate` (keeps `ActivateChat`/`SetLastActiveWindow` -- and therefore `LAST_ACTIVE_CHAT_EDIT_BOX` -- off our boxes) and installs a `Hide` post-hook that re-shows the widget, since its visibility is owned by the parent frame. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
@@ -534,10 +534,10 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L80`](../Src/EditBox.lua#L80))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L139`](../Src/EditBox.lua#L139))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L164`](../Src/EditBox.lua#L164))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L535`](../Src/EditBox.lua#L535))
-  - `SetOnSend` ([`../Src/EditBox.lua#L730`](../Src/EditBox.lua#L730))
-  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L738`](../Src/EditBox.lua#L738))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L792`](../Src/EditBox.lua#L792))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L604`](../Src/EditBox.lua#L604))
+  - `SetOnSend` ([`../Src/EditBox.lua#L799`](../Src/EditBox.lua#L799))
+  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L807`](../Src/EditBox.lua#L807))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L861`](../Src/EditBox.lua#L861))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -716,7 +716,7 @@ Initialised by `Chat:Init`.
 - Description: Cooperates with WIM focus ownership.
 - Methods:
   - `IsFocusActive` [`../Src/Bridges/WIMBridge.lua#L26`](../Src/Bridges/WIMBridge.lua#L26)
-  - `IsLoaded` [`../Src/Bridges/WIMBridge.lua#L43`](../Src/Bridges/WIMBridge.lua#L43)
+  - `IsLoaded` [`../Src/Bridges/WIMBridge.lua#L46`](../Src/Bridges/WIMBridge.lua#L46)
   - `Init` [`../Src/Bridges/WIMBridge.lua#L51`](../Src/Bridges/WIMBridge.lua#L51)
 
 ## Policies
@@ -871,15 +871,15 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` [`../Src/Multiline.lua#L62`](../Src/Multiline.lua#L62)
   - `Target` [`../Src/Multiline.lua#L63`](../Src/Multiline.lua#L63)
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1086`](../Src/Multiline.lua#L1086))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1045`](../Src/Multiline.lua#L1045))
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1098`](../Src/Multiline.lua#L1098))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1057`](../Src/Multiline.lua#L1057))
   - `UpdateLabelGap` [`../Src/Multiline.lua#L168`](../Src/Multiline.lua#L168)
   - `CreateFrame` [`../Src/Multiline.lua#L199`](../Src/Multiline.lua#L199)
-  - `Enter` [`../Src/Multiline.lua#L641`](../Src/Multiline.lua#L641)
-  - `Exit` [`../Src/Multiline.lua#L787`](../Src/Multiline.lua#L787)
-  - `Submit` [`../Src/Multiline.lua#L911`](../Src/Multiline.lua#L911)
-  - `Cancel` [`../Src/Multiline.lua#L1012`](../Src/Multiline.lua#L1012)
-  - `ApplyTheme` [`../Src/Multiline.lua#L1105`](../Src/Multiline.lua#L1105)
+  - `Enter` [`../Src/Multiline.lua#L653`](../Src/Multiline.lua#L653)
+  - `Exit` [`../Src/Multiline.lua#L799`](../Src/Multiline.lua#L799)
+  - `Submit` [`../Src/Multiline.lua#L923`](../Src/Multiline.lua#L923)
+  - `Cancel` [`../Src/Multiline.lua#L1024`](../Src/Multiline.lua#L1024)
+  - `ApplyTheme` [`../Src/Multiline.lua#L1117`](../Src/Multiline.lua#L1117)
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
 
@@ -1134,15 +1134,16 @@ Per-category page builders called by `BuildConfigUI`.
 ## Utilities
 
 - Methods:
+  - `Utils:SafeWidgetBoolean(widget, method) → boolean|nil`: Secret-safe boolean read for widget methods (HasFocus, IsShown, IsVisible, ...) whose return may be a secret under enforced addon restrictions; call and truthiness coercion each run inside pcall, so secret/erroring/absent results return nil ("unknown") instead of raising or fabricating a state. ([`../Src/Utils.lua#L280`](../Src/Utils.lua#L280))
   - `Utils:SafeNumber(value, fallback) → number`: Return a sanitized number, or `fallback` when the value is nil/secret/non-numeric. Convenience wrapper around SanitizeNumber. ([`../Src/Utils.lua#L262`](../Src/Utils.lua#L262))
   - `Utils:SanitizeNumber(value) → number|nil`: Return a number only when it is usable from tainted code; secret numbers (which pass `or 0` then fail inside Blizzard arithmetic) return nil. ([`../Src/Utils.lua#L251`](../Src/Utils.lua#L251))
   - `Utils:SanitizeTarget(value) → string|number|nil`: Return a chat target only when it is usable from tainted code. Secret values (and non-string/number types) return nil so callers treat them as "no target" instead of erroring on comparisons. ([`../Src/Utils.lua#L235`](../Src/Utils.lua#L235))
-  - `Utils:StripDisplayEscapes(text) → string`: Strip display-only WoW escape sequences from text while preserving complete hyperlinks. ([`../Src/Utils.lua#L387`](../Src/Utils.lua#L387))
-  - `Utils:IsUnambiguousBnetTarget(target) → boolean`: Return true when target is an unambiguous Battle.net identifier, such as a numeric ID or BattleTag containing `#`. ([`../Src/Utils.lua#L542`](../Src/Utils.lua#L542))
-  - `Utils:SetFontIfChanged(widget, face, size, flags) → boolean`: Set a widget's font only when the target differs from the current font; returns whether SetFont was called. ([`../Src/Utils.lua#L501`](../Src/Utils.lua#L501))
-  - `Utils:IsForeverClient() → boolean`: True on the World of Warcraft: Forever client, detected via Forever-only API surfaces first, then flavour/product labels (camelot/forever/classicplus variants), then a 1.6x build-version heuristic. Cached after first call. ([`../Src/Utils.lua#L296`](../Src/Utils.lua#L296))
-  - `Utils:HasRegionalUniqueNames() → boolean`: True when the current ruleset has surname-bearing regional-unique player names — Blizzard's own `RegionalUniqueNamesEnabled()` gate; intentionally independent of `IsForeverClient()`. ([`../Src/Utils.lua#L346`](../Src/Utils.lua#L346))
-  - `Utils:NormaliseCharName(name) → string|nil`: Canonicalise a character name for comparison — strips the `-Realm` suffix on retail; on regional-unique-names clients (Forever) keeps the surname and canonicalises "First Last"/"First-Last" to a single lowercase space-separated form. ([`../Src/Utils.lua#L365`](../Src/Utils.lua#L365))
+  - `Utils:StripDisplayEscapes(text) → string`: Strip display-only WoW escape sequences from text while preserving complete hyperlinks. ([`../Src/Utils.lua#L412`](../Src/Utils.lua#L412))
+  - `Utils:IsUnambiguousBnetTarget(target) → boolean`: Return true when target is an unambiguous Battle.net identifier, such as a numeric ID or BattleTag containing `#`. ([`../Src/Utils.lua#L567`](../Src/Utils.lua#L567))
+  - `Utils:SetFontIfChanged(widget, face, size, flags) → boolean`: Set a widget's font only when the target differs from the current font; returns whether SetFont was called. ([`../Src/Utils.lua#L526`](../Src/Utils.lua#L526))
+  - `Utils:IsForeverClient() → boolean`: True on the World of Warcraft: Forever client, detected via Forever-only API surfaces first, then flavour/product labels (camelot/forever/classicplus variants), then a 1.6x build-version heuristic. Cached after first call. ([`../Src/Utils.lua#L321`](../Src/Utils.lua#L321))
+  - `Utils:HasRegionalUniqueNames() → boolean`: True when the current ruleset has surname-bearing regional-unique player names — Blizzard's own `RegionalUniqueNamesEnabled()` gate; intentionally independent of `IsForeverClient()`. ([`../Src/Utils.lua#L371`](../Src/Utils.lua#L371))
+  - `Utils:NormaliseCharName(name) → string|nil`: Canonicalise a character name for comparison — strips the `-Realm` suffix on retail; on regional-unique-names clients (Forever) keeps the surname and canonicalises "First Last"/"First-Last" to a single lowercase space-separated form. ([`../Src/Utils.lua#L390`](../Src/Utils.lua#L390))
   - `Utils:SafeToString(value) → string`: Convert diagnostic values without stringifying secret values; returns `<secret>` for secret values and `<unavailable>` when conversion fails. ([`../Src/Utils.lua#L34`](../Src/Utils.lua#L34))
   - `Utils:IsChatOrCombatLockdown() → boolean`: Return true when either chat-messaging or combat lockdown is active. ([`../Src/Utils.lua#L137`](../Src/Utils.lua#L137))
   - `Utils:IsAnyAddOnRestriction() → boolean`: Return true while any addon restriction type is enforced — secret values may exist in Blizzard code paths, so tainted forwarding can hit illegal secret comparisons. ([`../Src/Utils.lua#L127`](../Src/Utils.lua#L127))
@@ -1150,7 +1151,7 @@ Per-category page builders called by `BuildConfigUI`.
   - `Utils:AssertType(value, expectedType, default) → any`: Assert type matches expected, returning the original value or default. ([`../Src/Utils.lua#L178`](../Src/Utils.lua#L178))
   - `Utils:EnsureTablePath(root, ...) → table`: Ensure a table path exists, creating intermediate tables as needed, and return the deepest table. ([`../Src/Utils.lua#L162`](../Src/Utils.lua#L162))
   - `Utils:EnsureTable(t) → table`: Ensure a value is a table, returning it or a new empty table. ([`../Src/Utils.lua#L154`](../Src/Utils.lua#L154))
-  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L557`](../Src/Utils.lua#L557))
+  - `Utils:Deleet(word) → string`: Convert leetspeak characters back to their base alphabet equivalents. ([`../Src/Utils.lua#L582`](../Src/Utils.lua#L582))
 
 ## TotalRP3Bridge
 
@@ -1199,9 +1200,10 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 ## EditBoxCompat
 
 - Methods:
-  - `EditBox:_SyncActiveChatWindow() → nil`: Align Blizzard's `ACTIVE_CHAT_EDIT_BOX` global with the visible Yapper editor (overlay or multiline), releasing through `DeactivateChat` when Yapper closes, is bypassed, or lockdown hands off. `GetActiveWindow`/`FocusActiveWindow` are never wrapped -- an addon function in those slots taints secure call chains (e.g. `InsertLink` -> `GetActiveWindow` inside a map-pin click, which since 12.1 is followed by the protected `CopyToClipboard` and fails with ADDON_ACTION_FORBIDDEN). ([`../Src/EditBoxCompat.lua#L228`](../Src/EditBoxCompat.lua#L228))
-  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Gate `_SyncActiveChatWindow` during lockdown handoff and recovery so a visible-but-handing-off editor can never claim `ACTIVE_CHAT_EDIT_BOX`. ([`../Src/EditBoxCompat.lua#L282`](../Src/EditBoxCompat.lua#L282))
-  - `EditBox:RegisterFocusWatcher(editBox, onGained, onLost) → nil`: Register an editbox for focus-edge callbacks delivered from a `C_Timer` poll of `HasFocus` instead of `OnEditFocusGained`/`OnEditFocusLost` scripts. Frame scripts run inside whatever stack drove the focus change -- e.g. `InsertLink` -> `SetFocus` inside a map-pin CHATLINK click -- and addon Lua there taints the remainder of the stack (12.1's protected `CopyToClipboard` then fails `ADDON_ACTION_FORBIDDEN` on the click that moves focus). `hooksecurefunc` post-hooks are trampoline-isolated and stay safe; script handlers are not. ([`../Src/EditBoxCompat.lua#L325`](../Src/EditBoxCompat.lua#L325))
+  - `EditBox:_SyncActiveChatWindow() → nil`: Align Blizzard's `ACTIVE_CHAT_EDIT_BOX` global with the visible Yapper editor (overlay or multiline), releasing through `DeactivateChat` when Yapper closes, is bypassed, or lockdown hands off. `GetActiveWindow`/`FocusActiveWindow` are never wrapped -- an addon function in those slots taints secure call chains (e.g. `InsertLink` -> `GetActiveWindow` inside a map-pin click, which since 12.1 is followed by the protected `CopyToClipboard` and fails with ADDON_ACTION_FORBIDDEN). ([`../Src/EditBoxCompat.lua#L240`](../Src/EditBoxCompat.lua#L240))
+  - `EditBox:SetChatCompatibilityEnabled(enabled) → nil`: Gate `_SyncActiveChatWindow` during lockdown handoff and recovery so a visible-but-handing-off editor can never claim `ACTIVE_CHAT_EDIT_BOX`. ([`../Src/EditBoxCompat.lua#L294`](../Src/EditBoxCompat.lua#L294))
+  - `EditBox:RegisterFocusWatcher(editBox, onGained, onLost) → nil`: Register an editbox for focus-edge callbacks delivered from a `C_Timer` poll of `HasFocus` instead of `OnEditFocusGained`/`OnEditFocusLost` scripts. Frame scripts run inside whatever stack drove the focus change -- e.g. `InsertLink` -> `SetFocus` inside a map-pin CHATLINK click -- and addon Lua there taints the remainder of the stack (12.1's protected `CopyToClipboard` then fails `ADDON_ACTION_FORBIDDEN` on the click that moves focus). `hooksecurefunc` post-hooks are trampoline-isolated and stay safe; script handlers are not. Entries dedupe per box (re-registering the same pair is a no-op; a different pair becomes a subscriber on the shared entry). Poll reads are secret-safe: under enforced addon restrictions `HasFocus` can return a secret boolean that errors on any truthiness test, so unreadable samples are skipped (last observed state kept) instead of erroring every tick. ([`../Src/EditBoxCompat.lua#L424`](../Src/EditBoxCompat.lua#L424))
+  - `EditBox:SetFocusWatcherActive(editBox, active) → nil`: Suspend/resume a watcher's edge detection; suspended watchers are skipped and the poll ticker cancels when every watched box is closed. Suspension while focused delivers the lost edge first -- a closed box cannot hold focus, so subscribers (bypass clearing, typing-state, draft snapshots) see the same transition the uninterrupted poll would have fired; resuming keeps the last observed state so focus changes made while suspended still fire edges once readable. Driven by `hooksecurefunc` Show/Hide post-hooks on the widget (foreign boxes) or container frame (overlay, multiline). ([`../Src/EditBoxCompat.lua#L403`](../Src/EditBoxCompat.lua#L403))
 
 ## WhisperMessengerBridge
 

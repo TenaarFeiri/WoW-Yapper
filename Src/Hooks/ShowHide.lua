@@ -812,12 +812,12 @@ function EditBox:Show(origEditBox)
     local after = C_Timer and C_Timer.After
     if after then
         after(0, function()
-            if shownOverlay and shownOverlay:IsShown()
-                and shownOverlayEdit and type(shownOverlayEdit.HasFocus) == "function"
-                and not shownOverlayEdit:HasFocus() then
-                if type(shownOverlayEdit.SetFocus) == "function" then
-                    shownOverlayEdit:SetFocus()
-                end
+            -- IsShown/HasFocus can be secret under addon restrictions;
+            -- reclaim focus only when it is verifiably absent.
+            if Utils:SafeWidgetBoolean(shownOverlay, "IsShown") == true
+                and Utils:SafeWidgetBoolean(shownOverlayEdit, "HasFocus") == false
+                and type(shownOverlayEdit.SetFocus) == "function" then
+                shownOverlayEdit:SetFocus()
             end
         end)
     end

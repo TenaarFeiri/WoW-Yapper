@@ -428,6 +428,18 @@ function Multiline:CreateFrame()
 				State:ToIdle()
 			end
 		end)
+
+		-- The frame owns widget visibility: suspend focus watching while
+		-- multiline is closed so the poll ticker can stop when nothing is
+		-- open (mirrors the overlay's CreateOverlay hooks).
+		if hooksecurefunc then
+			hooksecurefunc(f, "Show", function()
+				yapperEditBox:SetFocusWatcherActive(edit, true)
+			end)
+			hooksecurefunc(f, "Hide", function()
+				yapperEditBox:SetFocusWatcherActive(edit, false)
+			end)
+		end
 	end
 
 	-- Mirror the overlay's OnChar suppression: after a suggestion hotkey

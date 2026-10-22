@@ -246,8 +246,22 @@ function Router:Send(msg, chatType, language, target)
             return false
         end
 
-        local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
-        local resolvedID = bnetAccountID or presenceID
+        -- |K presence tokens (Blizzard's remembered BN whisper targets)
+        -- and secret values can't be matched against the friend list from
+        -- Lua; the C API resolves either straight to the account ID, the
+        -- same call Blizzard's own SendText makes for BN tellTargets.
+        local resolvedID
+        local resolveID = _G.BNet_GetBNetIDAccount
+        if type(resolveID) == "function" then
+            local okID, id = pcall(resolveID, target)
+            if okID and type(id) == "number" and id > 0 then
+                resolvedID = id
+            end
+        end
+        if not resolvedID then
+            local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
+            resolvedID = bnetAccountID or presenceID
+        end
         if not resolvedID then
             YapperTable.Utils:DebugPrint("Router: BNet whisper with no valid presenceID.")
             return false

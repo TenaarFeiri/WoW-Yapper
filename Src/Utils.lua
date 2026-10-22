@@ -263,6 +263,31 @@ function Utils:SafeNumber(value, fallback)
     return self:SanitizeNumber(value) or fallback
 end
 
+local function CoerceBoolean(v)
+    return v and true or false
+end
+
+--- Boolean-read containment for widget methods (HasFocus, IsShown, ...)
+--- whose return may be a SECRET value while addon restrictions are
+--- enforced (encounters, M+, chat/combat lockdown). A secret raises a Lua
+--- error on any boolean test or comparison performed from tainted code,
+--- so the call and the truthiness coercion each run inside pcall; a
+--- secret, erroring, or absent result yields nil ("unknown") rather than
+--- a fabricated state.
+--- @param widget any    Widget/object to query.
+--- @param method string Method name, invoked as widget[method](widget).
+--- @return boolean|nil  true/false when readable, nil when not.
+function Utils:SafeWidgetBoolean(widget, method)
+    if not widget or type(method) ~= "string" then return nil end
+    local fn = widget[method]
+    if type(fn) ~= "function" then return nil end
+    local ok, raw = pcall(fn, widget)
+    if not ok then return nil end
+    local ok2, result = pcall(CoerceBoolean, raw)
+    if not ok2 then return nil end
+    return result
+end
+
 -- ---------------------------------------------------------------------------
 -- Client flavour / feature detection
 -- ---------------------------------------------------------------------------

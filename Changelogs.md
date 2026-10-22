@@ -1,3 +1,13 @@
+# 2.4.9
+
+### Bug Fixes
+- Fix BNet breaking AGAIN (secret fix unfixed bnet whispers)
+
+# 2.4.8
+
+### Bug Fixes
+- Fix secret issues in raids.
+
 # 2.4.7_2
 
 TOC update.

@@ -354,6 +354,28 @@ local function ParseChannelSlash(text)
     return nil
 end
 
+--- Recover a usable BN target from a "|K" presence token or secret value
+--- coming out of Blizzard's remembered-tell stores. The C API consumes the
+--- raw value and yields the numeric account ID; prefer the readable
+--- account name so labels and ReplyQueue dedup stay human-friendly,
+--- falling back to the bare ID.
+--- @param rawTarget any
+--- @return string|number|nil
+local function ResolveBnetReplyTarget(rawTarget)
+    local resolve = _G.BNet_GetBNetIDAccount
+    if type(resolve) ~= "function" then return nil end
+    local ok, id = pcall(resolve, rawTarget)
+    if not ok or type(id) ~= "number" or id <= 0 then return nil end
+    if C_BattleNet and C_BattleNet.GetAccountInfoByID then
+        local okInfo, info = pcall(C_BattleNet.GetAccountInfoByID, id)
+        if okInfo and type(info) == "table" and info.accountName
+            and not Utils:IsSecret(info.accountName) then
+            return info.accountName
+        end
+    end
+    return id
+end
+
 local function GetLastTellTargetInfo()
     if not Utils then YapperTable.Error:Throw("MISSING_UTILS") end
 
@@ -388,6 +410,15 @@ local function GetLastTellTargetInfo()
             return nil, nil
         end
         if Utils:IsSecret(lastTell) then
+            -- BN entries are |K tokens (or secrets under restrictions):
+            -- recover the account through the C API instead of dropping
+            -- the reply target outright.
+            if lastType == "BN_WHISPER" then
+                local recovered = ResolveBnetReplyTarget(lastTell)
+                if recovered then
+                    return "BN_WHISPER", recovered
+                end
+            end
             return nil, nil
         end
     end
@@ -429,7 +460,17 @@ local function GetLastToldTargetInfo()
     if ChatFrameUtil and ChatFrameUtil.GetLastToldTarget then
         ok, lastTold, lastType = pcall(ChatFrameUtil.GetLastToldTarget)
     end
-    if not ok or Utils:IsSecret(lastTold) then
+    if not ok then
+        return nil, nil
+    end
+    if Utils:IsSecret(lastTold) then
+        -- Same |K/secret recovery as GetLastTellTargetInfo.
+        if lastType == "BN_WHISPER" then
+            local recovered = ResolveBnetReplyTarget(lastTold)
+            if recovered then
+                return "BN_WHISPER", recovered
+            end
+        end
         return nil, nil
     end
     if not lastTold or lastTold == "" then
@@ -484,10 +525,38 @@ function EditBox:ResolveWhisperTarget(chatType, source, fallback)
         ok, secureTarget, secureType = pcall(ChatFrameUtil.GetLastToldTarget)
     end
 
-    if ok and secureTarget and secureType == chatType then
-        return secureTarget, true
+    -- Compare the type tag first: it is always a plain string, while the
+    -- remembered target can be a secret value or a "|K" presence token,
+    -- neither of which Lua may boolean-test from tainted code.
+    if not ok or secureType ~= chatType then
+        return fallback, false
     end
-    return fallback, false
+
+    if chatType == "BN_WHISPER" then
+        -- Blizzard's remembered BN target is the |K token (or a secret
+        -- under restrictions), which the friend-list scan in Router can't
+        -- match. The C side of BNet_GetBNetIDAccount consumes either and
+        -- yields the numeric account ID SendWhisper needs -- the same
+        -- recovery ResolveWhisperFrameTarget uses for whisper tabs. On
+        -- failure the Yapper-stored fallback (account name or arg13 ID)
+        -- still works; it just isn't Blizzard-sourced.
+        local resolve = _G.BNet_GetBNetIDAccount
+        if type(resolve) == "function" then
+            local okID, id = pcall(resolve, secureTarget)
+            if okID and type(id) == "number" and id > 0 then
+                return id, true
+            end
+        end
+        return fallback, false
+    end
+
+    -- IsSecret also covers nil/blank, so a secret or missing remembered
+    -- WHISPER target falls back instead of erroring OnEnterPressed on a
+    -- boolean test.
+    if Utils:IsSecret(secureTarget) then
+        return fallback, false
+    end
+    return secureTarget, true
 end
 
 --- Resolve a temporary whisper tab's routing into a Yapper-usable

@@ -656,7 +656,14 @@ end
 function Spellcheck:IsSuggestionEligible()
     if not self:IsEnabled() then return false end
     if not self.ActiveWord then return false end
-    if self.EditBox and not self.EditBox:HasFocus() then return false end
+    if self.EditBox then
+        -- HasFocus may be a secret boolean under addon restrictions; an
+        -- unreadable state fails closed (no suggestion UI).
+        local Utils = YapperTable.Utils
+        local focused = Utils and Utils.SafeWidgetBoolean
+            and Utils:SafeWidgetBoolean(self.EditBox, "HasFocus")
+        if focused ~= true then return false end
+    end
     return true
 end
 

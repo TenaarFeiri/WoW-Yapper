@@ -182,6 +182,18 @@ local originalCreateOverlay = EditBox.CreateOverlay
 function EditBox:CreateOverlay(...)
     originalCreateOverlay(self, ...)
     YapperTable.InstallCompatMethods(self.OverlayEdit)
+    -- The overlay frame owns widget visibility: suspend focus watchers
+    -- while it is closed so the poll ticker can stop entirely when
+    -- nothing is open. Covers every close path, including multiline
+    -- entry hiding the frame without EditBox:Hide().
+    if self.Overlay and hooksecurefunc then
+        hooksecurefunc(self.Overlay, "Show", function()
+            EditBox:SetFocusWatcherActive(EditBox.OverlayEdit, true)
+        end)
+        hooksecurefunc(self.Overlay, "Hide", function()
+            EditBox:SetFocusWatcherActive(EditBox.OverlayEdit, false)
+        end)
+    end
 end
 
 -- Also install on Multiline at creation time if it exists.
@@ -319,8 +331,95 @@ end
 -- focus). hooksecurefunc post-hooks are invoked through the secure
 -- trampoline and do not taint the caller; frame scripts have no such
 -- isolation, so focus transitions are detected by polling HasFocus from a
--- ticker -- timer callbacks always run outside foreign stacks.
+-- ticker -- timer callbacks always run outside foreign stacks. Reads go
+-- through PollFocusState: under enforced addon restrictions (encounters,
+-- M+, lockdown) HasFocus can return a SECRET boolean, and a boolean test
+-- on a secret raises "attempt to perform boolean test on a secret boolean
+-- value" from tainted code. An unreadable sample degrades to "unknown"
+-- instead of fabricating a state.
 local FOCUS_POLL_INTERVAL = 0.05
+
+-- Secret-safe HasFocus read. The truthiness coercion must stay inside the
+-- pcall: that is the expression that errors on a secret return. Returns
+-- true/false when readable, nil ("unknown") when the call errors or the
+-- result is a secret that cannot be tested.
+local function PollFocusState(box)
+    if not (box and box.HasFocus) then return nil end
+    local ok, focused = pcall(function()
+        return box:HasFocus() and true or false
+    end)
+    if not ok then return nil end
+    return focused
+end
+
+-- Watcher lifecycle: entries are per-box ({box, subs, focused, suspended})
+-- and only polled while the box is open. Suspending delivers a pending
+-- lost-edge first -- a closed box cannot hold focus, and subscribers
+-- (bypass clearing, typing-state, draft snapshots) must see the same
+-- transition the uninterrupted poll would have fired one tick later.
+
+function EditBox:_FireFocusEdge(w, focused)
+    for j = 1, #w.subs do
+        local fn = focused and w.subs[j].onGained or w.subs[j].onLost
+        -- Contain per subscriber: a callback that touches secret state
+        -- (GetText etc. under addon restrictions) must not starve the
+        -- remaining subscribers or error the poll loop itself.
+        if fn then pcall(fn, w.box) end
+    end
+end
+
+-- Start the poll ticker when at least one watcher is active; cancel it
+-- when every watched box is closed/suspended.
+function EditBox:_UpdateFocusPollTicker()
+    local watchers = self._focusWatchers
+    local anyActive = false
+    if watchers then
+        for i = 1, #watchers do
+            if not watchers[i].suspended then
+                anyActive = true
+                break
+            end
+        end
+    end
+    if anyActive then
+        if not self._focusPollTicker and C_Timer and C_Timer.NewTicker then
+            self._focusPollTicker = C_Timer.NewTicker(FOCUS_POLL_INTERVAL, function()
+                self:_PollFocusWatchers()
+            end)
+        end
+    elseif self._focusPollTicker then
+        self._focusPollTicker:Cancel()
+        self._focusPollTicker = nil
+    end
+end
+
+--- Suspend or resume edge detection for a watched box. Suspension while
+--- the box was last seen focused delivers the lost edge to subscribers
+--- before sleeping (a hidden box cannot hold focus); resuming resumes the
+--- poll against the last observed state, so a focus change that happened
+--- while suspended still fires its edge once readable.
+--- @param editBox table  A box previously passed to RegisterFocusWatcher.
+--- @param active boolean
+function EditBox:SetFocusWatcherActive(editBox, active)
+    local watchers = self._focusWatchers
+    if watchers then
+        for i = 1, #watchers do
+            local w = watchers[i]
+            if w.box == editBox then
+                if active then
+                    w.suspended = nil
+                elseif not w.suspended then
+                    if w.focused == true then
+                        w.focused = false
+                        self:_FireFocusEdge(w, false)
+                    end
+                    w.suspended = true
+                end
+            end
+        end
+    end
+    self:_UpdateFocusPollTicker()
+end
 
 function EditBox:RegisterFocusWatcher(editBox, onGained, onLost)
     if not editBox then return end
@@ -329,17 +428,53 @@ function EditBox:RegisterFocusWatcher(editBox, onGained, onLost)
         watchers = {}
         self._focusWatchers = watchers
     end
-    watchers[#watchers + 1] = {
-        box = editBox,
-        focused = editBox.HasFocus and editBox:HasFocus() and true or false,
-        onGained = onGained,
-        onLost = onLost,
-    }
-    if not self._focusPollTicker and C_Timer and C_Timer.NewTicker then
-        self._focusPollTicker = C_Timer.NewTicker(FOCUS_POLL_INTERVAL, function()
-            self:_PollFocusWatchers()
-        end)
+    -- One entry per box: re-registering the same callback pair is a
+    -- no-op; a different pair appends a subscriber to the shared entry
+    -- (Handlers + History both watch OverlayEdit, for example).
+    local w
+    for i = 1, #watchers do
+        if watchers[i].box == editBox then
+            w = watchers[i]
+            break
+        end
     end
+    if not w then
+        w = {
+            box = editBox,
+            subs = {},
+            focused = PollFocusState(editBox),
+        }
+        watchers[#watchers + 1] = w
+        -- Suspend tracking for foreign boxes (Blizzard chat editboxes):
+        -- widget Show/Hide post-hooks are trampoline-isolated like the
+        -- ticker itself. Our own editors skip this -- their widget Hide is
+        -- vetoed by the compat install, so the container frame's hooks
+        -- (installed by the CreateOverlay/Multiline wrappers) drive
+        -- suspension instead.
+        if hooksecurefunc and not editBox._yapperCompatInstalled then
+            hooksecurefunc(editBox, "Show", function()
+                self:SetFocusWatcherActive(editBox, true)
+            end)
+            hooksecurefunc(editBox, "Hide", function()
+                self:SetFocusWatcherActive(editBox, false)
+            end)
+        end
+        -- A box closed at registration sleeps until its first Show;
+        -- IsVisible covers children of hidden parents.
+        local utils = YapperTable.Utils
+        if utils and utils.SafeWidgetBoolean
+            and utils:SafeWidgetBoolean(editBox, "IsVisible") == false then
+            w.suspended = true
+        end
+    end
+    for i = 1, #w.subs do
+        local s = w.subs[i]
+        if s.onGained == onGained and s.onLost == onLost then
+            return
+        end
+    end
+    w.subs[#w.subs + 1] = { onGained = onGained, onLost = onLost }
+    self:_UpdateFocusPollTicker()
 end
 
 function EditBox:_PollFocusWatchers()
@@ -347,12 +482,22 @@ function EditBox:_PollFocusWatchers()
     if not watchers then return end
     for i = 1, #watchers do
         local w = watchers[i]
-        local box = w.box
-        local focused = box and box.HasFocus and box:HasFocus() and true or false
-        if focused ~= w.focused then
-            w.focused = focused
-            local fn = focused and w.onGained or w.onLost
-            if fn then fn(box) end
+        if not w.suspended then
+            local focused = PollFocusState(w.box)
+            if focused ~= nil then
+                if w.focused == nil then
+                    -- First readable sample establishes the baseline; an
+                    -- edge cannot be claimed for a transition never
+                    -- observed.
+                    w.focused = focused
+                elseif focused ~= w.focused then
+                    w.focused = focused
+                    self:_FireFocusEdge(w, focused)
+                end
+            end
+            -- focused == nil: secret/unreadable under addon restrictions.
+            -- Keep the last observed state; any real edge still fires once
+            -- reads work again, and no spurious edge is emitted meanwhile.
         end
     end
 end

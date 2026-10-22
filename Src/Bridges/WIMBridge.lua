@@ -31,11 +31,14 @@ function Bridge:IsFocusActive()
 	local focus = wim.EditBoxInFocus
 	if not focus then return false end
 
-	local hasFocus  = focus.HasFocus  and focus:HasFocus()
-	if not hasFocus then return false end
+	-- HasFocus/IsShown may return secret booleans under addon restrictions;
+	-- unreadable state means WIM cannot be proven focused.
+	local utils   = YapperTable.Utils
+	local hasFocus = utils and utils.SafeWidgetBoolean
+		and utils:SafeWidgetBoolean(focus, "HasFocus")
+	if hasFocus ~= true then return false end
 
-	local isShown   = focus.IsShown   and focus:IsShown()
-	return hasFocus == true and isShown == true
+	return utils:SafeWidgetBoolean(focus, "IsShown") == true
 end
 
 --- Check whether the WIM addon is loaded in the environment.
