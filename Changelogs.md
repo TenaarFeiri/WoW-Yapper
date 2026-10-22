@@ -1,3 +1,8 @@
+# 2.4.9_1
+
+### Bug Fixes
+- fix recursion issue with new watchdog.
+
 # 2.4.9
 
 ### Bug Fixes

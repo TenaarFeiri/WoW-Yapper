@@ -236,50 +236,77 @@ end
 -- overlay to SendTell paths that expect full native editboxes.
 
 function EditBox:_SyncActiveChatWindow()
-    local multilineEdit = YapperTable.Multiline and YapperTable.Multiline.EditBox
-
-    -- LAST_ACTIVE_CHAT_EDIT_BOX must never hold our editor either:
-    -- im-mode ChooseBoxForSend/SetLastActiveWindow paths treat it as a
-    -- real window box (including previousValue:Hide()). disableActivate
-    -- blocks Blizzard's writers, but a direct global write can still land
-    -- here -- hand it back to the default box when we spot it.
-    local lastActive = _G.LAST_ACTIVE_CHAT_EDIT_BOX
-    if lastActive == self.OverlayEdit or (multilineEdit and lastActive == multilineEdit) then
-        _G.LAST_ACTIVE_CHAT_EDIT_BOX = DEFAULT_CHAT_FRAME.editBox
+    -- Re-entry guard: DeactivateChat below runs Blizzard's Deactivate ->
+    -- Hide/ClearFocus bookkeeping, and dock/focus handlers reached from it
+    -- can funnel back through UpdateFocusOverride and re-enter this sync.
+    -- Unbounded nesting there is a C stack overflow: a nested call only
+    -- marks a pending re-check; the outermost pass finishes the write and
+    -- defers one re-eval to the next frame, outside the foreign stack.
+    if self._syncActiveWindowRunning then
+        self._syncActiveWindowPending = true
+        return
     end
+    self._syncActiveWindowRunning = true
 
-    local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
-    local desired = activeEditor
-    if self._chatCompatEnabled == false
-        or (self._lockdown and self._lockdown.handedOff)
-        or (self._UserBypassingYapper and self._UserBypassingYapper())
-        or (self._BypassEditBox and self._BypassEditBox())
-        or (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
-        desired = nil
-    end
+    local ok, err = pcall(function()
+        local multilineEdit = YapperTable.Multiline and YapperTable.Multiline.EditBox
 
-    local current = ChatFrameUtil.GetActiveWindow()
-    if current == desired then return end
+        -- LAST_ACTIVE_CHAT_EDIT_BOX must never hold our editor either:
+        -- im-mode ChooseBoxForSend/SetLastActiveWindow paths treat it as a
+        -- real window box (including previousValue:Hide()). disableActivate
+        -- blocks Blizzard's writers, but a direct global write can still land
+        -- here -- hand it back to the default box when we spot it.
+        local lastActive = _G.LAST_ACTIVE_CHAT_EDIT_BOX
+        if lastActive == self.OverlayEdit or (multilineEdit and lastActive == multilineEdit) then
+            _G.LAST_ACTIVE_CHAT_EDIT_BOX = DEFAULT_CHAT_FRAME.editBox
+        end
 
-    if desired then
-        if current then
-            -- Displace the previous holder through Blizzard's own path so
-            -- its Deactivate bookkeeping still runs.
-            local ok, err = pcall(ChatFrameUtil.DeactivateChat, current)
-            if not ok and YapperTable.Utils then
-                YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(err))
+        local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
+        local desired = activeEditor
+        if self._chatCompatEnabled == false
+            or (self._lockdown and self._lockdown.handedOff)
+            or (self._UserBypassingYapper and self._UserBypassingYapper())
+            or (self._BypassEditBox and self._BypassEditBox())
+            or (YapperTable.Utils and YapperTable.Utils:IsChatLockdown()) then
+            desired = nil
+        end
+
+        local current = ChatFrameUtil.GetActiveWindow()
+        if current == desired then return end
+
+        if desired then
+            if current then
+                -- Displace the previous holder through Blizzard's own path so
+                -- its Deactivate bookkeeping still runs.
+                local dok, derr = pcall(ChatFrameUtil.DeactivateChat, current)
+                if not dok and YapperTable.Utils then
+                    YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(derr))
+                end
+            end
+            _G.ACTIVE_CHAT_EDIT_BOX = desired
+        else
+            -- Only release ownership when WE hold the slot; never touch a
+            -- genuinely active Blizzard editbox.
+            if current == self.OverlayEdit or (multilineEdit and current == multilineEdit) then
+                local dok, derr = pcall(ChatFrameUtil.DeactivateChat, current)
+                if not dok and YapperTable.Utils then
+                    YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(derr))
+                end
             end
         end
-        _G.ACTIVE_CHAT_EDIT_BOX = desired
-    else
-        -- Only release ownership when WE hold the slot; never touch a
-        -- genuinely active Blizzard editbox.
-        if current == self.OverlayEdit or (multilineEdit and current == multilineEdit) then
-            local ok, err = pcall(ChatFrameUtil.DeactivateChat, current)
-            if not ok and YapperTable.Utils then
-                YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(err))
+    end)
+    self._syncActiveWindowRunning = nil
+    if not ok and YapperTable.Utils then
+        YapperTable.Utils:VerbosePrint("_SyncActiveChatWindow failed: " .. YapperTable.Utils:SafeToString(err))
+    end
+
+    if self._syncActiveWindowPending then
+        self._syncActiveWindowPending = nil
+        C_Timer.After(0, function()
+            if self.UpdateFocusOverride then
+                self:UpdateFocusOverride()
             end
-        end
+        end)
     end
 end
 
