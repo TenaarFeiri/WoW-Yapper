@@ -2,7 +2,7 @@
 local _, YapperTable = ...
 
 local function GetChatTypeColor(chatType, fallback)
-    local info = ChatTypeInfo and chatType and ChatTypeInfo[chatType]
+    local info = chatType and ChatTypeInfo[chatType]
     if not info then
         return fallback
     end

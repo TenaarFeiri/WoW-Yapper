@@ -58,7 +58,7 @@ end
 --- Check whether keyboard focus currently belongs to WM or one of its children.
 --- @return boolean
 function Bridge:IsFocusActive()
-    if not self:IsWindowVisible() or type(_G.GetCurrentKeyBoardFocus) ~= "function" then
+    if not self:IsWindowVisible() then
         return false
     end
 
@@ -112,7 +112,7 @@ function Bridge:WrapReplyKeybind()
         -- During chat/combat lockdown, fall through to Yapper's handler which
         -- delegates to Blizzard's own OpenChat flow.
         local inLockdown = Utils and Utils.IsChatLockdown and Utils:IsChatLockdown()
-        local inCombat = _G.InCombatLockdown and _G.InCombatLockdown()
+        local inCombat = InCombatLockdown()
         if inLockdown or inCombat then
             if originalPostClick then
                 originalPostClick()

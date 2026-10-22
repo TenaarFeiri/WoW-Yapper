@@ -53,6 +53,12 @@ local regionalEnabled = false
 _G.RegionalUniqueNamesEnabled = function() return regionalEnabled end
 _G.GetBuildInfo = function() return "11.0.5.0" end
 
+-- Required secret-value APIs (production calls them directly).
+_G.issecretvalue = function() return false end
+_G.canaccessvalue = function() return true end
+_G.issecrettable = function() return false end
+_G.canaccesstable = function() return true end
+
 local YapperName = "Yapper"
 local YapperTable = {
     Config = { System = { DEBUG = false, VERBOSE = false } },

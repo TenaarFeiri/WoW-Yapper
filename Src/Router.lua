@@ -82,7 +82,7 @@ end
 
 --- Uncached friend-list scan used by ResolveBnetTarget.
 function Router:_ResolveBnetTargetUncached(needle)
-    if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
+    do
         local count = BNGetNumFriends()
         for i = 1, count do
             local info = C_BattleNet.GetFriendAccountInfo(i)
@@ -98,7 +98,7 @@ function Router:_ResolveBnetTargetUncached(needle)
         end
     end
 
-    if BNGetNumFriends and BNGetFriendInfo then
+    do
         local count = BNGetNumFriends()
         for i = 1, count do
             local presenceID, accountName, battleTag, _, toonName, _, _, _, _, _, _, _, _, bnetAccountID =
@@ -124,7 +124,7 @@ function Router:ResolveBnetDisplay(target)
     end
 
     local numeric = tonumber(needle)
-    if numeric and C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
+    if numeric then
         local count = BNGetNumFriends()
         for i = 1, count do
             local info = C_BattleNet.GetFriendAccountInfo(i)
@@ -135,7 +135,7 @@ function Router:ResolveBnetDisplay(target)
         end
     end
 
-    if BNGetNumFriends and BNGetFriendInfo then
+    do
         local count = BNGetNumFriends()
         for i = 1, count do
             local presenceID, accountName, battleTag, _, toonName, _, _, _, _, _, _, _, _,
@@ -152,7 +152,7 @@ function Router:ResolveBnetDisplay(target)
         end
     end
 
-    if not numeric and C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
+    if not numeric then
         local count = BNGetNumFriends()
         for i = 1, count do
             local info = C_BattleNet.GetFriendAccountInfo(i)
@@ -180,7 +180,7 @@ end
 function Router:Init()
     -- Cache the current globals for fallback sends.
     self.SendChatMessage = C_ChatInfo.SendChatMessage
-    self.ClubSendMessage = _G.C_Club and _G.C_Club.SendMessage or nil
+    self.ClubSendMessage = C_Club.SendMessage
 
     if YapperTable.Events then
         YapperTable.Events:Register("PARENT_FRAME", "BN_FRIEND_INFO_CHANGED", function()
@@ -195,7 +195,7 @@ end
 
 --- Check if a channel is actually a community (Community:<clubId>:<streamId>).
 function Router:DetectCommunityChannel(channelTarget)
-    if not channelTarget or not GetChannelName then return false end
+    if not channelTarget then return false end
 
     local _, name = GetChannelName(channelTarget)
     if not name or type(name) ~= "string" then return false end
@@ -219,31 +219,26 @@ function Router:Send(msg, chatType, language, target)
 
     -- Battle.net whisper
     if chatType == "BN_WHISPER" or chatType == "BNET" then
-        local sendWhisper = C_BattleNet and C_BattleNet.SendWhisper or nil
+        local sendWhisper = C_BattleNet.SendWhisper
+        local function SendBnet(accountID)
+            local ok, err = pcall(sendWhisper, accountID, msg)
+            if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
+            return ok
+        end
 
         -- Numeric targets are BNet account IDs from friend-list menus or
         -- CHAT_MSG_BN_WHISPER. SendWhisper consumes the account ID, so never
         -- treat these as presence IDs.
         local numericTarget = type(target) == "number" and target or nil
         if numericTarget then
-            if sendWhisper then
-                local ok, err = pcall(sendWhisper, numericTarget, msg)
-                if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
-                return ok
-            end
-            return false
+            return SendBnet(numericTarget)
         end
 
         -- Legacy path: callers may pass a presence ID as a string. Numeric
         -- strings skip friend lookup and go straight to the whisper send.
         local legacyPresenceID = type(target) == "string" and tonumber(target) or nil
         if legacyPresenceID then
-            if sendWhisper then
-                local ok, err = pcall(sendWhisper, legacyPresenceID, msg)
-                if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
-                return ok
-            end
-            return false
+            return SendBnet(legacyPresenceID)
         end
 
         -- |K presence tokens (Blizzard's remembered BN whisper targets)
@@ -251,14 +246,17 @@ function Router:Send(msg, chatType, language, target)
         -- Lua; the C API resolves either straight to the account ID, the
         -- same call Blizzard's own SendText makes for BN tellTargets.
         local resolvedID
-        local resolveID = _G.BNet_GetBNetIDAccount
-        if type(resolveID) == "function" then
-            local okID, id = pcall(resolveID, target)
-            if okID and type(id) == "number" and id > 0 then
+        if target ~= nil then
+            -- pcall: the C call can raise on a secret input under addon
+            -- restrictions; fall through to the friend-list scan instead.
+            local ok, id = pcall(BNet_GetBNetIDAccount, target)
+            if ok then
                 resolvedID = id
+            else
+                YapperTable.Utils:DebugPrint("BNet_GetBNetIDAccount failed: " .. Utils:SafeToString(id))
             end
         end
-        if not resolvedID then
+        if not (type(resolvedID) == "number" and resolvedID > 0) then
             local presenceID, bnetAccountID = self:ResolveBnetTarget(target)
             resolvedID = bnetAccountID or presenceID
         end
@@ -266,12 +264,7 @@ function Router:Send(msg, chatType, language, target)
             YapperTable.Utils:DebugPrint("Router: BNet whisper with no valid presenceID.")
             return false
         end
-        if sendWhisper then
-            local ok, err = pcall(sendWhisper, resolvedID, msg)
-            if not ok then YapperTable.Utils:DebugPrint("SendWhisper error: " .. Utils:SafeToString(err)) end
-            return ok
-        end
-        return false
+        return SendBnet(resolvedID)
     end
 
     -- Community channel (CHANNEL that's actually a club)

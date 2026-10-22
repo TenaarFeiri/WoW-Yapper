@@ -811,12 +811,12 @@ function Spellcheck:GetLocale()
         return self:GetFallbackLocale()
     end
     -- Prefer a region-based default (region 3 -> enGB) before using client locale.
-    local region = GetCurrentRegion and GetCurrentRegion() or nil
+    local region = GetCurrentRegion() or nil
     if region == 3 then
         return "enGB"
     end
 
-    if GetLocale then
+    do
         local client = GetLocale()
         if client == "enGB" then
             if not self:IsEnabled() or self:EnsureLocale("enGB") then return "enGB" end

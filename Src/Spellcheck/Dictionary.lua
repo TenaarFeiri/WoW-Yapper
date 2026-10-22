@@ -398,19 +398,7 @@ function Spellcheck:RegisterDictionary(locale, data, owner)
             self:_OnDictRegistrationComplete(locale)
         else
             -- Next chunk on the next frame.
-            if C_Timer and C_Timer.After then
-                C_Timer.After(0, processChunk)
-            else
-                -- No C_Timer: finish synchronously.
-                for i = loader.cursor, totalWords do
-                    processWord(words[i])
-                end
-                data.words = nil
-                if self._asyncLoaders then
-                    self._asyncLoaders[locale] = nil
-                end
-                self:_OnDictRegistrationComplete(locale)
-            end
+            C_Timer.After(0, processChunk)
         end
     end
 
@@ -444,17 +432,13 @@ function Spellcheck:_OnDictRegistrationComplete(locale)
         -- Chunked dictionaries re-register per chunk; coalesce into a
         -- single short-timer refresh.
         self._pendingLocaleRefreshTimers = self._pendingLocaleRefreshTimers or {}
-        if C_Timer and C_Timer.NewTimer then
-            if not self._pendingLocaleRefreshTimers[locale] then
-                self._pendingLocaleRefreshTimers[locale] = C_Timer.NewTimer(0.08, function()
-                    self._pendingLocaleRefreshTimers[locale] = nil
-                    if self:IsEnabled() then
-                        self:ScheduleRefresh()
-                    end
-                end)
-            end
-        else
-            self:ScheduleRefresh()
+        if not self._pendingLocaleRefreshTimers[locale] then
+            self._pendingLocaleRefreshTimers[locale] = C_Timer.NewTimer(0.08, function()
+                self._pendingLocaleRefreshTimers[locale] = nil
+                if self:IsEnabled() then
+                    self:ScheduleRefresh()
+                end
+            end)
         end
     end
 end
@@ -477,30 +461,22 @@ function Spellcheck:HasLocaleAddon(locale)
     local addon = self:GetLocaleAddon(locale)
     if not addon then return false end
 
-    local getInfo = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
-    if getInfo then
-        -- Blizzard's GetAddOnInfo echoes the queried name back even when
-        -- the addon isn't on disk; the authoritative signals are `loadable`
-        -- and `reason`. An uninstalled addon reports reason="MISSING".
-        local name, _, _, loadable, reason = getInfo(addon)
-        if not name then return false end
-        if reason == "MISSING" or reason == "MISSING_DEPENDENCY" then
-            return false
-        end
-        -- DISABLED / INSECURE / DEMAND_LOADED still mean the addon is on
-        -- disk; BANNED means the client will refuse to load it.
-        if reason == "BANNED" then return false end
-        return loadable == true
-            or reason == "DISABLED"
-            or reason == "INSECURE"
-            or reason == "DEMAND_LOADED"
-            or reason == nil
+    -- Blizzard's GetAddOnInfo echoes the queried name back even when
+    -- the addon isn't on disk; the authoritative signals are `loadable`
+    -- and `reason`. An uninstalled addon reports reason="MISSING".
+    local name, _, _, loadable, reason = C_AddOns.GetAddOnInfo(addon)
+    if not name then return false end
+    if reason == "MISSING" or reason == "MISSING_DEPENDENCY" then
+        return false
     end
-
-    -- Pre-Dragonflight fallback (very old clients).
-    local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
-    if isLoaded and isLoaded(addon) then return true end
-    return false
+    -- DISABLED / INSECURE / DEMAND_LOADED still mean the addon is on
+    -- disk; BANNED means the client will refuse to load it.
+    if reason == "BANNED" then return false end
+    return loadable == true
+        or reason == "DISABLED"
+        or reason == "INSECURE"
+        or reason == "DEMAND_LOADED"
+        or reason == nil
 end
 
 function Spellcheck:HasAnyDictionary()
@@ -535,8 +511,7 @@ function Spellcheck:CanLoadLocale(locale)
         return self:IsLocaleAvailable(locale)
     end
 
-    local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
-    if isLoaded and isLoaded(addon) then
+    if C_AddOns.IsAddOnLoaded(addon) then
         return true
     end
 
@@ -545,9 +520,7 @@ function Spellcheck:CanLoadLocale(locale)
 end
 
 function Spellcheck:Notify(msg)
-    if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-        DEFAULT_CHAT_FRAME:AddMessage(msg)
-    end
+    DEFAULT_CHAT_FRAME:AddMessage(msg)
 end
 
 function Spellcheck:EnsureLocale(locale, force)
@@ -577,7 +550,7 @@ function Spellcheck:EnsureLocale(locale, force)
     end
 
     if addon then
-        if C_AddOns and C_AddOns.LoadAddOn then
+        do
             local isLoaded = C_AddOns.IsAddOnLoaded(addon)
             local loaded, reason = C_AddOns.LoadAddOn(addon)
 
@@ -619,24 +592,20 @@ end
 function Spellcheck:ScheduleLocaleRefresh(locale)
     if self._pendingLocaleLoads[locale] then return end
     self._pendingLocaleLoads[locale] = true
-    if C_Timer and C_Timer.NewTicker then
-        local tries = 0
-        C_Timer.NewTicker(0.2, function(ticker)
-            tries = tries + 1
-            if self:IsLocaleAvailable(locale) then
-                self._pendingLocaleLoads[locale] = nil
-                ticker:Cancel()
-                if self:IsEnabled() then
-                    self:ScheduleRefresh()
-                end
-                return
+    local tries = 0
+    C_Timer.NewTicker(0.2, function(ticker)
+        tries = tries + 1
+        if self:IsLocaleAvailable(locale) then
+            self._pendingLocaleLoads[locale] = nil
+            ticker:Cancel()
+            if self:IsEnabled() then
+                self:ScheduleRefresh()
             end
-            if tries >= 10 then
-                self._pendingLocaleLoads[locale] = nil
-                ticker:Cancel()
-            end
-        end)
-    else
-        self._pendingLocaleLoads[locale] = nil
-    end
+            return
+        end
+        if tries >= 10 then
+            self._pendingLocaleLoads[locale] = nil
+            ticker:Cancel()
+        end
+    end)
 end

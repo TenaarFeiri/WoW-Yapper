@@ -1119,10 +1119,7 @@ function YapperAPI:IsChatLockdown()
     if u and u.IsChatLockdown then
         return u:IsChatLockdown() == true
     end
-    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
-        return C_ChatInfo.InChatMessagingLockdown() == true
-    end
-    return false
+    return C_ChatInfo.InChatMessagingLockdown() == true
 end
 
 --- Returns true if value should not be logged or persisted.
@@ -1181,37 +1178,31 @@ local function _create_claim(text, chatType, language, target, owner)
     local handle = claimSeq
 
     local timer
-    if C_Timer and C_Timer.NewTimer then
-        timer = C_Timer.NewTimer(DELEGATION_TIMEOUT, function()
-            local claim = activeClaims[handle]
-            if not claim then return end
-            activeClaims[handle] = nil
+    timer = C_Timer.NewTimer(DELEGATION_TIMEOUT, function()
+        local claim = activeClaims[handle]
+        if not claim then return end
+        activeClaims[handle] = nil
 
-            -- Timeout: send it ourselves, then blame the addon.
-            if YapperTable.Router then
-                YapperTable.Router:Send(claim.text, claim.chatType, claim.language, claim.target)
-            elseif C_ChatInfo and C_ChatInfo.SendChatMessage then
-                C_ChatInfo.SendChatMessage(claim.text, claim.chatType, claim.language, claim.target)
-            end
+        -- Timeout: send it ourselves, then blame the addon.
+        if YapperTable.Router then
+            YapperTable.Router:Send(claim.text, claim.chatType, claim.language, claim.target)
+        else
+            C_ChatInfo.SendChatMessage(claim.text, claim.chatType, claim.language, claim.target)
+        end
 
-            API:Fire("POST_SEND", claim.text, claim.chatType, claim.language, claim.target)
+        API:Fire("POST_SEND", claim.text, claim.chatType, claim.language, claim.target)
 
-            local blame = claim.owner or "unknown addon"
-            local msg = "|cffff6666Yapper:|r Post delegation timed out — " ..
-                "\"" .. blame .. "\" claimed a message but did not resolve within " ..
-                DELEGATION_TIMEOUT .. "s.  Message was sent by Yapper."
-            if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-                DEFAULT_CHAT_FRAME:AddMessage(msg)
-            else
-                print(msg)
-            end
+        local blame = claim.owner or "unknown addon"
+        local msg = "|cffff6666Yapper:|r Post delegation timed out — " ..
+            "\"" .. blame .. "\" claimed a message but did not resolve within " ..
+            DELEGATION_TIMEOUT .. "s.  Message was sent by Yapper."
+        DEFAULT_CHAT_FRAME:AddMessage(msg)
 
-            _report_api_error("delegation-timeout", "PRE_DELIVER",
-                { handle = handle, owner = claim.owner },
-                "addon failed to resolve claimed post within timeout",
-                { text = claim.text, chatType = claim.chatType })
-        end)
-    end
+        _report_api_error("delegation-timeout", "PRE_DELIVER",
+            { handle = handle, owner = claim.owner },
+            "addon failed to resolve claimed post within timeout",
+            { text = claim.text, chatType = claim.chatType })
+    end)
 
     activeClaims[handle] = {
         text     = text,
@@ -1308,7 +1299,7 @@ function YapperAPI:GetCaretOffset(editBox)
 
     -- If this is our hooked EditBox, we have cached coordinates.
     if ac._hookedEditBox == editBox then
-        local uiScale = UIParent and UIParent:GetEffectiveScale() or 1
+        local uiScale = UIParent:GetEffectiveScale() or 1
         local ebScale = editBox:GetEffectiveScale()
         local toUI    = ebScale / uiScale
         return (ac._caretX or 0) * toUI, (ac._caretY or 0) * toUI, (ac._caretH or 0) * toUI

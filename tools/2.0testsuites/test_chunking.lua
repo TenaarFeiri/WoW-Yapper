@@ -21,8 +21,8 @@ end
 -- ===========================================================================
 
 _G = _G or {}
-_G.C_AddOns = nil
-_G.IsAddOnLoaded = nil
+-- TRP3 absent: the API exists (required global) and reports not loaded.
+_G.C_AddOns = { IsAddOnLoaded = function() return false end }
 
 -- Mock YapperAPI for delineator and atomic pattern support.
 _G.YapperAPI = {

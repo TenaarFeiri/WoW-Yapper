@@ -64,6 +64,17 @@ After resolving all markers, run `python3 tools/check_doc_refs.py`, inspect the 
   pointed at the overlay edit while Yapper is active; it MUST be cleared
   during lockdown handoff or Blizzard's `OpenChat` focuses a hidden frame
   and Enter presses are silently eaten.
+- Do NOT nil-guard required Blizzard APIs (`ChatFrameUtil.X`, `C_*` calls,
+  `BNet_GetBNetIDAccount`, `hooksecurefunc`, `issecretvalue`/`canaccessvalue`,
+  `C_Timer`, `DEFAULT_CHAT_FRAME`, `UIParent`, `ChatTypeInfo`, `Enum`, ...).
+  If Blizzard renames or removes one, the code must error loudly — a silent
+  `X and X.Y` fallback hides the incompatibility. Keep `pcall` where it
+  guards documented *runtime* faults (secret/taint comparisons, protected
+  internals, send errors) and keep presence checks for genuinely optional
+  surfaces: third-party addon APIs/bridges, load-on-demand objects, widget
+  duck-typing, input validation, and deliberate capability probes
+  (`LockdownPolicy:HasAddOnRestrictionAPI`, `Utils:HasRegionalUniqueNames`,
+  the `IsForeverClient` detection block).
 
 ## Design notes
 

@@ -245,7 +245,7 @@ function Queue:Init()
         end, "Queue_" .. event)
     end
 
-    if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
+    if not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(...)
             self:OnOpenChat(...)
         end)
@@ -808,11 +808,7 @@ function Queue:CreateContinueFrame()
     f:SetScript("OnShow", function(self)
         local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
         if self:GetParent() ~= parent then
-            if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
-                FrameUtil.SetParentMaintainRenderLayering(self, parent)
-            else
-                self:SetParent(parent)
-            end
+            FrameUtil.SetParentMaintainRenderLayering(self, parent)
         end
         self:ClearAllPoints()
         local overlay = YapperTable.EditBox.Overlay
@@ -862,11 +858,7 @@ function Queue:ShowContinuePrompt()
     local parent = YapperTable.Utils and YapperTable.Utils:GetChatParent() or UIParent
     local f = self.ContinueFrame
     if f:GetParent() ~= parent then
-        if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
-            FrameUtil.SetParentMaintainRenderLayering(f, parent)
-        else
-            f:SetParent(parent)
-        end
+        FrameUtil.SetParentMaintainRenderLayering(f, parent)
     end
 
     -- Remaining = queued + in-flight.

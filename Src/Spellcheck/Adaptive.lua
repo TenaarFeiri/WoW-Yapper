@@ -188,11 +188,10 @@ function YAS:GetBigramCap()
 end
 
 -- Runtime clock for exposure/dwell measurements.  GetTime() is the WoW
--- session clock (sub-second); os.clock() is the headless test fallback.
+-- session clock (sub-second); headless test runs stub it.
 -- Distinct from `time()` (epoch) which stamps persisted records.
 local function RtNow()
-    if type(GetTime) == "function" then return GetTime() end
-    return os.clock()
+    return GetTime()
 end
 
 -- Learned-scorer model: the WEIGHTS table stays the frozen "safe" fallback;
@@ -1843,20 +1842,18 @@ function YAS:StartConsolidation(locale)
     self._consolidating = {
         db = db, phaseIdx = 1, keys = nil, i = 1,
     }
-    -- Schedule under WoW's timer; in headless test runs the caller drives
-    -- _ConsolidationStep directly.
-    if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
-        local function tick()
-            if self._consolidating then
-                if not self:_ConsolidationStep() then
-                    self._consolidating = nil
-                    return
-                end
-                C_Timer.After(0, tick)
+    -- Schedule under WoW's timer; test runs can also drive
+    -- _ConsolidationStep directly between ticks.
+    local function tick()
+        if self._consolidating then
+            if not self:_ConsolidationStep() then
+                self._consolidating = nil
+                return
             end
+            C_Timer.After(0, tick)
         end
-        C_Timer.After(0, tick)
     end
+    C_Timer.After(0, tick)
     return true
 end
 

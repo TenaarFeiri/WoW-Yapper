@@ -113,13 +113,11 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
             LogVerbose("Keybind lockdown fallback: skipping SyncAttributesToBlizzard to avoid taint")
         end
 
-        if ChatFrameUtil and ChatFrameUtil.OpenChat then
-            -- Keep OPENCHATSLASH's "/" prefill while Blizzard owns the open.
-            if prefillText and prefillText ~= "" then
-                ChatFrameUtil.OpenChat(prefillText)
-            else
-                ChatFrameUtil.OpenChat()
-            end
+        -- Keep OPENCHATSLASH's "/" prefill while Blizzard owns the open.
+        if prefillText and prefillText ~= "" then
+            ChatFrameUtil.OpenChat(prefillText)
+        else
+            ChatFrameUtil.OpenChat()
         end
         return
     end
@@ -173,14 +171,12 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
         if replyEdit.ClearFocus then
             replyEdit:ClearFocus()
         end
-        if C_Timer and C_Timer.After then
-            C_Timer.After(0, function()
-                if EditBox.Overlay and EditBox.Overlay:IsShown()
-                    and replyEdit and replyEdit.SetFocus then
-                    replyEdit:SetFocus()
-                end
-            end)
-        end
+        C_Timer.After(0, function()
+            if EditBox.Overlay and EditBox.Overlay:IsShown()
+                and replyEdit and replyEdit.SetFocus then
+                replyEdit:SetFocus()
+            end
+        end)
     end
 
     -- Already shown: don't re-show (state thrash); just apply the target.
@@ -210,14 +206,13 @@ local function HandleKeybindClick(bindingName, prefillText, syncAttributes)
 
     -- Prefer the active native editbox; IM history can lag behind during
     -- whisper retarget/close and reopen stale contexts.
-    local activeWindow = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
-        and ChatFrameUtil.GetActiveWindow()
+    local activeWindow = ChatFrameUtil.GetActiveWindow()
     local targetEditBox = IsNativeChatEditBox(activeWindow) and activeWindow or nil
     if not targetEditBox and IsNativeChatEditBox(EditBox._lastActiveIMEditBox) then
         targetEditBox = EditBox._lastActiveIMEditBox
     end
     if not targetEditBox then
-        targetEditBox = (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox
+        targetEditBox = DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
     end
 
     Utils:DebugPrint("Secure button clicked, showing Yapper overlay")
@@ -334,8 +329,7 @@ local function IsSelectionGatedBindingInert(binding)
         return Keybinds._decorSelected ~= true
     end
     local ok, inert = pcall(function()
-        return (C_HousingDecor and C_HousingDecor.IsDecorSelected
-            and C_HousingDecor.IsDecorSelected()) == false
+        return C_HousingDecor.IsDecorSelected() == false
     end)
     return ok and inert == true
 end
@@ -348,14 +342,8 @@ end
 --- the editor (the click handler resolves no reply target and returns).
 --- When a context claims the key we must yield it.
 local function GetConflictingContextBinding(key)
-    if not (C_KeyBindings and Enum and Enum.BindingContext) then
-        return nil
-    end
     local isActive = C_KeyBindings.IsBindingContextActive
     local getByKey = C_KeyBindings.GetBindingByKey
-    if type(isActive) ~= "function" or type(getByKey) ~= "function" then
-        return nil
-    end
     for _, context in pairs(Enum.BindingContext) do
         if context ~= Enum.BindingContext.None then
             -- A runtime error here must not abort registration mid-loop.
@@ -415,7 +403,7 @@ function Keybinds:RegisterOverrides()
 
     self:CreateSecureButtons()
 
-    if InCombatLockdown and InCombatLockdown() then
+    if InCombatLockdown() then
         self._pendingRegistration = true
         LogVerbose("Keybinds:RegisterOverrides deferred - in combat")
         return
@@ -428,7 +416,7 @@ function Keybinds:RegisterOverrides()
     end
 
     for _, bindingName in ipairs(self._overrideBindings) do
-        if type(bindingName) == "string" and GetBindingKey then
+        if type(bindingName) == "string" then
             local button = self._secureButtons[bindingName]
             if not button then
                 LogVerbose("Skipping " .. bindingName .. " - no secure button created")
@@ -436,7 +424,7 @@ function Keybinds:RegisterOverrides()
                 ApplyButtonOverrides(button, bindingName)
             end
         else
-            LogVerbose("Skipping " .. bindingName .. " - invalid binding name or GetBindingKey not available")
+            LogVerbose("Skipping " .. bindingName .. " - invalid binding name")
         end
     end
 
@@ -452,7 +440,7 @@ function Keybinds:UnregisterOverrides()
         return
     end
 
-    if InCombatLockdown and InCombatLockdown() then
+    if InCombatLockdown() then
         LogVerbose("Keybinds:UnregisterOverrides deferred - in combat")
         return
     end
@@ -483,7 +471,7 @@ end
 --- Refresh overrides (e.g., after keybind changes).
 --- Unregisters and re-registers all overrides.
 function Keybinds:RefreshOverrides()
-    if InCombatLockdown and InCombatLockdown() then
+    if InCombatLockdown() then
         self._pendingRegistration = true
         LogVerbose("Keybinds:RefreshOverrides deferred - in combat")
         return
@@ -606,7 +594,7 @@ function Keybinds:Init()
     -- re-sync yields on every context change so a claimed key reaches the
     -- context action instead of being swallowed by our secure button.
     -- Deferred one frame so back-to-back (de)activations settle in one pass.
-    if C_KeyBindings and type(C_KeyBindings.ActivateBindingContext) == "function" then
+    do
         local function OnBindingContextChanged()
             C_Timer.After(0, function()
                 if Keybinds._registered then

@@ -24,6 +24,15 @@ _G = _G or {}
 _G.UIParent = {}
 _G.print = print
 
+-- Required Blizzard APIs (production calls them directly; missing = loud error).
+_G.issecretvalue = function() return false end
+_G.canaccessvalue = function() return true end
+_G.issecrettable = function() return false end
+_G.canaccesstable = function() return true end
+_G.C_ChatInfo = { InChatMessagingLockdown = function() return false end }
+_G.InCombatLockdown = function() return false end
+_G.FCF_GetCurrentFullScreenFrame = function() return nil end
+
 local YapperName = "Yapper"
 local YapperTable = {
     Config = { System = { DEBUG = false, VERBOSE = false } },
@@ -210,10 +219,10 @@ _G.canaccessvalue = oldCanAccessValue
 -- ===========================================================================
 print("\nTest 6: Lockdown helpers")
 
--- No LockdownPolicy, no C_ChatInfo, no InCombatLockdown — defaults to false.
+-- No LockdownPolicy; Blizzard lockdown APIs report clear.
 YapperTable.LockdownPolicy = nil
-_G.C_ChatInfo = nil
-_G.InCombatLockdown = nil
+_G.C_ChatInfo = { InChatMessagingLockdown = function() return false end }
+_G.InCombatLockdown = function() return false end
 
 check("IsChatLockdown false by default", Utils:IsChatLockdown() == false)
 check("IsCombatLockdown false by default", Utils:IsCombatLockdown() == false)
@@ -225,7 +234,7 @@ check("IsChatLockdown true via C_ChatInfo", Utils:IsChatLockdown() == true)
 check("IsChatOrCombatLockdown true when chat locked", Utils:IsChatOrCombatLockdown() == true)
 
 -- With InCombatLockdown returning true.
-_G.C_ChatInfo = nil
+_G.C_ChatInfo = { InChatMessagingLockdown = function() return false end }
 _G.InCombatLockdown = function() return true end
 check("IsCombatLockdown true via InCombatLockdown", Utils:IsCombatLockdown() == true)
 check("IsChatOrCombatLockdown true when combat locked", Utils:IsChatOrCombatLockdown() == true)

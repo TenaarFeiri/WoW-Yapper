@@ -12,10 +12,7 @@ TotalRP3Bridge._initialised = false
 TotalRP3Bridge._languageHooked = false
 
 local function IsTRP3Loaded()
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("totalRP3")
-    end
-    return _G.TRP3_API ~= nil or _G.AddOn_TotalRP3 ~= nil
+    return C_AddOns.IsAddOnLoaded("totalRP3") == true
 end
 
 local function IsUsableName(name)
@@ -74,7 +71,7 @@ end
 
 function TotalRP3Bridge:GetUnitDisplayName(unit)
     unit = unit or "player"
-    local fallback = UnitName and UnitName(unit) or "You"
+    local fallback = UnitName(unit) or "You"
     if not IsTRP3Loaded() then
         return fallback
     end
@@ -181,8 +178,7 @@ frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("ADDON_LOADED")
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
-        local C_AddOns = C_AddOns or {}
-        if C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("totalRP3") then
+        if C_AddOns.IsAddOnLoaded("totalRP3") then
             TotalRP3Bridge:Init()
         end
     elseif event == "ADDON_LOADED" then

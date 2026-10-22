@@ -238,7 +238,7 @@ function YapperTable:GetRegisteredThemes() return Theme:GetRegisteredNames() end
 
 -- Register a sane default so the system is immediately usable.
 local function GetChatTypeColor(chatType, fallback)
-    local info = ChatTypeInfo and chatType and ChatTypeInfo[chatType]
+    local info = chatType and ChatTypeInfo[chatType]
     if not info then
         return fallback
     end

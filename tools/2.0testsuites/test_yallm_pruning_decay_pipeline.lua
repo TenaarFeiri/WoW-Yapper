@@ -11,6 +11,10 @@
 -- Mock Globals
 _G.time = os.time
 _G.GetTime = os.clock
+-- Non-en client + non-EU region: GetLocale falls through to
+-- GetFallbackLocale (Dictionary.lua's EnsureLocale isn't loaded here).
+_G.GetLocale = function() return "deDE" end
+_G.GetCurrentRegion = function() return 1 end
 _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 _G.CreateFrame = function() return { SetScript = function() end, Show = function() end, Hide = function() end } end
 _G.C_Timer = { After = function() end }

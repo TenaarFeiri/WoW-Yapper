@@ -388,9 +388,7 @@ function Interface:InitPopups()
                 end
             end,
             OnCancel = function()
-                if C_AddOns and C_AddOns.DisableAddOn then
-                    C_AddOns.DisableAddOn("RPPrefix")
-                end
+                C_AddOns.DisableAddOn("RPPrefix")
                 ReloadUI()
             end,
             timeout = 0,

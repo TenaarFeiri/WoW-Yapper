@@ -38,7 +38,7 @@ local function OpenBnetAccountWhisper(bnetAccountID, chatFrame, name)
     end
 
     local target = tonumber(bnetAccountID) or bnetAccountID
-    if not chatFrame and ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
+    if not chatFrame then
         local activeEditBox = ChatFrameUtil.GetActiveWindow()
         chatFrame = activeEditBox and activeEditBox.chatFrame
     end
@@ -71,7 +71,7 @@ function EditBox:HookAllChatFrames()
     -- IM window history: a stack so minimize can pop back to the previous window.
     -- _lastActiveIMEditBox always mirrors the top of the stack for read compatibility.
     self._imWindowHistory = {}
-    local seed = (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+    local seed = DEFAULT_CHAT_FRAME.editBox
         or _G["ChatFrame1EditBox"]
     if seed then
         self._imWindowHistory[1] = seed
@@ -157,9 +157,7 @@ function EditBox:HookAllChatFrames()
     local function GetSelectedBnetFriend()
         if not FriendsFrame
             or FriendsFrame.selectedFriendType ~= FRIENDS_BUTTON_TYPE_BNET
-            or not FriendsFrame.selectedFriend
-            or not C_BattleNet
-            or type(C_BattleNet.GetFriendAccountInfo) ~= "function" then
+            or not FriendsFrame.selectedFriend then
             return nil
         end
 
@@ -182,9 +180,7 @@ function EditBox:HookAllChatFrames()
 
     local function HookFriendsFrameSendMessage()
         local button = FriendsFrameSendMessageButton
-        if self._friendsBnetButtonHooked
-            or not button
-            or type(button.HookScript) ~= "function" then
+        if self._friendsBnetButtonHooked or not button then
             return
         end
 
@@ -209,7 +205,7 @@ function EditBox:HookAllChatFrames()
     end
 
     HookFriendsFrameSendMessage()
-    if not self._friendsBnetAddonLoadedHooked and CreateFrame then
+    if not self._friendsBnetAddonLoadedHooked then
         local addonFrame = CreateFrame("Frame")
         addonFrame:RegisterEvent("ADDON_LOADED")
         addonFrame:SetScript("OnEvent", function(_, _, addonName)
@@ -222,7 +218,7 @@ function EditBox:HookAllChatFrames()
 
     -- Capture the raw OpenChat argument so we can preserve leading slashes
     -- that ParseText/OnUpdate may strip before Blizzard's editbox text is set.
-    if ChatFrameUtil and ChatFrameUtil.OpenChat and not self._openChatHooked then
+    if not self._openChatHooked then
         hooksecurefunc(ChatFrameUtil, "OpenChat", function(text, chatFrame, ...)
             TriggerTrace("ChatFrameUtil.OpenChat", string.format("text=%s frame=%s",
                 SafeToString(text), SafeToString(chatFrame and chatFrame.GetName and chatFrame:GetName() or nil)))
@@ -424,8 +420,7 @@ function EditBox:HookAllChatFrames()
     -- never applied. We wrap each menu responder to (a) temporarily clear the
     -- override so OpenChat returns a real editbox, and (b) record the resulting
     -- chat type as an explicit selection that Show()/the live-update will adopt.
-    if Menu and Menu.ModifyMenu and MenuUtil and MenuUtil.TraverseMenu
-        and not self._chatMenuResponderHooked then
+    if not self._chatMenuResponderHooked then
         local function WrapResponder(description)
             local orig = description.responder
             if type(orig) ~= "function" or description._yapperWrapped then return end
@@ -444,8 +439,8 @@ function EditBox:HookAllChatFrames()
                 -- next frame) because some responders finalize chatType/
                 -- target on deferred updates.
                 local function CaptureMenuSelection()
-                    local active = (ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow())
-                        or (ChatFrameUtil.GetLastActiveWindow and ChatFrameUtil.GetLastActiveWindow())
+                    local active = ChatFrameUtil.GetActiveWindow()
+                        or ChatFrameUtil.GetLastActiveWindow()
                         or self.OrigEditBox
                     if not (active and active.GetChatType) then return nil end
 
@@ -500,7 +495,7 @@ function EditBox:HookAllChatFrames()
                         if changed and YapperTable.API then
                             YapperTable.API:Fire("EDITBOX_CHANNEL_CHANGED", self.ChatType, self.Target)
                         end
-                        if selection.active and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
+                        if selection.active then
                             pcall(function() ChatFrameUtil.DeactivateChat(selection.active) end)
                         end
                         if self.OverlayEdit and self.OverlayEdit.SetFocus then
@@ -544,7 +539,7 @@ function EditBox:HookAllChatFrames()
     -- orig editbox would leave the proxy background hidden while the
     -- overlay is shown; re-show it. RestoreProxyMode still hides it on
     -- Yapper close, so the Classic lifecycle is preserved.
-    if ChatFrameUtil and ChatFrameUtil.DeactivateChat and not self._deactivateChatHooked then
+    if not self._deactivateChatHooked then
         hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
             if self._closing then return end
             if self.OrigEditBox == editBox and self.Overlay and self.Overlay:IsShown() then
@@ -556,9 +551,8 @@ function EditBox:HookAllChatFrames()
             -- (closing paths clear _chatCompatEnabled before we get here).
             if editBox == self.OverlayEdit
                 or (YapperTable.Multiline and editBox == YapperTable.Multiline.EditBox) then
-                local after = C_Timer and C_Timer.After
-                if after and self._chatCompatEnabled ~= false then
-                    after(0, function()
+                if self._chatCompatEnabled ~= false then
+                    C_Timer.After(0, function()
                         if not (self.GetActiveEditor and self:GetActiveEditor()) then return end
                         if self._chatCompatEnabled == false then return end
                         if UserBypassingYapper() then return end
@@ -573,7 +567,7 @@ function EditBox:HookAllChatFrames()
 
     -- ActivateChat hook: complements OpenChat so Yapper catches all show
     -- paths (e.g. direct EditBox:SetFocus).
-    if ChatFrameUtil and ChatFrameUtil.ActivateChat and not self._activateChatHooked then
+    if not self._activateChatHooked then
         hooksecurefunc(ChatFrameUtil, "ActivateChat", function(editBox)
             -- A Yapper editor activated via a native path (FocusActiveWindow
             -- on our ACTIVE_CHAT_EDIT_BOX, IM-mode ChooseBoxForSend):
@@ -600,16 +594,13 @@ function EditBox:HookAllChatFrames()
                 -- up; reclaim ACTIVE_CHAT_EDIT_BOX next frame so
                 -- GetActiveWindow keeps returning the overlay (the old
                 -- GetActiveWindow wrapper's semantics).
-                local after = C_Timer and C_Timer.After
-                if after then
-                    after(0, function()
-                        if not (self.Overlay and self.Overlay:IsShown()) then return end
-                        if self._chatCompatEnabled == false then return end
-                        if UserBypassingYapper() then return end
-                        if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
-                        self:UpdateFocusOverride()
-                    end)
-                end
+                C_Timer.After(0, function()
+                    if not (self.Overlay and self.Overlay:IsShown()) then return end
+                    if self._chatCompatEnabled == false then return end
+                    if UserBypassingYapper() then return end
+                    if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
+                    self:UpdateFocusOverride()
+                end)
                 return
             end
 
@@ -645,7 +636,7 @@ function EditBox:HookAllChatFrames()
     -- (except during lockdown, where this hook early-returns anyway), so
     -- the paths don't overlap. Fires AFTER Blizzard's box opens, so we
     -- snapshot its whisper state and reopen as Yapper.
-    if ChatFrameUtil and ChatFrameUtil.SendTell and not self._sendTellHooked then
+    if not self._sendTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendTell", function(target, chatFrame)
             -- Sanitize before ANY comparison: a secret target is unusable
             -- input (Blizzard's own path still runs).
@@ -657,13 +648,12 @@ function EditBox:HookAllChatFrames()
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
             local blizzBox = chatFrame and chatFrame.editBox
-            if not self:IsNativeChatEditBox(blizzBox)
-                and ChatFrameUtil and ChatFrameUtil.GetActiveWindow then
+            if not self:IsNativeChatEditBox(blizzBox) then
                 blizzBox = ChatFrameUtil.GetActiveWindow()
             end
             if not self:IsNativeChatEditBox(blizzBox) then
                 local fallback = self.OrigEditBox
-                    or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                    or DEFAULT_CHAT_FRAME.editBox
                     or _G.ChatFrame1EditBox
                 blizzBox = self:IsNativeChatEditBox(fallback) and fallback or nil
             end
@@ -693,7 +683,7 @@ function EditBox:HookAllChatFrames()
 
             -- Show() reads _attrCache and picks up the whisper context
             -- Blizzard's ParseText set via SetAttribute.
-            self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
+            self:Show(blizzBox or DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox)
 
             -- Force whisper context AFTER Show() as the final authority in
             -- case the cache was stale or a race overwrote it.
@@ -716,7 +706,7 @@ function EditBox:HookAllChatFrames()
     -- the responder in Hooks/UnitPopup.lua, which bypasses SendBNetTell to
     -- avoid the OpenChat("") -> CHAT_FOCUS_OVERRIDE race. This hook covers
     -- the remaining paths and mirrors SendTell handling with BN_WHISPER.
-    if ChatFrameUtil and ChatFrameUtil.SendBNetTell and not self._sendBNetTellHooked then
+    if not self._sendBNetTellHooked then
         hooksecurefunc(ChatFrameUtil, "SendBNetTell", function(target)
             -- Same secret quarantine as the SendTell hook above.
             target = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
@@ -724,10 +714,10 @@ function EditBox:HookAllChatFrames()
             if type(target) ~= "string" or target == "" then return end
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
 
-            local blizzBox = ChatFrameUtil.GetActiveWindow and ChatFrameUtil.GetActiveWindow()
+            local blizzBox = ChatFrameUtil.GetActiveWindow()
             if not self:IsNativeChatEditBox(blizzBox) then
                 local fallback = self.OrigEditBox
-                    or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                    or DEFAULT_CHAT_FRAME.editBox
                     or _G.ChatFrame1EditBox
                 blizzBox = self:IsNativeChatEditBox(fallback) and fallback or nil
             end
@@ -752,7 +742,7 @@ function EditBox:HookAllChatFrames()
                 blizzBox:SetText("")
             end
 
-            self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
+            self:Show(blizzBox or DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox)
             self.ChatType = "BN_WHISPER"
             self.Target = target
             self.ChannelName = nil
@@ -781,14 +771,13 @@ function EditBox:HookAllChatFrames()
             -- multiline, whose frame replaces the hidden overlay while the
             -- link API runs.
             local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
-            local routedEditor = ChatFrameUtil and ChatFrameUtil.GetActiveWindow
-                and ChatFrameUtil.GetActiveWindow()
+            local routedEditor = ChatFrameUtil.GetActiveWindow()
             if activeEditor and routedEditor == activeEditor then
                 -- Blizzard's InsertLink can return true via special targets
                 -- (macro editor, professions search, communities box) before
                 -- ever touching a chat window; only re-assert focus when it
                 -- is free or already ours, never steal it mid-edit.
-                local focusOwner = GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus()
+                local focusOwner = GetCurrentKeyBoardFocus()
                 if activeEditor.SetFocus and (not focusOwner or focusOwner == activeEditor) then
                     activeEditor:SetFocus()
                 end
@@ -797,16 +786,16 @@ function EditBox:HookAllChatFrames()
 
             if CHAT_FOCUS_OVERRIDE and CHAT_FOCUS_OVERRIDE == self.OverlayEdit then
                 if not (self.Overlay and self.Overlay:IsShown()) then
-                    self:Show(DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                    self:Show(DEFAULT_CHAT_FRAME.editBox)
                     self.OverlayEdit:SetFocus()
                 end
             end
         end
         -- The deprecated alias is a separate function reference, so both
         -- entry points need their own hook.
-        if ChatFrameUtil and ChatFrameUtil.InsertLink then
-            hooksecurefunc(ChatFrameUtil, "InsertLink", OnInsertLink)
-        end
+        hooksecurefunc(ChatFrameUtil, "InsertLink", OnInsertLink)
+        -- ChatEdit_InsertLink is a deprecated alias; hook it only if the
+        -- client still provides it.
         if _G.ChatEdit_InsertLink then
             hooksecurefunc("ChatEdit_InsertLink", OnInsertLink)
         end
@@ -825,7 +814,7 @@ function EditBox:HookAllChatFrames()
     do
         local copyFrame
         local function ShowWaypointSlashCommand()
-            local waypoint = C_Map and C_Map.GetUserWaypoint and C_Map.GetUserWaypoint()
+            local waypoint = C_Map.GetUserWaypoint()
             if not waypoint then return end
             -- POSITION_FACTOR in WaypointLocationDataProvider.lua: 0..1 -> 0..100.
             local slashCommand = SLASH_MAPPIN1 .. string.format(" %d %.1f %.1f",
@@ -834,12 +823,8 @@ function EditBox:HookAllChatFrames()
                 waypoint.position.y * 100)
             -- Restricted contexts (combat lockdown, pet battles): don't pop
             -- UI at all; leave the command in chat where it can be seen.
-            if InCombatLockdown()
-                or (C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle())
-            then
-                if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
-                    DEFAULT_CHAT_FRAME:AddMessage(slashCommand)
-                end
+            if InCombatLockdown() or C_PetBattles.IsInBattle() then
+                DEFAULT_CHAT_FRAME:AddMessage(slashCommand)
                 return
             end
             if not copyFrame then
@@ -1012,7 +997,7 @@ function EditBox:HookAllChatFrames()
     end
     RegisterWaypointChatLinkHandler()
     -- WorldMapFrame may not exist until the map addon loads: retry then.
-    if not self._waypointAddonLoadedHooked and CreateFrame then
+    if not self._waypointAddonLoadedHooked then
         local addonFrame = CreateFrame("Frame")
         addonFrame:RegisterEvent("ADDON_LOADED")
         addonFrame:SetScript("OnEvent", function(_, _, addonName)
@@ -1026,7 +1011,7 @@ function EditBox:HookAllChatFrames()
     -- Tab clicks don't trigger the editbox Show() hook, so hook the tab UI.
     -- Whisper tabs use Blizzard's chatType/chatTarget; other tabs use
     -- Yapper's session-only per-tab channel memory.
-    if FCF_Tab_OnClick and not self._tabClickHooked then
+    if not self._tabClickHooked then
         local editBox = self
 
         -- Yapper open: apply the switch now. Yapper closed: stash for the
@@ -1135,7 +1120,7 @@ function EditBox:HookAllChatFrames()
     -- FCF_MaximizeFrame: restoring a minimized undocked window fires the
     -- frame's OnShow but not the editbox Show() hook (child visibility), so
     -- update _lastActiveIMEditBox here so keybinds open on it.
-    if FCF_MaximizeFrame and not self._maximizeHooked then
+    if not self._maximizeHooked then
         local editBox = self
         hooksecurefunc("FCF_MaximizeFrame", function(chatFrame)
             if not chatFrame or not chatFrame.editBox then return end
@@ -1149,7 +1134,7 @@ function EditBox:HookAllChatFrames()
 
     -- FCF_MinimizeFrame: close Yapper if open on this frame, pop the IM
     -- history, then reactivate the restored editbox.
-    if FCF_MinimizeFrame and not self._minimizeHooked then
+    if not self._minimizeHooked then
         local editBox = self
         hooksecurefunc("FCF_MinimizeFrame", function(chatFrame)
             if not chatFrame or not chatFrame.editBox then return end
@@ -1164,7 +1149,7 @@ function EditBox:HookAllChatFrames()
                 editBox:_IMApplyWindowMemory(restoredEB.chatFrame)
             end
             -- Show the restored window's editbox in its normal IM idle state.
-            if restoredEB and ChatFrameUtil and ChatFrameUtil.ActivateChat then
+            if restoredEB then
                 editBox._suppressActivateChatHook = true
                 pcall(function() ChatFrameUtil.ActivateChat(restoredEB) end)
                 -- Then deactivate so it fades to idle, not focused.
@@ -1177,7 +1162,7 @@ function EditBox:HookAllChatFrames()
 
     -- FCF_Close (window fully closed): pop history, fall back to
     -- ChatFrame1.
-    if FCF_Close and not self._closeHooked then
+    if not self._closeHooked then
         local editBox = self
         hooksecurefunc("FCF_Close", function(frame)
             if not frame or not frame.editBox then return end

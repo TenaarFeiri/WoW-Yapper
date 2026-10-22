@@ -59,7 +59,7 @@ function YapperTable.InstallCompatMethods(box)
                 if key == "editBox" then
                     return box
                 end
-                return _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME[key]
+                return _G.DEFAULT_CHAT_FRAME[key]
             end
         })
     end
@@ -96,9 +96,7 @@ function YapperTable.InstallCompatMethods(box)
     -- still expose the box to previousValue:Hide(), and addons may call
     -- Hide() on the "active window" outright. Post-hook re-show so addon
     -- code never runs inside the caller's stack.
-    if hooksecurefunc then
-        hooksecurefunc(box, "Hide", function() box:Show() end)
-    end
+    hooksecurefunc(box, "Hide", function() box:Show() end)
     -- Same ownership invariant for alpha and mouse: editbox-skinning
     -- addons (Prat's Editbox module, Chatter) secure-hook
     -- ChatFrameUtil.DeactivateChat and fade + mouse-disable whatever
@@ -110,7 +108,7 @@ function YapperTable.InstallCompatMethods(box)
     -- worked blind). Yapper never fades or mouse-disables its own
     -- editors, so re-assert unconditionally; the flags stop recursion
     -- from our own re-invocation.
-    if hooksecurefunc then
+    do
         local reassertingAlpha = false
         hooksecurefunc(box, "SetAlpha", function(_, alpha)
             if reassertingAlpha then return end
@@ -186,7 +184,7 @@ function EditBox:CreateOverlay(...)
     -- while it is closed so the poll ticker can stop entirely when
     -- nothing is open. Covers every close path, including multiline
     -- entry hiding the frame without EditBox:Hide().
-    if self.Overlay and hooksecurefunc then
+    if self.Overlay then
         hooksecurefunc(self.Overlay, "Show", function()
             EditBox:SetFocusWatcherActive(EditBox.OverlayEdit, true)
         end)
@@ -238,8 +236,6 @@ end
 -- overlay to SendTell paths that expect full native editboxes.
 
 function EditBox:_SyncActiveChatWindow()
-    if not (ChatFrameUtil and ChatFrameUtil.GetActiveWindow) then return end
-
     local multilineEdit = YapperTable.Multiline and YapperTable.Multiline.EditBox
 
     -- LAST_ACTIVE_CHAT_EDIT_BOX must never hold our editor either:
@@ -249,7 +245,7 @@ function EditBox:_SyncActiveChatWindow()
     -- here -- hand it back to the default box when we spot it.
     local lastActive = _G.LAST_ACTIVE_CHAT_EDIT_BOX
     if lastActive == self.OverlayEdit or (multilineEdit and lastActive == multilineEdit) then
-        _G.LAST_ACTIVE_CHAT_EDIT_BOX = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox or nil
+        _G.LAST_ACTIVE_CHAT_EDIT_BOX = DEFAULT_CHAT_FRAME.editBox
     end
 
     local activeEditor = self.GetActiveEditor and self:GetActiveEditor()
@@ -269,8 +265,9 @@ function EditBox:_SyncActiveChatWindow()
         if current then
             -- Displace the previous holder through Blizzard's own path so
             -- its Deactivate bookkeeping still runs.
-            if ChatFrameUtil.DeactivateChat then
-                pcall(ChatFrameUtil.DeactivateChat, current)
+            local ok, err = pcall(ChatFrameUtil.DeactivateChat, current)
+            if not ok and YapperTable.Utils then
+                YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(err))
             end
         end
         _G.ACTIVE_CHAT_EDIT_BOX = desired
@@ -278,10 +275,9 @@ function EditBox:_SyncActiveChatWindow()
         -- Only release ownership when WE hold the slot; never touch a
         -- genuinely active Blizzard editbox.
         if current == self.OverlayEdit or (multilineEdit and current == multilineEdit) then
-            if ChatFrameUtil.DeactivateChat then
-                pcall(ChatFrameUtil.DeactivateChat, current)
-            else
-                _G.ACTIVE_CHAT_EDIT_BOX = nil
+            local ok, err = pcall(ChatFrameUtil.DeactivateChat, current)
+            if not ok and YapperTable.Utils then
+                YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(err))
             end
         end
     end
@@ -304,11 +300,10 @@ end
 -- FocusActiveWindow to hand chat focus back to the user -- the
 -- pre-ownership wrapper refocused our editor directly. A post-hook
 -- restores that without tainting the caller's stack.
-if ChatFrameUtil and ChatFrameUtil.FocusActiveWindow and hooksecurefunc then
+do
     hooksecurefunc(ChatFrameUtil, "FocusActiveWindow", function()
         local activeEditor = EditBox.GetActiveEditor and EditBox:GetActiveEditor()
         if activeEditor
-            and ChatFrameUtil.GetActiveWindow
             and ChatFrameUtil.GetActiveWindow() == activeEditor
             and not EditBox._preShowSuppressed
             and not (EditBox._UserBypassingYapper and EditBox._UserBypassingYapper())
@@ -382,7 +377,7 @@ function EditBox:_UpdateFocusPollTicker()
         end
     end
     if anyActive then
-        if not self._focusPollTicker and C_Timer and C_Timer.NewTicker then
+        if not self._focusPollTicker then
             self._focusPollTicker = C_Timer.NewTicker(FOCUS_POLL_INTERVAL, function()
                 self:_PollFocusWatchers()
             end)
@@ -451,7 +446,7 @@ function EditBox:RegisterFocusWatcher(editBox, onGained, onLost)
         -- vetoed by the compat install, so the container frame's hooks
         -- (installed by the CreateOverlay/Multiline wrappers) drive
         -- suspension instead.
-        if hooksecurefunc and not editBox._yapperCompatInstalled then
+        if not editBox._yapperCompatInstalled then
             hooksecurefunc(editBox, "Show", function()
                 self:SetFocusWatcherActive(editBox, true)
             end)

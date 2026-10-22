@@ -86,12 +86,11 @@ Strings._merged        = {}    -- [locale][key] = text
 Strings._registeredCount = 0   -- number of distinct registered locales
 
 --- Active UI locale.  `_forceLocale` is a test hook; production resolves the
---- client locale lazily so headless test runs without GetLocale still work.
+--- client locale lazily via GetLocale.
 ---@return string
 function Strings:_ActiveLocale()
     if self._forceLocale then return self._forceLocale end
-    if type(GetLocale) == "function" then return GetLocale() end
-    return "enUS"
+    return GetLocale()
 end
 
 --- Resolve a string key for the active client locale.

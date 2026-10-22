@@ -68,7 +68,7 @@ local function ShouldProcessLanguage()
     local profile = api.GetActiveProfileData()
     if type(profile) ~= "table" or not profile.onlyInCharacter then return true end
 
-    if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("totalRP3")) then
+    if not C_AddOns.IsAddOnLoaded("totalRP3") then
         return true
     end
 
@@ -257,7 +257,7 @@ frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("ADDON_LOADED")
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then
-        if C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Languages") then
+        if C_AddOns.IsAddOnLoaded("Languages") then
             LanguagesBridge:Init()
         end
     elseif event == "ADDON_LOADED" then

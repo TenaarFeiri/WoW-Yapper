@@ -49,6 +49,8 @@ _G.C_ChatInfo = { InChatMessagingLockdown = function() return false end }
 local SECRET = {}
 _G.issecretvalue = function(value) return value == SECRET end
 _G.canaccessvalue = function(value) return value ~= SECRET end
+_G.issecrettable = function(value) return value == SECRET end
+_G.canaccesstable = function(value) return value ~= SECRET end
 
 -- Mutable Blizzard remembered-tell stores.
 local tell = { target = nil, ctype = nil, err = nil }

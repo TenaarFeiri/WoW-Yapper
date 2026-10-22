@@ -41,15 +41,13 @@ local function FindGopher()
 end
 
 local function IsAddonLoaded(name)
-    local fn = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
-    if not fn then return false end
-    local ok, loaded = pcall(fn, name)
+    local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, name)
     return ok and loaded == true
 end
 
 local function GetAddonField(name, field)
-    if not GetAddOnMetadata or type(name) ~= "string" then return nil end
-    local ok, value = pcall(GetAddOnMetadata, name, field)
+    if type(name) ~= "string" then return nil end
+    local ok, value = pcall(C_AddOns.GetAddOnMetadata, name, field)
     if ok and type(value) == "string" and value ~= "" then
         return value
     end
@@ -57,12 +55,8 @@ local function GetAddonField(name, field)
 end
 
 local function FindLikelyOwnerAddon()
-    local getInfo = (C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
-    local getNum = (C_AddOns and C_AddOns.GetNumAddOns) or GetNumAddOns
-    if not getInfo or not getNum then
-        if IsAddonLoaded("CrossRP") then return "CrossRP" end
-        return nil
-    end
+    local getInfo = C_AddOns.GetAddOnInfo
+    local getNum = C_AddOns.GetNumAddOns
 
     local bestEmbedded = nil
     local bestMention = nil
@@ -114,10 +108,7 @@ end
 
 local function DisableAddon(name)
     if type(name) ~= "string" or name == "" then return end
-    local disable = (C_AddOns and C_AddOns.DisableAddOn) or DisableAddOn
-    if disable then
-        pcall(disable, name)
-    end
+    pcall(C_AddOns.DisableAddOn, name)
 end
 
 local function ShowWarningPopup(ownerAddon)

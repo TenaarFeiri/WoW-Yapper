@@ -104,13 +104,13 @@ local function RefreshMLLabel(ml)
 			-- Blizzard mode: use ChatTypeInfo
 			local safeTarget = Utils and Utils:SanitizeTarget(ml.ChatTarget) or ml.ChatTarget
 			if chatType == "CHANNEL" and safeTarget then
-				local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(safeTarget)]
+				local info = ChatTypeInfo["CHANNEL" .. tostring(safeTarget)]
 				if info and type(info.r) == "number" then
 					r, g, b = info.r, info.g, info.b
 					modeResolved = true
 				end
 			else
-				local info = ChatTypeInfo and ChatTypeInfo[chatType]
+				local info = ChatTypeInfo[chatType]
 				if info and type(info.r) == "number" then
 					r, g, b = info.r, info.g, info.b
 					modeResolved = true
@@ -124,7 +124,7 @@ local function RefreshMLLabel(ml)
 					r, g, b = c.r, c.g, c.b
 					modeResolved = true
 				end
-			elseif ChatTypeInfo and ChatTypeInfo[masterKey] then
+			elseif ChatTypeInfo[masterKey] then
 				local info = ChatTypeInfo[masterKey]
 				r, g, b = info.r or r, info.g or g, info.b or b
 				modeResolved = true
@@ -432,14 +432,12 @@ function Multiline:CreateFrame()
 		-- The frame owns widget visibility: suspend focus watching while
 		-- multiline is closed so the poll ticker can stop when nothing is
 		-- open (mirrors the overlay's CreateOverlay hooks).
-		if hooksecurefunc then
-			hooksecurefunc(f, "Show", function()
-				yapperEditBox:SetFocusWatcherActive(edit, true)
-			end)
-			hooksecurefunc(f, "Hide", function()
-				yapperEditBox:SetFocusWatcherActive(edit, false)
-			end)
-		end
+		hooksecurefunc(f, "Show", function()
+			yapperEditBox:SetFocusWatcherActive(edit, true)
+		end)
+		hooksecurefunc(f, "Hide", function()
+			yapperEditBox:SetFocusWatcherActive(edit, false)
+		end)
 	end
 
 	-- Mirror the overlay's OnChar suppression: after a suggestion hotkey
@@ -569,7 +567,7 @@ function Multiline:CreateFrame()
 				Multiline:OnLockdownEnd()
 			elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
 				local restrictionState = select(2, ...)
-				local rstates = Enum and Enum.AddOnRestrictionState
+				local rstates = Enum.AddOnRestrictionState
 				if rstates and (restrictionState == rstates.Activating
 					or restrictionState == rstates.Active) then
 					Multiline:OnLockdownStart()
@@ -610,7 +608,7 @@ local function AnchorAbsolute(frame, overlay, chatFrame)
 	-- This ensures undocked windows position multiline correctly.
 	local chatTop, chatBot
 	local cf = chatFrame
-		 or (FCF_GetCurrentChatFrame and FCF_GetCurrentChatFrame())
+		 or FCF_GetCurrentChatFrame()
 		 or _G["ChatFrame1"]
 	if cf and cf.GetTop then
 		chatTop = cf:GetTop()

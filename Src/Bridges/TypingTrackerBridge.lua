@@ -18,11 +18,7 @@ local COMM_PREFIX  = "SRPTypingTracker"
 local lastChatType = nil
 
 local function IsLoaded()
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("Simply_RP_Typing_Tracker")
-    end
-    ---@diagnostic disable-next-line: undefined-field
-    return _G.SRPTypingTracker ~= nil
+    return C_AddOns.IsAddOnLoaded("Simply_RP_Typing_Tracker") == true
 end
 
 local function GetAPI()

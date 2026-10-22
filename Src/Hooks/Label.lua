@@ -98,20 +98,20 @@ function EditBox:RefreshLabel()
         if mode == "blizzard" then
             -- Blizzard mode: ChatTypeInfo has absolute precedence.
             if currentKey == "CHANNEL" and target then
-                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(target)]
+                local info = ChatTypeInfo["CHANNEL" .. tostring(target)]
                 if info and type(info.r) == "number" then
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
                 end
             elseif currentKey == "CLUB" and target then
                 -- Community channels use CHANNEL# ChatTypeInfo
-                local info = ChatTypeInfo and ChatTypeInfo["CHANNEL" .. tostring(target)]
+                local info = ChatTypeInfo["CHANNEL" .. tostring(target)]
                 if info and type(info.r) == "number" then
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
                 end
             else
-                local info = ChatTypeInfo and ChatTypeInfo[currentKey]
+                local info = ChatTypeInfo[currentKey]
                 if info and type(info.r) == "number" then
                     resolvedR, resolvedG, resolvedB = info.r, info.g, info.b
                     modeResolved = true
@@ -125,7 +125,7 @@ function EditBox:RefreshLabel()
                 resolvedG = channelColors[masterKey].g
                 resolvedB = channelColors[masterKey].b
                 modeResolved = true
-            elseif ChatTypeInfo and ChatTypeInfo[masterKey] then
+            elseif ChatTypeInfo[masterKey] then
                 local info = ChatTypeInfo[masterKey]
                 resolvedR = info.r or resolvedR
                 resolvedG = info.g or resolvedG
@@ -255,7 +255,7 @@ function EditBox:SyncAttributesToBlizzard(allowLockdown)
     end
 
     local blizzEditBox = self.OrigEditBox
-        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or DEFAULT_CHAT_FRAME.editBox
         or _G.ChatFrame1EditBox
     if not (blizzEditBox and blizzEditBox.SetAttribute) then return end
 
@@ -387,7 +387,7 @@ function EditBox:ResyncFromBlizzardAfterLockdown()
     end
 
     local blizzEditBox = self.OrigEditBox
-        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or DEFAULT_CHAT_FRAME.editBox
         or _G.ChatFrame1EditBox
     if not (blizzEditBox and blizzEditBox.GetAttribute and Utils) then
         return false

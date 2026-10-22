@@ -26,6 +26,8 @@ end
 -- ===========================================================================
 
 _G.print = print
+_G.C_ChatInfo = { InChatMessagingLockdown = function() return false end }
+_G.InCombatLockdown = function() return false end
 
 local YapperName = "Yapper"
 local YapperTable = {

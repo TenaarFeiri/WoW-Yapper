@@ -27,6 +27,10 @@ local notified = {}
 _G.DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) notified[#notified + 1] = msg end }
 _G.GetCurrentRegion = function() return nil end
 _G.GetLocale = function() return "enUS" end
+_G.C_Timer = {
+    NewTimer = function() return { Cancel = function() end } end,
+    After = function() end,
+}
 
 local YapperName = "Yapper"
 local YapperTable = {

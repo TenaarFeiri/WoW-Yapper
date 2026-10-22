@@ -177,7 +177,7 @@ local function OccupiedRects()
     if ml and ml.Frame then rects[#rects + 1] = FrameRect(ml.Frame) end
     if sc and sc.SuggestionFrame then rects[#rects + 1] = FrameRect(sc.SuggestionFrame) end
     if sc and sc.HintFrame then rects[#rects + 1] = FrameRect(sc.HintFrame) end
-    if DEFAULT_CHAT_FRAME then rects[#rects + 1] = ChatClusterRect() end
+    rects[#rects + 1] = ChatClusterRect()
 
     -- Filter nils (hidden frames) out in-place.
     local out = {}
@@ -234,8 +234,8 @@ end
 --- Pick a screen position: first candidate whose rect overlaps nothing
 --- occupied, else the last candidate clamped into the screen.
 function Toast:_PickPosition(w, h)
-    local screenW = (UIParent and UIParent:GetWidth()) or 1024
-    local screenH = (UIParent and UIParent:GetHeight()) or 768
+    local screenW = UIParent:GetWidth() or 1024
+    local screenH = UIParent:GetHeight() or 768
     local occupied = OccupiedRects()
     local cands = CandidatePositions(w, h, screenW, screenH, occupied)
 
@@ -262,7 +262,6 @@ end
 -- ---------------------------------------------------------------------------
 
 function Toast:_ArmHoldTimer(remain)
-    if not (C_Timer and C_Timer.NewTimer) then return end
     if self._holdTimer and self._holdTimer.Cancel then
         self._holdTimer:Cancel()
     end
@@ -284,21 +283,12 @@ function Toast:_Dismiss()
     self._holdTimer = nil
     frame._expiresAt = nil
     frame._holdRemain = nil
-    if UIFrameFadeOut then
-        UIFrameFadeOut(frame, TOAST_FADE_TIME, frame:GetAlpha() or 1, 0)
-    else
-        frame:SetAlpha(0)
-    end
+    UIFrameFadeOut(frame, TOAST_FADE_TIME, frame:GetAlpha() or 1, 0)
     -- Hide after the fade completes (alpha 0 frames still eat mouse hits).
-    if C_Timer and C_Timer.After then
-        C_Timer.After(TOAST_FADE_TIME + 0.05, function()
-            if frame:GetAlpha() <= 0.01 then frame:Hide() end
-            Toast:_PumpQueue()
-        end)
-    else
-        frame:Hide()
-        self:_PumpQueue()
-    end
+    C_Timer.After(TOAST_FADE_TIME + 0.05, function()
+        if frame:GetAlpha() <= 0.01 then frame:Hide() end
+        Toast:_PumpQueue()
+    end)
 end
 
 function Toast:_PumpQueue()
@@ -386,11 +376,7 @@ function Toast:Show(opts)
 
     frame:SetAlpha(0)
     frame:Show()
-    if UIFrameFadeIn then
-        UIFrameFadeIn(frame, 0.12, 0, 1)
-    else
-        frame:SetAlpha(1)
-    end
+    UIFrameFadeIn(frame, 0.12, 0, 1)
 
     -- Hold timer (paused while hovered).
     frame._expiresAt = GetTime() + duration

@@ -3,8 +3,13 @@
 ]]
 
 local function newHarness()
-    _G.C_Timer = {}
+    _G.C_Timer = {
+        NewTimer = function() return { Cancel = function() end } end,
+        NewTicker = function() return { Cancel = function() end } end,
+        After = function() end,
+    }
     _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
+    _G.DEFAULT_CHAT_FRAME = { AddMessage = function() end }
 
     local YapperName = "Yapper"
     local YapperTable = {

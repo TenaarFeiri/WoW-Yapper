@@ -209,8 +209,7 @@ function Spellcheck:ApplyState(enabled, locale)
         if not self:EnsureLocale(locale, true) then
             -- If the addon is loaded but the locale is unavailable, it was purged.
             local addon = self:GetLocaleAddon(locale)
-            local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
-            if addon and isLoaded and isLoaded(addon)
+            if addon and C_AddOns.IsAddOnLoaded(addon)
                 and not self:IsLocaleAvailable(locale) then
                 if self.Notify then
                     self:Notify("Yapper: The dictionary for " ..
@@ -332,15 +331,11 @@ function Spellcheck:ScheduleRefresh(delay)
         self._debounceTimer:Cancel()
     end
 
-    if C_Timer and C_Timer.NewTimer then
-        -- Default 0.3s debounce when no delay is requested.
-        self._debounceTimer = C_Timer.NewTimer(delay or 0.30, function()
-            self:Rebuild()
-            self._debounceTimer = nil
-        end)
-    else
+    -- Default 0.3s debounce when no delay is requested.
+    self._debounceTimer = C_Timer.NewTimer(delay or 0.30, function()
         self:Rebuild()
-    end
+        self._debounceTimer = nil
+    end)
 end
 
 function Spellcheck:Rebuild()
@@ -526,48 +521,36 @@ function Spellcheck:ScheduleHintShow()
     if IsDebugEnabled() then
         self:Notify("Spellcheck:ScheduleHintShow word='" .. tostring(word) .. "' cursor=" .. tostring(cursor))
     end
-    if C_Timer and C_Timer.NewTimer then
-        self._hintTimer = C_Timer.NewTimer(self.HintDelay, function()
-            -- If caret or word moved, abort showing.
-            if not self.EditBox then return end
-            local curCursor = YapperTable.Recolour.CanonicalCursor(self.EditBox)
-            if IsDebugEnabled() then
-                self:Notify("Spellcheck:HintTimer fired; curCursor=" ..
-                    tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
-            end
-            if curCursor ~= self._pendingHintCursor then
-                if IsDebugEnabled() then
-                    self:Notify("Spellcheck:HintTimer abort due to cursor move")
-                end
-                return
-            end
-            if self.ActiveWord ~= self._pendingHintWord then
-                if IsDebugEnabled() then
-                    self:Notify("Spellcheck:HintTimer abort due to word change")
-                end
-                return
-            end
-            self:ShowHint()
-            if IsDebugEnabled() then
-                self:Notify("Spellcheck:HintTimer showing hint")
-            end
-            self._lastHintWord = self._pendingHintWord
-            self._lastHintCursor = self._pendingHintCursor
-            self._pendingHintWord = nil
-            self._pendingHintCursor = nil
-            self._hintTimer = nil
-        end)
-    else
-        -- Fallback: immediate show
+    self._hintTimer = C_Timer.NewTimer(self.HintDelay, function()
+        -- If caret or word moved, abort showing.
+        if not self.EditBox then return end
+        local curCursor = YapperTable.Recolour.CanonicalCursor(self.EditBox)
         if IsDebugEnabled() then
-            self:Notify("Spellcheck:ScheduleHintShow immediate fallback show")
+            self:Notify("Spellcheck:HintTimer fired; curCursor=" ..
+                tostring(curCursor) .. " pending=" .. tostring(self._pendingHintCursor))
+        end
+        if curCursor ~= self._pendingHintCursor then
+            if IsDebugEnabled() then
+                self:Notify("Spellcheck:HintTimer abort due to cursor move")
+            end
+            return
+        end
+        if self.ActiveWord ~= self._pendingHintWord then
+            if IsDebugEnabled() then
+                self:Notify("Spellcheck:HintTimer abort due to word change")
+            end
+            return
         end
         self:ShowHint()
+        if IsDebugEnabled() then
+            self:Notify("Spellcheck:HintTimer showing hint")
+        end
         self._lastHintWord = self._pendingHintWord
         self._lastHintCursor = self._pendingHintCursor
         self._pendingHintWord = nil
         self._pendingHintCursor = nil
-    end
+        self._hintTimer = nil
+    end)
 end
 
 --- Set manual pixel offsets for spellcheck tooltips.
@@ -614,11 +597,7 @@ function Spellcheck:ShowHint()
     end
     self.HintFrame:SetAlpha(0)
     self.HintFrame:Show()
-    if UIFrameFadeIn then
-        UIFrameFadeIn(self.HintFrame, 0.12, 0, 1)
-    else
-        self.HintFrame:SetAlpha(1)
-    end
+    UIFrameFadeIn(self.HintFrame, 0.12, 0, 1)
 end
 
 function Spellcheck:HideHint()
@@ -681,21 +660,17 @@ function Spellcheck:HandleKeyDown(key)
     if self:IsSuggestionOpen() then
         if key == "UP" then
             self._suppressCursorUpdate = true
-            if C_Timer and C_Timer.NewTimer then
-                C_Timer.NewTimer(0, function()
-                    self._suppressCursorUpdate = nil
-                end)
-            end
+            C_Timer.NewTimer(0, function()
+                self._suppressCursorUpdate = nil
+            end)
             self:MoveSelection(-1)
             return true
         end
         if key == "DOWN" then
             self._suppressCursorUpdate = true
-            if C_Timer and C_Timer.NewTimer then
-                C_Timer.NewTimer(0, function()
-                    self._suppressCursorUpdate = nil
-                end)
-            end
+            C_Timer.NewTimer(0, function()
+                self._suppressCursorUpdate = nil
+            end)
             self:MoveSelection(1)
             return true
         end
@@ -1076,11 +1051,9 @@ function Spellcheck:ApplySuggestion(index)
     -- Mark that a suggestion was just applied so higher-level Enter
     -- handlers can swallow the following Enter (applied via keyboard).
     self._justAppliedSuggestion = GetTime()
-    if C_Timer and C_Timer.NewTimer then
-        C_Timer.NewTimer(0.05, function()
-            self._justAppliedSuggestion = nil
-        end)
-    end
+    C_Timer.NewTimer(0.05, function()
+        self._justAppliedSuggestion = nil
+    end)
 
     if type(entry) == "table" and entry.kind == "add" then
         local locale = self:GetLocale()

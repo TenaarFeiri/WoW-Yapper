@@ -524,9 +524,7 @@ function EditBox:SetupOverlayScripts()
         if self.OnSend then
             didSend = (self.OnSend(trimmed, chatType, lang, target) ~= false)
         else
-            if C_ChatInfo and C_ChatInfo.SendChatMessage then
-                C_ChatInfo.SendChatMessage(trimmed, chatType, lang, target)
-            end
+            C_ChatInfo.SendChatMessage(trimmed, chatType, lang, target)
         end
 
         -- Vetoed send (e.g. lockdown flipped between the guard and dispatch):
@@ -543,9 +541,7 @@ function EditBox:SetupOverlayScripts()
             local sentTarget = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
             if sentTarget and sentTarget ~= "" then
                 self:AddReplyTarget(sentTarget, chatType)
-                if ChatFrameUtil and ChatFrameUtil.SetLastToldTarget then
-                    pcall(ChatFrameUtil.SetLastToldTarget, sentTarget, chatType)
-                end
+                pcall(ChatFrameUtil.SetLastToldTarget, sentTarget, chatType)
             end
             -- Replace the Yapper-stored target with the secure one so
             -- LastUsed doesn't retain a tainted copy.
@@ -832,8 +828,7 @@ function EditBox:SetupOverlayScripts()
     -- Close the overlay when the user hides their UI.
     UIParent:HookScript("OnHide", function()
         -- The housing editor hides UIParent; don't close while it's active.
-        if C_HouseEditor and C_HouseEditor.IsHouseEditorActive
-            and C_HouseEditor.IsHouseEditorActive() then
+        if C_HouseEditor.IsHouseEditorActive() then
             return
         end
         if EditBox.Overlay and EditBox.Overlay:IsShown() then
@@ -855,8 +850,8 @@ function EditBox:SetupOverlayScripts()
             isLockdownEndEvent = not isInProgress
         elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
             local restrictionType, restrictionState = ...
-            local rtypes  = Enum and Enum.AddOnRestrictionType
-            local rstates = Enum and Enum.AddOnRestrictionState
+            local rtypes  = Enum.AddOnRestrictionType
+            local rstates = Enum.AddOnRestrictionState
             if rstates and (restrictionState == rstates.Activating
                 or restrictionState == rstates.Active) then
                 isLockdownStartEvent = true
@@ -1062,12 +1057,10 @@ function EditBox:SetupOverlayScripts()
                 local bnSenderID = select(13, ...)
                 if type(bnSenderID) == "number" and bnSenderID > 0 then
                     local replyTarget = bnSenderID
-                    if C_BattleNet and C_BattleNet.GetAccountInfoByID then
-                        local ok, info = pcall(C_BattleNet.GetAccountInfoByID, bnSenderID)
-                        if ok and type(info) == "table" and info.accountName
-                            and not IsSecretValue(info.accountName) then
-                            replyTarget = info.accountName
-                        end
+                    local info = C_BattleNet.GetAccountInfoByID(bnSenderID)
+                    if type(info) == "table" and info.accountName
+                        and not IsSecretValue(info.accountName) then
+                        replyTarget = info.accountName
                     end
                     self:AddReplyTarget(replyTarget, "BN_WHISPER")
                 end
@@ -1092,7 +1085,7 @@ function EditBox:SetupOverlayScripts()
             local kind = (event == "CHAT_MSG_BN_WHISPER") and "BN_WHISPER" or "WHISPER"
             local activeEditBox = self.OrigEditBox
                 or self._lastActiveIMEditBox
-                or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                or DEFAULT_CHAT_FRAME.editBox
             local activeFrame = activeEditBox and (activeEditBox.chatFrame
                 or (activeEditBox.GetParent and activeEditBox:GetParent())) or nil
             local activeType = activeFrame and activeFrame.chatType or nil
@@ -1110,7 +1103,7 @@ function EditBox:SetupOverlayScripts()
                 self._incomingWhisperAffinity = {
                     chatType = affinityType,
                     target = activeTarget,
-                    t = GetTime and GetTime() or nil,
+                    t = GetTime(),
                     frameName = activeFrame and activeFrame.GetName and activeFrame:GetName() or nil,
                 }
             end

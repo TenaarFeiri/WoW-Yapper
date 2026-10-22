@@ -64,7 +64,7 @@ function EditBox:_IMPopActive(eb)
     end
     -- Restore the new top as active (fall back to ChatFrame1EditBox if empty).
     local top = history[#history]
-        or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+        or DEFAULT_CHAT_FRAME.editBox
         or _G["ChatFrame1EditBox"]
     self._lastActiveIMEditBox = top
 end

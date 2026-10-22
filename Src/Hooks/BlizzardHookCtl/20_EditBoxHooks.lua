@@ -600,7 +600,7 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             -- before the Hide().
             local targetEB = blizzEditBox:IsShown() and blizzEditBox
                 or self._lastActiveIMEditBox
-                or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+                or DEFAULT_CHAT_FRAME.editBox
             if not targetEB then
                 return
             end

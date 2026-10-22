@@ -93,8 +93,10 @@ end
 
 local UIW, UIH = 1920, 1080
 _G.UIParent = { GetWidth = function() return UIW end, GetHeight = function() return UIH end }
-_G.UIFrameFadeIn  = nil
-_G.UIFrameFadeOut = nil
+-- Required fade APIs (production calls them directly).
+_G.UIFrameFadeIn  = function(f, _, _, to) if f and f.SetAlpha then f:SetAlpha(to) end end
+_G.UIFrameFadeOut = function(f, _, _, to) if f and f.SetAlpha then f:SetAlpha(to) end end
+_G.UIFrameFadeRemoveFrame = function() end
 
 local YapperName = "Yapper"
 local YapperTable = { Config = { Spellcheck = { LearnToastEnabled = true } } }

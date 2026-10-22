@@ -61,7 +61,11 @@ _G.C_BattleNet = {
 }
 
 _G.BNGetNumFriends = function() return 2 end
-_G.BNGetFriendInfo = nil  -- Use only the modern API
+_G.BNGetFriendInfo = function() return nil end  -- legacy API returns nothing; exercises the modern path
+
+-- C-side resolver for |K tokens/secrets; returns nil for plain account
+-- names so tests exercise the Lua friend-list fallback.
+_G.BNet_GetBNetIDAccount = function() return nil end
 
 _G.C_Club = {
     SendMessage = function(clubId, streamId, msg)
@@ -215,7 +219,7 @@ check("numeric presenceID uses C_BattleNet.SendWhisper", sentMessages[1].api == 
 check("numeric presenceID passed directly", sentMessages[1].bnetAccountID == 500)
 
 -- Restore.
-_G.BNGetFriendInfo = nil
+_G.BNGetFriendInfo = function() return nil end
 _G.BNGetNumFriends = function() return 2 end
 
 -- ===========================================================================

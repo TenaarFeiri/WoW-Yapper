@@ -37,8 +37,17 @@ end
 -- ---------------------------------------------------------------------------
 
 local function buildHarness(engineFile, dictFiles, locale)
-    _G.C_Timer = {}
+    _G.C_Timer = {
+        NewTimer = function() return { Cancel = function() end } end,
+        After = function() end,
+    }
     _G.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
+    _G.DEFAULT_CHAT_FRAME = { AddMessage = function() end }
+    _G.C_AddOns = {
+        GetAddOnInfo = function(addon) return addon, nil, nil, true, "DEMAND_LOADED" end,
+        IsAddOnLoaded = function() return false end,
+        LoadAddOn = function() return true end,
+    }
 
     local dictFactories, engines = {}, {}
 

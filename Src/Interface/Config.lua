@@ -304,7 +304,7 @@ function Interface:SetLocalPath(path, value)
             local origEditBox = YapperTable.EditBox and YapperTable.EditBox.OrigEditBox
             -- Fall back to the current chat frame editbox if OrigEditBox is nil
             if not origEditBox then
-                origEditBox = _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
+                origEditBox = _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
             end
             if origEditBox then
                 if normalizedValue == true then
@@ -326,7 +326,7 @@ function Interface:SetLocalPath(path, value)
         local eb = YapperTable.EditBox
         local origEditBox = eb.OrigEditBox
         if not origEditBox then
-            origEditBox = _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
+            origEditBox = _G.DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox
         end
         local yapperIsOpen = eb.Overlay and eb.Overlay:IsShown()
         if origEditBox and yapperIsOpen then

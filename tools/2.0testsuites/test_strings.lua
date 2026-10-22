@@ -16,6 +16,8 @@ local function check(label, condition)
     end
 end
 
+_G.GetLocale = function() return "enUS" end
+
 local YapperTable = {}
 local fired = {}
 YapperTable.API = {

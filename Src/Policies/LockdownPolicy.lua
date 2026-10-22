@@ -18,7 +18,6 @@ YapperTable.LockdownPolicy = LockdownPolicy
 function LockdownPolicy:HasAddOnRestrictionAPI()
     return type(C_RestrictedActions) == "table"
         and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function"
-        and type(Enum) == "table"
         and type(Enum.AddOnRestrictionType) == "table"
 end
 
@@ -53,18 +52,17 @@ end
 function LockdownPolicy:IsChatLockdown()
     -- The Chat restriction type is authoritative on clients with
     -- C_RestrictedActions; InChatMessagingLockdown covers older clients.
-    local chatType = Enum and Enum.AddOnRestrictionType
+    local chatType = Enum.AddOnRestrictionType
         and Enum.AddOnRestrictionType.Chat
     if self:IsAddOnRestrictionActive(chatType) then
         return true
     end
-    return C_ChatInfo and C_ChatInfo.InChatMessagingLockdown
-        and C_ChatInfo.InChatMessagingLockdown() == true
+    return C_ChatInfo.InChatMessagingLockdown() == true
 end
 
 -- Returns true if protected-frame combat restrictions are active.
 function LockdownPolicy:IsCombatLockdown()
-    return InCombatLockdown and InCombatLockdown() == true
+    return InCombatLockdown() == true
 end
 
 -- Returns true when either chat or combat lockdown is active.
@@ -144,7 +142,7 @@ function LockdownPolicy:IsProtectedSlashCommand(command)
     if type(command) ~= "string" or command == "" then return false end
 
     -- Blizzard's secure command registry (/cast, /target, /click, ...).
-    if type(IsSecureCmd) == "function" and IsSecureCmd(command) then
+    if IsSecureCmd(command) then
         return true
     end
 

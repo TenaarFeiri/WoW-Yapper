@@ -205,19 +205,15 @@ end
 local function ResolveChannelName(id)
     id = tonumber(id)
     if not id or id == 0 then return nil end
-    if not GetChannelName then return nil end
-
     local cid, cname = GetChannelName(id)
     if tonumber(cid) == 0 then return nil end
     if type(cname) == "string" and cname ~= "" then
         -- community channels are reported as "Community:<clubId>:<streamId>";
         -- let Blizzard turn that into a user-friendly name if it can.
-        if ChatFrameUtil and ChatFrameUtil.ResolveChannelName then
-            -- ResolveChannelName expects the raw community channel string.
-            local resolved = ChatFrameUtil.ResolveChannelName(cname)
-            if resolved and resolved ~= cname then
-                return resolved
-            end
+        -- ResolveChannelName expects the raw community channel string.
+        local resolved = ChatFrameUtil.ResolveChannelName(cname)
+        if resolved and resolved ~= cname then
+            return resolved
         end
 
         -- Fallback: mimic old logic that manually queries C_Club for a name.
@@ -225,11 +221,9 @@ local function ResolveChannelName(id)
             local isClub, clubId, streamId = YapperTable.Router:DetectCommunityChannel(id)
             if isClub and clubId then
                 local display = "Community"
-                if _G.C_Club and _G.C_Club.GetClubInfo then
-                    local info = _G.C_Club.GetClubInfo(clubId)
-                    if info and info.name and info.name ~= "" then
-                        display = info.name
-                    end
+                local info = C_Club.GetClubInfo(clubId)
+                if info and info.name and info.name ~= "" then
+                    display = info.name
                 end
                 if streamId then
                     display = display .. " #" .. streamId
@@ -300,7 +294,7 @@ local function BuildLabelText(chatType, target, channelName)
     elseif not label and chatType == "WHISPER" and target then
         label = "To " .. target .. ":"
     elseif not label and chatType == "EMOTE" then
-        label = UnitName and UnitName("player") or "You"
+        label = UnitName("player") or "You"
     elseif not label and chatType == "CHANNEL" then
         if channelName and channelName ~= "" then
             label = channelName
@@ -317,7 +311,7 @@ local function BuildLabelText(chatType, target, channelName)
 
     -- Colour from ChatTypeInfo.
     local r, g, b = 1, 0.82, 0 -- gold fallback
-    if chatType and ChatTypeInfo then
+    if chatType then
         local info
         if chatType == "CHANNEL" and target then
             info = ChatTypeInfo["CHANNEL" .. tostring(target)]
@@ -489,9 +483,7 @@ function EditBox:HideMultilineHint()
     local hint = self.MultilineHint
     if not hint then return end
 
-    if UIFrameFadeRemoveFrame then
-        UIFrameFadeRemoveFrame(hint)
-    end
+    UIFrameFadeRemoveFrame(hint)
     hint:Hide()
     hint:SetAlpha(1)
 end
@@ -592,21 +584,11 @@ function EditBox:ShowMultilineHint()
     hint:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
     hint:SetAlpha(0)
     hint:Show()
-    if UIFrameFadeIn then
-        UIFrameFadeIn(hint, 0.12, 0, 1)
-    else
-        hint:SetAlpha(1)
-    end
+    UIFrameFadeIn(hint, 0.12, 0, 1)
 
     local cfg = YapperTable.Config and YapperTable.Config.EditBox or {}
     local holdDuration = tonumber(cfg.MultilineHintDuration) or 5
     if holdDuration < 0 then holdDuration = 0 end
-
-    if not (C_Timer and C_Timer.NewTimer) then
-        hint:Hide()
-        hint:SetAlpha(1)
-        return
-    end
 
     local holdTimer
     holdTimer = C_Timer.NewTimer(holdDuration, function()
@@ -614,11 +596,7 @@ function EditBox:ShowMultilineHint()
         self._multilineHintTimer = nil
         if not hint:IsShown() then return end
 
-        if UIFrameFadeOut then
-            UIFrameFadeOut(hint, MULTILINE_HINT_FADE_DURATION, hint:GetAlpha() or 1, 0)
-        else
-            hint:SetAlpha(0)
-        end
+        UIFrameFadeOut(hint, MULTILINE_HINT_FADE_DURATION, hint:GetAlpha() or 1, 0)
 
         local fadeTimer
         fadeTimer = C_Timer.NewTimer(MULTILINE_HINT_FADE_DURATION, function()
@@ -782,7 +760,7 @@ function EditBox:CreateOverlay()
     -- (e.g. typing in the native box while handed off).
     if not self._cChatInfoSendHooked then
         self._cChatInfoSendHooked = true
-        if C_ChatInfo and C_ChatInfo.SendChatMessage then
+        do
             hooksecurefunc(C_ChatInfo, "SendChatMessage", function(message, chatType, language, target)
                 if not chatType or chatType == "BN_WHISPER" then return end
                 if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then

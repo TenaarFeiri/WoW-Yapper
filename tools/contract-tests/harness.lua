@@ -108,9 +108,17 @@ local function install_globals(harness)
     _G.ChatTypeInfo = {}
     _G.ChatFontNormal = { GetFont = function() return "Fonts\\FRIZQT__.TTF", 14, "" end }
     _G.SlashCmdList = {}
-    _G.C_AddOns = nil
-    _G.IsAddOnLoaded = function() return false end
+    _G.C_AddOns = {
+        IsAddOnLoaded = function() return false end,
+        GetAddOnInfo = function() return nil end,
+        LoadAddOn = function() return false end,
+    }
     _G.InCombatLockdown = function() return harness.combatLockdown end
+    _G.issecretvalue = function() return false end
+    _G.canaccessvalue = function() return true end
+    _G.issecrettable = function() return false end
+    _G.canaccesstable = function() return true end
+    _G.BNet_GetBNetIDAccount = function() return nil end
 
     _G.CreateFrame = function()
         return frame_factory()

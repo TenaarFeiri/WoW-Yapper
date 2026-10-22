@@ -59,12 +59,10 @@ local WHISPER_MENU_TAGS = {
 
 --- Resolve "Name-Realm" the same way Blizzard's native whisper button does.
 local function ResolveFullPlayerName(contextData)
-    if UnitPopupSharedUtil and type(UnitPopupSharedUtil.GetFullPlayerName) == "function" then
-        local fullName = UnitPopupSharedUtil.GetFullPlayerName(contextData)
-        fullName = Utils and Utils:SanitizeTarget(fullName) or fullName
-        if type(fullName) == "string" and fullName ~= "" then
-            return fullName
-        end
+    local fullName = UnitPopupSharedUtil.GetFullPlayerName(contextData)
+    fullName = Utils and Utils:SanitizeTarget(fullName) or fullName
+    if type(fullName) == "string" and fullName ~= "" then
+        return fullName
     end
     -- Fallback: assemble from the context fields OpenMenu populated,
     -- mirroring Blizzard's GetFullPlayerName. `surname` is the modern field
@@ -105,9 +103,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     -- restriction).
     if Utils and type(Utils.IsAnyAddOnRestriction) == "function"
         and Utils:IsAnyAddOnRestriction() then
-        if ChatFrameUtil and ChatFrameUtil.SendTell then
-            pcall(ChatFrameUtil.SendTell, contextData.name, contextData.chatFrame)
-        end
+        pcall(ChatFrameUtil.SendTell, contextData.name, contextData.chatFrame)
         return
     end
 
@@ -151,14 +147,10 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     local locked = utils and utils.IsChatLockdown and utils:IsChatLockdown()
     if locked or type(self.Show) ~= "function" then
         if isBNet then
-            if ChatFrameUtil and ChatFrameUtil.SendBNetTell then
-                -- SendBNetTell resolves the native tokenized name securely.
-                ChatFrameUtil.SendBNetTell(contextData.name or fullName)
-            end
+            -- SendBNetTell resolves the native tokenized name securely.
+            ChatFrameUtil.SendBNetTell(contextData.name or fullName)
         else
-            if ChatFrameUtil and ChatFrameUtil.SendTell then
-                ChatFrameUtil.SendTell(fullName, contextData.chatFrame)
-            end
+            ChatFrameUtil.SendTell(fullName, contextData.chatFrame)
         end
         return
     end
@@ -166,7 +158,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
     local blizzBox = contextData.chatFrame and contextData.chatFrame.editBox
     if not blizzBox then
         blizzBox = self.OrigEditBox
-            or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox)
+            or DEFAULT_CHAT_FRAME.editBox
             or _G.ChatFrame1EditBox
     end
 
@@ -188,7 +180,7 @@ function EditBox:OpenWhisperFromUnitMenu(contextData)
         end
     end
 
-    self:Show(blizzBox or (DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox) or _G.ChatFrame1EditBox)
+    self:Show(blizzBox or DEFAULT_CHAT_FRAME.editBox or _G.ChatFrame1EditBox)
     self.ChatType = chatType
     self.Target = fullName
     self._secureReplySource = nil
@@ -245,13 +237,6 @@ end
 function EditBox:InstallUnitPopupWhisperOverride()
     if self._unitPopupMenuHandles then
         return true
-    end
-
-    if not (Menu and type(Menu.ModifyMenu) == "function" and MenuUtil and MenuResponse) then
-        if YapperTable.Utils then
-            YapperTable.Utils:VerbosePrint("Menu API unavailable; unit-popup whisper routing relies on the SendTell hook only.")
-        end
-        return false
     end
 
     local handles = {}

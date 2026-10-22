@@ -153,7 +153,7 @@ function Interface:CreateChannelOverrideControls(parent, cursor)
         local function refreshColor()
             local mode = getModeValue(option.key)
             local c
-            if mode == "blizzard" and ChatTypeInfo then
+            if mode == "blizzard" then
                 local info = ChatTypeInfo[option.key]
                 if info and type(info.r) == "number" then
                     c = { r = info.r, g = info.g, b = info.b, a = 1 }

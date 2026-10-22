@@ -112,9 +112,9 @@ function EditBox:UpdateFocusOverride()
     if self._SyncActiveChatWindow then
         self:_SyncActiveChatWindow()
     end
-    if ChatFrameUtil and ChatFrameUtil.SetChatFocusOverride then
+    do
         local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
-        local inCombat = InCombatLockdown and InCombatLockdown()
+        local inCombat = InCombatLockdown()
         local activeEditor = self:GetActiveEditor()
         local editorActive = activeEditor and not self._lockdown.handedOff
 
@@ -279,11 +279,8 @@ local function ExtractRegionalWhisperTarget(rest)
     if not target or target == "" then return nil end
     if target:sub(1, 1) == "|" then return nil end
 
-    local acEntry = AUTOCOMPLETE_LIST and AUTOCOMPLETE_LIST.WHISPER_EXTRACT
+    local acEntry = AUTOCOMPLETE_LIST.WHISPER_EXTRACT
     local function MatchesKnownName(candidate)
-        if not (C_AutoComplete and type(C_AutoComplete.GetAutoCompleteResults) == "function") then
-            return false
-        end
         local ok, matches = pcall(C_AutoComplete.GetAutoCompleteResults,
             candidate, 1, 0, true,
             acEntry and acEntry.include, acEntry and acEntry.exclude)
@@ -362,16 +359,19 @@ end
 --- @param rawTarget any
 --- @return string|number|nil
 local function ResolveBnetReplyTarget(rawTarget)
-    local resolve = _G.BNet_GetBNetIDAccount
-    if type(resolve) ~= "function" then return nil end
-    local ok, id = pcall(resolve, rawTarget)
-    if not ok or type(id) ~= "number" or id <= 0 then return nil end
-    if C_BattleNet and C_BattleNet.GetAccountInfoByID then
-        local okInfo, info = pcall(C_BattleNet.GetAccountInfoByID, id)
-        if okInfo and type(info) == "table" and info.accountName
-            and not Utils:IsSecret(info.accountName) then
-            return info.accountName
-        end
+    -- pcall: under addon restrictions the C call may raise on a secret
+    -- input from our tainted stack; degrade to "no recovery" instead of
+    -- erroring the reply path.
+    local ok, id = pcall(BNet_GetBNetIDAccount, rawTarget)
+    if not ok then
+        Utils:VerbosePrint("BNet_GetBNetIDAccount failed: " .. Utils:SafeToString(id))
+        return nil
+    end
+    if type(id) ~= "number" or id <= 0 then return nil end
+    local info = C_BattleNet.GetAccountInfoByID(id)
+    if type(info) == "table" and info.accountName
+        and not Utils:IsSecret(info.accountName) then
+        return info.accountName
     end
     return id
 end
@@ -401,12 +401,10 @@ local function GetLastTellTargetInfo()
         -- pcall: under addon restrictions the stored sender can be SECRET,
         -- and Blizzard's own `value ~= ""` comparison then errors on our
         -- tainted stack. Degrade to "no reply target" instead of erroring.
-        local ok = true
-        if ChatFrameUtil and ChatFrameUtil.GetLastTellTarget then
-            ok, lastTell, lastType = pcall(ChatFrameUtil.GetLastTellTarget)
-        end
+        local ok
+        ok, lastTell, lastType = pcall(ChatFrameUtil.GetLastTellTarget)
         if not ok then
-            Utils:VerbosePrint("Reply target unavailable: Blizzard's last-tell list holds a secret value.")
+            Utils:VerbosePrint("Reply target unavailable: " .. Utils:SafeToString(lastTell))
             return nil, nil
         end
         if Utils:IsSecret(lastTell) then
@@ -455,11 +453,9 @@ end
 local function GetLastToldTargetInfo()
     local lastTold = nil
     local lastType = nil
-    local ok = true
     -- pcall + IsSecret: same secret-value containment as GetLastTellTargetInfo.
-    if ChatFrameUtil and ChatFrameUtil.GetLastToldTarget then
-        ok, lastTold, lastType = pcall(ChatFrameUtil.GetLastToldTarget)
-    end
+    local ok
+    ok, lastTold, lastType = pcall(ChatFrameUtil.GetLastToldTarget)
     if not ok then
         return nil, nil
     end
@@ -514,14 +510,11 @@ function EditBox:ResolveWhisperTarget(chatType, source, fallback)
     if not source then
         return fallback, false
     end
-    if not ChatFrameUtil then
-        return fallback, false
-    end
 
     local ok, secureTarget, secureType
-    if source == "tell" and ChatFrameUtil.GetLastTellTarget then
+    if source == "tell" then
         ok, secureTarget, secureType = pcall(ChatFrameUtil.GetLastTellTarget)
-    elseif source == "told" and ChatFrameUtil.GetLastToldTarget then
+    elseif source == "told" then
         ok, secureTarget, secureType = pcall(ChatFrameUtil.GetLastToldTarget)
     end
 
@@ -539,13 +532,13 @@ function EditBox:ResolveWhisperTarget(chatType, source, fallback)
         -- yields the numeric account ID SendWhisper needs -- the same
         -- recovery ResolveWhisperFrameTarget uses for whisper tabs. On
         -- failure the Yapper-stored fallback (account name or arg13 ID)
-        -- still works; it just isn't Blizzard-sourced.
-        local resolve = _G.BNet_GetBNetIDAccount
-        if type(resolve) == "function" then
-            local okID, id = pcall(resolve, secureTarget)
-            if okID and type(id) == "number" and id > 0 then
-                return id, true
-            end
+        -- still works; it just isn't Blizzard-sourced. pcall: the C call
+        -- can raise on a secret input under addon restrictions.
+        local ok, id = pcall(BNet_GetBNetIDAccount, secureTarget)
+        if not ok then
+            Utils:VerbosePrint("BNet_GetBNetIDAccount failed: " .. Utils:SafeToString(id))
+        elseif type(id) == "number" and id > 0 then
+            return id, true
         end
         return fallback, false
     end
@@ -586,15 +579,15 @@ function EditBox:ResolveWhisperFrameTarget(chatFrame)
 
     -- BN whisper tabs commonly carry a |K-protected presence token (or a
     -- secret value under addon restrictions).  The C side of
-    -- BNet_GetBNetIDAccount resolves either to a numeric account ID;
-    -- pcall contains environments where even that fails.
+    -- BNet_GetBNetIDAccount resolves either to a numeric account ID.
     if chatType == "BN_WHISPER" then
-        local resolve = _G.BNet_GetBNetIDAccount
-        if type(resolve) == "function" then
-            local ok, id = pcall(resolve, chatFrame.chatTarget)
-            if ok and type(id) == "number" and id > 0 then
-                return chatType, id
-            end
+        -- pcall: the C call can raise on a secret input under addon
+        -- restrictions; an unresolvable tab yields no target.
+        local ok, id = pcall(BNet_GetBNetIDAccount, chatFrame.chatTarget)
+        if not ok then
+            Utils:VerbosePrint("BNet_GetBNetIDAccount failed: " .. Utils:SafeToString(id))
+        elseif type(id) == "number" and id > 0 then
+            return chatType, id
         end
     end
     return nil, nil
@@ -618,10 +611,9 @@ function EditBox:OpenBlizzardChat()
         -- In lockdown Blizzard's editbox is authoritative; do not read or
         -- write secret-sensitive attributes from this tainted callback.
         if Utils:IsChatOrCombatLockdown() then
-            if ChatFrameUtil and ChatFrameUtil.OpenChat then
-                pcall(ChatFrameUtil.OpenChat, "", eb)
-            elseif eb and eb.Show then
-                pcall(function() eb:Show() end)
+            local okOpen, errOpen = pcall(ChatFrameUtil.OpenChat, "", eb)
+            if not okOpen then
+                Utils:VerbosePrint("OpenChat failed: " .. Utils:SafeToString(errOpen))
             end
             if eb and eb.SetFocus then eb:SetFocus() end
             return
@@ -681,13 +673,11 @@ function EditBox:OpenBlizzardChat()
 
         -- Prefer ChatFrameUtil.OpenChat so Blizzard's callbacks (focus
         -- gained, etc.) run and other addons see a normal open.
-        if ChatFrameUtil and ChatFrameUtil.OpenChat then
-            pcall(ChatFrameUtil.OpenChat, "", eb)
-            if eb and eb.SetFocus then eb:SetFocus() end
-        else
-            if eb and eb.Show then eb:Show() end
-            if eb and eb.SetFocus then eb:SetFocus() end
+        local okOpen, errOpen = pcall(ChatFrameUtil.OpenChat, "", eb)
+        if not okOpen then
+            Utils:VerbosePrint("OpenChat failed: " .. Utils:SafeToString(errOpen))
         end
+        if eb and eb.SetFocus then eb:SetFocus() end
     end)
 end
 
@@ -811,7 +801,7 @@ function EditBox:SyncLanguageFromNative(blizzEditBox)
     else
         -- Character language is global; prefer the default native editbox
         -- (owner used by Blizzard's language menu and TRP3) over proxies.
-        candidates[#candidates + 1] = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.editBox
+        candidates[#candidates + 1] = DEFAULT_CHAT_FRAME.editBox
         candidates[#candidates + 1] = self.OrigEditBox
         candidates[#candidates + 1] = _G.ChatFrame1EditBox
     end

@@ -658,7 +658,7 @@ function Autocomplete:PositionGhost()
 	-- At non-100% UI scale the effective scale of the EditBox differs from
 	-- UIParent's, so those frame-local units must be converted before being
 	-- passed to SetPoint (which also uses UIParent-relative logical pixels).
-	local uiScale = UIParent and UIParent:GetEffectiveScale() or 1
+	local uiScale = UIParent:GetEffectiveScale() or 1
 	local ebScale = editBox:GetEffectiveScale()
 	local toUI    = ebScale / uiScale    -- eb local -> UIParent logical pixels
 	local pad     = GHOST_CARET_PAD / toUI -- keep pad visually consistent

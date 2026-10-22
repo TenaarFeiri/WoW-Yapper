@@ -43,20 +43,16 @@ local function IsUsableGeometryValue(value)
 end
 
 local function IsInaccessibleSecret(value)
-    if value == nil or type(issecretvalue) ~= "function" then
+    if value == nil then
         return false
     end
 
-    local ok, secret = pcall(issecretvalue, value)
-    if not ok or secret ~= true then
+    if issecretvalue(value) ~= true then
         return false
     end
 
-    if type(canaccessvalue) == "function" then
-        local accessOK, accessible = pcall(canaccessvalue, value)
-        if accessOK and accessible == true then
-            return false
-        end
+    if canaccessvalue(value) == true then
+        return false
     end
 
     return true
@@ -223,8 +219,7 @@ function EditBox:Show(origEditBox)
     -- Don't open while the UI is hidden, except in the housing editor,
     -- which purposely hides UIParent.
     if not UIParent:IsShown() then
-        if C_HouseEditor and C_HouseEditor.IsHouseEditorActive
-            and C_HouseEditor.IsHouseEditorActive() then
+        if C_HouseEditor.IsHouseEditorActive() then
             -- continue, fullscreen-aware parenting will keep us visible
         else
             if EditBox.Overlay and EditBox.Overlay:IsShown() then
@@ -492,7 +487,7 @@ function EditBox:Show(origEditBox)
             frameChatTarget = frameChatTarget,
             frameChannelName = frameChannelName,
             incomingWhisperAffinity = incomingWhisperAffinity,
-            now = GetTime and GetTime() or nil,
+            now = GetTime(),
             existingSelection = {
                 chatType = self.ChatType,
                 target = Utils:SanitizeTarget(self.Target),
@@ -809,18 +804,15 @@ function EditBox:Show(origEditBox)
 
     local shownOverlay = self.Overlay
     local shownOverlayEdit = self.OverlayEdit
-    local after = C_Timer and C_Timer.After
-    if after then
-        after(0, function()
-            -- IsShown/HasFocus can be secret under addon restrictions;
-            -- reclaim focus only when it is verifiably absent.
-            if Utils:SafeWidgetBoolean(shownOverlay, "IsShown") == true
-                and Utils:SafeWidgetBoolean(shownOverlayEdit, "HasFocus") == false
-                and type(shownOverlayEdit.SetFocus) == "function" then
-                shownOverlayEdit:SetFocus()
-            end
-        end)
-    end
+    C_Timer.After(0, function()
+        -- IsShown/HasFocus can be secret under addon restrictions;
+        -- reclaim focus only when it is verifiably absent.
+        if Utils:SafeWidgetBoolean(shownOverlay, "IsShown") == true
+            and Utils:SafeWidgetBoolean(shownOverlayEdit, "HasFocus") == false
+            and type(shownOverlayEdit.SetFocus) == "function" then
+            shownOverlayEdit:SetFocus()
+        end
+    end)
 
 end
 
@@ -868,7 +860,7 @@ function EditBox:Hide(isHandoff)
             canDeactivate = false
         end
     end
-    if canDeactivate and prevOrig and ChatFrameUtil and ChatFrameUtil.DeactivateChat then
+    if canDeactivate and prevOrig then
         pcall(function() ChatFrameUtil.DeactivateChat(prevOrig) end)
     end
 

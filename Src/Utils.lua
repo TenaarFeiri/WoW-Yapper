@@ -54,10 +54,7 @@ end
 --- During housing-editor (or any fullscreen panel) this is the panel
 --- frame; otherwise plain UIParent.
 function Utils:GetChatParent()
-    if FCF_GetCurrentFullScreenFrame then
-        return FCF_GetCurrentFullScreenFrame() or UIParent
-    end
-    return UIParent
+    return FCF_GetCurrentFullScreenFrame() or UIParent
 end
 
 --- Ensure frame stays parented to the active fullscreen panel
@@ -71,23 +68,15 @@ function Utils:MakeFullscreenAware(frame)
         if not frame or not frame:IsShown() then return end
         local target = self:GetChatParent()
         if frame:GetParent() == target then return end
-        if FrameUtil and FrameUtil.SetParentMaintainRenderLayering then
-            FrameUtil.SetParentMaintainRenderLayering(frame, target)
-        else
-            frame:SetParent(target)
-        end
+        FrameUtil.SetParentMaintainRenderLayering(frame, target)
         -- If the frame carries a reposition callback, let it recompute
         -- its absolute coordinates for the new parent.
         if frame._yapperReposition then
             pcall(frame._yapperReposition)
         end
     end
-    if FCF_SetFullScreenFrame then
-        hooksecurefunc("FCF_SetFullScreenFrame", update)
-    end
-    if FCF_ClearFullScreenFrame then
-        hooksecurefunc("FCF_ClearFullScreenFrame", update)
-    end
+    hooksecurefunc("FCF_SetFullScreenFrame", update)
+    hooksecurefunc("FCF_ClearFullScreenFrame", update)
     frame:HookScript("OnShow", update)
     return update
 end
@@ -99,10 +88,7 @@ function Utils:IsChatLockdown()
     if policy and type(policy.IsChatLockdown) == "function" then
         return policy:IsChatLockdown() == true
     end
-    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
-        return C_ChatInfo.InChatMessagingLockdown() == true
-    end
-    return false
+    return C_ChatInfo.InChatMessagingLockdown() == true
 end
 
 -- Return true when protected-frame combat restrictions are active.
@@ -111,10 +97,7 @@ function Utils:IsCombatLockdown()
     if policy and type(policy.IsCombatLockdown) == "function" then
         return policy:IsCombatLockdown() == true
     end
-    if InCombatLockdown and InCombatLockdown() then
-        return true
-    end
-    return false
+    return InCombatLockdown() == true
 end
 
 --- Return true while any addon restriction type (combat, encounter, M+,
@@ -186,32 +169,19 @@ function Utils:IsSecret(value)
     if type(value) == "boolean" and value == false then return true end
 
     if type(value) == "table" then
-        if type(canaccesstable) == "function" then
-            local ok, accessible = pcall(canaccesstable, value)
-            if ok and accessible == false then
-                return true
-            end
+        if canaccesstable(value) == false then
+            return true
         end
-
-        if type(issecrettable) == "function" then
-            local ok, secretTable = pcall(issecrettable, value)
-            if ok and secretTable == true then
-                return true
-            end
+        if issecrettable(value) == true then
+            return true
         end
     end
 
-    if type(issecretvalue) == "function" then
-        local ok, res = pcall(issecretvalue, value)
-        if ok and res == true then
-            if type(canaccessvalue) == "function" then
-                local ok2, access = pcall(canaccessvalue, value)
-                if ok2 and access == true then
-                    return false
-                end
-            end
-            return true
+    if issecretvalue(value) == true then
+        if canaccessvalue(value) == true then
+            return false
         end
+        return true
     end
     -- Fallback heuristic: battle.net obfuscated tokens include "|K".
     if type(value) == "string" then
@@ -352,7 +322,7 @@ function Utils:IsForeverClient()
 
     -- Weak build heuristic: Forever reports interface 1.6x while retail is
     -- 12.x+. Callers should still gate on the specific APIs above.
-    if not detected and type(GetBuildInfo) == "function" then
+    if not detected then
         local ok, version = pcall(GetBuildInfo)
         if ok and type(version) == "string" and version:match("^1%.6%d") then
             detected = true

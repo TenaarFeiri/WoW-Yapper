@@ -50,7 +50,7 @@ local function CanHarvest()
     local pol = YapperTable.LockdownPolicy
     if pol and type(pol.IsCombatLockdown) == "function" then
         if pol:IsCombatLockdown() then return false end
-    elseif InCombatLockdown and InCombatLockdown() then
+    elseif InCombatLockdown() then
         return false
     end
     if pol and type(pol.IsAnyAddOnRestrictionActive) == "function"
@@ -97,7 +97,6 @@ local SWEEP_RETRY_SECONDS = 2
 
 local function ScheduleSweepRetry()
     if Names._retryScheduled then return end
-    if not (C_Timer and type(C_Timer.After) == "function") then return end
     Names._retryScheduled = true
     C_Timer.After(SWEEP_RETRY_SECONDS, function()
         Names._retryScheduled = false
@@ -194,24 +193,19 @@ function Names:SweepRoster()
     end
     self._pendingSweep = false
 
-    if type(UnitName) == "function" then
-        self:Add(UnitName("player"))
-        local n = (type(GetNumGroupMembers) == "function" and GetNumGroupMembers()) or 0
-        local inRaid = type(IsInRaid) == "function" and IsInRaid()
-        local prefix = inRaid and "raid" or "party"
-        -- partyN covers members excluding the player; raidN includes them.
-        for i = 1, (inRaid and n or n - 1) do
-            self:Add(UnitName(prefix .. i))
-        end
+    self:Add(UnitName("player"))
+    local n = GetNumGroupMembers() or 0
+    local inRaid = IsInRaid()
+    local prefix = inRaid and "raid" or "party"
+    -- partyN covers members excluding the player; raidN includes them.
+    for i = 1, (inRaid and n or n - 1) do
+        self:Add(UnitName(prefix .. i))
     end
 
-    if C_FriendList and type(C_FriendList.GetNumFriends) == "function"
-        and type(C_FriendList.GetFriendInfoByIndex) == "function" then
-        for i = 1, C_FriendList.GetNumFriends() or 0 do
-            local ok, info = pcall(C_FriendList.GetFriendInfoByIndex, i)
-            if ok and type(info) == "table" and not IsSecret(info) then
-                self:Add(info.name)
-            end
+    for i = 1, C_FriendList.GetNumFriends() or 0 do
+        local ok, info = pcall(C_FriendList.GetFriendInfoByIndex, i)
+        if ok and type(info) == "table" and not IsSecret(info) then
+            self:Add(info.name)
         end
     end
 
@@ -222,38 +216,28 @@ function Names:SweepRoster()
     -- 8.0 the guild is a club internally, so reads can hand back secret
     -- strings under restrictions: each result still passes through
     -- Add()'s IsSecret gate.
-    if type(GetNumGuildMembers) == "function"
-        and type(GetGuildRosterInfo) == "function" then
-        local gn = GetNumGuildMembers() or 0
-        for i = 1, gn do
-            local ok, name = pcall(GetGuildRosterInfo, i)
-            if ok then
-                self:Add(name)
-            end
-        end
-        if gn == 0 and type(IsInGuild) == "function" and IsInGuild() then
-            -- Guilded but cache cold: request a refresh. The resulting
-            -- GUILD_ROSTER_UPDATE re-sweeps once data lands; the 10s
-            -- throttle keeps a still-empty cache from spamming requests.
-            local requestRoster = (C_GuildInfo and C_GuildInfo.GuildRoster)
-                or (type(GuildRoster) == "function" and GuildRoster)
-            if type(requestRoster) == "function" then
-                pcall(requestRoster)
-            end
+    local gn = GetNumGuildMembers() or 0
+    for i = 1, gn do
+        local ok, name = pcall(GetGuildRosterInfo, i)
+        if ok then
+            self:Add(name)
         end
     end
+    if gn == 0 and IsInGuild() then
+        -- Guilded but cache cold: request a refresh. The resulting
+        -- GUILD_ROSTER_UPDATE re-sweeps once data lands; the 10s
+        -- throttle keeps a still-empty cache from spamming requests.
+        pcall(C_GuildInfo.GuildRoster)
+    end
 
-    if type(BNGetNumFriends) == "function" and C_BattleNet
-        and type(C_BattleNet.GetFriendAccountInfo) == "function" then
-        for i = 1, BNGetNumFriends() or 0 do
-            local ok, info = pcall(C_BattleNet.GetFriendAccountInfo, i)
-            if ok and type(info) == "table" and not IsSecret(info) then
-                self:Add(info.accountName)
-                self:Add(info.battleTag)
-                local ga = info.gameAccountInfo
-                if type(ga) == "table" and not IsSecret(ga) then
-                    self:Add(ga.characterName)
-                end
+    for i = 1, BNGetNumFriends() or 0 do
+        local ok, info = pcall(C_BattleNet.GetFriendAccountInfo, i)
+        if ok and type(info) == "table" and not IsSecret(info) then
+            self:Add(info.accountName)
+            self:Add(info.battleTag)
+            local ga = info.gameAccountInfo
+            if type(ga) == "table" and not IsSecret(ga) then
+                self:Add(ga.characterName)
             end
         end
     end
@@ -319,7 +303,7 @@ function Names:Init()
     if type(C_RestrictedActions) == "table"
         and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function" then
         events:Register("PARENT_FRAME", "ADDON_RESTRICTION_STATE_CHANGED", function(_, state)
-            local rstates = Enum and Enum.AddOnRestrictionState
+            local rstates = Enum.AddOnRestrictionState
             if rstates and state == rstates.Inactive then
                 Names:SweepRoster()
             else

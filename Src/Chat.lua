@@ -342,11 +342,7 @@ function Chat:DirectSend(msg, chatType, language, target)
             return false
         end
     else
-        if C_ChatInfo and C_ChatInfo.SendChatMessage then
-            C_ChatInfo.SendChatMessage(msg, chatType, language, target)
-        else
-            return false
-        end
+        C_ChatInfo.SendChatMessage(msg, chatType, language, target)
     end
 
     if API then

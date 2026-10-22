@@ -40,6 +40,9 @@ local function MockEditBox(name)
 end
 
 _G.InCombatLockdown = function() return false end
+_G.hooksecurefunc = function() end
+_G.C_Timer = { After = function(_, fn) if fn then fn() end end }
+_G.C_KeyBindings = {}
 _G.GetBindingKey = function()
     return nil, nil
 end

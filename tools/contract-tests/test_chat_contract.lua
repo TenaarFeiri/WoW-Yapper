@@ -361,11 +361,13 @@ drain(h, 1)
 check("GUILD_DISCORD hardware-gated sequence completes", h:queue_state().pending == 0)
 
 local oldIsSecretValue = _G.issecretvalue
+local oldCanAccessValue = _G.canaccessvalue
 _G.issecretvalue = function(value)
     return value == "secret ack payload"
         or value == "secret ack GUID"
         or value == "secret Discord metadata"
 end
+_G.canaccessvalue = function(value) return not _G.issecretvalue(value) end
 
 h:reset()
 h.server:set_behavior("drop")
@@ -390,6 +392,7 @@ h.Queue:Flush(true)
 h:emit("CHAT_MSG_WHISPER_INFORM", "whisper ack", "secret ack payload", nil, nil, nil, nil, nil, nil, nil, nil, h.playerGUID)
 check("secret whisper target ACK advances queue", h.Queue.PendingEntry == nil and not h.Queue:IsActive())
 _G.issecretvalue = oldIsSecretValue
+_G.canaccessvalue = oldCanAccessValue
 
 -- ===========================================================================
 -- 8. Queue cancellation contract

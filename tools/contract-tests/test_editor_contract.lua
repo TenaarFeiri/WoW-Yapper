@@ -43,7 +43,16 @@ _G.UIParent = frame("UIParent")
 _G.UIParent:Show()
 _G.DEFAULT_CHAT_FRAME = { editBox = frame("NativeEditBox") }
 _G.ChatFrame1EditBox = _G.DEFAULT_CHAT_FRAME.editBox
-_G.C_Timer = { After = function(_, callback) callback() end }
+_G.C_Timer = {
+    After = function(_, callback) callback() end,
+    NewTimer = function() return { Cancel = function() end } end,
+    NewTicker = function() return { Cancel = function() end } end,
+}
+_G.InCombatLockdown = function() return false end
+_G.issecretvalue = function() return false end
+_G.canaccessvalue = function() return true end
+_G.issecrettable = function() return false end
+_G.canaccesstable = function() return true end
 _G.CreateFrame = function() return frame("compat-header") end
 _G.ChatEdit_GetActiveWindow = function() return _G.ACTIVE_CHAT_EDIT_BOX end
 _G.GetCVar = function(key)

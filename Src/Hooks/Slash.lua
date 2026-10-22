@@ -40,8 +40,7 @@ end
 function EditBox:ForwardJoinChannel(text)
     local utils = YapperTable.Utils
     local frame = DEFAULT_CHAT_FRAME
-    if type(JoinPermanentChannel) ~= "function"
-        or not (frame and frame.GetID and frame.AddMessage) then
+    if not (frame and frame.GetID and frame.AddMessage) then
         if utils then
             utils:Print("warn", "/join can't be executed through Yapper; use the Blizzard chat box instead.")
         end
@@ -53,7 +52,7 @@ function EditBox:ForwardJoinChannel(text)
     local name = rest:match("^%s*([^%s]+)") or ""
     local password = rest:match("^%s*[^%s]+%s*(.-)%s*$") or ""
 
-    local info = ChatTypeInfo and (name ~= "" and ChatTypeInfo["CHANNEL"] or ChatTypeInfo["SYSTEM"])
+    local info = name ~= "" and ChatTypeInfo["CHANNEL"] or ChatTypeInfo["SYSTEM"]
     if name == "" then
         if info then frame:AddMessage(CHAT_JOIN_HELP, info.r, info.g, info.b, info.id) end
         return
@@ -71,8 +70,7 @@ function EditBox:ForwardJoinChannel(text)
         -- notice and display it normally; for other channels that notice
         -- (and the channel's messages) drop until channelList is rebuilt by
         -- the next UPDATE_CHAT_WINDOWS, so echo the join ourselves.
-        local regional = C_ChatInfo and C_ChatInfo.IsChannelRegionalForChannelID
-            and C_ChatInfo.IsChannelRegionalForChannelID(zoneChannel)
+        local regional = C_ChatInfo.IsChannelRegionalForChannelID(zoneChannel)
         if not regional and info then
             local notice = CHAT_YOU_CHANGED_NOTICE or "Changed Channel: [%d. %s]"
             frame:AddMessage(string_format(notice, zoneChannel, channelName or name), info.r, info.g, info.b, info.id)

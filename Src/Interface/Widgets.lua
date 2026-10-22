@@ -458,7 +458,6 @@ local function OpenColorPicker(opts)
 
     local function startLiveTicker()
         stopLiveTicker()
-        if not (C_Timer and C_Timer.NewTicker) then return end
         liveTicker = C_Timer.NewTicker(0.1, function(ticker)
             if not ColorPickerFrame or not ColorPickerFrame:IsShown() then
                 ticker:Cancel(); liveTicker = nil; return
