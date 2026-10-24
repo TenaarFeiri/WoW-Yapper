@@ -413,6 +413,9 @@ end
 --- @return string[]|nil chunks  `nil` when a `PRE_CHUNK` filter cancelled the send.
 function Chunking:Split(text, limit, opts)
     opts = opts or {}
+    -- Dry-run (split preview): never fire PRE_CHUNK. Filters may claim or
+    -- mutate sends and must not run per keystroke; the preview therefore
+    -- shows core splitting only (no bridge continuation prefixes).
 
     -- "Send All": keep each paragraph as a standalone chunk.
     if opts.ignoreParagraphMerging and string_find(text, "\n") then
@@ -425,6 +428,7 @@ function Chunking:Split(text, limit, opts)
                     delineator             = opts.delineator,
                     chatType               = opts.chatType,
                     language               = opts.language,
+                    dryRun                 = opts.dryRun,
                 })
                 if not pChunks then return nil end
                 for _, chunk in ipairs(pChunks) do
@@ -443,7 +447,7 @@ function Chunking:Split(text, limit, opts)
     -- supply a prefix for continuation chunks.
     local continuationPrefix = nil
     local continuationFirst  = false
-    local API = YapperTable.API
+    local API = not opts.dryRun and YapperTable.API or nil
     if API then
         local payload = API:RunFilter("PRE_CHUNK", {
             text     = text,
@@ -664,6 +668,81 @@ function Chunking:Split(text, limit, opts)
     end
 
     return chunks
+end
+
+-- Scratch buffers for PreviewSplit: reused across calls so the per-keystroke
+-- preview allocates no result tables. Single-threaded UI use only; callers
+-- must consume the values before the next call.
+local previewPosts  = {}
+local previewChunks = {}
+
+-- UTF-8 character count (bytes that are not continuation bytes).
+local function CountChars(s)
+    local n = 0
+    for i = 1, #s do
+        local b = string_byte(s, i)
+        if b < 128 or b >= 192 then n = n + 1 end
+    end
+    return n
+end
+
+--- Dry-run split of a whole composition for the multiline preview pane.
+--- Mirrors the send path's paragraph handling (blank line = new post, single
+--- newlines collapse to spaces) and core chunking, but fires no PRE_SEND /
+--- PRE_CHUNK filters, so bridge text transforms and continuation prefixes
+--- (e.g. Languages tags) are not reflected.
+--- @param rawText string  Canonical multiline text.
+--- @param limit number|nil  Visible-byte limit per chunk.
+--- @return number chunkCount
+--- @return number maxVis  Visible bytes of the fullest chunk (0 when empty).
+--- @return number totalChars  Total characters across all chunks as sent
+---                             (delineators included; link markup counts raw).
+--- @return table chunks  Scratch array of chunk strings (reused; do not retain).
+function Chunking:PreviewSplit(rawText, limit)
+    for i = #previewPosts, 1, -1 do previewPosts[i] = nil end
+    for i = #previewChunks, 1, -1 do previewChunks[i] = nil end
+    if type(rawText) ~= "string" or rawText == "" then
+        return 0, 0, 0, previewChunks
+    end
+
+    -- Same collapse as Multiline's CollapseText (kept local: Chunking loads
+    -- before Multiline and must not depend on it).
+    local current -- scratch line accumulator, allocated only when text exists
+    for line in string_gmatch(rawText .. "\n", "([^\n]*)\n") do
+        local trimmed = string_match(line, "^%s*(.-)%s*$")
+        if trimmed == "" then
+            if current then
+                previewPosts[#previewPosts + 1] = table_concat(current, " ")
+                current = nil
+            end
+        else
+            current = current or {}
+            current[#current + 1] = trimmed
+        end
+    end
+    if current then
+        previewPosts[#previewPosts + 1] = table_concat(current, " ")
+    end
+
+    local cfg = YapperTable.Config and YapperTable.Config.Chat or {}
+    limit = limit or cfg.CHARACTER_LIMIT or 255
+    local maxVis, totalChars = 0, 0
+    for p = 1, #previewPosts do
+        local chunks = self:Split(previewPosts[p], limit, { dryRun = true })
+        if chunks then
+            for c = 1, #chunks do
+                local chunk = chunks[c]
+                previewChunks[#previewChunks + 1] = chunk
+                local v = 0
+                for _, token in ipairs(Tokenise(chunk)) do
+                    v = v + TokenVisibleBytes(token)
+                end
+                if v > maxVis then maxVis = v end
+                totalChars = totalChars + CountChars(chunk)
+            end
+        end
+    end
+    return #previewChunks, maxVis, totalChars, previewChunks
 end
 
 --- Measure a message against WoW's two-axis budget.

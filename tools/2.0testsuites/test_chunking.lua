@@ -349,6 +349,73 @@ if #chunksCont > 1 then
 end
 
 -- ===========================================================================
+-- Test 15: PreviewSplit (dry-run split preview)
+-- ===========================================================================
+print("\nTest 15: PreviewSplit dry-run")
+
+-- PRE_CHUNK must NOT fire in dry-run mode: filters claim/mutate sends and
+-- must never run per keystroke for the preview.
+local filterCalls = 0
+_G.YapperAPI.RunFilter = function(_, hook, payload)
+    if hook == "PRE_CHUNK" then
+        filterCalls = filterCalls + 1
+        payload.continuationPrefix = "[cont] "
+    end
+    return payload
+end
+
+local para1 = "Alpha bravo charlie delta echo foxtrot golf hotel india juliet"
+local para2 = "Kilo lima mike november oscar papa quebec romeo sierra tango"
+local rawPreview = para1 .. "\nstill the first post\n\n" .. para2
+local pCount, pMaxVis, pMaxInv, pChunks = Chunking:PreviewSplit(rawPreview, 40)
+check("preview: PRE_CHUNK not fired", filterCalls == 0)
+check("preview: multiple chunks across paragraphs", pCount > 2)
+check("preview: chunk array length matches count", #pChunks == pCount)
+check("preview: maxVis within limit", pMaxVis <= 40 and pMaxVis > 0)
+check("preview: no continuation prefix leaked", not pChunks[2]:find("[cont]", 1, true))
+
+-- Paragraph collapse: single newline joins, blank line splits posts.
+local collapsed = Chunking:PreviewSplit("one two\nthree four", 255)
+check("preview: single newline stays one post", collapsed == 1)
+local twoPosts = Chunking:PreviewSplit("one two\n\nthree four", 255)
+check("preview: blank line makes two posts", twoPosts == 2)
+
+-- Empty / whitespace input.
+local eCount, eVis = Chunking:PreviewSplit("", 255)
+check("preview: empty text is zero chunks", eCount == 0 and eVis == 0)
+local wCount = Chunking:PreviewSplit("   \n\n  ", 255)
+check("preview: whitespace-only is zero chunks", wCount == 0)
+
+-- Total character count: UTF-8 chars across all chunks as sent. For plain
+-- ASCII text with the ">>" delineator (2 chars per continuation marker:
+-- trailing " >>" / leading ">> "), it equals the summed chunk char count.
+local function Utf8Len(s)
+    local n = 0
+    for i = 1, #s do
+        local b = s:byte(i)
+        if b < 128 or b >= 192 then n = n + 1 end
+    end
+    return n
+end
+local _, _, pTotal, tChunks = Chunking:PreviewSplit(rawPreview, 40)
+local expectTotal = 0
+for _, chunk in ipairs(tChunks) do expectTotal = expectTotal + Utf8Len(chunk) end
+check("preview: totalChars matches summed chunk characters", pTotal == expectTotal)
+check("preview: totalChars covers both paragraphs", pTotal > #para1)
+
+-- Multi-byte characters count once, not per byte. (Lua 5.1 has no \x
+-- escapes, so build "é" from its two UTF-8 bytes directly.)
+local _, _, uTotal = Chunking:PreviewSplit(string.rep(string.char(195, 169), 30), 255)
+check("preview: UTF-8 chars counted once each", uTotal == 30)
+
+-- Scratch reuse: a second call replaces (not appends to) the first result.
+local sCount1 = Chunking:PreviewSplit("short", 255)
+local sCount2, _, _, sChunks2 = Chunking:PreviewSplit("also short", 255)
+check("preview: scratch buffers reset between calls", sCount1 == 1 and sCount2 == 1 and #sChunks2 == 1)
+
+_G.YapperAPI.RunFilter = function(_, _, payload) return payload end
+
+-- ===========================================================================
 -- Results
 -- ===========================================================================
 print("\n" .. string.rep("-", 50))

@@ -9,10 +9,11 @@
       * YAS learned-word notifications — Keep / Unlearn / Ignore.
 
     Placement avoids the user's interactive surfaces: the solver collects
-    the screen rects of the overlay editbox, the multiline editor, the
-    suggestion popup, the hint frame and the default chat frame, then tries
-    a fixed list of candidate zones until one does not overlap any occupied
-    rect.  The result is always clamped to the screen.
+    the screen rects of the overlay editbox, the multiline editor (and its
+    split-preview pane), the suggestion popup, the hint frame and the
+    default chat frame, then tries a fixed list of candidate zones until
+    one does not overlap any occupied rect.  The result is always clamped
+    to the screen.
 
     Lifetime: holds for `duration` seconds, then fades.  Hovering pauses
     the hold timer so the user can always reach the buttons.
@@ -175,6 +176,7 @@ local function OccupiedRects()
     if eb and eb.Overlay then rects[#rects + 1] = FrameRect(eb.Overlay) end
     if eb and eb.OverlayEdit then rects[#rects + 1] = FrameRect(eb.OverlayEdit) end
     if ml and ml.Frame then rects[#rects + 1] = FrameRect(ml.Frame) end
+    if ml and ml.PreviewFrame then rects[#rects + 1] = FrameRect(ml.PreviewFrame) end
     if sc and sc.SuggestionFrame then rects[#rects + 1] = FrameRect(sc.SuggestionFrame) end
     if sc and sc.HintFrame then rects[#rects + 1] = FrameRect(sc.HintFrame) end
     rects[#rects + 1] = ChatClusterRect()
@@ -209,6 +211,17 @@ local function CandidatePositions(w, h, screenW, screenH, occupied)
         -- Directly above / below the input, left-aligned.
         cands[#cands + 1] = { x = inputRect.l, y = inputRect.t + TOAST_GAP }
         cands[#cands + 1] = { x = inputRect.l, y = inputRect.b - TOAST_GAP - h }
+
+        -- The split-preview pane sits beside the multiline editor, exactly
+        -- where the "beside the input" candidates want to land. When it is
+        -- shown, hug its top/bottom edges before trying anywhere farther.
+        local pane = ml and ml.PreviewFrame
+        local paneRect = pane and FrameRect(pane) or nil
+        if paneRect then
+            cands[#cands + 1] = { x = paneRect.l, y = paneRect.t + TOAST_GAP }
+            cands[#cands + 1] = { x = paneRect.l, y = paneRect.b - TOAST_GAP - h }
+        end
+        pane, paneRect = nil, nil
     end
 
     -- Chat-frame candidates: above, below, then beside (top-aligned).  A

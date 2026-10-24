@@ -141,6 +141,7 @@ local SETTING_TOOLTIPS              = {
     ["EditBox.MinHeight"] =
     "Sets a minimum height for the chat input box. Only takes effect if larger than the game's native editbox height.",
     ["EditBox.EmoteAutoSend"] = "When enabled, picking an emote immediately sends it to chat. When disabled, it fills your chatbox with a trailing space so you can continue typing.",
+    ["EditBox.ShowSplitPreview"] = "Show the live post counter and split preview beside the multiline (storyteller) editor. The preview shows exactly how your text will be split into posts; bridge addons that rewrite text on send are not reflected.",
     ["EditBox.UseBlizzardSkinProxy"] =
     "When enabled, Yapper temporarily snaps Blizzard's editbox backdrop/skin frame around the overlay so external chat-skin addons can style it.",
     ["EditBox.HideBlizzardEditbox"] =
@@ -213,6 +214,7 @@ local FRIENDLY_LABELS               = {
     ["EditBox.AutocompleteEnabled"] = "Autocomplete (ghost text)",
     ["EditBox.MinHeight"] = "Minimum input height",
     ["EditBox.EmoteAutoSend"] = "Auto-send chosen emotes",
+    ["EditBox.ShowSplitPreview"] = "Show split preview (storyteller)",
     ["EditBox.UseBlizzardSkinProxy"] = "Use Blizzard skin proxy",
     ["EditBox.HideBlizzardEditbox"] = "Hide Blizzard editbox",
     ["System.StorytellerSlideSpeed"] = "Animation duration",
@@ -254,6 +256,7 @@ local CATEGORIES                    = {
             -- Autocomplete
             "EditBox.AutocompleteEnabled",
             "EditBox.EmoteAutoSend",
+            "EditBox.ShowSplitPreview",
             -- Label fitting
             "EditBox.AutoFitLabel",
             -- Blizzard skin proxy
@@ -389,6 +392,7 @@ function Interface:BuildRenderSchema()
             or full == "FrameSettings.UIFontOffset"
             or full == "EditBox.FontPad"
             or full == "EditBox.MultilineHintDuration"
+            or full == "EditBox.PreviewCollapsed"
             or full == "Chat.STALL_TIMEOUT"
             or full == "Chat.CHARACTER_LIMIT"
             or full == "Chat.CHARACTER_LIMIT"

@@ -47,9 +47,18 @@ local math_max                       = math.max
 local math_min                       = math.min
 local math_abs                       = math.abs
 local table_insert                   = table.insert
+local table_concat                   = table.concat
+
+-- Hot-path upvalues (preview refresh runs on a debounce while typing).
+local Chunking                       = YapperTable.Chunking
+local Recolour                       = YapperTable.Recolour
+local Strings                        = YapperTable.Strings
 
 local CARET_VIEWPORT_PADDING         = 8
 local AUTO_SCROLL_SUPPRESSION_SECS   = 1.5
+local PREVIEW_WIDTH                  = 260
+local PREVIEW_DEBOUNCE_SECS          = 0.15
+local PREVIEW_MAX_CHUNKS             = 200 -- beyond this the counter still updates; the pane list is truncated
 
 -- ---------------------------------------------------------------------------
 -- State
@@ -65,6 +74,15 @@ Multiline.Target                     = nil -- whisper / channel target
 Multiline._autoScrollSuppressedUntil = 0
 Multiline._lockdownIdleTimer         = nil -- combat lockdown idle timer (1.5s wait after last keystroke)
 Multiline._lockdownCheckTicker       = nil
+Multiline.PreviewFrame               = nil -- side pane showing the exact split (read-only)
+Multiline.PreviewScroll              = nil -- scroll wrapper inside the preview pane
+Multiline.PreviewEdit                = nil -- non-editable EditBox inside the preview scroll frame
+Multiline.PreviewFS                  = nil -- chunk counter in the label row
+Multiline.PreviewToggle              = nil -- collapse/expand button in the label row
+Multiline._previewTimer              = nil -- debounce timer for preview refresh
+Multiline._previewLastText           = nil -- last rendered counter string (skip redundant SetText)
+Multiline._previewChunks             = nil -- last rendered pane body (skip redundant SetText)
+Multiline._previewGlyph              = nil -- last rendered toggle glyph
 
 -- ---------------------------------------------------------------------------
 -- Label helpers
@@ -144,9 +162,13 @@ local function RefreshMLLabel(ml)
 		ml.LabelFS:SetText(label)
 		ml.LabelFS:SetTextColor(r, g, b)
 	end
-	-- Tint input text to match the channel colour.
+	-- Tint input text to match the channel colour; the preview pane shows
+	-- the same text, so it shares the tint.
 	if ml.EditBox then
 		ml.EditBox:SetTextColor(r, g, b)
+		if ml.PreviewEdit then
+			ml.PreviewEdit:SetTextColor(r, g, b)
+		end
 	end
 
 	-- Remember the resolved channel colour so ApplyTheme can tint the drop
@@ -159,6 +181,156 @@ local function RefreshMLLabel(ml)
 				tint(ml.Frame, r, g, b, (cfg.ShadowColor and cfg.ShadowColor.a) or 0.5)
 			end
 		end
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Split preview (counter + read-only chunk pane)
+-- ---------------------------------------------------------------------------
+
+local function PreviewEnabled()
+	local cfg = YapperTable.Config and YapperTable.Config.EditBox
+	return cfg and cfg.ShowSplitPreview ~= false
+end
+
+local function PreviewCollapsed()
+	local cfg = YapperTable.Config and YapperTable.Config.EditBox
+	return cfg and cfg.PreviewCollapsed == true
+end
+
+--- Place the preview pane beside the editor: right when it fits on screen,
+--- otherwise left; hidden while collapsed or disabled. Same UIParent space
+--- as AnchorAbsolute, so chat-frame scale cannot skew the fit test.
+local function LayoutPreview(ml)
+	local pane = ml.PreviewFrame
+	if not pane then return end
+	if not PreviewEnabled() or PreviewCollapsed() or not (ml.Frame and ml.Frame:IsShown()) then
+		pane:Hide()
+		return
+	end
+	local screenW = UIParent:GetWidth() or 1024
+	local left    = ml.Frame:GetLeft() or 0
+	local right   = ml.Frame:GetRight() or (left + (ml.Frame:GetWidth() or 0))
+	pane:ClearAllPoints()
+	if right + 4 + PREVIEW_WIDTH <= screenW - 4 then
+		pane:SetPoint("TOPLEFT", ml.Frame, "TOPRIGHT", 4, 0)
+	else
+		pane:SetPoint("TOPRIGHT", ml.Frame, "TOPLEFT", -4, 0)
+	end
+	pane:SetHeight(ml.Frame:GetHeight() or 250)
+	pane:Show()
+end
+
+--- Recompute the split and refresh counter + pane. Allocation-light: the
+--- chunk array is Chunking scratch (reused), and SetText is skipped when
+--- the rendered string is unchanged. Runs only from the debounce timer,
+--- Enter, and ApplyTheme -- never synchronously per keystroke.
+function Multiline:RefreshPreview()
+	local fs = self.PreviewFS
+	if not fs then return end
+	if not PreviewEnabled() then
+		if fs:IsShown() then fs:Hide() end
+		if self.PreviewToggle and self.PreviewToggle:IsShown() then self.PreviewToggle:Hide() end
+		if self.PreviewFrame then self.PreviewFrame:Hide() end
+		self._previewLastText = nil
+		self._previewChunks = nil
+		return
+	end
+	if not fs:IsShown() then fs:Show() end
+	if self.PreviewToggle then
+		if not self.PreviewToggle:IsShown() then self.PreviewToggle:Show() end
+		-- « = pane open (click collapses), » = pane collapsed (click expands).
+		local glyph = PreviewCollapsed() and "\194\187" or "\194\171"
+		if self._previewGlyph ~= glyph then
+			self._previewGlyph = glyph
+			self.PreviewToggle:SetText(glyph)
+		end
+	end
+
+	local text  = self.EditBox and Recolour.CanonicalText(self.EditBox) or ""
+	local cfg   = YapperTable.Config and YapperTable.Config.Chat or {}
+	local limit = cfg.CHARACTER_LIMIT or 255
+	local count, maxVis, totalChars, chunks = Chunking:PreviewSplit(text, limit)
+
+	local counter
+	if count == 0 then
+		counter = Strings:Get("ui.multiline.chunkBytes", 0, limit)
+	elseif count == 1 then
+		counter = Strings:Get("ui.multiline.post", count) .. " \194\183 " .. Strings:Get("ui.multiline.chunkBytes", maxVis, limit)
+	else
+		counter = Strings:Get("ui.multiline.posts", count) .. " \194\183 " .. Strings:Get("ui.multiline.chunkBytes", maxVis, limit)
+	end
+	if counter ~= self._previewLastText then
+		self._previewLastText = counter
+		fs:SetText(counter)
+	end
+
+	LayoutPreview(self)
+	if PreviewCollapsed() or not self.PreviewEdit then return end
+
+	-- Build the pane body only when the pane is visible: a total character
+	-- count header, then the chunks as sent, blank-line separated. Chunk
+	-- strings are Chunking scratch -- consumed into the display string now.
+	local shown = math_min(count, PREVIEW_MAX_CHUNKS)
+	local parts = { Strings:Get("ui.multiline.totalChars", totalChars), "" }
+	for i = 1, shown do
+		parts[#parts + 1] = chunks[i]
+		parts[#parts + 1] = ""
+	end
+	if count > shown then
+		parts[#parts + 1] = "... (" .. tostring(count - shown) .. " more)"
+	end
+	local body = table_concat(parts, "\n")
+	parts = nil
+	chunks = nil
+	if body ~= self._previewChunks then
+		self._previewChunks = body
+		self.PreviewEdit:SetText(body)
+		self.PreviewEdit:SetCursorPosition(0)
+		-- Grow the scroll child to its content so long posts scroll via
+		-- the pane's scroll frame instead of clipping. EditBox has no
+		-- GetStringHeight, so measure with a FontString at the same font
+		-- and wrap width (same pattern as Spellcheck's MeasureFS).
+		local mfs = self._previewMeasureFS
+		if not mfs then
+			-- Hidden 1x1 parent frame keeps the measuring FontString
+			-- invisible -- same pattern as Spellcheck's MeasureFS.
+			local hidden = CreateFrame("Frame", nil, self.PreviewFrame)
+			hidden:SetSize(1, 1)
+			hidden:Hide()
+			mfs = hidden:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+			mfs:SetJustifyV("TOP")
+			mfs:SetWordWrap(true)
+			mfs:SetNonSpaceWrap(true)
+			self._previewMeasureFS = mfs
+		end
+		mfs:SetWidth(self.PreviewEdit:GetWidth() or (PREVIEW_WIDTH - 38))
+		local face, size, flags = self.PreviewEdit:GetFont()
+		if face and size then mfs:SetFont(face, size, flags or "") end
+		mfs:SetText(body)
+		local textH = mfs:GetStringHeight() or 0
+		local paneH = (self.PreviewFrame and self.PreviewFrame:GetHeight()) or 0
+		self.PreviewEdit:SetHeight(math_max(paneH - 12, textH + 8))
+	end
+	body = nil
+end
+
+--- Debounced preview refresh: coalesces a burst of keystrokes into one
+--- split pass. The timer nils itself when it fires (no rubbish retained).
+function Multiline:SchedulePreviewRefresh()
+	if self._previewTimer then return end
+	self._previewTimer = C_Timer.NewTimer(PREVIEW_DEBOUNCE_SECS, function()
+		self._previewTimer = nil
+		if self.Frame and self.Frame:IsShown() then
+			self:RefreshPreview()
+		end
+	end)
+end
+
+function Multiline:CancelPreviewTimer()
+	if self._previewTimer then
+		self._previewTimer:Cancel()
+		self._previewTimer = nil
 	end
 end
 
@@ -226,6 +398,80 @@ function Multiline:CreateFrame()
 	label:SetText("")
 	self.LabelFS = label
 
+	-- Split-preview counter, right-aligned on the label row, plus a small
+	-- collapse toggle for the preview pane. Both start hidden; RefreshPreview
+	-- shows them when the feature is enabled.
+	local counter = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	counter:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -8)
+	counter:SetJustifyH("RIGHT")
+	counter:SetTextColor(0.65, 0.65, 0.65)
+	counter:Hide()
+	self.PreviewFS = counter
+
+	local toggle = CreateFrame("Button", nil, f)
+	toggle:SetSize(14, 14)
+	toggle:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -7)
+	toggle:SetNormalFontObject("GameFontNormalSmall")
+	toggle:SetText("\194\187") -- »
+	toggle:SetScript("OnClick", function()
+		local cfg = YapperTable.Config and YapperTable.Config.EditBox
+		if cfg then cfg.PreviewCollapsed = not PreviewCollapsed() end
+		GameTooltip:Hide()
+		Multiline:RefreshPreview()
+		-- Clicking the toggle steals focus; hand it straight back so the
+		-- user can keep typing without clicking into the editor again.
+		if Multiline.Frame and Multiline.Frame:IsShown() and Multiline.EditBox then
+			Multiline.EditBox:SetFocus()
+		end
+	end)
+	toggle:SetScript("OnEnter", function(btn)
+		GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
+		GameTooltip:SetText(PreviewCollapsed()
+			and Strings:Get("ui.multiline.previewShow")
+			or Strings:Get("ui.multiline.previewHide"))
+		GameTooltip:Show()
+	end)
+	toggle:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	toggle:Hide()
+	self.PreviewToggle = toggle
+
+	-- Read-only preview pane: its own frame (not a child of f) so it can sit
+	-- on either side of the editor without moving the editor itself.
+	local pane = CreateFrame("Frame", "YapperMultilinePreviewFrame", UIParent, "BackdropTemplate")
+	pane:SetWidth(PREVIEW_WIDTH)
+	pane:SetFrameStrata("HIGH")
+	pane:SetClampedToScreen(true)
+	pane:SetBackdrop({
+		bgFile   = "Interface/ChatFrame/ChatFrameBackground",
+		edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+		edgeSize = 10,
+		insets   = { left = 3, right = 3, top = 3, bottom = 3 },
+	})
+	pane:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+	pane:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+	pane:Hide()
+	self.PreviewFrame = pane
+
+	local psf = CreateFrame("ScrollFrame", "YapperMultilinePreviewScroll", pane, "UIPanelScrollFrameTemplate")
+	psf:SetPoint("TOPLEFT", pane, "TOPLEFT", 6, -6)
+	psf:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -24, 6)
+	self.PreviewScroll = psf
+
+	local pedit = CreateFrame("EditBox", "YapperMultilinePreviewEdit", psf)
+	pedit:SetMultiLine(true)
+	pedit:SetAutoFocus(false)
+	pedit:SetFontObject(ChatFontNormal)
+	pedit:SetWidth(PREVIEW_WIDTH - 34)
+	pedit:SetHeight(cfg.defaultHeight)
+	pedit:SetTextInsets(2, 2, 2, 2)
+	-- Read-only display: never disabled (a disabled EditBox renders dimmed
+	-- and updates unreliably as a scroll child). Mouse is off so it can
+	-- never take focus or clicks; wheel input passes through to the
+	-- scroll frame, and the scrollbar stays draggable.
+	pedit:EnableMouse(false)
+	psf:SetScrollChild(pedit)
+	self.PreviewEdit = pedit
+
 	-- Scroll wrapper -- top anchor is updated in UpdateLabelGap() after
 	-- the label font is known so the text area doesn't overlap the label.
 	local sf = CreateFrame("ScrollFrame", "YapperMultilineScroll", f, "UIPanelScrollFrameTemplate")
@@ -273,6 +519,8 @@ function Multiline:CreateFrame()
 		YapperTable.Core:RegisterFrame("Multiline", "ScrollFrame", sf)
 		YapperTable.Core:RegisterFrame("Multiline", "EditBox", edit)
 		YapperTable.Core:RegisterFrame("Multiline", "Label", label)
+		YapperTable.Core:RegisterFrame("Multiline", "PreviewFrame", pane)
+		YapperTable.Core:RegisterFrame("Multiline", "PreviewEdit", pedit)
 	end
 
 	if YapperTable and YapperTable.InstallCompatMethods then
@@ -406,6 +654,15 @@ function Multiline:CreateFrame()
 	-- whatever stack moved focus (e.g. InsertLink's SetFocus in a map-pin
 	-- CHATLINK click) and addon Lua there taints the remainder -- see
 	-- EditBoxCompat.lua RegisterFocusHandler.
+	-- Any hide path (including external ones bypassing Exit/Submit) must take
+	-- the preview pane and its debounce timer down with the editor.
+	hooksecurefunc(f, "Hide", function()
+		Multiline:CancelPreviewTimer()
+		if Multiline.PreviewFrame then Multiline.PreviewFrame:Hide() end
+		Multiline._previewLastText = nil
+		Multiline._previewChunks = nil
+	end)
+
 	local yapperEditBox = YapperTable.EditBox
 	if yapperEditBox and yapperEditBox.RegisterFocusHandler then
 		yapperEditBox:RegisterFocusHandler(edit, function(box)
@@ -481,6 +738,7 @@ function Multiline:CreateFrame()
 	edit:SetScript("OnTextChanged", function(box, isUserInput)
 		if not isUserInput then return end
 
+		Multiline:SchedulePreviewRefresh()
 
 		-- Passive spellcheck: only reads the EditBox (never calls SetText),
 		-- so this is safe without disturbing cursor or scroll state.
@@ -773,6 +1031,7 @@ function Multiline:Enter(text, chatType, language, target)
 	-- Recalculate the label gap now that the frame is shown: while hidden
 	-- GetStringHeight() returns 0, so the earlier call anchored wrong.
 	self:UpdateLabelGap()
+	self:RefreshPreview()
 	self.EditBox:SetFocus()
 	-- Move Blizzard's focus override to the editor that is now visible.
 	if eb and type(eb.UpdateFocusOverride) == "function" then
@@ -796,6 +1055,11 @@ end
 ---@param suppressOverlay boolean?  If true, don't show the single-line overlay (used during lockdown).
 function Multiline:Exit(restoreText, suppressOverlay)
 	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
+
+	self:CancelPreviewTimer()
+	if self.PreviewFrame then self.PreviewFrame:Hide() end
+	self._previewLastText = nil
+	self._previewChunks = nil
 
 	-- Hide icon gallery if open.
 	if YapperTable.IconGallery and YapperTable.IconGallery.Active then
@@ -920,6 +1184,11 @@ end
 --- After sending, the overlay is closed entirely.
 function Multiline:Submit()
 	if not (State:IsMultiline() or (self.Frame and self.Frame:IsShown())) then return end
+
+	self:CancelPreviewTimer()
+	if self.PreviewFrame then self.PreviewFrame:Hide() end
+	self._previewLastText = nil
+	self._previewChunks = nil
 
 	-- If in lockdown, save draft and close instead of attempting to send.
 	if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
@@ -1170,6 +1439,13 @@ function Multiline:ApplyTheme()
 	end
 
 	self:UpdateLabelGap()
+
+	-- Preview follows the editor's font/visibility settings.
+	if self.PreviewEdit and self.EditBox then
+		local face, size, flags = self.EditBox:GetFont()
+		if face and size then self.PreviewEdit:SetFont(face, size, flags or "") end
+	end
+	self:RefreshPreview()
 
 	-- Keep the autocomplete ghost font in sync with the EditBox.
 	if YapperTable.Autocomplete and type(YapperTable.Autocomplete.SyncGhostFont) == "function" then

@@ -175,6 +175,12 @@ local DEFAULTS = {
         StorytellerWidth      = 400,
         StorytellerHeight     = 250,
 
+        -- Split preview pane beside the storyteller editor: live chunk
+        -- counter in the label row plus a read-only per-chunk preview.
+        -- PreviewCollapsed is session/UI state persisted with the profile.
+        ShowSplitPreview      = true,
+        PreviewCollapsed      = false,
+
         -- Session-only onboarding hint shown beside the single-line overlay.
         MultilineHintDuration = 5,
 

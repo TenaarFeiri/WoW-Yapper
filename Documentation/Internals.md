@@ -23,19 +23,19 @@ Initialised on `ADDON_LOADED` by [`Yapper.lua#L105-L110`](../Yapper.lua#L105-L11
 - Fields:
   - `Yapper.Config: table` live config root ([`../Src/Core.lua#L284`](../Src/Core.lua#L284)).
 - Methods:
-  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L314`](../Src/Core.lua#L314))
-  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L372`](../Src/Core.lua#L372))
-  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L807`](../Src/Core.lua#L807))
-  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L608`](../Src/Core.lua#L608))
-  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L343`](../Src/Core.lua#L343))
-  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L286`](../Src/Core.lua#L286))
-  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L499`](../Src/Core.lua#L499)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
-  - `Core:GetVersion() → string` ([`../Src/Core.lua#L629`](../Src/Core.lua#L629))
-  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L633`](../Src/Core.lua#L633))
-  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L637`](../Src/Core.lua#L637))
-  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L650`](../Src/Core.lua#L650)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
-  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L714`](../Src/Core.lua#L714)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
-  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L828`](../Src/Core.lua#L828)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
+  - `Core:IsLanguageCacheValid() → boolean isValid`: Check if the language cache is still valid for the current character. ([`../Src/Core.lua#L320`](../Src/Core.lua#L320))
+  - `Core:RegisterFrame(category, key, frame) → nil`: Register a frame in the central UI registry for external access. ([`../Src/Core.lua#L378`](../Src/Core.lua#L378))
+  - `Core:DemoteGlobalToCharacter() → nil`: Unpack stashed local settings when switching away from Global Profile. ([`../Src/Core.lua#L813`](../Src/Core.lua#L813))
+  - `Core:RefreshInheritance() → nil`: Initialise inheritance chain (Global vs Local). ([`../Src/Core.lua#L614`](../Src/Core.lua#L614))
+  - `Core:GetCharacterLanguage(lang) → number langId`: Get the language or defaults if not present. ([`../Src/Core.lua#L349`](../Src/Core.lua#L349))
+  - `Core:BuildLanguageCache() → nil`: No description provided. ([`../Src/Core.lua#L292`](../Src/Core.lua#L292))
+  - `Core:InitSavedVars() → nil` ([`../Src/Core.lua#L505`](../Src/Core.lua#L505)) — creates/migrates `YapperDB`, `YapperLocalConf`, `YapperLocalHistory`; mutates metatables for inheritance.
+  - `Core:GetVersion() → string` ([`../Src/Core.lua#L635`](../Src/Core.lua#L635))
+  - `Core:GetDefaults() → table` ([`../Src/Core.lua#L639`](../Src/Core.lua#L639))
+  - `Core:SetVerbose(bool: boolean) → nil` ([`../Src/Core.lua#L643`](../Src/Core.lua#L643))
+  - `Core:SaveSetting(category, key, value) → nil` ([`../Src/Core.lua#L656`](../Src/Core.lua#L656)) — delegates to `Interface:SetLocalPath` for profile-aware write routing.
+  - `Core:PromoteCharacterToGlobal() → nil` ([`../Src/Core.lua#L720`](../Src/Core.lua#L720)) — wipes local overrides (excluding `MainWindowPosition`) and re-seeds metatable inheritance from `YapperDB`.
+  - `Core:PushToGlobal() → nil` ([`../Src/Core.lua#L834`](../Src/Core.lua#L834)) — deep-copies character settings into `YapperDB`. Whitelists `System` keys; excludes `MainWindowPosition`; migrates `_themeOverrides` and `_appliedTheme` markers; no-op when already global.
 - Invariants:
   - Must run before feature init (`LoadSavedVariablesFirst: 1`).
   - Metatable chain must remain intact for local fallback/inheritance logic.
@@ -768,7 +768,8 @@ Called from `Chat:SendPosts` for every post, oversized or not, so that `PRE_CHUN
     - Fires the `PRE_CHUNK` filter once per contiguous text unit (after paragraph isolation). Returns `nil` when a filter cancels the send.
     - Honours `payload.continuationPrefix` set by a `PRE_CHUNK` filter, charging it against the byte budget of every chunk after the first.
     - Continuation chunks are assembled as `<delineator><continuationPrefix><text>`, or `<continuationPrefix><delineator><text>` when the filter sets `payload.continuationPrefixFirst`.
-  - `Chunking:Measure(text) → number, number` ([`../Src/Chunking.lua#L673`](../Src/Chunking.lua#L673)) — returns visible bytes (counted toward `CHARACTER_LIMIT`) and invisible markup bytes (counted toward `INVISIBLE_LIMIT`), matching WoW's `visibleBytes`/`invisibleBytes` editbox budgets.
+  - `Chunking:Measure(text) → number, number` ([`../Src/Chunking.lua#L752`](../Src/Chunking.lua#L752)) — returns visible bytes (counted toward `CHARACTER_LIMIT`) and invisible markup bytes (counted toward `INVISIBLE_LIMIT`), matching WoW's `visibleBytes`/`invisibleBytes` editbox budgets.
+  - `Chunking:PreviewSplit(rawText, limit?) → number, number, number, table` ([`../Src/Chunking.lua#L701`](../Src/Chunking.lua#L701)) — dry-run split of a whole multiline composition for the split-preview pane. Collapses paragraphs like the send path, then splits with `opts.dryRun`, which suppresses `PRE_CHUNK` entirely (filters must never run per keystroke). Returns chunk count, fullest-chunk visible bytes, total characters across all chunks as sent, and a scratch chunk array (reused; do not retain).
 - Invariants:
   - `limit` is a *visible*-byte budget: pipe escapes (`|c`, `|r`, `|T`, `|A`, `|h`/`|H` wrappers) cost nothing; a hyperlink costs only its `[display]` text. Markup is separately capped at `INVISIBLE_LIMIT` (1023) per chunk, mirroring `ChatFrameEditBoxTemplate`'s `bytes="1280" visibleBytes="255" invisibleBytes="1023"`.
 
@@ -871,17 +872,22 @@ Lazy frame creation; active only when user enters multiline mode.
   - `Language` [`../Src/Multiline.lua#L62`](../Src/Multiline.lua#L62)
   - `Target` [`../Src/Multiline.lua#L63`](../Src/Multiline.lua#L63)
 - Methods:
-  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1096`](../Src/Multiline.lua#L1096))
-  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1055`](../Src/Multiline.lua#L1055))
-  - `UpdateLabelGap` [`../Src/Multiline.lua#L168`](../Src/Multiline.lua#L168)
-  - `CreateFrame` [`../Src/Multiline.lua#L199`](../Src/Multiline.lua#L199)
-  - `Enter` [`../Src/Multiline.lua#L651`](../Src/Multiline.lua#L651)
-  - `Exit` [`../Src/Multiline.lua#L797`](../Src/Multiline.lua#L797)
-  - `Submit` [`../Src/Multiline.lua#L921`](../Src/Multiline.lua#L921)
-  - `Cancel` [`../Src/Multiline.lua#L1022`](../Src/Multiline.lua#L1022)
-  - `ApplyTheme` [`../Src/Multiline.lua#L1115`](../Src/Multiline.lua#L1115)
+  - `Multiline:OnLockdownEnd() → nil`: Called when combat ends (PLAYER_REGEN_ENABLED). ([`../Src/Multiline.lua#L1365`](../Src/Multiline.lua#L1365))
+  - `Multiline:OnLockdownStart() → nil`: Called when combat starts (PLAYER_REGEN_DISABLED). ([`../Src/Multiline.lua#L1324`](../Src/Multiline.lua#L1324))
+  - `UpdateLabelGap` [`../Src/Multiline.lua#L340`](../Src/Multiline.lua#L340)
+  - `CreateFrame` [`../Src/Multiline.lua#L371`](../Src/Multiline.lua#L371)
+  - `Enter` [`../Src/Multiline.lua#L909`](../Src/Multiline.lua#L909)
+  - `Exit` [`../Src/Multiline.lua#L1056`](../Src/Multiline.lua#L1056)
+  - `Submit` [`../Src/Multiline.lua#L1185`](../Src/Multiline.lua#L1185)
+  - `Cancel` [`../Src/Multiline.lua#L1291`](../Src/Multiline.lua#L1291)
+  - `ApplyTheme` [`../Src/Multiline.lua#L1384`](../Src/Multiline.lua#L1384)
+- Split preview:
+  - `Multiline:RefreshPreview() → nil` ([`../Src/Multiline.lua#L228`](../Src/Multiline.lua#L228)) — recomputes the dry-run split and refreshes the label-row counter (`N posts · maxVis/limit`) and the read-only side pane (total character count header, then the exact chunks with delineators). Gated by `EditBox.ShowSplitPreview`; the pane additionally hides when `EditBox.PreviewCollapsed` is set via the label-row toggle, which also returns focus to the editor. SetText is skipped when the rendered string is unchanged.
+  - `Multiline:SchedulePreviewRefresh() → nil` ([`../Src/Multiline.lua#L320`](../Src/Multiline.lua#L320)) — 0.15s debounce from `OnTextChanged`; the timer nils itself on fire. `CancelPreviewTimer` runs on Exit/Submit/frame-Hide, which also clear the cached counter/body strings.
+  - The pane is a sibling UIParent frame placed right of the editor when it fits on screen, else left; it mirrors the editor height and is hidden whenever the editor is hidden.
 - Invariants:
   - While `Active`, single-line overlay show path should early-return.
+  - Preview never fires `PRE_SEND`/`PRE_CHUNK`: bridge text transforms and continuation prefixes (e.g. Languages tags) are not reflected in the preview.
 
 ## Autocomplete
 
@@ -914,7 +920,7 @@ Shared transient notification card (UIParent child, `TOOLTIP` strata — same pa
   - `Toast:Show(opts)` [`../Src/Toast.lua#L276`](../Src/Toast.lua#L276) — `{ title, body, buttons = { {label, onClick} }, duration }`.
   - `Toast:ShowCorrection(corr)` [`../Src/Toast.lua#L359`](../Src/Toast.lua#L359) — the "Autocorrected" card; its Undo routes through `Autocorrect:UndoByToast` for stale-entry validation.
   - `Toast:ShowLearned(word, locale)` [`../Src/Toast.lua#L377`](../Src/Toast.lua#L377) — the learned-word card with Keep / Unlearn (`YAS:UnlearnWord`) / Ignore (`Spellcheck:IgnoreWord` + WAIVER pin).
-  - `Toast:_PickPosition(w, h)` [`../Src/Toast.lua#L194`](../Src/Toast.lua#L194) — placement solver: collects the screen rects of the overlay, overlay editbox, multiline frame, suggestion popup, hint frame and default chat frame, then walks candidate zones (beside/above the input, above chat, then screen corners) until one overlaps nothing; always clamped to the screen.
+  - `Toast:_PickPosition(w, h)` [`../Src/Toast.lua#L194`](../Src/Toast.lua#L194) — placement solver: collects the screen rects of the overlay, overlay editbox, multiline frame, split-preview pane, suggestion popup, hint frame and default chat frame, then walks candidate zones (beside/above the input, above/below the preview pane, above chat, then screen corners) until one overlaps nothing; always clamped to the screen.
 - Fields:
   - `Toast.Frame` — lazily built card frame, registered via `Core:RegisterFrame`.
   - `Toast._queue` — pending toast opts.
@@ -1000,10 +1006,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L370`](../Src/Interface/Schema.lua#L370)
-  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L511`](../Src/Interface/Schema.lua#L511)
-  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L519`](../Src/Interface/Schema.lua#L519)
-  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L525`](../Src/Interface/Schema.lua#L525)
+  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L373`](../Src/Interface/Schema.lua#L373)
+  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L515`](../Src/Interface/Schema.lua#L515)
+  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L523`](../Src/Interface/Schema.lua#L523)
+  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L529`](../Src/Interface/Schema.lua#L529)
 
 ## Interface.Config
 
@@ -1195,7 +1201,7 @@ Self-bootstrapping (own `ADDON_LOADED` / `PLAYER_LOGIN` frame); not initialised 
 ## Interface.HelpContent
 
 - Methods:
-  - `HelpContent.ForEachItem(callback) → nil`: Iterate the read-only help items through a safe callback-based iterator because Lua 5.1's ipairs bypasses __index proxies. ([`../Src/Interface/HelpContent.lua#L158`](../Src/Interface/HelpContent.lua#L158))
+  - `HelpContent.ForEachItem(callback) → nil`: Iterate the read-only help items through a safe callback-based iterator because Lua 5.1's ipairs bypasses __index proxies. ([`../Src/Interface/HelpContent.lua#L162`](../Src/Interface/HelpContent.lua#L162))
 
 ## EditBoxCompat
 
@@ -1229,6 +1235,6 @@ UI resolves strings at render/show time; a `STRINGS_UPDATED` event fires
 when registrations arrive so visible widgets can relabel.
 
 - Methods:
-  - `Strings:Get(key, ...) → string`: Resolve a key for the active client locale with enUS fallback; trailing args are `string.format` parameters. ([`../Src/Strings.lua#L102`](../Src/Strings.lua#L102))
-  - `Strings:Register(locale, tbl, owner) → boolean ok`: Register a sparse locale string table; keys must already exist in the canonical enUS table, `enUS` cannot be overridden, values are length-bounded, and owner-captured re-registration replaces that owner's contribution. ([`../Src/Strings.lua#L127`](../Src/Strings.lua#L127))
-  - `Strings:CanonicalKeys() → table`: Enumerate canonical keys — used by `tools/check_string_refs.py` and tests. ([`../Src/Strings.lua#L200`](../Src/Strings.lua#L200))
+  - `Strings:Get(key, ...) → string`: Resolve a key for the active client locale with enUS fallback; trailing args are `string.format` parameters. ([`../Src/Strings.lua#L111`](../Src/Strings.lua#L111))
+  - `Strings:Register(locale, tbl, owner) → boolean ok`: Register a sparse locale string table; keys must already exist in the canonical enUS table, `enUS` cannot be overridden, values are length-bounded, and owner-captured re-registration replaces that owner's contribution. ([`../Src/Strings.lua#L136`](../Src/Strings.lua#L136))
+  - `Strings:CanonicalKeys() → table`: Enumerate canonical keys — used by `tools/check_string_refs.py` and tests. ([`../Src/Strings.lua#L209`](../Src/Strings.lua#L209))
