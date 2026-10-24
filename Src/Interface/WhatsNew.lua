@@ -21,6 +21,25 @@ end
 
 YapperTable.WHATS_NEW = {
     -- New entries can use the helpers above to keep the data compact.
+    ["2.4.10"] = release(
+        note("Searchable settings",
+            "The settings window now has a search box in the header. Type a word like "
+                .. "\"sticky\", \"shadow\" or \"history\" and matching options from every category "
+                .. "appear as live toggles you can change right there, tagged with the tab they "
+                .. "belong to."),
+        note("Split preview pane (storyteller)",
+            "The storyteller editor now shows a read-only pane beside it with a live preview of "
+                .. "how your post will split into chat-sized chunks, plus a total character count. "
+                .. "It docks to whichever side has room, collapses with the « / » button in the "
+                .. "label row, and can be disabled below or in General settings."),
+        note("Bug fixes",
+            "- Reverted to a stable build and re-implemented the fix for raid secret-value errors "
+                .. "and watchdog recursions.\n\n"
+                .. "- Toast cards (autocorrect undo, learned words) no longer overlap the new "
+                .. "split preview pane.\n\n"
+                .. "- \"Recover text after ESC\" and \"Remember whisper targets\" are now on by "
+                .. "default for new installations.")
+    ),
     ["2.4.7"] = release(
         note("Bug fixes",
             "- Fixed invisible typed text under \"IM Style\" chat: Blizzard's window bookkeeping could hide "
