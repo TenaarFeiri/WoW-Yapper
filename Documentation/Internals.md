@@ -1072,14 +1072,14 @@ Builds and controls top-level frames.
   - `CreateWelcomeChoiceFrame` [`../Src/Interface/Window.lua#L471`](../Src/Interface/Window.lua#L471)
   - `CreateWhatsNewFrame` [`../Src/Interface/Window.lua#L678`](../Src/Interface/Window.lua#L678)
   - `ShowSpellcheckLocalePrompt(parent, onDone)` [`../Src/Interface/Window.lua#L385`](../Src/Interface/Window.lua#L385) — language chooser shown when spellcheck is enabled from a popup; writes `Spellcheck.Locale` before `Spellcheck.Enabled` so `ApplyState` loads exactly the picked dictionary
-  - `CreateMainWindow` [`../Src/Interface/Window.lua#L934`](../Src/Interface/Window.lua#L934)
-  - `UpdateSidebarSelection` [`../Src/Interface/Window.lua#L1200`](../Src/Interface/Window.lua#L1200)
-  - `GetUIFontOffset` [`../Src/Interface/Window.lua#L1219`](../Src/Interface/Window.lua#L1219)
-  - `SetUIFontOffset` [`../Src/Interface/Window.lua#L1225`](../Src/Interface/Window.lua#L1225)
-  - `ScaledRow` [`../Src/Interface/Window.lua#L1233`](../Src/Interface/Window.lua#L1233)
-  - `ApplyUIFontScaleToFontString` [`../Src/Interface/Window.lua#L1238`](../Src/Interface/Window.lua#L1238)
-  - `ApplyUIFontScale` [`../Src/Interface/Window.lua#L1253`](../Src/Interface/Window.lua#L1253)
-  - `RefreshFontScaleLabel` [`../Src/Interface/Window.lua#L1272`](../Src/Interface/Window.lua#L1272)
+  - `CreateMainWindow` [`../Src/Interface/Window.lua#L942`](../Src/Interface/Window.lua#L942)
+  - `UpdateSidebarSelection` [`../Src/Interface/Window.lua#L1210`](../Src/Interface/Window.lua#L1210)
+  - `GetUIFontOffset` [`../Src/Interface/Window.lua#L1229`](../Src/Interface/Window.lua#L1229)
+  - `SetUIFontOffset` [`../Src/Interface/Window.lua#L1235`](../Src/Interface/Window.lua#L1235)
+  - `ScaledRow` [`../Src/Interface/Window.lua#L1243`](../Src/Interface/Window.lua#L1243)
+  - `ApplyUIFontScaleToFontString` [`../Src/Interface/Window.lua#L1248`](../Src/Interface/Window.lua#L1248)
+  - `ApplyUIFontScale` [`../Src/Interface/Window.lua#L1263`](../Src/Interface/Window.lua#L1263)
+  - `RefreshFontScaleLabel` [`../Src/Interface/Window.lua#L1282`](../Src/Interface/Window.lua#L1282)
 
 ## Interface.Widgets
 
