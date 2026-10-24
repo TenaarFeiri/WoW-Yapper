@@ -602,8 +602,27 @@ end
 --- Bypass Yapper and go straight to Blizzard's editbox.
 function EditBox:OpenBlizzardChat()
     UserBypassingYapper = true
+    -- Setup window marker that nothing else consumes: deferred intercepts
+    -- (IM-mode ActivateChat branch) must not re-open Yapper while the bypass
+    -- handoff is still settling, even if bookkeeping eats the flag itself.
+    self._bypassUntil = GetTime() + 1
     local eb = self.OrigEditBox or _G.ChatFrame1EditBox
     BypassEditBox = eb and eb.GetName and eb:GetName() or nil
+
+    -- Failsafe: the flag normally clears via the focus-loss poll on the
+    -- bypassed box; if that edge is ever missed this timer mops it up.
+    -- Re-arms while the bypassed box still holds focus.
+    local function FailsafeBypassClear()
+        if not UserBypassingYapper then return end
+        if eb and eb.HasFocus and eb:HasFocus() then
+            C_Timer.After(2, FailsafeBypassClear)
+            return
+        end
+        EditBox._bypassUntil = nil
+        EditBox._SetBypassEditBox(nil)
+        EditBox._SetUserBypassingYapper(false) -- also refreshes the override
+    end
+    C_Timer.After(2, FailsafeBypassClear)
 
     -- Hand off any overlay state first. HandoffToBlizzard(true, true):
     -- silent (no lockdown message) + no deferred open of its own.
@@ -614,10 +633,25 @@ function EditBox:OpenBlizzardChat()
     -- Defer to the next frame so our Show hook sees `UserBypassingYapper`
     -- and lets Blizzard's editbox win.
     C_Timer.After(0, function()
+        -- If CHAT_FOCUS_OVERRIDE still points at our overlay, OpenChat's
+        -- body focuses THAT instead of eb -- clear it first so the bypass
+        -- can actually take keyboard focus.
+        ChatFrameUtil.ClearChatFocusOverride()
         -- In lockdown Blizzard's editbox is authoritative; do not read or
         -- write secret-sensitive attributes from this tainted callback.
         if Utils:IsChatOrCombatLockdown() then
+            -- This OpenChat is ours, not a user open: suppress both hooks
+            -- so their bypass kick-back can't reclaim focus for Yapper.
+            self._bypassOpening = true
+            self._suppressOpenChatHook = true
+            self._suppressActivateChatHook = true
             local okOpen, errOpen = pcall(ChatFrameUtil.OpenChat, "", eb)
+            self._suppressOpenChatHook = nil
+            self._suppressActivateChatHook = nil
+            self._bypassOpening = nil
+            -- A DeactivateChat inside OpenChat reports a focus-loss edge on
+            -- the bypassed box and the clear-poll eats the flags; re-assert.
+            UserBypassingYapper = true
             if not okOpen then
                 Utils:VerbosePrint("OpenChat failed: " .. Utils:SafeToString(errOpen))
             end
@@ -679,7 +713,24 @@ function EditBox:OpenBlizzardChat()
 
         -- Prefer ChatFrameUtil.OpenChat so Blizzard's callbacks (focus
         -- gained, etc.) run and other addons see a normal open.
+        -- Suppress our own hooks: OpenChat's post-hook would see
+        -- UserBypassingYapper and kick the intercept back to Yapper, and
+        -- in IM style ActivateChat is the real entry point -- its deferred
+        -- IM branch would Show() our overlay on the next frame.
+        -- _bypassOpening also stops the clear-poll treating DeactivateChat's
+        -- bookkeeping edge on eb (never truly focused) as a real loss.
+        self._bypassOpening = true
+        self._suppressOpenChatHook = true
+        self._suppressActivateChatHook = true
         local okOpen, errOpen = pcall(ChatFrameUtil.OpenChat, "", eb)
+        self._suppressOpenChatHook = nil
+        self._suppressActivateChatHook = nil
+        self._bypassOpening = nil
+        -- A DeactivateChat inside OpenChat reports a focus-loss edge on the
+        -- bypassed box and the clear-poll eats the flags; re-assert them so
+        -- the bypass survives until the user actually leaves Blizzard's box.
+        UserBypassingYapper = true
+        BypassEditBox = eb and eb.GetName and eb:GetName() or nil
         if not okOpen then
             Utils:VerbosePrint("OpenChat failed: " .. Utils:SafeToString(errOpen))
         end

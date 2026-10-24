@@ -64,6 +64,16 @@ After resolving all markers, run `python3 tools/check_doc_refs.py`, inspect the 
   pointed at the overlay edit while Yapper is active; it MUST be cleared
   during lockdown handoff or Blizzard's `OpenChat` focuses a hidden frame
   and Enter presses are silently eaten.
+- Bypass flag (`UserBypassingYapper`, set by `EditBox:OpenBlizzardChat`) is a
+  timed window, not a simple toggle. Focus edges are signal-driven
+  (`_NotifyFocus`/`_NotifyFocusStolen`), not polled: `ActivateChat` delivers
+  synthetic loss edges to every watched box, and its `DeactivateChat`
+  bookkeeping edge can clear the flag on the bypassed box itself. Defenses:
+  our own `OpenChat`/`ActivateChat` calls are wrapped in `_suppress*` flags,
+  the clear-poll only fires for the bypassed box outside `_bypassOpening`,
+  and deferred intercepts gate on `EditBox._bypassUntil` — a timestamp
+  nothing else clears. Do not "simplify" the timestamp check into a flag
+  read; that reintroduces the IM-style focus steal.
 - Do NOT nil-guard required Blizzard APIs (`ChatFrameUtil.X`, `C_*` calls,
   `BNet_GetBNetIDAccount`, `hooksecurefunc`, `issecretvalue`/`canaccessvalue`,
   `C_Timer`, `DEFAULT_CHAT_FRAME`, `UIParent`, `ChatTypeInfo`, `Enum`, ...).

@@ -641,7 +641,14 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
     -- EditBoxCompat.lua RegisterFocusHandler.
     if blizzEditBox and self.RegisterFocusHandler then
         self:RegisterFocusHandler(blizzEditBox, nil, function(eb)
-            if UserBypassingYapper() then
+            -- Only the bypassed box's own loss ends the bypass: signal-driven
+            -- loss edges (_NotifyFocusStolen) also reach sibling IM-mode boxes
+            -- that never held focus, which must not eat the flag mid-open.
+            -- _bypassOpening covers edges raised by OpenChat's own bookkeeping
+            -- (DeactivateChat fires a synthetic loss on the never-focused box).
+            local bypassed = BypassEditBox()
+            if UserBypassingYapper() and not self._bypassOpening
+                and (bypassed == nil or (eb.GetName and eb:GetName() == bypassed)) then
                 SetBypassEditBox(nil)
                 SetUserBypassingYapper(false)
                 C_Timer.After(0, function()

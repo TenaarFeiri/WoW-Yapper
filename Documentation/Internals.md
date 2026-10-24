@@ -489,10 +489,10 @@ Lazy-created; used by spellcheck/autocomplete edit flows and public API.
   - `EditBox:ResolveWhisperTarget(chatType, source, fallback) → any target, boolean isSecure`: Source a whisper target directly from Blizzard's secure last-tell state (GetLastTellTarget/GetLastToldTarget), bypassing Yapper-stored copies that may have become tainted. Used by the `/r` and `/r2` send path. Returns `(fallback, false)` when Blizzard has no matching target. ([`../Src/EditBox.lua#L512`](../Src/EditBox.lua#L512))
   - `EditBox:ResolveWhisperFrameTarget(chatFrame) → string|nil chatType, any target`: Resolve a temporary whisper tab's routing into a Yapper-usable pair. Plain chatTargets pass through SanitizeTarget; BN_WHISPER tabs carrying a `|K`-protected token or secret chatTarget are recovered via `BNet_GetBNetIDAccount` as a numeric account ID, which `Router:Send` consumes directly. ([`../Src/EditBox.lua#L572`](../Src/EditBox.lua#L572))
   - `EditBox:GetActiveEditor() → table|nil`: Return Yapper's currently visible chat editor, preferring multiline while it is open and falling back to the single-line overlay. `IsShown` reads go through `Utils:SafeWidgetBoolean` so a secret result under enforced addon restrictions fails closed (treated as hidden) instead of erroring on the boolean test. ([`../Src/EditBox.lua#L99`](../Src/EditBox.lua#L99))
-  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L773`](../Src/EditBox.lua#L773))
-  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L751`](../Src/EditBox.lua#L751))
-  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L872`](../Src/EditBox.lua#L872))
-  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L862`](../Src/EditBox.lua#L862))
+  - `EditBox:IsChatTypeAvailable(chatType) → boolean`: Check if a chat type is currently available (e.g., in a guild, in a raid). ([`../Src/EditBox.lua#L824`](../Src/EditBox.lua#L824))
+  - `EditBox:GetResolvedChatType(ct) → string`: Smartly switch from Party/Raid to Instance if the Home group is missing. ([`../Src/EditBox.lua#L802`](../Src/EditBox.lua#L802))
+  - `EditBox:RegisterKeybindOverrides() → nil`: Register keybind overrides when timing is safe. ([`../Src/EditBox.lua#L923`](../Src/EditBox.lua#L923))
+  - `EditBox:InitKeybinds() → nil`: Initialize keybind override system. ([`../Src/EditBox.lua#L913`](../Src/EditBox.lua#L913))
   - `EditBox:UpdateFocusOverride() → nil`: Centralize focus override updating. Sets/clears CHAT_FOCUS_OVERRIDE ([`../Src/EditBox.lua#L114`](../Src/EditBox.lua#L114))
   - `YapperTable.InstallCompatMethods(box) → nil`: Installs Blizzard chat-box compatibility methods and stubs on the overlay editbox so addons can query `GetChatType`, `GetChannelTarget`, `GetTellTarget`, `GetLanguage`, `GetAttribute`, and parity fields without nil-crashes. Also sets `box.disableActivate` (keeps `ActivateChat`/`SetLastActiveWindow` -- and therefore `LAST_ACTIVE_CHAT_EDIT_BOX` -- off our boxes) and installs a `Hide` post-hook that re-shows the widget, since its visibility is owned by the parent frame. ([`../Src/EditBoxCompat.lua#L32`](../Src/EditBoxCompat.lua#L32))
   - `box.UpdateHeader`: no-op stub installed by InstallCompatMethods to prevent nil-method crashes from Blizzard's chat-frame utility. ([`../Src/EditBoxCompat.lua#L75`](../Src/EditBoxCompat.lua#L75))
@@ -535,9 +535,9 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `AddReplyTarget` ([`../Src/EditBox.lua#L145`](../Src/EditBox.lua#L145))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L170`](../Src/EditBox.lua#L170))
   - `OpenBlizzardChat` ([`../Src/EditBox.lua#L603`](../Src/EditBox.lua#L603))
-  - `SetOnSend` ([`../Src/EditBox.lua#L795`](../Src/EditBox.lua#L795))
-  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L803`](../Src/EditBox.lua#L803))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L857`](../Src/EditBox.lua#L857))
+  - `SetOnSend` ([`../Src/EditBox.lua#L846`](../Src/EditBox.lua#L846))
+  - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L854`](../Src/EditBox.lua#L854))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L908`](../Src/EditBox.lua#L908))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 
@@ -559,7 +559,7 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ApplyShadowTint`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L801-L809`](../Src/EditBox/Overlay.lua#L801-L809)).
 - Methods:
-  - [NEW] `EditBox:ShowRecoverHint() → nil`: One-shot session hint shown when the user loses a draft to ESC while ([`../Src/EditBox/Overlay.lua#L541`](../Src/EditBox/Overlay.lua#L541))
+  - `EditBox:ShowRecoverHint() → nil`: One-shot session hint shown when a draft is discarded on ESC while `RecoverOnEscape` is off; shares the hint frame via `_PresentHint` ([`../Src/EditBox/Overlay.lua#L541`](../Src/EditBox/Overlay.lua#L541))
   - `EditBox:ShowMultilineHint() → nil`: Show the onboarding hint once during the current session and let it fade ([`../Src/EditBox/Overlay.lua#L526`](../Src/EditBox/Overlay.lua#L526))
   - `EditBox:CreateMultilineHint() → nil`: Create the non-interactive hint frame lazily, using UIParent as its parent ([`../Src/EditBox/Overlay.lua#L493`](../Src/EditBox/Overlay.lua#L493))
   - `EditBox:HideMultilineHint() → nil`: Cancel and hide the session-only multiline onboarding hint. ([`../Src/EditBox/Overlay.lua#L477`](../Src/EditBox/Overlay.lua#L477))
@@ -651,7 +651,7 @@ Blizzard editbox hooks (taint-free).
 - Invariants:
   - `_inBlizzShowHook` and deferred focus handoff guard reentrancy (issue #21 fix).
   - The `InsertLink` post-hook (`OnInsertLink`, [`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L779`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L779)) re-focuses the routed Yapper editor only when keyboard focus is free or already ours -- Blizzard's `InsertLink` can return true through special targets (macro editor, professions search, communities box) before ever touching a chat window, so an unconditional `SetFocus` would yank focus out of that editor mid-edit. When a link routed nowhere while the overlay is hidden but holds `CHAT_FOCUS_OVERRIDE`, the post-hook re-opens the overlay so the link lands somewhere.
-  - `WaypointChatLinkHandler` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L970`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L970)) intercepts waypoint-pin CHATLINK clicks via `WorldMapFrame:AddGlobalPinMouseActionHandler` -- MapCanvas's purpose-built taint-aware registry (handlers run under `securecallfunction` isolation in `Blizzard_MapCanvasSecureUtil`). A truthy return consumes the click before `OnMouseClickAction`, so 12.1's protected `CopyToClipboard` after `InsertLink` is skipped; the handler performs the InsertLink + share sound itself and shows `YapperWaypointCopyFrame` with the `/way` command for manual Ctrl+C (chat print fallback under combat lockdown/pet battles). Consumption requires the waypoint pin to be the actual click target (`GetMouseFocus`) -- `IsMouseOver` alone can be true for a waypoint under an overlapping pin, which would steal that pin's click. Registered at priority -1000 so every other handler (debug 100, the provider's placement logic at 90, third-party observers) sees the click first and we only consume what nobody claimed; `ADDON_LOADED` retry covers late `WorldMapFrame`. An earlier iteration wrote `WaypointLocationPinMixin.CopySlashCommandToClipboard` + pooled pin fields -- that write got blamed for combat-protected `SetPassThroughButtons` during pin refresh (even on plain map open in combat), which is why interception now goes through the registry instead.
+  - `WaypointChatLinkHandler` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L966`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L966)) intercepts waypoint-pin CHATLINK clicks via `WorldMapFrame:AddGlobalPinMouseActionHandler` -- MapCanvas's purpose-built taint-aware registry (handlers run under `securecallfunction` isolation in `Blizzard_MapCanvasSecureUtil`). A truthy return consumes the click before `OnMouseClickAction`, so 12.1's protected `CopyToClipboard` after `InsertLink` is skipped; the handler performs the InsertLink + share sound itself and shows `YapperWaypointCopyFrame` with the `/way` command for manual Ctrl+C (chat print fallback under combat lockdown/pet battles). Consumption requires the waypoint pin to be the actual click target (`GetMouseFocus`) -- `IsMouseOver` alone can be true for a waypoint under an overlapping pin, which would steal that pin's click. Registered at priority -1000 so every other handler (debug 100, the provider's placement logic at 90, third-party observers) sees the click first and we only consume what nobody claimed; `ADDON_LOADED` retry covers late `WorldMapFrame`. An earlier iteration wrote `WaypointLocationPinMixin.CopySlashCommandToClipboard` + pooled pin fields -- that write got blamed for combat-protected `SetPassThroughButtons` during pin refresh (even on plain map open in combat), which is why interception now goes through the registry instead.
 
 ## Taint surface
 
@@ -983,7 +983,7 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `DICTIONARY_DOWNLOAD_URL` [`../Src/Interface.lua#L12`](../Src/Interface.lua#L12)
   - Helpers/constants exported as underscored fields (`_LAYOUT`, `_LayoutCursor`, `_UI_FONT_*`) *private by convention; do not rely on* ([`../Src/Interface.lua#L120-L124`](../Src/Interface.lua#L120-L124)).
 - Methods:
-  - [NEW] `Interface:RenderSearchResults() → nil`: Render live widgets for schema items matching the current query, across ([`../Src/Interface.lua#L478`](../Src/Interface.lua#L478))
+  - `Interface:RenderSearchResults(frame) → nil`: Renders the "search" pseudo-category — live widgets for every schema item matching `_searchQuery` across friendly label, tooltip, path, category and `_SEARCH_KEYWORDS` ([`../Src/Interface.lua#L478`](../Src/Interface.lua#L478))
   - `LayoutCursor:Pad() → nil`: No description provided. ([`../Src/Interface.lua#L103`](../Src/Interface.lua#L103))
   - `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L98`](../Src/Interface.lua#L98))
   - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L94`](../Src/Interface.lua#L94))
@@ -1008,10 +1008,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L419`](../Src/Interface/Schema.lua#L419)
-  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L561`](../Src/Interface/Schema.lua#L561)
-  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L569`](../Src/Interface/Schema.lua#L569)
-  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L575`](../Src/Interface/Schema.lua#L575)
+  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L427`](../Src/Interface/Schema.lua#L427)
+  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L569`](../Src/Interface/Schema.lua#L569)
+  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L577`](../Src/Interface/Schema.lua#L577)
+  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L583`](../Src/Interface/Schema.lua#L583)
 
 ## Interface.Config
 
@@ -1072,14 +1072,14 @@ Builds and controls top-level frames.
   - `CreateWelcomeChoiceFrame` [`../Src/Interface/Window.lua#L471`](../Src/Interface/Window.lua#L471)
   - `CreateWhatsNewFrame` [`../Src/Interface/Window.lua#L678`](../Src/Interface/Window.lua#L678)
   - `ShowSpellcheckLocalePrompt(parent, onDone)` [`../Src/Interface/Window.lua#L385`](../Src/Interface/Window.lua#L385) — language chooser shown when spellcheck is enabled from a popup; writes `Spellcheck.Locale` before `Spellcheck.Enabled` so `ApplyState` loads exactly the picked dictionary
-  - `CreateMainWindow` [`../Src/Interface/Window.lua#L942`](../Src/Interface/Window.lua#L942)
-  - `UpdateSidebarSelection` [`../Src/Interface/Window.lua#L1210`](../Src/Interface/Window.lua#L1210)
-  - `GetUIFontOffset` [`../Src/Interface/Window.lua#L1229`](../Src/Interface/Window.lua#L1229)
-  - `SetUIFontOffset` [`../Src/Interface/Window.lua#L1235`](../Src/Interface/Window.lua#L1235)
-  - `ScaledRow` [`../Src/Interface/Window.lua#L1243`](../Src/Interface/Window.lua#L1243)
-  - `ApplyUIFontScaleToFontString` [`../Src/Interface/Window.lua#L1248`](../Src/Interface/Window.lua#L1248)
-  - `ApplyUIFontScale` [`../Src/Interface/Window.lua#L1263`](../Src/Interface/Window.lua#L1263)
-  - `RefreshFontScaleLabel` [`../Src/Interface/Window.lua#L1282`](../Src/Interface/Window.lua#L1282)
+  - `CreateMainWindow` [`../Src/Interface/Window.lua#L965`](../Src/Interface/Window.lua#L965)
+  - `UpdateSidebarSelection` [`../Src/Interface/Window.lua#L1233`](../Src/Interface/Window.lua#L1233)
+  - `GetUIFontOffset` [`../Src/Interface/Window.lua#L1252`](../Src/Interface/Window.lua#L1252)
+  - `SetUIFontOffset` [`../Src/Interface/Window.lua#L1258`](../Src/Interface/Window.lua#L1258)
+  - `ScaledRow` [`../Src/Interface/Window.lua#L1266`](../Src/Interface/Window.lua#L1266)
+  - `ApplyUIFontScaleToFontString` [`../Src/Interface/Window.lua#L1271`](../Src/Interface/Window.lua#L1271)
+  - `ApplyUIFontScale` [`../Src/Interface/Window.lua#L1286`](../Src/Interface/Window.lua#L1286)
+  - `RefreshFontScaleLabel` [`../Src/Interface/Window.lua#L1305`](../Src/Interface/Window.lua#L1305)
 
 ## Interface.Widgets
 

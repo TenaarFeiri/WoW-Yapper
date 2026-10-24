@@ -5,8 +5,6 @@ local Ctl = YapperTable.BlizzardHookCtl
 local Core = Ctl.Core
 local ResolveChannelName = Ctl.ResolveChannelName
 local UserBypassingYapper = Ctl.UserBypassingYapper
-local SetUserBypassingYapper = Ctl.SetUserBypassingYapper
-local SetBypassEditBox = Ctl.SetBypassEditBox
 local TriggerTrace = Ctl.TriggerTrace
 local StampRecentOpenChatIntent = Ctl.StampRecentOpenChatIntent
 local ParseLinkType = Ctl.ParseLinkType
@@ -251,19 +249,13 @@ function EditBox:HookAllChatFrames()
             local overlayAlreadyShown = (self.Overlay and self.Overlay:IsShown())
                 and (chatFrame == nil or (text and text ~= "" and Core.IsChannelSlashPrefill(text)))
 
-            -- Bypassing Yapper: outside lockdown, clear bypass and force
-            -- the intercept; in lockdown, stay in Blizzard's box.
+            -- Bypassing Yapper: every OpenChat while the flag is set belongs
+            -- to the bypass window (our deferred open, or any later open
+            -- while the user sits in Blizzard's box). Stay out entirely --
+            -- the flag is cleared by the focus-loss poll on the bypassed
+            -- box, with a failsafe timer in OpenBlizzardChat as backstop.
             if UserBypassingYapper() then
-                local inLockdown = YapperTable.Utils and YapperTable.Utils:IsChatLockdown()
-                if inLockdown then
-                    return
-                else
-                    -- Kick back to Yapper; force the intercept to run.
-                    SetUserBypassingYapper(false)
-                    SetBypassEditBox(nil)
-                    self:UpdateFocusOverride()
-                    focusOverrideIntercepted = true
-                end
+                return
             end
 
             if focusOverrideIntercepted or overlayAlreadyShown then
@@ -626,6 +618,10 @@ function EditBox:HookAllChatFrames()
                     if self.Overlay and self.Overlay:IsShown() then return end
                     if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then return end
                     if UserBypassingYapper() then return end
+                    -- Bypass setup window: ActivateChat's own bookkeeping
+                    -- (DeactivateChat on ACTIVE_CHAT_EDIT_BOX) can clear the
+                    -- flag mid-handoff, so gate on the timestamp too.
+                    if self._bypassUntil and GetTime() < self._bypassUntil then return end
                     -- ActivateChat cleared the focus override; restore it.
                     self:UpdateFocusOverride()
                     self:Show(editBox)
