@@ -532,8 +532,27 @@ function EditBox:ShowMultilineHint()
 
     self._multilineHintShown = true
     self:CreateMultilineHint()
+    self.MultilineHint._fs:SetText(MULTILINE_HINT_TEXT)
+    self:_PresentHint(self.MultilineHint)
+end
 
-    local hint = self.MultilineHint
+--- One-shot session hint shown when the user loses a draft to ESC while
+--- 'Recover text after ESC' is off -- the exact moment the setting matters.
+function EditBox:ShowRecoverHint()
+    if self._recoverHintShown then return end
+    if not self.Overlay or not self.Overlay:IsShown() then return end
+    local multiline = YapperTable.Multiline
+    if multiline and multiline.Frame and multiline.Frame:IsShown() then return end
+    self._recoverHintShown = true
+    self:CreateMultilineHint()
+    self.MultilineHint._fs:SetText("Tip: 'Recover text after ESC' in General settings would have kept that draft.")
+    self:_PresentHint(self.MultilineHint)
+end
+
+--- Shared presenter for session hints: font sync, sizing, placement beside
+--- the overlay, fade-in, timed fade-out. Mutates the frame's _fs text before
+--- calling so one frame can serve multiple one-shot hints.
+function EditBox:_PresentHint(hint)
     local text = hint._fs
     if self.OverlayEdit and self.OverlayEdit.GetFont and text.SetFont then
         local face, size, flags = self.OverlayEdit:GetFont()

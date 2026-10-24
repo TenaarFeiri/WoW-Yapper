@@ -165,11 +165,11 @@ local DEFAULTS = {
         -- true: whisper targets stick on non-whisper tabs like other channels.
         -- false: a whisper from a non-whisper tab is one-shot and the tab
         -- reverts. Dedicated whisper tabs always restore their target anyway.
-        StickyWhisper         = false,
+        StickyWhisper         = true,
 
         -- true: ESC stores text as a recoverable draft; false: ESC only adds
         -- to text history.
-        RecoverOnEscape       = false,
+        RecoverOnEscape       = true,
 
         -- Storyteller manual dimensions
         StorytellerWidth      = 400,

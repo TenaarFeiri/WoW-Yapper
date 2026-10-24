@@ -711,7 +711,7 @@ function Interface:CreateWhatsNewFrame()
 
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -PAD - 32)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD - 26, PAD + 100)
+    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD - 26, PAD + 132)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetSize(scrollFrame:GetWidth(), 1)
@@ -730,12 +730,38 @@ function Interface:CreateWhatsNewFrame()
     local acEnabled    = Interface:GetConfigPath({ "EditBox", "AutocompleteEnabled" })
     local yasEnabled = Interface:GetConfigPath({ "Spellcheck", "YASEnabled" })
 
-    local toggleCursor = -FRAME_H + 120
+    -- Dedicated toggle panel: a bordered sub-frame with its own scroll
+    -- area so any number of new toggleables fit without layout work.
+    local TOG_W = 310
+    local togPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    togPanel:SetSize(TOG_W, 118)
+    togPanel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD, PAD)
+    togPanel:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 12,
+        insets   = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    togPanel:SetBackdropColor(0.12, 0.12, 0.12, 0.95)
+    togPanel:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
 
-    -- Live Font Size Slider (Upscaled)
+    local togLabel = togPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    togLabel:SetPoint("TOPLEFT", togPanel, "TOPLEFT", 10, -7)
+    togLabel:SetText("New Features — Try Them Out")
+    togLabel:SetTextColor(1, 0.82, 0, 1)
+
+    local togScroll = CreateFrame("ScrollFrame", "YapperWhatsNewToggleScroll", togPanel, "UIPanelScrollFrameTemplate")
+    togScroll:SetPoint("TOPLEFT", togPanel, "TOPLEFT", 4, -24)
+    togScroll:SetPoint("BOTTOMRIGHT", togPanel, "BOTTOMRIGHT", -22, 4)
+    local togContent = CreateFrame("Frame", nil, togScroll)
+    togContent:SetSize(TOG_W - 34, 1)
+    togScroll:SetScrollChild(togContent)
+
+    -- Live Font Size Slider (Upscaled) -- relocated to the right column,
+    -- above the "Got it" button, to free the bottom strip for toggles.
     local sizeSlider   = CreateFrame("Slider", "YapperWhatsNewSizeSlider", frame, "OptionsSliderTemplate")
-    sizeSlider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD + 10, PAD + 10)
-    sizeSlider:SetWidth(280)
+    sizeSlider:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD - 10, PAD + 48)
+    sizeSlider:SetWidth(190)
     sizeSlider:SetHeight(24)
     sizeSlider:SetMinMaxValues(8, 32)
     sizeSlider:SetValueStep(1)
@@ -764,19 +790,18 @@ function Interface:CreateWhatsNewFrame()
 
     local corrEnabled = Interface:GetConfigPath({ "Spellcheck", "AutocorrectEnabled" })
 
-    if spellEnabled ~= true or acEnabled ~= true or yasEnabled ~= true or corrEnabled ~= true then
-        local togLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        togLabel:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", PAD + 4, 120)
-        togLabel:SetText("New Features — Try Them Out")
-        togLabel:SetTextColor(1, 0.82, 0, 1)
-        toggleCursor = toggleCursor - 24
+    -- Feature toggles: this-release additions are always offered so users
+    -- can turn them off here; legacy opt-ins only appear while still disabled.
+    -- All toggles stack single-column inside the panel's scroll child.
+    do
+        local togY = -2
+        local function tog(path, label, tip, opts)
+            local cb, fs, nextY = CreatePopupToggle(togContent, path, label, tip, togY, opts)
+            togY = nextY
+            return cb, fs
+        end
 
-        -- Two columns: dependencies (spellcheck, adaptive) on the left,
-        -- dependent features (autocomplete, autocorrect) on the right.
-        local COL2_X = 280
         local acT, acL, yasT, yasL, spellT, corrT, corrL
-        local leftY = toggleCursor
-        local rightY = toggleCursor
 
         local function setEnabled(cb, label, on)
             if not cb then return end
@@ -793,9 +818,9 @@ function Interface:CreateWhatsNewFrame()
         end
 
         if spellEnabled ~= true then
-            spellT = CreatePopupToggle(frame, { "Spellcheck", "Enabled" }, "Enable spellcheck",
+            spellT = tog({ "Spellcheck", "Enabled" }, "Enable spellcheck",
                 "Turns on real-time spellchecking. You will be asked which "
-                .. "dictionary language to load.", leftY,
+                .. "dictionary language to load.",
                 { onSet = function(cb, checked)
                     if checked then
                         cb:SetChecked(false)
@@ -809,28 +834,34 @@ function Interface:CreateWhatsNewFrame()
                         Interface:SetLocalPath({ "Spellcheck", "Enabled" }, false)
                     end
                 end })
-            leftY = leftY - 30
         end
         if yasEnabled ~= true then
-            yasT, yasL = CreatePopupToggle(frame, { "Spellcheck", "YASEnabled" }, "Enable adaptive learning",
-                "Tracks your vocabulary to improve suggestion accuracy. Requires spellcheck.", leftY)
-            leftY = leftY - 30
+            yasT, yasL = tog({ "Spellcheck", "YASEnabled" }, "Enable adaptive learning",
+                "Tracks your vocabulary to improve suggestion accuracy. Requires spellcheck.")
         end
         if acEnabled ~= true then
-            acT, acL = CreatePopupToggle(frame, { "EditBox", "AutocompleteEnabled" },
-                "Enable autocomplete", "Shows ghost-text predictions as you type. Requires spellcheck.",
-                rightY, { x = COL2_X })
-            rightY = rightY - 30
+            acT, acL = tog({ "EditBox", "AutocompleteEnabled" },
+                "Enable autocomplete", "Shows ghost-text predictions as you type. Requires spellcheck.")
         end
         if corrEnabled ~= true then
-            corrT, corrL = CreatePopupToggle(frame, { "Spellcheck", "AutocorrectEnabled" },
+            corrT, corrL = tog({ "Spellcheck", "AutocorrectEnabled" },
                 "Enable autocorrect",
                 "Fixes typos as you finish a word, only when adaptive learning "
                 .. "is highly confident. Undo with Backspace, Ctrl+Z, or the "
-                .. "toast. Requires spellcheck and adaptive learning.",
-                rightY, { x = COL2_X })
-            rightY = rightY - 30
+                .. "toast. Requires spellcheck and adaptive learning.")
         end
+        -- Auto-surfaced this-release toggles: boolean settings whose SINCE
+        -- version matches the popup's version. Always offered regardless of
+        -- current state so the new feature can be switched off right here.
+        local curVer = NormaliseVersion(GetAddonVersion())
+        for _, item in ipairs(self:GetRenderSchema()) do
+            if item.kind == "boolean"
+                and (Interface._SINCE or {})[item.full] == curVer then
+                tog(item.path, self:GetFriendlyLabel(item), self:GetTooltip(item.full))
+            end
+        end
+
+        togContent:SetHeight(-togY + 8)
 
         if spellT then spellT.OnToggle = update end
         if yasT then yasT.OnToggle = update end
@@ -970,6 +1001,65 @@ function Interface:CreateMainWindow()
     if frame.TitleText and frame.TitleText.SetText then
         frame.TitleText:SetText("Yapper Settings")
     end
+
+    -- Header search box: filters all categories into a live results page.
+    local search = CreateFrame("EditBox", "YapperSearchBox", frame, "BackdropTemplate")
+    -- Header row is the "saved automatically" strip inside the scroll area;
+    -- park the search box on its right side, pinned like a sticky header.
+    search:SetSize(160, 18)
+    search:SetPoint("TOPRIGHT", frame, "TOPRIGHT",
+        -(LAYOUT.WINDOW_PADDING + LAYOUT.SCROLLBAR_WIDTH + LAYOUT.SCROLLBAR_GAP + 4), -31)
+    search:SetAutoFocus(false)
+    search:SetFontObject(GameFontHighlightSmall)
+    search:SetTextInsets(5, 5, 0, 0)
+    search:SetBackdrop({
+        bgFile   = "Interface/Buttons/WHITE8X8",
+        edgeFile = "Interface/Buttons/WHITE8X8",
+        edgeSize = 1,
+    })
+    search:SetBackdropColor(0.05, 0.05, 0.05, 0.6)
+    search:SetBackdropBorderColor(1, 1, 1, 0.18)
+    local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ph:SetPoint("LEFT", search, "LEFT", 6, 0)
+    ph:SetText("Search settings...")
+    frame.SearchBox = search
+    search:SetScript("OnTextChanged", function(box)
+        if box._suppress then return end
+        local t = strtrim(box:GetText() or "")
+        ph:SetShown(t == "")
+        if t == "" then
+            Interface._searchQuery = nil
+            if Interface._activeCategory == "search" then
+                Interface._activeCategory = Interface._searchPrevCat or "general"
+                Interface:UpdateSidebarSelection()
+                Interface:BuildConfigUI()
+            end
+            return
+        end
+        Interface._searchQuery = t
+        if Interface._activeCategory ~= "search" then
+            Interface._searchPrevCat = Interface._activeCategory
+            Interface._activeCategory = "search"
+        end
+        Interface:UpdateSidebarSelection()
+        Interface:BuildConfigUI()
+    end)
+    search:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
+    search:SetScript("OnEscapePressed", function(box)
+        box._suppress = true
+        box:SetText("")
+        box._suppress = nil
+        ph:Show()
+        box:ClearFocus()
+        Interface._searchQuery = nil
+        if Interface._activeCategory == "search" then
+            Interface._activeCategory = Interface._searchPrevCat or "general"
+            Interface:UpdateSidebarSelection()
+            Interface:BuildConfigUI()
+        end
+    end)
+    search:SetScript("OnEditFocusGained", function() ph:Hide() end)
+    search:SetScript("OnEditFocusLost", function() ph:SetShown(strtrim(search:GetText() or "") == "") end)
     if frame.CloseButton ~= nil then
         frame.CloseButton:SetScript("OnClick", function(self)
             Interface:CloseFrame(self:GetParent())
@@ -1108,6 +1198,13 @@ function Interface:CreateMainWindow()
 
         btn.categoryId = cat.id
         btn:SetScript("OnClick", function()
+            -- Leaving search mode: clear query and box text suppressed.
+            Interface._searchQuery = nil
+            if frame.SearchBox then
+                frame.SearchBox._suppress = true
+                frame.SearchBox:SetText("")
+                frame.SearchBox._suppress = nil
+            end
             Interface._activeCategory = cat.id
             Interface:UpdateSidebarSelection()
             Interface:BuildConfigUI()

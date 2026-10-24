@@ -559,10 +559,11 @@ Used by `EditBox:Show` to create and refresh frame contents.
 - Fields:
   - `_RefreshOverlayVisuals`, `_ApplyShadowTint`, `_ResolveChannelName`, `_BuildLabelText`, `_GetLabelUsableWidth`, `_ResetLabelToBaseFont`, `_TruncateLabelToWidth`, `_FitLabelFontToWidth`, `_UpdateLabelBackgroundForText` *private by convention; do not rely on* ([`../Src/EditBox/Overlay.lua#L801-L809`](../Src/EditBox/Overlay.lua#L801-L809)).
 - Methods:
+  - [NEW] `EditBox:ShowRecoverHint() → nil`: One-shot session hint shown when the user loses a draft to ESC while ([`../Src/EditBox/Overlay.lua#L541`](../Src/EditBox/Overlay.lua#L541))
   - `EditBox:ShowMultilineHint() → nil`: Show the onboarding hint once during the current session and let it fade ([`../Src/EditBox/Overlay.lua#L526`](../Src/EditBox/Overlay.lua#L526))
   - `EditBox:CreateMultilineHint() → nil`: Create the non-interactive hint frame lazily, using UIParent as its parent ([`../Src/EditBox/Overlay.lua#L493`](../Src/EditBox/Overlay.lua#L493))
   - `EditBox:HideMultilineHint() → nil`: Cancel and hide the session-only multiline onboarding hint. ([`../Src/EditBox/Overlay.lua#L477`](../Src/EditBox/Overlay.lua#L477))
-  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L649`](../Src/EditBox/Overlay.lua#L649)).
+  - `EditBox:CreateOverlay() → nil` ([`../Src/EditBox/Overlay.lua#L668`](../Src/EditBox/Overlay.lua#L668)).
 
 ## EditBox.Handlers
 
@@ -571,7 +572,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
   - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L44`](../Src/EditBox/Handlers.lua#L44)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1149`](../Src/EditBox/Handlers.lua#L1149)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1153`](../Src/EditBox/Handlers.lua#L1153)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -982,19 +983,20 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `DICTIONARY_DOWNLOAD_URL` [`../Src/Interface.lua#L12`](../Src/Interface.lua#L12)
   - Helpers/constants exported as underscored fields (`_LAYOUT`, `_LayoutCursor`, `_UI_FONT_*`) *private by convention; do not rely on* ([`../Src/Interface.lua#L120-L124`](../Src/Interface.lua#L120-L124)).
 - Methods:
+  - [NEW] `Interface:RenderSearchResults() → nil`: Render live widgets for schema items matching the current query, across ([`../Src/Interface.lua#L478`](../Src/Interface.lua#L478))
   - `LayoutCursor:Pad() → nil`: No description provided. ([`../Src/Interface.lua#L103`](../Src/Interface.lua#L103))
   - `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L98`](../Src/Interface.lua#L98))
   - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L94`](../Src/Interface.lua#L94))
   - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L90`](../Src/Interface.lua#L90))
   - `InitPopups` [`../Src/Interface.lua#L302`](../Src/Interface.lua#L302)
-  - `BuildConfigUI` [`../Src/Interface.lua#L447`](../Src/Interface.lua#L447)
-  - `ShowMainWindow` [`../Src/Interface.lua#L769`](../Src/Interface.lua#L769)
-  - `OpenToCategory` [`../Src/Interface.lua#L794`](../Src/Interface.lua#L794)
-  - `ToggleMainWindow` [`../Src/Interface.lua#L818`](../Src/Interface.lua#L818)
-  - `HandleLauncherClick` [`../Src/Interface.lua#L850`](../Src/Interface.lua#L850)
-  - `CloseFrame` [`../Src/Interface.lua#L885`](../Src/Interface.lua#L885)
-  - `Init` [`../Src/Interface.lua#L896`](../Src/Interface.lua#L896)
-  - `CreateLauncher` [`../Src/Interface.lua#L930`](../Src/Interface.lua#L930)
+  - `BuildConfigUI` [`../Src/Interface.lua#L521`](../Src/Interface.lua#L521)
+  - `ShowMainWindow` [`../Src/Interface.lua#L849`](../Src/Interface.lua#L849)
+  - `OpenToCategory` [`../Src/Interface.lua#L874`](../Src/Interface.lua#L874)
+  - `ToggleMainWindow` [`../Src/Interface.lua#L898`](../Src/Interface.lua#L898)
+  - `HandleLauncherClick` [`../Src/Interface.lua#L930`](../Src/Interface.lua#L930)
+  - `CloseFrame` [`../Src/Interface.lua#L965`](../Src/Interface.lua#L965)
+  - `Init` [`../Src/Interface.lua#L976`](../Src/Interface.lua#L976)
+  - `CreateLauncher` [`../Src/Interface.lua#L1010`](../Src/Interface.lua#L1010)
 - Global function:
   - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L845`](../Src/Interface.lua#L845)).
 
@@ -1006,10 +1008,10 @@ Build-time render schema module used by window/UI builders.
 - Fields:
   - `_COLOUR_KEYS`, `_CHANNEL_OVERRIDE_OPTIONS`, `_CREDITS_BUNDLED`, `_CREDITS_OPTIONAL`, `_FONT_OUTLINE_OPTIONS`, `_SETTING_TOOLTIPS`, `_FRIENDLY_LABELS`, `_CATEGORIES`, `_PATH_TO_CATEGORY` *private by convention; do not rely on* ([`../Src/Interface/Schema.lua#L519-L527`](../Src/Interface/Schema.lua#L512)).
 - Methods:
-  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L373`](../Src/Interface/Schema.lua#L373)
-  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L515`](../Src/Interface/Schema.lua#L515)
-  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L523`](../Src/Interface/Schema.lua#L523)
-  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L529`](../Src/Interface/Schema.lua#L529)
+  - `BuildRenderSchema` [`../Src/Interface/Schema.lua#L419`](../Src/Interface/Schema.lua#L419)
+  - `GetRenderSchema` [`../Src/Interface/Schema.lua#L561`](../Src/Interface/Schema.lua#L561)
+  - `RefreshRenderSchema` [`../Src/Interface/Schema.lua#L569`](../Src/Interface/Schema.lua#L569)
+  - `OnWindowClosed` [`../Src/Interface/Schema.lua#L575`](../Src/Interface/Schema.lua#L575)
 
 ## Interface.Config
 
@@ -1070,14 +1072,14 @@ Builds and controls top-level frames.
   - `CreateWelcomeChoiceFrame` [`../Src/Interface/Window.lua#L471`](../Src/Interface/Window.lua#L471)
   - `CreateWhatsNewFrame` [`../Src/Interface/Window.lua#L678`](../Src/Interface/Window.lua#L678)
   - `ShowSpellcheckLocalePrompt(parent, onDone)` [`../Src/Interface/Window.lua#L385`](../Src/Interface/Window.lua#L385) — language chooser shown when spellcheck is enabled from a popup; writes `Spellcheck.Locale` before `Spellcheck.Enabled` so `ApplyState` loads exactly the picked dictionary
-  - `CreateMainWindow` [`../Src/Interface/Window.lua#L934`](../Src/Interface/Window.lua#L934)
-  - `UpdateSidebarSelection` [`../Src/Interface/Window.lua#L1136`](../Src/Interface/Window.lua#L1136)
-  - `GetUIFontOffset` [`../Src/Interface/Window.lua#L1155`](../Src/Interface/Window.lua#L1155)
-  - `SetUIFontOffset` [`../Src/Interface/Window.lua#L1161`](../Src/Interface/Window.lua#L1161)
-  - `ScaledRow` [`../Src/Interface/Window.lua#L1169`](../Src/Interface/Window.lua#L1169)
-  - `ApplyUIFontScaleToFontString` [`../Src/Interface/Window.lua#L1174`](../Src/Interface/Window.lua#L1174)
-  - `ApplyUIFontScale` [`../Src/Interface/Window.lua#L1189`](../Src/Interface/Window.lua#L1189)
-  - `RefreshFontScaleLabel` [`../Src/Interface/Window.lua#L1208`](../Src/Interface/Window.lua#L1208)
+  - `CreateMainWindow` [`../Src/Interface/Window.lua#L942`](../Src/Interface/Window.lua#L942)
+  - `UpdateSidebarSelection` [`../Src/Interface/Window.lua#L1210`](../Src/Interface/Window.lua#L1210)
+  - `GetUIFontOffset` [`../Src/Interface/Window.lua#L1229`](../Src/Interface/Window.lua#L1229)
+  - `SetUIFontOffset` [`../Src/Interface/Window.lua#L1235`](../Src/Interface/Window.lua#L1235)
+  - `ScaledRow` [`../Src/Interface/Window.lua#L1243`](../Src/Interface/Window.lua#L1243)
+  - `ApplyUIFontScaleToFontString` [`../Src/Interface/Window.lua#L1248`](../Src/Interface/Window.lua#L1248)
+  - `ApplyUIFontScale` [`../Src/Interface/Window.lua#L1263`](../Src/Interface/Window.lua#L1263)
+  - `RefreshFontScaleLabel` [`../Src/Interface/Window.lua#L1282`](../Src/Interface/Window.lua#L1282)
 
 ## Interface.Widgets
 
