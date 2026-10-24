@@ -210,6 +210,14 @@ local SEARCH_KEYWORDS               = {
     ["System.ActiveTheme"] = "theme appearance skin",
 }
 
+-- Version a setting was introduced in. The What's New popup auto-surfaces
+-- boolean settings whose SINCE matches the current addon version, so new
+-- toggleable features get a try-it toggle without hand-wiring. One line per
+-- new setting going forward; internal/non-rendered keys need no entry.
+local SINCE                         = {
+    ["EditBox.ShowSplitPreview"] = "2.4.10",
+}
+
 -- UI-only aliases to not scare the normies.
 local FRIENDLY_LABELS               = {
     ["SECTION.Chat"] = "Message Sending",
@@ -591,6 +599,7 @@ Interface._CREDITS_OPTIONAL           = CREDITS_DICTIONARIES_OPTIONAL
 Interface._FONT_OUTLINE_OPTIONS       = FONT_OUTLINE_OPTIONS
 Interface._SETTING_TOOLTIPS           = SETTING_TOOLTIPS
 Interface._SEARCH_KEYWORDS            = SEARCH_KEYWORDS
+Interface._SINCE                      = SINCE
 Interface._FRIENDLY_LABELS            = FRIENDLY_LABELS
 Interface._CATEGORIES                 = CATEGORIES
 Interface._PATH_TO_CATEGORY           = PATH_TO_CATEGORY
