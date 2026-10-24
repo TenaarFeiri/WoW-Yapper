@@ -164,6 +164,52 @@ local SETTING_TOOLTIPS              = {
     ["TOOLTIP.PUSH_TO_GLOBAL"] = "Copies all of this character's overrides into the Global profile. Use this to quickly set up your global layout based on this character.",
 }
 
+-- Extra search terms per setting. The search renderer matches friendly
+-- label, tooltip, path and category automatically; these add synonyms and
+-- short forms that natural queries use (e.g. "bg", "colour", "sticky").
+local SEARCH_KEYWORDS               = {
+    ["EditBox.InputBg"] = "background bg backdrop fill colour color",
+    ["EditBox.LabelBg"] = "background bg label colour color",
+    ["EditBox.ShadowColor"] = "background bg shadow drop colour color",
+    ["EditBox.BorderColor"] = "border background bg outline colour color",
+    ["EditBox.TextColor"] = "text font colour color",
+    ["EditBox.FontSize"] = "font text size scale big small",
+    ["EditBox.FontFlags"] = "font text outline thick style",
+    ["EditBox.FontFace"] = "font text typeface file ttf",
+    ["EditBox.RoundedCorners"] = "appearance theme corners rounded",
+    ["EditBox.Shadow"] = "shadow drop effect glow",
+    ["EditBox.ShadowSize"] = "shadow drop effect glow size",
+    ["EditBox.ShadowChannelColor"] = "shadow channel colour color",
+    ["EditBox.MultilineShadowChannelColor"] = "shadow channel colour color storyteller",
+    ["EditBox.StickyChannel"] = "sticky remember channel persistent",
+    ["EditBox.StickyGroupChannel"] = "sticky remember group party raid persistent",
+    ["EditBox.StickyWhisper"] = "sticky remember whisper tell target persistent",
+    ["EditBox.RecoverOnEscape"] = "esc escape draft recover keep history",
+    ["EditBox.AutocompleteEnabled"] = "autocomplete ghost text complete suggest predict",
+    ["EditBox.MinHeight"] = "height size minimum tall editbox",
+    ["EditBox.EmoteAutoSend"] = "emote slash picker auto send",
+    ["EditBox.UseBlizzardSkinProxy"] = "skin proxy blizzard theme appearance addon",
+    ["EditBox.HideBlizzardEditbox"] = "hide blizzard default editbox",
+    ["EditBox.ShowSplitPreview"] = "preview split posts chunks storyteller pane",
+    ["Chat.USE_DELINEATORS"] = "split marker delineator prefix suffix continuation",
+    ["Chat.DELINEATOR"] = "split marker delineator prefix suffix continuation arrow",
+    ["Chat.MAX_HISTORY_LINES"] = "history saved messages lines remember",
+    ["FrameSettings.EnableMinimapButton"] = "minimap button icon launcher",
+    ["FrameSettings.MinimapButtonOffset"] = "minimap button icon position",
+    ["FrameSettings.WhatsNewFontSize"] = "changelog whatsnew font size",
+    ["Spellcheck.Enabled"] = "spellcheck spelling misspelling words dictionary",
+    ["Spellcheck.Locale"] = "spellcheck language dictionary locale",
+    ["Spellcheck.KeyboardLayout"] = "keyboard layout qwerty azerty",
+    ["Spellcheck.MisspellingColour"] = "misspelling spelling highlight colour color",
+    ["Spellcheck.AutocorrectEnabled"] = "autocorrect fix typos automatic correct",
+    ["Spellcheck.AutocorrectToast"] = "autocorrect toast undo notification",
+    ["Spellcheck.LearnToastEnabled"] = "learn toast notification word",
+    ["Spellcheck.YASEnabled"] = "learn adaptive vocabulary suggestions learning",
+    ["System.UseGlobalProfile"] = "global profile account share settings",
+    ["System.StorytellerSlideSpeed"] = "animation storyteller multiline speed",
+    ["System.ActiveTheme"] = "theme appearance skin",
+}
+
 -- UI-only aliases to not scare the normies.
 local FRIENDLY_LABELS               = {
     ["SECTION.Chat"] = "Message Sending",
@@ -544,6 +590,7 @@ Interface._CREDITS_BUNDLED            = CREDITS_DICTIONARIES_BUNDLED
 Interface._CREDITS_OPTIONAL           = CREDITS_DICTIONARIES_OPTIONAL
 Interface._FONT_OUTLINE_OPTIONS       = FONT_OUTLINE_OPTIONS
 Interface._SETTING_TOOLTIPS           = SETTING_TOOLTIPS
+Interface._SEARCH_KEYWORDS            = SEARCH_KEYWORDS
 Interface._FRIENDLY_LABELS            = FRIENDLY_LABELS
 Interface._CATEGORIES                 = CATEGORIES
 Interface._PATH_TO_CATEGORY           = PATH_TO_CATEGORY

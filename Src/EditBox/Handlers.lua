@@ -597,6 +597,10 @@ function EditBox:SetupOverlayScripts()
                     YapperTable.History:MarkDirty(false)
                 end
                 self._closedClean = true
+                -- One-shot hint at the moment the draft was discarded.
+                if type(self.ShowRecoverHint) == "function" then
+                    self:ShowRecoverHint()
+                end
             end
         end
         box:SetText("")

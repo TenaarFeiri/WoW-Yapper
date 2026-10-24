@@ -444,6 +444,80 @@ end
 -- (CATEGORIES and FRIENDLY_LABELS are loaded by Schema.lua after this file
 --  but used at runtime, so read from the module table.)
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Settings search
+-- ---------------------------------------------------------------------------
+-- _searchQuery is set by the header search box; while it is non-empty the
+-- pseudo-category "search" renders live widgets for matching schema items.
+-- Returns a decorated label when the schema item matches, else nil.
+local function SearchCatLabel(catId)
+    for _, c in ipairs(Interface._CATEGORIES or {}) do
+        if c.id == catId then return c.label or catId end
+    end
+    return catId
+end
+
+function Interface:_SearchMatchLabel(item, query)
+    if type(query) ~= "string" or query == "" then return nil end
+    local friendly = self:GetFriendlyLabel(item)
+    local tip      = self:GetTooltip(item.full) or ""
+    local kw       = (Interface._SEARCH_KEYWORDS or {})[item.full] or ""
+    local catId    = (Interface._PATH_TO_CATEGORY or {})[item.full]
+    local catLabel = catId and SearchCatLabel(catId) or ""
+    local hay      = (" " .. friendly .. " " .. tip .. " " .. item.full
+        .. " " .. kw .. " " .. catLabel .. " "):lower()
+    for token in query:lower():gmatch("%S+") do
+        if not hay:find(token, 1, true) then return nil end
+    end
+    return friendly .. "  |cFF888888(" .. catLabel .. ")|r"
+end
+
+--- Render live widgets for schema items matching the current query, across
+--- all categories. Reuses the standard widget constructors so results behave
+--- identically to the owning page (SetLocalPath, pooling, defaults guard).
+function Interface:RenderSearchResults(frame)
+    local query = self._searchQuery
+    local cursor = LayoutCursor.New(LAYOUT.CONTENT_START_Y - self:GetUIFontOffset())
+    local rendered = 0
+    for _, item in ipairs(self:GetRenderSchema()) do
+        if item.kind ~= "section" then
+            local label = self:_SearchMatchLabel(item, query)
+            if label then
+                -- Same DEFAULTS-existence guard as the normal render path.
+                local dc = self:GetDefaultsRoot()
+                for i = 1, #item.path do
+                    if type(dc) ~= "table" then dc = nil break end
+                    dc = dc[item.path[i]]
+                end
+                if dc ~= nil then
+                    rendered = rendered + 1
+                    if item.kind == "boolean" then
+                        self:CreateCheckBox(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "text" then
+                        self:CreateTextInput(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "color" then
+                        self:CreateColorPickerControl(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "fontsize" then
+                        self:CreateFontSizeDropdown(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "fontflags" then
+                        self:CreateFontOutlineDropdown(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "spellcheck_locale" then
+                        self:CreateSpellcheckLocaleDropdown(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "spellcheck_keyboard_layout" then
+                        self:CreateSpellcheckKeyboardLayoutDropdown(frame.ContentFrame, label, item.path, cursor)
+                    elseif item.kind == "theme" then
+                        self:CreateThemeDropdown(frame.ContentFrame, "Active Theme", item.path, cursor)
+                    end
+                end
+            end
+        end
+    end
+    if rendered == 0 then
+        self:CreateLabel(frame.ContentFrame, "No settings match your search.",
+            LAYOUT.WINDOW_PADDING, cursor:Y(), 500)
+    end
+end
+
 function Interface:BuildConfigUI()
     local ALL_CATEGORIES = Interface._ALL_CATEGORIES or Interface._CATEGORIES
     local FRIENDLY_LABELS = Interface._FRIENDLY_LABELS
@@ -465,6 +539,12 @@ function Interface:BuildConfigUI()
         if frame.ScrollFrame.ScrollBar then
             frame.ScrollFrame.ScrollBar:SetValue(0)
         end
+    end
+
+    -- Search mode replaces the whole page with matching widgets.
+    if self._activeCategory == "search" then
+        self:RenderSearchResults(frame)
+        return
     end
 
     local catId     = self._activeCategory or "general"

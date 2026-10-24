@@ -970,6 +970,65 @@ function Interface:CreateMainWindow()
     if frame.TitleText and frame.TitleText.SetText then
         frame.TitleText:SetText("Yapper Settings")
     end
+
+    -- Header search box: filters all categories into a live results page.
+    local search = CreateFrame("EditBox", "YapperSearchBox", frame, "BackdropTemplate")
+    -- Header row is the "saved automatically" strip inside the scroll area;
+    -- park the search box on its right side, pinned like a sticky header.
+    search:SetSize(160, 18)
+    search:SetPoint("TOPRIGHT", frame, "TOPRIGHT",
+        -(LAYOUT.WINDOW_PADDING + LAYOUT.SCROLLBAR_WIDTH + LAYOUT.SCROLLBAR_GAP + 4), -31)
+    search:SetAutoFocus(false)
+    search:SetFontObject(GameFontHighlightSmall)
+    search:SetTextInsets(5, 5, 0, 0)
+    search:SetBackdrop({
+        bgFile   = "Interface/Buttons/WHITE8X8",
+        edgeFile = "Interface/Buttons/WHITE8X8",
+        edgeSize = 1,
+    })
+    search:SetBackdropColor(0.05, 0.05, 0.05, 0.6)
+    search:SetBackdropBorderColor(1, 1, 1, 0.18)
+    local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ph:SetPoint("LEFT", search, "LEFT", 6, 0)
+    ph:SetText("Search settings...")
+    frame.SearchBox = search
+    search:SetScript("OnTextChanged", function(box)
+        if box._suppress then return end
+        local t = strtrim(box:GetText() or "")
+        ph:SetShown(t == "")
+        if t == "" then
+            Interface._searchQuery = nil
+            if Interface._activeCategory == "search" then
+                Interface._activeCategory = Interface._searchPrevCat or "general"
+                Interface:UpdateSidebarSelection()
+                Interface:BuildConfigUI()
+            end
+            return
+        end
+        Interface._searchQuery = t
+        if Interface._activeCategory ~= "search" then
+            Interface._searchPrevCat = Interface._activeCategory
+            Interface._activeCategory = "search"
+        end
+        Interface:UpdateSidebarSelection()
+        Interface:BuildConfigUI()
+    end)
+    search:SetScript("OnEnterPressed", function(box) box:ClearFocus() end)
+    search:SetScript("OnEscapePressed", function(box)
+        box._suppress = true
+        box:SetText("")
+        box._suppress = nil
+        ph:Show()
+        box:ClearFocus()
+        Interface._searchQuery = nil
+        if Interface._activeCategory == "search" then
+            Interface._activeCategory = Interface._searchPrevCat or "general"
+            Interface:UpdateSidebarSelection()
+            Interface:BuildConfigUI()
+        end
+    end)
+    search:SetScript("OnEditFocusGained", function() ph:Hide() end)
+    search:SetScript("OnEditFocusLost", function() ph:SetShown(strtrim(search:GetText() or "") == "") end)
     if frame.CloseButton ~= nil then
         frame.CloseButton:SetScript("OnClick", function(self)
             Interface:CloseFrame(self:GetParent())
@@ -1108,6 +1167,13 @@ function Interface:CreateMainWindow()
 
         btn.categoryId = cat.id
         btn:SetScript("OnClick", function()
+            -- Leaving search mode: clear query and box text suppressed.
+            Interface._searchQuery = nil
+            if frame.SearchBox then
+                frame.SearchBox._suppress = true
+                frame.SearchBox:SetText("")
+                frame.SearchBox._suppress = nil
+            end
             Interface._activeCategory = cat.id
             Interface:UpdateSidebarSelection()
             Interface:BuildConfigUI()
