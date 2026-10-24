@@ -1,3 +1,12 @@
+# 2.4.10
+
+### New Features
+- Search feature in settings.
+- Preview pane in multiline mode lets you see how your posts are broken up.
+
+### Bug Fixes
+- Reverted to an old, stable build of Yapper and re-implemented a new fix to raid secrets and watchdown recursions.
+
 # 2.4.9_1
 
 ### Bug Fixes
