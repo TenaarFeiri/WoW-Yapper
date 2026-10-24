@@ -115,6 +115,10 @@ HelpContent.Items = {
     body(key("Escape"), " — return to the single-line box with your draft. ",
         key("Tab"), " accepts autocomplete, and ", key("Shift+Tab"),
         " opens spellcheck suggestions when a word is eligible."),
+    body("The counter in the top-right shows how many posts your text will split "
+        .. "into and the size of the fullest post. The pane beside the editor previews "
+        .. "each post exactly as it will be sent; use the small arrow in the top-right "
+        .. "to collapse it, or turn it off under General settings."),
 
     separator(),
 

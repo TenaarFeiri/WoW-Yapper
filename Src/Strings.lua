@@ -73,6 +73,15 @@ Strings._enUS = {
 
     -- Icon gallery (IconGallery.lua): cell labels are numeric and the
     -- {star}/{rt1} codes are protocol tokens — intentionally untranslated.
+
+    -- Split preview (Multiline.lua): counter in the storyteller label row
+    -- and the read-only chunk pane beside it.
+    ["ui.multiline.posts"]        = "%d posts",
+    ["ui.multiline.post"]         = "%d post",
+    ["ui.multiline.chunkBytes"]   = "%d/%d",
+    ["ui.multiline.totalChars"]   = "Total: %d characters",
+    ["ui.multiline.previewHide"]  = "Hide split preview",
+    ["ui.multiline.previewShow"]  = "Show split preview",
 }
 
 -- ---------------------------------------------------------------------------

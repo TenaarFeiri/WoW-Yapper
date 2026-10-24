@@ -254,6 +254,40 @@ check("lands below the whole chat cluster", y + 60 <= UIH - 326)
 DEFAULT_CHAT_FRAME.editBox = nil
 _G.DEFAULT_CHAT_FRAME = nil
 
+-- Split-preview pane beside the multiline editor: the toast must never land
+-- on it, and should prefer hugging directly above/below the pane over
+-- jumping to a far corner. Multiline editor occupies the left half; the
+-- pane sits immediately to its right.
+print("\nTest 4b: placement solver avoids the split-preview pane")
+
+YapperTable.Multiline = { Frame = MockFrame(), PreviewFrame = MockFrame() }
+YapperTable.Multiline.Frame._shown = true
+YapperTable.Multiline.Frame._l, YapperTable.Multiline.Frame._r = 100, 500
+YapperTable.Multiline.Frame._b, YapperTable.Multiline.Frame._t = 300, 550
+YapperTable.Multiline.PreviewFrame._shown = true
+YapperTable.Multiline.PreviewFrame._l, YapperTable.Multiline.PreviewFrame._r = 504, 764
+YapperTable.Multiline.PreviewFrame._b, YapperTable.Multiline.PreviewFrame._t = 300, 550
+
+local function Overlaps(x, y, w, h, r)
+    return not (x + w <= r._l or x >= r._r or y + h <= r._b or y >= r._t)
+end
+
+x, y = Toast:_PickPosition(200, 60)
+check("pane: toast not on editor", not Overlaps(x, y, 200, 60, YapperTable.Multiline.Frame))
+check("pane: toast not on preview pane", not Overlaps(x, y, 200, 60, YapperTable.Multiline.PreviewFrame))
+check("pane: toast hugs above/below pane or beside editor",
+    (x == 504 and (y == 556 or y == 234))           -- above / below the pane
+    or (x + 200 == 94)                              -- left of the editor
+    or (y == 556 or y == 234))                      -- above / below the editor
+
+-- Pane hidden (collapsed/disabled): placement ignores it entirely and the
+-- beside-editor slot to the right is usable again.
+YapperTable.Multiline.PreviewFrame._shown = false
+x, y = Toast:_PickPosition(200, 60)
+check("pane hidden: toast may sit where the pane was",
+    Overlaps(x, y, 200, 60, YapperTable.Multiline.PreviewFrame))
+YapperTable.Multiline = nil
+
 -- ===========================================================================
 -- Test 5: learned-word card wiring
 -- ===========================================================================
