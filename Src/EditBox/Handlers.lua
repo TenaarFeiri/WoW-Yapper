@@ -3,7 +3,7 @@
     All overlay script handlers (OnTextChanged, OnEnterPressed,
     OnEscapePressed, OnKeyDown, OnHide), event registration, lockdown
     detection, and idle timer management. Focus transitions are tracked
-    via EditBox:RegisterFocusWatcher polling (see EditBoxCompat.lua) --
+    via EditBox:RegisterFocusHandler signals (see EditBoxCompat.lua) --
     never OnEditFocus* scripts, which would execute inside foreign
     hardware-event stacks and taint them.
 ]]
@@ -703,12 +703,18 @@ function EditBox:SetupOverlayScripts()
     end)
 
     edit:SetScript("OnMouseDown", function(_, button)
+        -- Clicking into the box is a gain-intent signal: C-internal focus
+        -- grants don't call the Lua SetFocus method we can post-hook.
+        self:_NotifyFocus(edit, true)
         if button == "MiddleButton" then
             edit:SetFocus()
         end
     end)
 
     frame:SetScript("OnHide", function()
+        -- Hidden box cannot hold focus: deliver the lost edge.
+        self:_NotifyFocus(edit, false)
+
         self.HistoryIndex = nil
         self.HistoryCache = nil
         self.HistoryDraft = nil
@@ -748,15 +754,14 @@ function EditBox:SetupOverlayScripts()
     -- When focus leaves the overlay editbox (e.g. clicking the game world),
     -- keep the overlay visible but let keypresses propagate through to the
     -- game so the player can move with WASD, use abilities, etc.
-    -- Focus edges are polled, not scripted: OnEditFocusGained/Lost run
-    -- inside whatever stack changed focus -- e.g. InsertLink's
-    -- activeWindow:SetFocus() in a map-pin CHATLINK click -- and addon Lua
-    -- there taints the rest of that stack (12.1 calls the protected
-    -- CopyToClipboard right after, failing ADDON_ACTION_FORBIDDEN on the
-    -- first click only, i.e. the one that moves focus). See
-    -- EditBoxCompat.lua RegisterFocusWatcher.
-    self:RegisterFocusWatcher(edit, function(box)
-        self._overlayUnfocused = false
+    -- Focus edges are signal-driven, not polled and not scripted:
+    -- OnEditFocusGained/Lost would run inside whatever stack changed
+    -- focus -- e.g. InsertLink's activeWindow:SetFocus() in a map-pin
+    -- CHATLINK click -- and addon Lua there taints the rest of that stack
+    -- (12.1 calls the protected CopyToClipboard right after, failing
+    -- ADDON_ACTION_FORBIDDEN on the first click only, i.e. the one that
+    -- moves focus). See EditBoxCompat.lua RegisterFocusHandler.
+    self:RegisterFocusHandler(edit, function(box)
         if YapperTable.Spellcheck then
             YapperTable.Spellcheck:UpdateHint()
         end
@@ -778,7 +783,6 @@ function EditBox:SetupOverlayScripts()
             end
         end
     end, function(box)
-        self._overlayUnfocused = true
         if YapperTable.Spellcheck then
             YapperTable.Spellcheck:UpdateHint()
         end

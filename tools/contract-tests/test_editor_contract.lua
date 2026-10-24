@@ -136,6 +136,17 @@ local YapperTable = {
     Utils = {
         IsChatLockdown = function() return false end,
         NormaliseCharName = function(_, name) return name end,
+        -- Mirrors Utils:SafeWidgetBoolean: nil for absent/unreadable reads.
+        SafeWidgetBoolean = function(_, widget, method)
+            if not widget or type(method) ~= "string" then return nil end
+            local fn = widget[method]
+            if type(fn) ~= "function" then return nil end
+            local ok, raw = pcall(fn, widget)
+            if not ok then return nil end
+            local ok2, result = pcall(function(v) return v and true or false end, raw)
+            if not ok2 then return nil end
+            return result
+        end,
     },
     State = {},
     Recolour = {
@@ -225,28 +236,29 @@ check("closed Yapper releases ACTIVE_CHAT_EDIT_BOX", _G.ACTIVE_CHAT_EDIT_BOX == 
 check("GetActiveWindow query stays untainted (native fn)", ChatFrameUtil.GetActiveWindow == nativeGetActiveWindow)
 check("closed Yapper clears focus override", focusOverride == nil)
 
-print("\nContract 4: focus watchers poll HasFocus edges")
--- RegisterFocusWatcher exists so focus transitions never execute addon
--- Lua inside a foreign stack (map-pin CHATLINK click -> InsertLink ->
--- SetFocus -> OnEditFocusGained): script handlers there taint the rest of
--- the stack and 12.1's protected CopyToClipboard then fails. The harness
--- has no NewTicker, so edges are driven by _PollFocusWatchers directly.
+print("\nContract 4: focus edges are signal-driven, never polled")
+-- RegisterFocusHandler installs hooksecurefunc post-hooks on
+-- SetFocus/ClearFocus so focus transitions fire from the calls that move
+-- focus -- never from OnEditFocus* scripts (foreign-stack taint: a
+-- map-pin CHATLINK click's protected CopyToClipboard fails
+-- ADDON_ACTION_FORBIDDEN) and never from a poll ticker (secret-boolean
+-- HasFocus errors under restrictions, plus callback cascades). The
+-- harness's hooksecurefunc wraps methods, so a SetFocus/ClearFocus call
+-- delivers the edge directly.
 local gained, lost = 0, 0
-EditBox:RegisterFocusWatcher(EditBox.OverlayEdit,
+EditBox:RegisterFocusHandler(EditBox.OverlayEdit,
     function() gained = gained + 1 end,
     function() lost = lost + 1 end)
-check("watcher seeds current focus state",
-    EditBox._focusWatchers[#EditBox._focusWatchers].focused == true)
 EditBox.OverlayEdit:ClearFocus()
-EditBox:_PollFocusWatchers()
-check("focus-loss edge fires once", lost == 1 and gained == 0)
-EditBox:_PollFocusWatchers()
-check("steady state does not refire", lost == 1 and gained == 0)
+check("ClearFocus signal fires lost edge", lost == 1 and gained == 0)
+EditBox.OverlayEdit:ClearFocus()
+check("deduped state does not refire", lost == 1 and gained == 0)
 EditBox.OverlayEdit:SetFocus()
-EditBox:_PollFocusWatchers()
-check("focus-gain edge fires", gained == 1 and lost == 1)
-EditBox:_PollFocusWatchers()
-check("focus-gain fires once only", gained == 1 and lost == 1)
+check("SetFocus signal fires gained edge", gained == 1 and lost == 1)
+check("IsEditorFocused tracks signals",
+    EditBox:IsEditorFocused(EditBox.OverlayEdit) == true)
+EditBox.OverlayEdit:SetFocus()
+check("gained edge dedupes", gained == 1 and lost == 1)
 
 print("\nContract 5: IM-mode bookkeeping cannot hide the input widget")
 -- 2.4.6 regression: ActivateChat(overlay) wrote LAST_ACTIVE_CHAT_EDIT_BOX
@@ -272,6 +284,34 @@ check("widget Hide() is vetoed", EditBox.OverlayEdit:IsShown())
 _G.LAST_ACTIVE_CHAT_EDIT_BOX = EditBox.OverlayEdit
 EditBox:UpdateFocusOverride()
 check("polluted LAST_ACTIVE handed back to native", _G.LAST_ACTIVE_CHAT_EDIT_BOX == _G.DEFAULT_CHAT_FRAME.editBox)
+
+print("\nContract 6: foreign displacement deferred, release is leaf-only")
+-- C stack overflow regression: _SyncActiveChatWindow used to run
+-- DeactivateChat inside whatever stack reached it (OnShow dispatch,
+-- hook post-hooks), and that cascade could re-enter Show/UpdateFocusOverride
+-- without bound. The claim is now a direct global write and the foreign
+-- holder's Deactivate bookkeeping runs on the deferred pass (immediate in
+-- this harness's C_Timer.After).
+local foreign = frame("ForeignBox")
+foreign.deactivated = 0
+function foreign:Deactivate() self.deactivated = self.deactivated + 1 end
+_G.ACTIVE_CHAT_EDIT_BOX = foreign
+EditBox.Overlay:Show()
+EditBox:UpdateFocusOverride()
+check("overlay claims ACTIVE via plain write", _G.ACTIVE_CHAT_EDIT_BOX == EditBox.OverlayEdit)
+check("displaced foreign box deactivated on deferred pass", foreign.deactivated == 1)
+
+-- Releasing our slot must write the global directly: our editors'
+-- Deactivate is a stub, so DeactivateChat only ever cleared the global
+-- while inviting foreign post-hooks into our stack.
+local ourDeactivateCalls = 0
+local prevDeactivate = EditBox.OverlayEdit.Deactivate
+EditBox.OverlayEdit.Deactivate = function() ourDeactivateCalls = ourDeactivateCalls + 1 end
+EditBox.Overlay:Hide()
+EditBox:UpdateFocusOverride()
+check("release clears ACTIVE via plain write", _G.ACTIVE_CHAT_EDIT_BOX == nil)
+check("release never ran our Deactivate stub", ourDeactivateCalls == 0)
+EditBox.OverlayEdit.Deactivate = prevDeactivate
 
 print("\n" .. string.rep("-", 60))
 print(("Results: %d/%d passed"):format(TESTS - FAILURES, TESTS))

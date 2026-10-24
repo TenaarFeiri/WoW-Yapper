@@ -542,6 +542,13 @@ function EditBox:HookAllChatFrames()
     if not self._deactivateChatHooked then
         hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
             if self._closing then return end
+            -- A deactivated native box lost focus: deliver the edge so
+            -- watched Blizzard boxes can clear bypass. Our own editors'
+            -- Deactivate is a stub that keeps focus, so they are excluded.
+            if editBox ~= self.OverlayEdit
+                and not (YapperTable.Multiline and editBox == YapperTable.Multiline.EditBox) then
+                self:_NotifyFocus(editBox, false)
+            end
             if self.OrigEditBox == editBox and self.Overlay and self.Overlay:IsShown() then
                 self:EnsureProxyBackgroundShown()
                 return
@@ -583,6 +590,11 @@ function EditBox:HookAllChatFrames()
             if not editBox or not editBox.GetName then return end
             local name = editBox:GetName()
             if not name or not name:match("ChatFrame%d+EditBox") then return end
+
+            -- A native box was activated: keyboard focus is exclusive, so
+            -- every other watched box lost it -- our editors and any
+            -- bypassed Blizzard box alike.
+            self:_NotifyFocusStolen(editBox)
 
             if YapperTable.Utils and YapperTable.Utils:IsChatLockdown() then
                 return

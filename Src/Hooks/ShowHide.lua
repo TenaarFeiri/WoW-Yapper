@@ -818,7 +818,7 @@ end
 
 function EditBox:Hide(isHandoff)
     local prevOrig = self.OrigEditBox
-    self._overlayUnfocused = false
+    -- _overlayUnfocused removed: focus state lives in _focusHandlers.
 
     -- Restore Blizzard's native compatibility functions before the hide/
     -- deactivation lifecycle runs without our overlay active.

@@ -482,12 +482,13 @@ function History:HookOverlayEditBox()
         end
     end)
 
-    -- Snapshot on focus lost. Polled, not scripted: OnEditFocus* handlers
-    -- execute inside whatever stack moved focus (e.g. InsertLink's
-    -- SetFocus in a map-pin CHATLINK click) and addon Lua there taints the
-    -- remainder -- see EditBox:RegisterFocusWatcher in EditBoxCompat.lua.
-    if YapperTable.EditBox and YapperTable.EditBox.RegisterFocusWatcher then
-        YapperTable.EditBox:RegisterFocusWatcher(eb, nil, function(box)
+    -- Snapshot on focus lost. Signal-driven, not polled: OnEditFocus*
+    -- handlers execute inside whatever stack moved focus (e.g.
+    -- InsertLink's SetFocus in a map-pin CHATLINK click) and addon Lua
+    -- there taints the remainder -- see EditBox:RegisterFocusHandler in
+    -- EditBoxCompat.lua.
+    if YapperTable.EditBox and YapperTable.EditBox.RegisterFocusHandler then
+        YapperTable.EditBox:RegisterFocusHandler(eb, nil, function(box)
             if YapperTable.YAPPER_DISABLED then return end
 
             -- Don't re-save a draft when closing after a send -- prevents the

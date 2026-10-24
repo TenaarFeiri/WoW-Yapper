@@ -401,14 +401,14 @@ function Multiline:CreateFrame()
 		end
 	end)
 
-	-- Snapshot on focus lost (mirrors the overlay's focus watcher). Polled,
-	-- not scripted: OnEditFocus* handlers run inside whatever stack moved
-	-- focus (e.g. InsertLink's SetFocus in a map-pin CHATLINK click) and
-	-- addon Lua there taints the remainder -- see EditBoxCompat.lua
-	-- RegisterFocusWatcher.
+	-- Snapshot on focus lost (mirrors the overlay's focus handling).
+	-- Signal-driven, not polled: OnEditFocus* handlers run inside
+	-- whatever stack moved focus (e.g. InsertLink's SetFocus in a map-pin
+	-- CHATLINK click) and addon Lua there taints the remainder -- see
+	-- EditBoxCompat.lua RegisterFocusHandler.
 	local yapperEditBox = YapperTable.EditBox
-	if yapperEditBox and yapperEditBox.RegisterFocusWatcher then
-		yapperEditBox:RegisterFocusWatcher(edit, function(box)
+	if yapperEditBox and yapperEditBox.RegisterFocusHandler then
+		yapperEditBox:RegisterFocusHandler(edit, function(box)
 			-- Resume typing signals when clicking back in.
 			if State and State:IsIdle() then
 				State:ToMultiline()
@@ -429,14 +429,14 @@ function Multiline:CreateFrame()
 			end
 		end)
 
-		-- The frame owns widget visibility: suspend focus watching while
-		-- multiline is closed so the poll ticker can stop when nothing is
-		-- open (mirrors the overlay's CreateOverlay hooks).
-		hooksecurefunc(f, "Show", function()
-			yapperEditBox:SetFocusWatcherActive(edit, true)
-		end)
+		-- Container owns widget visibility: a hidden box cannot hold focus.
 		hooksecurefunc(f, "Hide", function()
-			yapperEditBox:SetFocusWatcherActive(edit, false)
+			yapperEditBox:_NotifyFocus(edit, false)
+		end)
+		-- Clicking into the box is a gain-intent signal: C-internal focus
+		-- grants don't call the Lua SetFocus method we can post-hook.
+		edit:HookScript("OnMouseDown", function()
+			yapperEditBox:_NotifyFocus(edit, true)
 		end)
 	end
 

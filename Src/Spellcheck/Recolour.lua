@@ -59,11 +59,29 @@ end
 --- @return string
 function Recolour.CanonicalText(box)
     if not box or not box.GetText then return "" end
-    local text = box:GetText()
-    if type(text) ~= "string" or text == "" then return "" end
+    -- GetText can return a SECRET string while addon restrictions are
+    -- enforced; reading, comparing, or stripping it from tainted code
+    -- raises. Fall back to the last successfully read canonical text so
+    -- draft/undo state is preserved rather than silently emptied.
+    local ok, text = pcall(box.GetText, box)
+    if not ok or type(text) ~= "string" then
+        return box._yapperLastCanonical or ""
+    end
+    if issecretvalue(text) and canaccessvalue(text) ~= true then
+        return box._yapperLastCanonical or ""
+    end
+    if text == "" then
+        box._yapperLastCanonical = ""
+        return ""
+    end
     local Strip = YapperTable.Utils and YapperTable.Utils.StripDisplayEscapes
-    if type(Strip) ~= "function" then return text end
-    return Strip(YapperTable.Utils, text)
+    if type(Strip) ~= "function" then
+        box._yapperLastCanonical = text
+        return text
+    end
+    text = Strip(YapperTable.Utils, text)
+    box._yapperLastCanonical = text
+    return text
 end
 
 --- Translate a display byte offset (from GetCursorPosition) into a canonical

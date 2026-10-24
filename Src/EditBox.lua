@@ -62,7 +62,7 @@ EditBox._lockdown = {
 }
 
 -- Overlay display state.
-EditBox._overlayUnfocused  = false -- True when overlay is visible but unfocused
+EditBox._overlayUnfocused  = nil   -- removed: focus state lives in _focusHandlers (EditBoxCompat)
 
 -- Multiline onboarding hint state. Deliberately session-only: the hint
 -- should reappear once per login/reload.
@@ -91,13 +91,19 @@ function EditBox:ClearLockdownState()
 end
 
 --- Return Yapper's currently visible chat editor, preferring multiline while
---- it is open and falling back to the single-line overlay.
+--- it is open and falling back to the single-line overlay. IsShown can
+--- return a SECRET boolean while addon restrictions are enforced, which
+--- errors on any boolean test from tainted code -- SafeWidgetBoolean
+--- pcalls the read and yields nil ("unknown"), so an unreadable state
+--- fails closed (treated as hidden) instead of raising.
 function EditBox:GetActiveEditor()
     local ml = YapperTable.Multiline
-    if ml and ml.Frame and ml.Frame:IsShown() and ml.EditBox then
+    if ml and ml.EditBox
+        and Utils:SafeWidgetBoolean(ml.Frame, "IsShown") == true then
         return ml.EditBox
     end
-    if self.Overlay and self.Overlay:IsShown() and self.OverlayEdit then
+    if self.OverlayEdit
+        and Utils:SafeWidgetBoolean(self.Overlay, "IsShown") == true then
         return self.OverlayEdit
     end
     return nil

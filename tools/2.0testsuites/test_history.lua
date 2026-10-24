@@ -23,6 +23,8 @@ end
 
 _G = _G or {}
 _G.GetTime = function() return 0 end
+_G.issecretvalue = function() return false end
+_G.canaccessvalue = function() return true end
 _G.C_Timer = {
     NewTimer = function(sec, fn)
         return { Cancel = function() end }

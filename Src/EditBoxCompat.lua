@@ -180,18 +180,6 @@ local originalCreateOverlay = EditBox.CreateOverlay
 function EditBox:CreateOverlay(...)
     originalCreateOverlay(self, ...)
     YapperTable.InstallCompatMethods(self.OverlayEdit)
-    -- The overlay frame owns widget visibility: suspend focus watchers
-    -- while it is closed so the poll ticker can stop entirely when
-    -- nothing is open. Covers every close path, including multiline
-    -- entry hiding the frame without EditBox:Hide().
-    if self.Overlay then
-        hooksecurefunc(self.Overlay, "Show", function()
-            EditBox:SetFocusWatcherActive(EditBox.OverlayEdit, true)
-        end)
-        hooksecurefunc(self.Overlay, "Hide", function()
-            EditBox:SetFocusWatcherActive(EditBox.OverlayEdit, false)
-        end)
-    end
 end
 
 -- Also install on Multiline at creation time if it exists.
@@ -229,19 +217,23 @@ end
 -- and InsertLink's Insert/SetFocus are C methods, so the whole path stays
 -- untainted while still landing links in our editor.
 --
--- DeactivateChat is used to release: it clears the global through
--- Blizzard's own bookkeeping and calls our stubbed Deactivate. We do NOT
--- go through ActivateChat to claim: it would also write
+-- The slot is claimed and released by writing the global directly -- NOT
+-- through DeactivateChat. DeactivateChat runs Blizzard's Deactivate ->
+-- Hide/ClearFocus -> OnHide -> SetLastActiveWindow -> Show/ActivateChat
+-- bookkeeping plus every third-party hook on that chain (Prat, WIM,
+-- TRP3...), and any of those can funnel back through our Show/OnShow
+-- handlers and re-enter this sync; unbounded nesting there is a C stack
+-- overflow. So this function is LEAF-ONLY: reads plus plain global
+-- writes. The one side-effectful step -- DeactivateChat on a foreign box
+-- we displaced -- is deferred to a coalesced pass on a fresh timer stack.
+-- We do NOT go through ActivateChat to claim either: it would also write
 -- LAST_ACTIVE_CHAT_EDIT_BOX, letting IM-mode ChooseBoxForSend hand the
 -- overlay to SendTell paths that expect full native editboxes.
 
 function EditBox:_SyncActiveChatWindow()
-    -- Re-entry guard: DeactivateChat below runs Blizzard's Deactivate ->
-    -- Hide/ClearFocus bookkeeping, and dock/focus handlers reached from it
-    -- can funnel back through UpdateFocusOverride and re-enter this sync.
-    -- Unbounded nesting there is a C stack overflow: a nested call only
-    -- marks a pending re-check; the outermost pass finishes the write and
-    -- defers one re-eval to the next frame, outside the foreign stack.
+    -- Re-entry guard: nested calls only mark a pending re-check; the
+    -- outermost pass finishes the writes and the deferred pass below
+    -- re-evaluates on a clean stack.
     if self._syncActiveWindowRunning then
         self._syncActiveWindowPending = true
         return
@@ -275,23 +267,27 @@ function EditBox:_SyncActiveChatWindow()
         if current == desired then return end
 
         if desired then
-            if current then
-                -- Displace the previous holder through Blizzard's own path so
-                -- its Deactivate bookkeeping still runs.
-                local dok, derr = pcall(ChatFrameUtil.DeactivateChat, current)
-                if not dok and YapperTable.Utils then
-                    YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(derr))
-                end
-            end
+            -- Claim is a plain global write: GetActiveWindow reports our
+            -- editor immediately, without running any Blizzard code inside
+            -- whatever stack reached us.
             _G.ACTIVE_CHAT_EDIT_BOX = desired
+            -- A foreign box displaced by the claim still needs its Deactivate
+            -- bookkeeping (classic style hides it, im style fades it). Defer
+            -- that to the pass below; our own editors need nothing since
+            -- their Deactivate is a stub.
+            if current
+                and current ~= self.OverlayEdit
+                and (not multilineEdit or current ~= multilineEdit) then
+                self._syncDisplace = current
+            end
         else
             -- Only release ownership when WE hold the slot; never touch a
-            -- genuinely active Blizzard editbox.
+            -- genuinely active Blizzard editbox. Release is a plain write
+            -- too: our editors' Deactivate is a stub, so DeactivateChat
+            -- only ever cleared this global while inviting foreign
+            -- post-hooks into our stack.
             if current == self.OverlayEdit or (multilineEdit and current == multilineEdit) then
-                local dok, derr = pcall(ChatFrameUtil.DeactivateChat, current)
-                if not dok and YapperTable.Utils then
-                    YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(derr))
-                end
+                _G.ACTIVE_CHAT_EDIT_BOX = nil
             end
         end
     end)
@@ -300,13 +296,34 @@ function EditBox:_SyncActiveChatWindow()
         YapperTable.Utils:VerbosePrint("_SyncActiveChatWindow failed: " .. YapperTable.Utils:SafeToString(err))
     end
 
-    if self._syncActiveWindowPending then
+    -- Deferred pass: displaced holders get real DeactivateChat bookkeeping
+    -- here, on a fresh timer stack where re-entry can never overflow the C
+    -- stack. The trailing UpdateFocusOverride also settles any pending
+    -- re-check marked by nested calls.
+    if (self._syncDisplace or self._syncActiveWindowPending)
+        and not self._syncActiveWindowTimer then
         self._syncActiveWindowPending = nil
+        self._syncActiveWindowTimer = true
         C_Timer.After(0, function()
+            self._syncActiveWindowTimer = nil
+            local displace = self._syncDisplace
+            self._syncDisplace = nil
+            -- Skip when the displaced box was legitimately re-activated in
+            -- the meantime: it is then the active window on its own merit.
+            if displace and ChatFrameUtil.GetActiveWindow() ~= displace then
+                local dok, derr = pcall(ChatFrameUtil.DeactivateChat, displace)
+                if not dok and YapperTable.Utils then
+                    YapperTable.Utils:VerbosePrint("DeactivateChat failed: " .. YapperTable.Utils:SafeToString(derr))
+                end
+            end
             if self.UpdateFocusOverride then
                 self:UpdateFocusOverride()
             end
         end)
+    else
+        -- A pass is already queued (or nothing is owed); the queued
+        -- UpdateFocusOverride covers this re-check.
+        self._syncActiveWindowPending = nil
     end
 end
 
@@ -342,186 +359,109 @@ do
     end)
 end
 
--- Focus-edge watching without frame scripts.
+-- Focus edges without frame scripts or polling.
 --
 -- OnEditFocusGained/OnEditFocusLost installed via SetScript/HookScript
 -- execute inside whatever call stack drove the focus change -- e.g.
 -- InsertLink's activeWindow:SetFocus() inside a map-pin CHATLINK click --
 -- and any addon Lua there taints the remainder of that stack (12.1 follows
 -- InsertLink with the protected CopyToClipboard, which then errors
--- ADDON_ACTION_FORBIDDEN, but only on the click that actually moves
--- focus). hooksecurefunc post-hooks are invoked through the secure
--- trampoline and do not taint the caller; frame scripts have no such
--- isolation, so focus transitions are detected by polling HasFocus from a
--- ticker -- timer callbacks always run outside foreign stacks. Reads go
--- through PollFocusState: under enforced addon restrictions (encounters,
--- M+, lockdown) HasFocus can return a SECRET boolean, and a boolean test
--- on a secret raises "attempt to perform boolean test on a secret boolean
--- value" from tainted code. An unreadable sample degrades to "unknown"
--- instead of fabricating a state.
-local FOCUS_POLL_INTERVAL = 0.05
+-- ADDON_ACTION_FORBIDDEN). A perpetual HasFocus() ticker was the previous
+-- answer and produced two failure modes of its own: raw boolean tests
+-- erroring on secret returns under addon restrictions, and subscriber
+-- callbacks cascading back through our own hooks from inside the poll.
+-- Neither mechanism is needed: the calls that move keyboard focus are
+-- enumerable -- SetFocus/ClearFocus on the box, ActivateChat/
+-- DeactivateChat on the window, container Hide, Escape/Enter -- and
+-- hooksecurefunc post-hooks run on the secure trampoline, taint-free.
+-- The only transition no Lua-visible call covers is a click on an
+-- unrelated non-chat widget; staleness there is cosmetic and corrects on
+-- the next signal, while IsEditorFocused stays queryable (secret-safe)
+-- for any path needing ground truth.
+--
+-- Per-box state is a CACHE: refreshed by every signal and by every
+-- successful read; an unreadable (secret) read leaves the cache alone.
 
--- Secret-safe HasFocus read. The truthiness coercion must stay inside the
--- pcall: that is the expression that errors on a secret return. Returns
--- true/false when readable, nil ("unknown") when the call errors or the
--- result is a secret that cannot be tested.
-local function PollFocusState(box)
-    if not (box and box.HasFocus) then return nil end
-    local ok, focused = pcall(function()
-        return box:HasFocus() and true or false
-    end)
+-- Secret-safe HasFocus read. The truthiness coercion must stay inside
+-- the pcall: that is the expression that errors on a secret return.
+local function ReadFocus(box)
+    if not box then return nil end
+    local ok, focused = pcall(function() return box:HasFocus() and true or false end)
     if not ok then return nil end
     return focused
 end
 
--- Watcher lifecycle: entries are per-box ({box, subs, focused, suspended})
--- and only polled while the box is open. Suspending delivers a pending
--- lost-edge first -- a closed box cannot hold focus, and subscribers
--- (bypass clearing, typing-state, draft snapshots) must see the same
--- transition the uninterrupted poll would have fired one tick later.
-
-function EditBox:_FireFocusEdge(w, focused)
-    for j = 1, #w.subs do
-        local fn = focused and w.subs[j].onGained or w.subs[j].onLost
-        -- Contain per subscriber: a callback that touches secret state
-        -- (GetText etc. under addon restrictions) must not starve the
-        -- remaining subscribers or error the poll loop itself.
-        if fn then pcall(fn, w.box) end
-    end
-end
-
--- Start the poll ticker when at least one watcher is active; cancel it
--- when every watched box is closed/suspended.
-function EditBox:_UpdateFocusPollTicker()
-    local watchers = self._focusWatchers
-    local anyActive = false
-    if watchers then
-        for i = 1, #watchers do
-            if not watchers[i].suspended then
-                anyActive = true
-                break
-            end
-        end
-    end
-    if anyActive then
-        if not self._focusPollTicker then
-            self._focusPollTicker = C_Timer.NewTicker(FOCUS_POLL_INTERVAL, function()
-                self:_PollFocusWatchers()
-            end)
-        end
-    elseif self._focusPollTicker then
-        self._focusPollTicker:Cancel()
-        self._focusPollTicker = nil
-    end
-end
-
---- Suspend or resume edge detection for a watched box. Suspension while
---- the box was last seen focused delivers the lost edge to subscribers
---- before sleeping (a hidden box cannot hold focus); resuming resumes the
---- poll against the last observed state, so a focus change that happened
---- while suspended still fires its edge once readable.
---- @param editBox table  A box previously passed to RegisterFocusWatcher.
---- @param active boolean
-function EditBox:SetFocusWatcherActive(editBox, active)
-    local watchers = self._focusWatchers
-    if watchers then
-        for i = 1, #watchers do
-            local w = watchers[i]
-            if w.box == editBox then
-                if active then
-                    w.suspended = nil
-                elseif not w.suspended then
-                    if w.focused == true then
-                        w.focused = false
-                        self:_FireFocusEdge(w, false)
-                    end
-                    w.suspended = true
-                end
-            end
-        end
-    end
-    self:_UpdateFocusPollTicker()
-end
-
-function EditBox:RegisterFocusWatcher(editBox, onGained, onLost)
+--- Register gained/lost callbacks for an editbox. Edges are delivered
+--- from post-hooks on the calls that move focus (SetFocus/ClearFocus on
+--- the box itself, installed here; ActivateChat/DeactivateChat/container
+--- signals wired in the hook modules) -- never from a poll ticker or
+--- OnEditFocus* scripts.
+--- @param editBox table
+--- @param onGained function|nil  Called as fn(box).
+--- @param onLost   function|nil  Called as fn(box).
+function EditBox:RegisterFocusHandler(editBox, onGained, onLost)
     if not editBox then return end
-    local watchers = self._focusWatchers
-    if not watchers then
-        watchers = {}
-        self._focusWatchers = watchers
+    local handlers = self._focusHandlers
+    if not handlers then
+        handlers = {}
+        self._focusHandlers = handlers
     end
-    -- One entry per box: re-registering the same callback pair is a
-    -- no-op; a different pair appends a subscriber to the shared entry
-    -- (Handlers + History both watch OverlayEdit, for example).
-    local w
-    for i = 1, #watchers do
-        if watchers[i].box == editBox then
-            w = watchers[i]
-            break
-        end
-    end
-    if not w then
-        w = {
-            box = editBox,
-            subs = {},
-            focused = PollFocusState(editBox),
-        }
-        watchers[#watchers + 1] = w
-        -- Suspend tracking for foreign boxes (Blizzard chat editboxes):
-        -- widget Show/Hide post-hooks are trampoline-isolated like the
-        -- ticker itself. Our own editors skip this -- their widget Hide is
-        -- vetoed by the compat install, so the container frame's hooks
-        -- (installed by the CreateOverlay/Multiline wrappers) drive
-        -- suspension instead.
-        if not editBox._yapperCompatInstalled then
-            hooksecurefunc(editBox, "Show", function()
-                self:SetFocusWatcherActive(editBox, true)
-            end)
-            hooksecurefunc(editBox, "Hide", function()
-                self:SetFocusWatcherActive(editBox, false)
+    local h = handlers[editBox]
+    if not h then
+        h = { subs = {}, focused = ReadFocus(editBox) }
+        handlers[editBox] = h
+        if type(editBox.SetFocus) == "function" then
+            hooksecurefunc(editBox, "SetFocus", function()
+                self:_NotifyFocus(editBox, true)
             end)
         end
-        -- A box closed at registration sleeps until its first Show;
-        -- IsVisible covers children of hidden parents.
-        local utils = YapperTable.Utils
-        if utils and utils.SafeWidgetBoolean
-            and utils:SafeWidgetBoolean(editBox, "IsVisible") == false then
-            w.suspended = true
+        if type(editBox.ClearFocus) == "function" then
+            hooksecurefunc(editBox, "ClearFocus", function()
+                self:_NotifyFocus(editBox, false)
+            end)
         end
     end
-    for i = 1, #w.subs do
-        local s = w.subs[i]
-        if s.onGained == onGained and s.onLost == onLost then
-            return
-        end
-    end
-    w.subs[#w.subs + 1] = { onGained = onGained, onLost = onLost }
-    self:_UpdateFocusPollTicker()
+    h.subs[#h.subs + 1] = { onGained = onGained, onLost = onLost }
 end
 
-function EditBox:_PollFocusWatchers()
-    local watchers = self._focusWatchers
-    if not watchers then return end
-    for i = 1, #watchers do
-        local w = watchers[i]
-        if not w.suspended then
-            local focused = PollFocusState(w.box)
-            if focused ~= nil then
-                if w.focused == nil then
-                    -- First readable sample establishes the baseline; an
-                    -- edge cannot be claimed for a transition never
-                    -- observed.
-                    w.focused = focused
-                elseif focused ~= w.focused then
-                    w.focused = focused
-                    self:_FireFocusEdge(w, focused)
-                end
-            end
-            -- focused == nil: secret/unreadable under addon restrictions.
-            -- Keep the last observed state; any real edge still fires once
-            -- reads work again, and no spurious edge is emitted meanwhile.
+--- Deliver a focus edge for a box from a focus-moving signal. Dedupes
+--- against the cached state; each subscriber is pcall'd so a callback
+--- that touches secret state cannot starve the rest or error the signal.
+function EditBox:_NotifyFocus(editBox, focused)
+    local h = self._focusHandlers and self._focusHandlers[editBox]
+    if not h or h.focused == focused then return end
+    h.focused = focused
+    for i = 1, #h.subs do
+        local fn = focused and h.subs[i].onGained or h.subs[i].onLost
+        if fn then pcall(fn, editBox) end
+    end
+end
+
+--- Notify every registered box EXCEPT the one just focused/activated:
+--- keyboard focus is exclusive, so a signal that grants focus elsewhere
+--- is a lost edge for every other watched box.
+function EditBox:_NotifyFocusStolen(exceptBox)
+    local handlers = self._focusHandlers
+    if not handlers then return end
+    for box in pairs(handlers) do
+        if box ~= exceptBox then
+            self:_NotifyFocus(box, false)
         end
     end
+end
+
+--- Last known focus state for a box: a fresh secret-safe read when the
+--- engine will answer (the cache absorbs it), the signal-tracked cache
+--- when it will not.
+function EditBox:IsEditorFocused(box)
+    local live = ReadFocus(box)
+    if live ~= nil then
+        local h = self._focusHandlers and self._focusHandlers[box]
+        if h then h.focused = live end
+        return live
+    end
+    local h = self._focusHandlers and self._focusHandlers[box]
+    return (h and h.focused) == true
 end
 
 

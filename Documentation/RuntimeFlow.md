@@ -69,7 +69,7 @@ attributes where needed, while keeping its own channel and draft state in
    has draft data to recover.
 
 The core selection and focus rules are in
-[`EditBox:GetActiveEditor()` and `UpdateFocusOverride()`](../Src/EditBox.lua#L94-L130).
+[`EditBox:GetActiveEditor()` and `UpdateFocusOverride()`](../Src/EditBox.lua#L93-L141).
 
 ## Boot and wiring
 

@@ -24,6 +24,8 @@ end
 -- ===========================================================================
 
 _G.print = print
+_G.issecretvalue = function() return false end
+_G.canaccessvalue = function() return true end
 
 local YapperName = "Yapper"
 local YapperTable = {
