@@ -93,8 +93,27 @@ function EditBox:HookAllChatFrames()
     -- bypass / handoff) into Yapper's history. The overlay isn't a
     -- ChatFrameEditBoxMixin and never fires this event, so Yapper sends
     -- aren't double-recorded.
+    -- Dispatch-callback registry: these callbacks run inside Blizzard's
+    -- shared Lua dispatch (SendText, hyperlink click). Under addon
+    -- restrictions a tainted callback contaminates the remainder of the
+    -- dispatch, which then errors on DisallowTaintedAccess tables and
+    -- drops messages. Handles are stored so SetupDispatchCallbackGating
+    -- can physically remove them while restrictions are active.
+    local function RegisterDispatchEvent(key, event, func)
+        self._dispatchCallbacks = self._dispatchCallbacks or {}
+        self._dispatchCallbacks[key] = {
+            event = event,
+            func = func,
+            handle = EventRegistry.RegisterCallbackWithHandle
+                and EventRegistry:RegisterCallbackWithHandle(event, func),
+        }
+        if not self._dispatchCallbacks[key].handle then
+            EventRegistry:RegisterCallback(event, func)
+        end
+    end
+
     if EventRegistry and not self._fallbackHistoryRegistered then
-        EventRegistry:RegisterCallback("ChatFrame.OnEditBoxPreSendText", function(_, editBox)
+        RegisterDispatchEvent("preSend", "ChatFrame.OnEditBoxPreSendText", function(_, editBox)
             self:RecordFallbackSend(editBox)
         end, self)
         self._fallbackHistoryRegistered = true
@@ -103,7 +122,7 @@ function EditBox:HookAllChatFrames()
     -- Observe chat hyperlinks without altering Blizzard's execution flow.
     -- Native SetItemRef/LinkUtil/OpenChat handling remains authoritative.
     if EventRegistry and not self._hyperlinkIntentRegistered then
-        EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkClick", function(_, chatFrame, link, _, button)
+        RegisterDispatchEvent("hyperlink", "ChatFrame.OnHyperlinkClick", function(_, chatFrame, link, _, button)
             local linkType
             if not (YapperTable.Utils and YapperTable.Utils:IsSecret(link)) then
                 linkType = ParseLinkType(link)
@@ -121,6 +140,8 @@ function EditBox:HookAllChatFrames()
         end, self)
         self._hyperlinkIntentRegistered = true
     end
+
+    self:SetupDispatchCallbackGating()
 
     if LinkUtil and LinkUtil.ProcessLink and not self._bnetLinkHooked then
         hooksecurefunc(LinkUtil, "ProcessLink", function(link, _, contextData)
@@ -1194,3 +1215,75 @@ end
 
 --- Push an editbox onto the IM active window history stack.
 --- Deduplicates: if already at the top, does nothing.
+
+
+--- Removes our EventRegistry callbacks from Blizzard's shared dispatch while
+--- restrictions or lockdowns are active, re-registering them only once every
+--- restriction reports clear. Restrictions do not lift atomically, so resume
+--- is deferred through a ticker until the full set reports clear.
+function EditBox:SetupDispatchCallbackGating()
+    if self._dispatchCallbackWatcher then return end
+    if type(EventRegistry) ~= "table" then return end
+    local utils = YapperTable.Utils
+    if not (utils and type(utils.IsAnyAddOnRestriction) == "function"
+        and type(utils.IsChatOrCombatLockdown) == "function") then
+        return
+    end
+
+    self._dispatchCallbacksSuspended = false
+
+    local function Restricted()
+        return utils:IsAnyAddOnRestriction() or utils:IsChatOrCombatLockdown()
+    end
+
+    local function Suspend()
+        if self._dispatchCallbacksSuspended then return end
+        self._dispatchCallbacksSuspended = true
+        for _, entry in pairs(self._dispatchCallbacks or {}) do
+            if entry.handle then entry.handle:Unregister() end
+        end
+    end
+
+    local function EnsureResumeTicker()
+        if self._dispatchResumeTicker then return end
+        self._dispatchResumeTicker = C_Timer.NewTicker(0.25, function()
+            if Restricted() then return end
+            self._dispatchResumeTicker:Cancel()
+            self._dispatchResumeTicker = nil
+            if not self._dispatchCallbacksSuspended then return end
+            self._dispatchCallbacksSuspended = false
+            for _, entry in pairs(self._dispatchCallbacks or {}) do
+                if entry.handle then
+                    entry.handle = EventRegistry:RegisterCallbackWithHandle(entry.event, entry.func)
+                end
+            end
+        end)
+    end
+
+    local watcher = CreateFrame("Frame")
+    watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+    watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+    watcher:RegisterEvent("CHALLENGE_MODE_START")
+    watcher:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+    watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+    if type(C_RestrictedActions) == "table"
+        and type(C_RestrictedActions.IsAddOnRestrictionActive) == "function" then
+        watcher:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
+    end
+    watcher:SetScript("OnEvent", function(_, event)
+        -- Suspend on lockdown-start events and every restriction state
+        -- change: the Activating dispatch precedes enforcement, so reads
+        -- may still be clean at that moment.
+        if event == "PLAYER_REGEN_DISABLED" or event == "CHALLENGE_MODE_START"
+            or event == "ADDON_RESTRICTION_STATE_CHANGED"
+            or Restricted() then
+            Suspend()
+        end
+        EnsureResumeTicker()
+    end)
+    self._dispatchCallbackWatcher = watcher
+
+    if Restricted() then
+        Suspend()
+    end
+end

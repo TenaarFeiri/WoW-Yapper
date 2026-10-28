@@ -540,6 +540,19 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `SetPreShowCheck` ([`../Src/EditBox.lua#L908`](../Src/EditBox.lua#L908))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
+- Known external issue (Retail 12.1+, dedicated whisper windows): when
+  `whisperMode` is `popout`/`popout_and_inline`, Blizzard creates temporary
+  whisper windows (`ChatFrameN`) inside whichever execution context opened
+  them. A window created inside our tainted send chain writes
+  `dedicatedWindows`/`windowList`/tab-alerting state tainted; later
+  `MessageEventHandler` dispatches that read that state run tainted and
+  then hard-fail on secret whisper args (`gsub`/`strlower` on `msg`,
+  `chatTarget`, `chanSender`) and `DisallowTaintedAccess` tables
+  (`alertingTabs`). Symptom: whispers drop silently, `/r` breaks, tab
+  flashes error — for every chat addon, not just Yapper. Inline whisper
+  mode avoids the whole surface. `EditBoxCompat.lua` ends with a
+  once-per-session `YAPPER_WHISPER_MODE_WARNING` popup gated on
+  `YapperDB.WhisperModeWarningDismissed`.
 
 ## EditBox.SkinProxy
 
@@ -983,20 +996,20 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `DICTIONARY_DOWNLOAD_URL` [`../Src/Interface.lua#L12`](../Src/Interface.lua#L12)
   - Helpers/constants exported as underscored fields (`_LAYOUT`, `_LayoutCursor`, `_UI_FONT_*`) *private by convention; do not rely on* ([`../Src/Interface.lua#L120-L124`](../Src/Interface.lua#L120-L124)).
 - Methods:
-  - `Interface:RenderSearchResults(frame) → nil`: Renders the "search" pseudo-category — live widgets for every schema item matching `_searchQuery` across friendly label, tooltip, path, category and `_SEARCH_KEYWORDS` ([`../Src/Interface.lua#L478`](../Src/Interface.lua#L478))
+  - `Interface:RenderSearchResults(frame) → nil`: Renders the "search" pseudo-category — live widgets for every schema item matching `_searchQuery` across friendly label, tooltip, path, category and `_SEARCH_KEYWORDS` ([`../Src/Interface.lua#L502`](../Src/Interface.lua#L502))
   - `LayoutCursor:Pad() → nil`: No description provided. ([`../Src/Interface.lua#L103`](../Src/Interface.lua#L103))
   - `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L98`](../Src/Interface.lua#L98))
   - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L94`](../Src/Interface.lua#L94))
   - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L90`](../Src/Interface.lua#L90))
   - `InitPopups` [`../Src/Interface.lua#L302`](../Src/Interface.lua#L302)
-  - `BuildConfigUI` [`../Src/Interface.lua#L521`](../Src/Interface.lua#L521)
-  - `ShowMainWindow` [`../Src/Interface.lua#L849`](../Src/Interface.lua#L849)
-  - `OpenToCategory` [`../Src/Interface.lua#L874`](../Src/Interface.lua#L874)
-  - `ToggleMainWindow` [`../Src/Interface.lua#L898`](../Src/Interface.lua#L898)
-  - `HandleLauncherClick` [`../Src/Interface.lua#L930`](../Src/Interface.lua#L930)
-  - `CloseFrame` [`../Src/Interface.lua#L965`](../Src/Interface.lua#L965)
-  - `Init` [`../Src/Interface.lua#L976`](../Src/Interface.lua#L976)
-  - `CreateLauncher` [`../Src/Interface.lua#L1010`](../Src/Interface.lua#L1010)
+  - `BuildConfigUI` [`../Src/Interface.lua#L545`](../Src/Interface.lua#L545)
+  - `ShowMainWindow` [`../Src/Interface.lua#L873`](../Src/Interface.lua#L873)
+  - `OpenToCategory` [`../Src/Interface.lua#L898`](../Src/Interface.lua#L898)
+  - `ToggleMainWindow` [`../Src/Interface.lua#L922`](../Src/Interface.lua#L922)
+  - `HandleLauncherClick` [`../Src/Interface.lua#L954`](../Src/Interface.lua#L954)
+  - `CloseFrame` [`../Src/Interface.lua#L989`](../Src/Interface.lua#L989)
+  - `Init` [`../Src/Interface.lua#L1000`](../Src/Interface.lua#L1000)
+  - `CreateLauncher` [`../Src/Interface.lua#L1034`](../Src/Interface.lua#L1034)
 - Global function:
   - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L845`](../Src/Interface.lua#L845)).
 

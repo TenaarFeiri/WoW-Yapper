@@ -397,6 +397,31 @@ function Interface:InitPopups()
         }
     end
 
+    if not StaticPopupDialogs["YAPPER_WHISPER_MODE_WARNING"] then
+        StaticPopupDialogs["YAPPER_WHISPER_MODE_WARNING"] = {
+            text = "|cFFFF6600Yapper: Whisper Mode warning|r\n\nYour Whisper Mode is set to open whispers in their own tab. During boss fights and Mythic+ dungeons, this can cause errors and silently drop whispers or other chat messages when chat addons such as Yapper are installed.\n\nWhile we're actively working on the issue, unfortunately all we can offer is a workaround: keep whispers in your main chat tab, which avoids the problem almost entirely. Sorry for the inconvenience.\n\nTo change it yourself: Social > Whisper Mode > keep whispers in existing tabs - or press \"Switch to inline\" below (takes effect immediately).",
+            button1 = "Switch to inline",
+            button2 = "Don't remind me again",
+            button3 = "Dismiss",
+            OnAccept = function()
+                SetCVar("whisperMode", "inline")
+                if type(_G.YapperDB) == "table" then
+                    _G.YapperDB.WhisperModeWarningDismissed = true
+                end
+                ReloadUI()
+            end,
+            OnCancel = function()
+                if type(_G.YapperDB) == "table" then
+                    _G.YapperDB.WhisperModeWarningDismissed = true
+                end
+            end,
+            OnAlt = function() end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+        }
+    end
+
     if not StaticPopupDialogs["YAPPER_LOCALE_CHANGE_RELOAD"] then
         StaticPopupDialogs["YAPPER_LOCALE_CHANGE_RELOAD"] = {
             text = "Spellcheck locale changed. Would you like to reload the UI now to fully unload the previous dictionary from memory? (Recommended for performance)",
