@@ -498,17 +498,19 @@ local function GetLastToldTargetInfo()
     return lastType, lastTold
 end
 
---- Try to source a whisper target directly from Blizzard's secure last-tell
---- state, bypassing any Yapper-stored copy (ReplyQueue, EditBox.Target) that
---- may have become tainted. This is the /r and /r2 send path: the target is
---- whatever Blizzard's own GetLastTellTarget/GetLastToldTarget returns, which
---- stays secure as long as we never poison those stores with tainted data.
+--- Source a whisper target from Blizzard's remembered last-tell state.
+--- Character whispers accept the remembered value only when the selected
+--- compose target is unusable or matches it exactly. BN_WHISPER instead
+--- recovers the remembered |K token via BNet_GetBNetIDAccount into a
+--- numeric account ID. Blizzard-sourced is not untainted execution.
 ---
 --- @param chatType "WHISPER"|"BN_WHISPER"
 --- @param source "tell"|"told"|nil   Which Blizzard store to prefer.
 --- @param fallback any               Fallback target if Blizzard has none.
 --- @return any target
---- @return boolean isSecure          True if target came from Blizzard.
+--- @return boolean isSecure          True if target came from a Blizzard
+---                                   store (Blizzard-sourced, not a taint
+---                                   guarantee).
 function EditBox:ResolveWhisperTarget(chatType, source, fallback)
     if chatType ~= "WHISPER" and chatType ~= "BN_WHISPER" then
         return fallback, false
@@ -553,6 +555,11 @@ function EditBox:ResolveWhisperTarget(chatType, source, fallback)
     -- WHISPER target falls back instead of erroring OnEnterPressed on a
     -- boolean test.
     if Utils:IsSecret(secureTarget) then
+        return fallback, false
+    end
+    -- The selected compose target wins over a remembered sender that merely
+    -- arrived later: only an exact match still counts as Blizzard-sourced.
+    if not Utils:IsSecret(fallback) and fallback ~= secureTarget then
         return fallback, false
     end
     return secureTarget, true

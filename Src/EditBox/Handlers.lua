@@ -138,6 +138,7 @@ function EditBox:SetupOverlayScripts()
                 self.ChatType    = "CHANNEL"
                 self.Target      = num
                 self.ChannelName = resolved
+                self._secureReplySource = nil
                 self.Language    = nil
                 updatingText     = true
                 box:SetText(rest or "")
@@ -171,6 +172,7 @@ function EditBox:SetupOverlayScripts()
                     self.Target      = ch
                     self.ChannelName = nil
                 end
+                self._secureReplySource = nil
                 self.Language = nil
                 updatingText = true
                 box:SetText(remainder or "")
@@ -198,6 +200,7 @@ function EditBox:SetupOverlayScripts()
             if target then
                 self.ChatType = "WHISPER"
                 self.Target   = target
+                self._secureReplySource = nil
                 self.Language = nil
                 updatingText  = true
                 box:SetText(remainder or "")
@@ -214,6 +217,7 @@ function EditBox:SetupOverlayScripts()
             if lastTell and lastTell ~= "" then
                 self.ChatType = lastType
                 self.Target   = lastTell
+                self._secureReplySource = nil
                 self.Language = nil
                 updatingText  = true
                 box:SetText(rest2 or "")
@@ -230,6 +234,7 @@ function EditBox:SetupOverlayScripts()
             if lastTold and lastTold ~= "" then
                 self.ChatType = lastType
                 self.Target   = lastTold
+                self._secureReplySource = nil
                 self.Language = nil
                 updatingText  = true
                 box:SetText(rest2 or "")
@@ -357,7 +362,7 @@ function EditBox:SetupOverlayScripts()
                     if lastTell and lastTell ~= "" then
                         self.ChatType = lastType
                         self.Target   = lastTell
-                        self._secureReplySource = "tell"
+                        self._secureReplySource = nil
                         self.Language = nil
                         updatingText  = true
                         box:SetText(enterRest or "")
@@ -373,7 +378,7 @@ function EditBox:SetupOverlayScripts()
                     if lastTold and lastTold ~= "" then
                         self.ChatType = lastType
                         self.Target   = lastTold
-                        self._secureReplySource = "told"
+                        self._secureReplySource = nil
                         self.Language = nil
                         updatingText  = true
                         box:SetText(enterRest or "")
@@ -507,11 +512,10 @@ function EditBox:SetupOverlayScripts()
         local chatType = self.ChatType or "SAY"
         local lang = YapperTable.Core:GetCharacterLanguage(self.Language or (self.LastUsed and self.LastUsed.language))
 
-        -- For whisper/BN whisper, try to source the target directly from
-        -- Blizzard's secure last-tell state instead of relying on EditBox.Target,
-        -- which may have been tainted by passing through Yapper's ReplyQueue or
-        -- by being typed into the overlay. This is the only way /r and /r2 can
-        -- send without Yapper taint propagating into Blizzard's tellTarget.
+        -- Reply-keybind compositions may consult Blizzard's remembered
+        -- target. For character whispers the selected compose target
+        -- remains authoritative. Blizzard-sourced does not mean untainted
+        -- execution; BN token recovery follows its own path.
         local target = self.Target
         local isSecure = false
         if chatType == "WHISPER" or chatType == "BN_WHISPER" then
@@ -533,10 +537,9 @@ function EditBox:SetupOverlayScripts()
             return
         end
 
-        -- Track outgoing whispers as reply targets only when we sourced a
-        -- secure target from Blizzard. If we used a tainted typed/fallback
-        -- target, do not poison the ReplyQueue or Blizzard's SetLastToldTarget,
-        -- or the next /r will pick up that taint and UpdateHeader will error.
+        -- Keep the existing Blizzard-sourced outgoing-reply bookkeeping
+        -- policy. This provenance gate does not make the native setter
+        -- call untainted.
         if (chatType == "WHISPER" or chatType == "BN_WHISPER") and isSecure then
             local sentTarget = YapperTable.Utils and YapperTable.Utils:SanitizeTarget(target) or nil
             if sentTarget and sentTarget ~= "" then
