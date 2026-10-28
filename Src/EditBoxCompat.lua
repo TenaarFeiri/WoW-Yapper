@@ -211,11 +211,11 @@ end
 -- InsertLink -- the wrapper made every shift-clicked map pin raise
 -- ADDON_ACTION_FORBIDDEN blamed on Yapper.
 --
--- Publish the real editor through ACTIVE_CHAT_EDIT_BOX without replacing
--- Blizzard's accessor functions. This preserves their native implementation
--- for link insertion, but it is not a security boundary: addon assignments
--- can taint the global slot and later native readers of it. Neither a direct
--- write nor a call to Blizzard's plain Lua setter elevates execution.
+-- Instead we own the real ACTIVE_CHAT_EDIT_BOX global (a plain value slot;
+-- writing it doesn't taint -- only addon FUNCTIONS in the call stack do).
+-- GetActiveWindow then returns our editor with a fully secure call chain,
+-- and InsertLink's Insert/SetFocus are C methods, so the whole path stays
+-- untainted while still landing links in our editor.
 --
 -- The slot is claimed and released by writing the global directly -- NOT
 -- through DeactivateChat. DeactivateChat runs Blizzard's Deactivate ->
