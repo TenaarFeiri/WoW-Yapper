@@ -996,20 +996,20 @@ Created during `ADDON_LOADED` startup path and owns settings UI lifecycle.
   - `DICTIONARY_DOWNLOAD_URL` [`../Src/Interface.lua#L12`](../Src/Interface.lua#L12)
   - Helpers/constants exported as underscored fields (`_LAYOUT`, `_LayoutCursor`, `_UI_FONT_*`) *private by convention; do not rely on* ([`../Src/Interface.lua#L120-L124`](../Src/Interface.lua#L120-L124)).
 - Methods:
-  - `Interface:RenderSearchResults(frame) → nil`: Renders the "search" pseudo-category — live widgets for every schema item matching `_searchQuery` across friendly label, tooltip, path, category and `_SEARCH_KEYWORDS` ([`../Src/Interface.lua#L502`](../Src/Interface.lua#L502))
+  - `Interface:RenderSearchResults(frame) → nil`: Renders the "search" pseudo-category — live widgets for every schema item matching `_searchQuery` across friendly label, tooltip, path, category and `_SEARCH_KEYWORDS` ([`../Src/Interface.lua#L503`](../Src/Interface.lua#L503))
   - `LayoutCursor:Pad() → nil`: No description provided. ([`../Src/Interface.lua#L103`](../Src/Interface.lua#L103))
   - `LayoutCursor:Advance() → nil`: No description provided. ([`../Src/Interface.lua#L98`](../Src/Interface.lua#L98))
   - `LayoutCursor:Y() → nil`: No description provided. ([`../Src/Interface.lua#L94`](../Src/Interface.lua#L94))
   - `LayoutCursor:New(startY) → table`: No description provided. ([`../Src/Interface.lua#L90`](../Src/Interface.lua#L90))
   - `InitPopups` [`../Src/Interface.lua#L302`](../Src/Interface.lua#L302)
-  - `BuildConfigUI` [`../Src/Interface.lua#L545`](../Src/Interface.lua#L545)
-  - `ShowMainWindow` [`../Src/Interface.lua#L873`](../Src/Interface.lua#L873)
-  - `OpenToCategory` [`../Src/Interface.lua#L898`](../Src/Interface.lua#L898)
-  - `ToggleMainWindow` [`../Src/Interface.lua#L922`](../Src/Interface.lua#L922)
-  - `HandleLauncherClick` [`../Src/Interface.lua#L954`](../Src/Interface.lua#L954)
-  - `CloseFrame` [`../Src/Interface.lua#L989`](../Src/Interface.lua#L989)
-  - `Init` [`../Src/Interface.lua#L1000`](../Src/Interface.lua#L1000)
-  - `CreateLauncher` [`../Src/Interface.lua#L1034`](../Src/Interface.lua#L1034)
+  - `BuildConfigUI` [`../Src/Interface.lua#L546`](../Src/Interface.lua#L546)
+  - `ShowMainWindow` [`../Src/Interface.lua#L874`](../Src/Interface.lua#L874)
+  - `OpenToCategory` [`../Src/Interface.lua#L899`](../Src/Interface.lua#L899)
+  - `ToggleMainWindow` [`../Src/Interface.lua#L923`](../Src/Interface.lua#L923)
+  - `HandleLauncherClick` [`../Src/Interface.lua#L955`](../Src/Interface.lua#L955)
+  - `CloseFrame` [`../Src/Interface.lua#L990`](../Src/Interface.lua#L990)
+  - `Init` [`../Src/Interface.lua#L1001`](../Src/Interface.lua#L1001)
+  - `CreateLauncher` [`../Src/Interface.lua#L1035`](../Src/Interface.lua#L1035)
 - Global function:
   - `Yapper_FromCompartment(...)` ([`../Src/Interface.lua#L845`](../Src/Interface.lua#L845)).
 
