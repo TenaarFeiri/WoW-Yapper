@@ -481,15 +481,18 @@ end
 -- that read it hard-fail on the now-secret whisper args: whispers drop,
 -- /r breaks, tab alerting errors. Warn once per session while the mode
 -- can poison the chat stack.
-local whisperModeWarningFrame = CreateFrame("Frame")
-whisperModeWarningFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-whisperModeWarningFrame:SetScript("OnEvent", function(_, event)
-    if whisperModeWarningFrame._shown then return end
-    C_Timer.After(5, function()
-        local mode = GetCVar("whisperMode")
-        if mode ~= "popout" and mode ~= "popout_and_inline" then return end
-        if _G.YapperDB and _G.YapperDB.WhisperModeWarningDismissed then return end
-        whisperModeWarningFrame._shown = true
-        StaticPopup_Show("YAPPER_WHISPER_MODE_WARNING")
+local okWarn, whisperModeWarningFrame = pcall(CreateFrame, "Frame")
+if okWarn and type(whisperModeWarningFrame) == "table"
+    and type(whisperModeWarningFrame.RegisterEvent) == "function" then
+    whisperModeWarningFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    whisperModeWarningFrame:SetScript("OnEvent", function()
+        if whisperModeWarningFrame._shown then return end
+        C_Timer.After(5, function()
+            local mode = GetCVar("whisperMode")
+            if mode ~= "popout" and mode ~= "popout_and_inline" then return end
+            if _G.YapperDB and _G.YapperDB.WhisperModeWarningDismissed then return end
+            whisperModeWarningFrame._shown = true
+            StaticPopup_Show("YAPPER_WHISPER_MODE_WARNING")
+        end)
     end)
-end)
+end
