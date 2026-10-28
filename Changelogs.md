@@ -1,3 +1,9 @@
+# 2.4.11
+
+### Bug Fixes
+- Fixed issue where sometimes you could whisper the wrong target accidentally.
+- Added warning frame for workaround for secrets issues in keystones with whispering.
+
 # 2.4.10
 
 ### New Features
