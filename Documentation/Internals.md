@@ -534,10 +534,10 @@ Overlay root; hooked on `PLAYER_ENTERING_WORLD` via `HookAllChatFrames`.
   - `ClearLockdownState` ([`../Src/EditBox.lua#L80`](../Src/EditBox.lua#L80))
   - `AddReplyTarget` ([`../Src/EditBox.lua#L145`](../Src/EditBox.lua#L145))
   - `NextReplyTarget` ([`../Src/EditBox.lua#L170`](../Src/EditBox.lua#L170))
-  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L603`](../Src/EditBox.lua#L603))
-  - `SetOnSend` ([`../Src/EditBox.lua#L846`](../Src/EditBox.lua#L846))
+  - `OpenBlizzardChat` ([`../Src/EditBox.lua#L610`](../Src/EditBox.lua#L610))
+  - `SetOnSend` ([`../Src/EditBox.lua#L853`](../Src/EditBox.lua#L853))
   - `EditBox:SyncLanguageFromNative(blizzEditBox) → boolean`: Reconcile languageID changes made directly by Blizzard or another addon with Yapper's active and persisted language state. ([`../Src/EditBox.lua#L861`](../Src/EditBox.lua#L861))
-  - `SetPreShowCheck` ([`../Src/EditBox.lua#L908`](../Src/EditBox.lua#L908))
+  - `SetPreShowCheck` ([`../Src/EditBox.lua#L915`](../Src/EditBox.lua#L915))
 - Invariants:
   - Overlay behaviour valid only after `HookAllChatFrames()` has run.
 - Known external issue (Retail 12.1+, dedicated whisper windows): when
@@ -585,7 +585,7 @@ Bound by `SetupOverlayScripts` when overlay is created.
 - Description: Input handlers for Enter/Tab/history/channel switching.
 - Methods:
   - `SetupOverlayScripts` ([`../Src/EditBox/Handlers.lua#L44`](../Src/EditBox/Handlers.lua#L44)).
-  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1153`](../Src/EditBox/Handlers.lua#L1153)).
+  - `ResetLockdownIdleTimer` ([`../Src/EditBox/Handlers.lua#L1156`](../Src/EditBox/Handlers.lua#L1156)).
 - Callbacks fired:
   - `EDITBOX_CHANNEL_CHANGED` (via downstream hooks).
 
@@ -654,6 +654,7 @@ Blizzard editbox hooks (taint-free).
 - Description: HookBlizzardEditBox(), HookAllChatFrames(), all secure hooks.
 - File: [`../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua`](../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua), [`../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua`](../Src/Hooks/BlizzardHookCtl/20_EditBoxHooks.lua), [`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua), [`../Src/Hooks/BlizzardHookCtl/40_IMWindowMemory.lua`](../Src/Hooks/BlizzardHookCtl/40_IMWindowMemory.lua)
 - Methods:
+  - `EditBox:SetupDispatchCallbackGating() → nil`: Installs a watcher that unregisters our `ChatFrame.OnEditBoxPreSendText`/`ChatFrame.OnHyperlinkClick` `EventRegistry` callbacks while any addon restriction or combat/M+ lockdown is active (a tainted callback inside Blizzard's shared dispatch contaminates the remainder and hard-fails on `DisallowTaintedAccess` tables), and re-registers them via a poll only after every restriction reports clear. ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L1224`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L1224))
   - `EditBox:EnsureProxyBackgroundShown() → nil`: In proxy mode the native editbox is the visible background; re-show it after deferred Blizzard activation and keep its visual text empty while Yapper is open. ([`../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua#L8`](../Src/Hooks/BlizzardHookCtl/10_ProxyBackground.lua#L8))
   - `EditBox:HookBlizzardEditBox(blizzEditBox)` - Hook a single Blizzard editbox.
   - `EditBox:HookAllChatFrames()` - Hook all NUM_CHAT_WINDOWS editboxes.
@@ -664,7 +665,7 @@ Blizzard editbox hooks (taint-free).
 - Invariants:
   - `_inBlizzShowHook` and deferred focus handoff guard reentrancy (issue #21 fix).
   - The `InsertLink` post-hook (`OnInsertLink`, [`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L779`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L779)) re-focuses the routed Yapper editor only when keyboard focus is free or already ours -- Blizzard's `InsertLink` can return true through special targets (macro editor, professions search, communities box) before ever touching a chat window, so an unconditional `SetFocus` would yank focus out of that editor mid-edit. When a link routed nowhere while the overlay is hidden but holds `CHAT_FOCUS_OVERRIDE`, the post-hook re-opens the overlay so the link lands somewhere.
-  - `WaypointChatLinkHandler` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L966`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L966)) intercepts waypoint-pin CHATLINK clicks via `WorldMapFrame:AddGlobalPinMouseActionHandler` -- MapCanvas's purpose-built taint-aware registry (handlers run under `securecallfunction` isolation in `Blizzard_MapCanvasSecureUtil`). A truthy return consumes the click before `OnMouseClickAction`, so 12.1's protected `CopyToClipboard` after `InsertLink` is skipped; the handler performs the InsertLink + share sound itself and shows `YapperWaypointCopyFrame` with the `/way` command for manual Ctrl+C (chat print fallback under combat lockdown/pet battles). Consumption requires the waypoint pin to be the actual click target (`GetMouseFocus`) -- `IsMouseOver` alone can be true for a waypoint under an overlapping pin, which would steal that pin's click. Registered at priority -1000 so every other handler (debug 100, the provider's placement logic at 90, third-party observers) sees the click first and we only consume what nobody claimed; `ADDON_LOADED` retry covers late `WorldMapFrame`. An earlier iteration wrote `WaypointLocationPinMixin.CopySlashCommandToClipboard` + pooled pin fields -- that write got blamed for combat-protected `SetPassThroughButtons` during pin refresh (even on plain map open in combat), which is why interception now goes through the registry instead.
+  - `WaypointChatLinkHandler` ([`../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L987`](../Src/Hooks/BlizzardHookCtl/30_ChatFrameHooks.lua#L987)) intercepts waypoint-pin CHATLINK clicks via `WorldMapFrame:AddGlobalPinMouseActionHandler` -- MapCanvas's purpose-built taint-aware registry (handlers run under `securecallfunction` isolation in `Blizzard_MapCanvasSecureUtil`). A truthy return consumes the click before `OnMouseClickAction`, so 12.1's protected `CopyToClipboard` after `InsertLink` is skipped; the handler performs the InsertLink + share sound itself and shows `YapperWaypointCopyFrame` with the `/way` command for manual Ctrl+C (chat print fallback under combat lockdown/pet battles). Consumption requires the waypoint pin to be the actual click target (`GetMouseFocus`) -- `IsMouseOver` alone can be true for a waypoint under an overlapping pin, which would steal that pin's click. Registered at priority -1000 so every other handler (debug 100, the provider's placement logic at 90, third-party observers) sees the click first and we only consume what nobody claimed; `ADDON_LOADED` retry covers late `WorldMapFrame`. An earlier iteration wrote `WaypointLocationPinMixin.CopySlashCommandToClipboard` + pooled pin fields -- that write got blamed for combat-protected `SetPassThroughButtons` during pin refresh (even on plain map open in combat), which is why interception now goes through the registry instead.
 
 ## Taint surface
 
