@@ -465,6 +465,15 @@ function EditBox:HookBlizzardEditBox(blizzEditBox)
             return
         end
 
+        -- Skip transient bookkeeping shows: UpdateChatFrames'
+        -- deactivate-all -> activate -> deactivate cycle raises Show()
+        -- on the dock box without open intent (SETTINGS_LOADED, chatStyle
+        -- sync). Flag is set synchronously by the DeactivateChat burst
+        -- detector; must be checked here, before the defer is scheduled.
+        if self._suppressBookkeepingShow then
+            return
+        end
+
         -- Skip if this editbox is being suppressed (tab click while Yapper closed)
         if self._suppressNextShowFor and blizzEditBox.GetName and blizzEditBox:GetName() == self._suppressNextShowFor then
             return

@@ -554,6 +554,31 @@ function EditBox:HookAllChatFrames()
     -- Yapper close, so the Classic lifecycle is preserved.
     if not self._deactivateChatHooked then
         hooksecurefunc(ChatFrameUtil, "DeactivateChat", function(editBox)
+            -- Bookkeeping-burst detector: ChatFrameUtil.UpdateChatFrames
+            -- (SETTINGS_LOADED / chatStyle settings callback) fans
+            -- DeactivateChat out over every chat editbox in a single
+            -- frame before its transient ActivateChat/DeactivateChat on
+            -- the dock box. User-facing paths deactivate at most one box
+            -- per frame, so a second *distinct* box in the same frame is
+            -- definitive bookkeeping -- flag it so the open paths don't
+            -- convert the transient into an overlay open.
+            local seen = self._deactivateBurstSeen
+            if not seen then
+                seen = { n = 0 }
+                self._deactivateBurstSeen = seen
+                C_Timer.After(0, function()
+                    self._deactivateBurstSeen = nil
+                    self._suppressBookkeepingShow = nil
+                end)
+            end
+            if not seen[editBox] then
+                seen[editBox] = true
+                seen.n = seen.n + 1
+                if seen.n >= 2 then
+                    self._suppressBookkeepingShow = true
+                end
+            end
+
             if self._closing then return end
             -- A deactivated native box lost focus: deliver the edge so
             -- watched Blizzard boxes can clear bypass. Our own editors'
@@ -634,6 +659,9 @@ function EditBox:HookAllChatFrames()
             -- is the real entry point; handle the open here.
             local chatStyle = GetCVar("chatStyle")
             if chatStyle == "im" then
+                -- UpdateChatFrames transient (see the DeactivateChat
+                -- burst detector); converting it pops the overlay at login.
+                if self._suppressBookkeepingShow then return end
                 self:_IMPushActive(editBox)
                 C_Timer.After(0, function()
                     if self.Overlay and self.Overlay:IsShown() then return end
